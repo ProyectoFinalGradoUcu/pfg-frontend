@@ -1,0 +1,16 @@
+<div class="layout">
+  <header class="layout__header">
+    <div class="layout__brand">
+      <span>Sistema de Gestión de Personal</span>
+      <small>Dirección de Personal - Fuerza Aérea Uruguaya</small>
+    </div>
+    <nav class="layout__nav">
+      <a routerLink="/" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+      <a routerLink="/auth/login" routerLinkActive="is-active">Login</a>
+    </nav>
+  </header>
+
+  <main class="layout__content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
