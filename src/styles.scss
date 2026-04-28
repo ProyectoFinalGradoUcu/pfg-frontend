@@ -10,3 +10,19 @@ body {
   padding: 0;
   font-family: Inter, 'Segoe UI', Roboto, Arial, sans-serif;
 }
+
+.module-placeholder {
+  padding: 2rem;
+  color: #334155;
+
+  h1 {
+    margin: 0 0 0.5rem;
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    color: #64748b;
+  }
+}
