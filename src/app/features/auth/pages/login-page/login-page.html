@@ -1,18 +1,50 @@
 <section class="login">
-  <app-page-header
-    title="Login"
-    subtitle="Authentication is isolated as a feature module with its own routing."
-  ></app-page-header>
-
   <div class="login__card">
-    <form>
-      <label for="email">Email</label>
-      <input id="email" type="email" placeholder="you@example.com" />
+    <div class="login__header">
+      <div class="login__shield" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+        </svg>
+      </div>
+      <h1>Fuerza Aérea Uruguaya</h1>
+      <p>Sistema de Gestión de Personal</p>
+    </div>
 
-      <label for="password">Password</label>
-      <input id="password" type="password" placeholder="********" />
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="login__field">
+        <label for="username">Email</label>
+        <input
+          id="username"
+          type="email"
+          formControlName="username"
+          placeholder="usuario@fau.mil.uy"
+          autocomplete="username"
+        />
+      </div>
 
-      <button type="button">Sign in</button>
+      <div class="login__field">
+        <label for="password">Contraseña</label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          placeholder="Ingrese su contraseña"
+          autocomplete="current-password"
+        />
+      </div>
+
+      <div *ngIf="errorMessage" class="login__error" role="alert">
+        {{ errorMessage }}
+      </div>
+
+      <button type="submit" class="login__submit" [disabled]="loading">
+        {{ loading ? 'Ingresando...' : 'Iniciar Sesión' }}
+      </button>
     </form>
+
+    <div class="login__footer">
+      <p class="login__notice">⚠ Acceso restringido • Sistema de uso interno</p>
+      <p class="login__org">Dirección de Personal - FAU</p>
+    </div>
   </div>
 </section>

@@ -1,4 +1,258 @@
-<section class="module-placeholder">
-  <h1>Usuarios y Roles</h1>
-  <p>Módulo en construcción. Agregá tus componentes aquí.</p>
+<section class="ur">
+  <header class="ur__header">
+    <div>
+      <h2>Gestión de Usuarios y Roles</h2>
+      <p>Administración de usuarios del sistema y asignación de permisos</p>
+    </div>
+    <button
+      *ngIf="puedeGestionarUsuarios()"
+      type="button"
+      class="btn btn--ghost btn--lg"
+      (click)="abrirNuevoUsuario()"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+      </svg>
+      Nuevo Usuario
+    </button>
+  </header>
+
+  <article class="ur__card">
+    <h3>Usuarios del Sistema</h3>
+
+    <div *ngIf="loading()" class="ur__placeholder">Cargando...</div>
+
+    <div *ngIf="!loading()" class="ur__table-wrapper">
+      <table class="ur__table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Rol</th>
+            <th>Unidad</th>
+            <th>Estado</th>
+            <th *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of usuarios(); trackBy: trackUsuario">
+            <td>
+              <div class="ur__user-cell">
+                <span *ngIf="u.persona" class="ur__avatar" aria-hidden="true"></span>
+                <strong *ngIf="u.persona">{{ u.persona.nombre }}</strong>
+                <strong *ngIf="!u.persona" class="ur__muted">Sin vincular</strong>
+                <span *ngIf="u.id === currentUserId()" class="ur__badge ur__badge--self">vos</span>
+              </div>
+            </td>
+            <td><span class="ur__email">{{ u.username }}</span></td>
+            <td>
+              <span
+                *ngFor="let r of u.roles"
+                class="ur__rol-badge"
+                [attr.data-rol]="r.nombre"
+              >
+                {{ r.nombre }}
+              </span>
+              <small *ngIf="u.roles.length === 0" class="ur__muted">sin roles</small>
+            </td>
+            <td>
+              <ng-container *ngIf="u.persona?.relacionLaboral?.unidad as unidad; else sinUnidad">
+                {{ unidad.denominacion }}
+              </ng-container>
+              <ng-template #sinUnidad><span class="ur__muted">—</span></ng-template>
+            </td>
+            <td>
+              <span class="ur__estado" [class.ur__estado--bloq]="u.estado === 'bloqueado'">
+                {{ u.estado }}
+              </span>
+            </td>
+            <td *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">
+              <button
+                type="button"
+                class="btn btn--ghost btn--sm"
+                (click)="abrirEditar(u)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                </svg>
+                Editar
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="usuarios().length === 0">
+            <td [attr.colspan]="puedeGestionarUsuarios() ? 6 : 5" class="ur__empty">
+              No hay usuarios registrados
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="ur__card" *ngIf="!loading()">
+    <header class="ur__card-header">
+      <h3>Matriz de Permisos por Rol</h3>
+      <div class="ur__search">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input
+          type="text"
+          [value]="permisoSearch()"
+          (input)="onPermisoSearch($event)"
+          placeholder="Buscar permiso..."
+          autocomplete="off"
+        />
+      </div>
+    </header>
+
+    <div class="ur__table-wrapper">
+      <table class="ur__table ur__table--matrix">
+        <thead>
+          <tr>
+            <th>Permiso</th>
+            <th
+              *ngFor="let r of roles(); trackBy: trackRol"
+              class="ur__col-center ur__rolhead"
+              [attr.data-rol]="r.nombre"
+            >
+              {{ r.nombre }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of permisosPaginados(); trackBy: trackPermiso">
+            <td>
+              <strong>{{ p.descripcion ?? p.nombre }}</strong>
+            </td>
+            <td *ngFor="let r of roles(); trackBy: trackRol" class="ur__col-center">
+              <input
+                type="checkbox"
+                [checked]="rolTienePermiso(r, p)"
+                [disabled]="!puedeGestionarRoles() || r.nombre === 'Administrador del sistema'"
+                (change)="togglePermisoEnRol(r, p, $any($event.target).checked)"
+              />
+            </td>
+          </tr>
+          <tr *ngIf="permisosFiltrados().length === 0">
+            <td [attr.colspan]="roles().length + 1" class="ur__empty">
+              Sin permisos que coincidan
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-paginator
+      [totalItems]="permisosFiltrados().length"
+      [pageSize]="permisoPageSize"
+      [currentPage]="permisoPage()"
+      (pageChange)="permisoPage.set($event)"
+    ></app-paginator>
+  </article>
+
+  <div *ngIf="modal() === 'nuevoUsuario'" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Nuevo Usuario</h3>
+          <p>Complete los datos del nuevo usuario del sistema.</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="nuevoUsuarioForm" (ngSubmit)="crearUsuario()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">
+          {{ modalError() }}
+        </div>
+
+        <label class="modal__field">
+          <span>Email <em>*</em></span>
+          <input type="email" formControlName="username" placeholder="ej: juan.perez@fau.mil.uy" autocomplete="off" />
+        </label>
+
+        <label class="modal__field">
+          <span>Contraseña inicial <em>*</em></span>
+          <input type="text" formControlName="password" placeholder="Mínimo 8 caracteres" autocomplete="off" />
+        </label>
+
+        <label class="modal__field">
+          <span>Rol <em>*</em></span>
+          <app-select
+            formControlName="rol"
+            [items]="roles()"
+            bindLabel="nombre"
+            bindValue="nombre"
+            placeholder="Seleccione un rol"
+            [searchable]="true"
+          ></app-select>
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Crear Usuario</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <div *ngIf="modal() === 'editarUsuario' && editTarget() as t" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Editar Usuario</h3>
+          <p>{{ t.persona?.nombre ?? t.username }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="editForm" (ngSubmit)="guardarEdicion()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">
+          {{ modalError() }}
+        </div>
+
+        <label class="modal__field">
+          <span>Rol <em>*</em></span>
+          <app-select
+            formControlName="rol"
+            [items]="roles()"
+            bindLabel="nombre"
+            bindValue="nombre"
+            placeholder="Seleccione un rol"
+            [searchable]="true"
+          ></app-select>
+        </label>
+
+        <label class="modal__field">
+          <span>Estado</span>
+          <app-select
+            formControlName="estado"
+            [items]="estadosOpciones"
+            bindLabel="label"
+            bindValue="value"
+            placeholder="Seleccione un estado"
+            [searchable]="true"
+          ></app-select>
+        </label>
+
+        <label class="modal__field">
+          <span>Nueva contraseña <small>(opcional)</small></span>
+          <input type="text" formControlName="nuevaPassword" placeholder="Dejar vacío para no cambiar" autocomplete="off" />
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Guardar cambios</button>
+        </footer>
+      </form>
+    </div>
+  </div>
 </section>

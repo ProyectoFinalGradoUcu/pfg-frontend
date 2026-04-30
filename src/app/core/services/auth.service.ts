@@ -1,0 +1,83 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, signal, computed } from '@angular/core';
+import { Observable, tap, of, catchError } from 'rxjs';
+import { API_BASE_URL } from '../api.config';
+import {
+  AuthenticatedUser,
+  ChangePasswordPayload,
+  SignInPayload,
+  SignInResponse,
+} from '../models/auth.models';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private readonly currentUserSignal = signal<AuthenticatedUser | null>(null);
+  private readonly initializedSignal = signal(false);
+
+  readonly currentUser = computed(() => this.currentUserSignal());
+  readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
+  readonly initialized = computed(() => this.initializedSignal());
+
+  constructor(private readonly http: HttpClient) {}
+
+  signIn(payload: SignInPayload): Observable<SignInResponse> {
+    return this.http
+      .post<SignInResponse>(`${API_BASE_URL}/auth/sign-in`, payload, {
+        withCredentials: true,
+      })
+      .pipe(
+        tap((res) => {
+          this.currentUserSignal.set(res.user);
+          this.initializedSignal.set(true);
+        }),
+      );
+  }
+
+  signOut(): Observable<{ ok: true }> {
+    return this.http
+      .post<{ ok: true }>(`${API_BASE_URL}/auth/sign-out`, {}, { withCredentials: true })
+      .pipe(
+        tap(() => {
+          this.currentUserSignal.set(null);
+        }),
+      );
+  }
+
+  loadCurrentUser(): Observable<AuthenticatedUser | null> {
+    return this.http
+      .get<AuthenticatedUser>(`${API_BASE_URL}/auth/me`, { withCredentials: true })
+      .pipe(
+        tap((user) => {
+          this.currentUserSignal.set(user);
+          this.initializedSignal.set(true);
+        }),
+        catchError(() => {
+          this.currentUserSignal.set(null);
+          this.initializedSignal.set(true);
+          return of(null);
+        }),
+      );
+  }
+
+  changePassword(payload: ChangePasswordPayload): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>(
+      `${API_BASE_URL}/auth/change-password`,
+      payload,
+      { withCredentials: true },
+    );
+  }
+
+  clearLocalSession(): void {
+    this.currentUserSignal.set(null);
+  }
+
+  hasPermiso(permiso: string): boolean {
+    return this.currentUserSignal()?.permisos.includes(permiso) ?? false;
+  }
+
+  hasAnyPermiso(permisos: string[]): boolean {
+    const user = this.currentUserSignal();
+    if (!user) return false;
+    return permisos.some((p) => user.permisos.includes(p));
+  }
+}

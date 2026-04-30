@@ -1,0 +1,83 @@
+$navy: #132744;
+$navy-soft: #1e3a5f;
+$accent: #4a9eff;
+
+.paginator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0.25rem 0;
+  flex-wrap: wrap;
+}
+
+.paginator__range {
+  color: #64748b;
+  font-size: 0.85rem;
+
+  strong {
+    color: #0f172a;
+    font-weight: 600;
+  }
+}
+
+.paginator__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.paginator__btn {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: $navy;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover:not(:disabled):not(.paginator__btn--gap) {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.paginator__btn--active {
+  background-color: $navy;
+  border-color: $navy;
+  color: #ffffff;
+
+  &:hover:not(:disabled) {
+    background-color: $navy-soft;
+    border-color: $navy-soft;
+    color: #ffffff;
+  }
+}
+
+.paginator__btn--gap {
+  border: none;
+  background-color: transparent;
+  color: #94a3b8;
+  cursor: default;
+
+  &:hover {
+    background-color: transparent;
+  }
+}
