@@ -2,11 +2,18 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { MainLayout } from './core/layout/main-layout/main-layout';
 import { NotFoundPage } from './features/not-found/pages/not-found-page/not-found-page';
+import { authGuard } from './core/guards/auth.guard';
+import { permissionGuard } from './core/guards/permission.guard';
 
 const routes: Routes = [
   {
+    path: 'login',
+    loadChildren: () => import('./features/auth/auth-module').then((m) => m.AuthModule),
+  },
+  {
     path: '',
     component: MainLayout,
+    canActivate: [authGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       {
@@ -35,11 +42,8 @@ const routes: Routes = [
       },
       {
         path: 'usuarios-y-roles',
+        canActivate: [permissionGuard(['usuarios.ver', 'roles.ver'])],
         loadChildren: () => import('./features/usuarios-y-roles/usuarios-y-roles-module').then((m) => m.UsuariosYRolesModule),
-      },
-      {
-        path: 'auth',
-        loadChildren: () => import('./features/auth/auth-module').then((m) => m.AuthModule),
       },
     ],
   },

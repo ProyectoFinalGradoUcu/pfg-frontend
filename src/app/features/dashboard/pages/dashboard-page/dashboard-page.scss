@@ -1,0 +1,53 @@
+.dashboard {
+  display: grid;
+  gap: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+.dashboard__header {
+  h2 {
+    margin: 0 0 0.25rem;
+    color: #132744;
+    font-size: 1.5rem;
+  }
+
+  p {
+    margin: 0;
+    color: #475569;
+  }
+}
+
+.dashboard__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.dashboard__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.25rem;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #4a9eff;
+  border-radius: 10px;
+
+  strong {
+    font-size: 1.5rem;
+    color: #0f172a;
+  }
+
+  small {
+    color: #64748b;
+    font-size: 0.85rem;
+  }
+}
+
+.dashboard__card-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  color: #132744;
+  font-weight: 600;
+}

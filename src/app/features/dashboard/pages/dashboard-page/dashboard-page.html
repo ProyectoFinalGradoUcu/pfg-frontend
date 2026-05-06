@@ -1,4 +1,26 @@
-<section class="module-placeholder">
-  <h1>Dashboard</h1>
-  <p>Módulo en construcción. Agregá tus componentes aquí.</p>
+<section class="dashboard">
+  <header class="dashboard__header">
+    <h2>Dashboard Principal</h2>
+    <p>Bienvenido{{ user() ? ', ' + user()!.username : '' }}</p>
+  </header>
+
+  <div class="dashboard__cards">
+    <article class="dashboard__card">
+      <span class="dashboard__card-label">Sesión activa</span>
+      <strong>{{ user()?.username }}</strong>
+      <small>{{ user()?.roles?.[0] }}</small>
+    </article>
+
+    <article class="dashboard__card">
+      <span class="dashboard__card-label">Roles asignados</span>
+      <strong>{{ user()?.roles?.length ?? 0 }}</strong>
+      <small>{{ user()?.roles?.join(', ') }}</small>
+    </article>
+
+    <article class="dashboard__card">
+      <span class="dashboard__card-label">Permisos efectivos</span>
+      <strong>{{ user()?.permisos?.length ?? 0 }}</strong>
+      <small>habilitados en el sistema</small>
+    </article>
+  </div>
 </section>

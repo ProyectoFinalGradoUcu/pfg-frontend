@@ -1,5 +1,6 @@
 import { NgModule, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
 import { AppRoutingModule } from './app-routing-module';
 import { App } from './app';
@@ -7,12 +8,21 @@ import { NotFoundPage } from './features/not-found/pages/not-found-page/not-foun
 import { MainLayout } from './core/layout/main-layout/main-layout';
 import { Sidebar } from './core/layout/sidebar/sidebar';
 import { Topbar } from './core/layout/topbar/topbar';
+import { ToastContainer } from './core/components/toast-container/toast-container';
 import { CoreModule } from './core/core-module';
+import { credentialsInterceptor } from './core/interceptors/credentials.interceptor';
+import { authErrorInterceptor } from './core/interceptors/auth-error.interceptor';
 
 @NgModule({
-  declarations: [App, NotFoundPage, MainLayout, Sidebar, Topbar],
+  declarations: [App, NotFoundPage, MainLayout, Sidebar, Topbar, ToastContainer],
   imports: [BrowserModule, CoreModule, AppRoutingModule],
-  providers: [provideBrowserGlobalErrorListeners()],
+  exports: [ToastContainer],
+  providers: [
+    provideBrowserGlobalErrorListeners(),
+    provideHttpClient(
+      withInterceptors([credentialsInterceptor, authErrorInterceptor]),
+    ),
+  ],
   bootstrap: [App],
 })
 export class AppModule {}
