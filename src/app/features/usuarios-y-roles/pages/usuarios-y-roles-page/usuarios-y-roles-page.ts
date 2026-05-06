@@ -51,7 +51,7 @@ export class UsuariosYRolesPage implements OnInit {
   ];
 
   readonly usuariosPage = signal(1);
-  readonly usuariosPageSize = 1;
+  readonly usuariosPageSize = 10;
 
   readonly permisoSearch = signal('');
   readonly permisoPage = signal(1);
