@@ -26,9 +26,13 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly toast = inject(ToastService);
 
   readonly usuarios = signal<Usuario[]>([]);
+  readonly usuariosTotal = signal(0);
   readonly roles = signal<Rol[]>([]);
   readonly permisos = signal<Permiso[]>([]);
+  readonly permisosTotal = signal(0);
   readonly loading = signal(false);
+  readonly usuariosLoading = signal(false);
+  readonly permisosLoading = signal(false);
   readonly modal = signal<ModalKind>(null);
   readonly modalError = signal<string | null>(null);
   readonly editTarget = signal<Usuario | null>(null);
@@ -46,26 +50,22 @@ export class UsuariosYRolesPage implements OnInit {
     { value: 'bloqueado', label: 'Bloqueado' },
   ];
 
+  readonly usuariosPage = signal(1);
+  readonly usuariosPageSize = 1;
+
   readonly permisoSearch = signal('');
   readonly permisoPage = signal(1);
   readonly permisoPageSize = 10;
 
-  readonly permisosFiltrados = computed<Permiso[]>(() => {
-    const term = this.permisoSearch().toLowerCase().trim();
-    if (!term) return this.permisos();
-    return this.permisos().filter((p) =>
-      `${p.nombre} ${p.descripcion ?? ''}`.toLowerCase().includes(term),
-    );
-  });
-
-  readonly permisosPaginados = computed<Permiso[]>(() => {
-    const start = (this.permisoPage() - 1) * this.permisoPageSize;
-    return this.permisosFiltrados().slice(start, start + this.permisoPageSize);
-  });
-
   onPermisoSearch(event: Event): void {
     this.permisoSearch.set((event.target as HTMLInputElement).value);
     this.permisoPage.set(1);
+    this.cargarPermisos();
+  }
+
+  onPermisoPageChange(page: number): void {
+    this.permisoPage.set(page);
+    this.cargarPermisos();
   }
 
   readonly nuevoUsuarioForm = this.fb.group({
@@ -86,22 +86,64 @@ export class UsuariosYRolesPage implements OnInit {
 
   cargar(): void {
     this.loading.set(true);
-    forkJoin({
-      usuarios: this.usuariosService.findAll(),
-      roles: this.rolesService.findAll(),
-      permisos: this.permisosService.findAll(),
-    }).subscribe({
-      next: ({ usuarios, roles, permisos }) => {
-        this.usuarios.set(usuarios);
+    this.rolesService.findAll().subscribe({
+      next: (roles) => {
         this.roles.set(roles);
-        this.permisos.set(permisos);
         this.loading.set(false);
+        this.cargarUsuarios();
+        this.cargarPermisos();
       },
       error: (err: HttpErrorResponse) => {
         this.toast.error(this.parseError(err));
         this.loading.set(false);
       },
     });
+  }
+
+  onUsuariosPageChange(page: number): void {
+    this.usuariosPage.set(page);
+    this.cargarUsuarios();
+  }
+
+  private cargarUsuarios(): void {
+    this.usuariosLoading.set(true);
+    this.usuariosService
+      .findAll({
+        page: this.usuariosPage(),
+        pageSize: this.usuariosPageSize,
+      })
+      .subscribe({
+        next: ({ items, total }) => {
+          this.usuarios.set(items);
+          this.usuariosTotal.set(total);
+          this.usuariosLoading.set(false);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.toast.error(this.parseError(err));
+          this.usuariosLoading.set(false);
+        },
+      });
+  }
+
+  private cargarPermisos(): void {
+    this.permisosLoading.set(true);
+    this.permisosService
+      .findAll({
+        page: this.permisoPage(),
+        pageSize: this.permisoPageSize,
+        search: this.permisoSearch(),
+      })
+      .subscribe({
+        next: ({ items, total }) => {
+          this.permisos.set(items);
+          this.permisosTotal.set(total);
+          this.permisosLoading.set(false);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.toast.error(this.parseError(err));
+          this.permisosLoading.set(false);
+        },
+      });
   }
 
   abrirNuevoUsuario(): void {
