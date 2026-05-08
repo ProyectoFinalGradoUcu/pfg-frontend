@@ -123,6 +123,83 @@ $transition: 0.2s ease;
   white-space: nowrap;
 }
 
+// Accordion group
+.sidebar__group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__item--trigger {
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  border-radius: 8px;
+  color: $sidebar-text;
+  font-size: 0.875rem;
+  font-weight: 500;
+
+  &.sidebar__item--open {
+    color: #fff;
+  }
+}
+
+.sidebar__label--flex {
+  flex: 1;
+}
+
+.sidebar__chevron {
+  width: 14px !important;
+  height: 14px !important;
+  flex-shrink: 0;
+  color: $sidebar-text-muted;
+  transition: transform $transition;
+
+  &--open {
+    transform: rotate(180deg);
+    color: $sidebar-text;
+  }
+}
+
+.sidebar__sub {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 0 4px 0.5rem;
+}
+
+.sidebar__sub-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.42rem 0.75rem 0.42rem 1.75rem;
+  border-radius: 6px;
+  color: $sidebar-text-muted;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: background-color $transition, color $transition;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: $sidebar-hover;
+    color: #fff;
+  }
+
+  &.sidebar__sub-item--active {
+    color: #fff;
+    background-color: rgba(74, 158, 255, 0.18);
+  }
+}
+
+.sidebar__sub-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
 // Toggle button
 .sidebar__toggle {
   display: flex;

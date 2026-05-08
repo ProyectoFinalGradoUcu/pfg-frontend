@@ -32,26 +32,6 @@
     </ng-container>
   </header>
 
-  <!-- ── Tabs ─────────────────────────────────────────────────────────────── -->
-  <div class="cursos__tabs">
-    <button
-      type="button"
-      class="cursos__tab"
-      [class.cursos__tab--active]="tab() === 'historial'"
-      (click)="tab.set('historial')"
-    >
-      Historial
-    </button>
-    <button
-      type="button"
-      class="cursos__tab"
-      [class.cursos__tab--active]="tab() === 'gestion'"
-      (click)="tab.set('gestion')"
-    >
-      Gestión
-    </button>
-  </div>
-
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- TAB: HISTORIAL                                                         -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -73,7 +53,36 @@
     </div>
 
     <article class="cursos__card">
-      <h3>Historial de Cursos</h3>
+      <div class="cursos__historial-header">
+        <h3>Historial de Cursos</h3>
+
+        <div class="cursos__search-wrap">
+          <svg class="cursos__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            class="cursos__search-input"
+            placeholder="Filtrar por cédula..."
+            [value]="cedulaFiltro()"
+            (input)="onCedulaInput($any($event.target).value)"
+            autocomplete="off"
+            inputmode="numeric"
+          />
+          <button
+            *ngIf="cedulaFiltro()"
+            type="button"
+            class="cursos__search-clear"
+            (click)="limpiarCedula()"
+            aria-label="Limpiar filtro"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <span *ngIf="buscandoCedula()" class="cursos__search-spinner"></span>
+        </div>
+      </div>
 
       <div *ngIf="loading()" class="cursos__placeholder">Cargando...</div>
 
@@ -81,7 +90,8 @@
         <table class="cursos__table">
           <thead>
             <tr>
-              <th>Personal</th>
+              <th>Funcionario</th>
+              <th>Cédula</th>
               <th>Curso</th>
               <th>Institución</th>
               <th>Fecha Inicio</th>
@@ -91,33 +101,36 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let h of historialPaginado(); trackBy: trackHistorial">
-              <td>{{ h.persona.nombre }}</td>
-              <td>{{ h.nombre }}</td>
-              <td>{{ h.institucion }}</td>
-              <td>{{ h.fechaInicio | date:'d/M/yyyy' }}</td>
-              <td>{{ h.fechaFin | date:'d/M/yyyy' }}</td>
+            <tr *ngFor="let fila of filasPaginadas(); trackBy: trackFila">
+              <td>{{ fila.nombre }}</td>
+              <td class="cursos__cedula">{{ fila.cedula }}</td>
+              <td><strong>{{ fila.curso.nombre_curso }}</strong></td>
+              <td>{{ fila.curso.institucion }}</td>
+              <td>{{ fila.curso.fechaInicio | date:'d/M/yyyy' }}</td>
+              <td>{{ fila.curso.fechaFin | date:'d/M/yyyy' }}</td>
               <td>
                 <span
                   class="cursos__estado-badge"
-                  [class.cursos__estado-badge--completado]="h.estado === 'completado'"
-                  [class.cursos__estado-badge--en-curso]="h.estado === 'en_curso'"
+                  [class.cursos__estado-badge--completado]="fila.curso.estado === 'completado'"
+                  [class.cursos__estado-badge--en-curso]="fila.curso.estado === 'en_curso'"
                 >
-                  {{ h.estado === 'completado' ? 'Completado' : 'En Curso' }}
+                  {{ fila.curso.estado === 'completado' ? 'Completado' : 'En Curso' }}
                 </span>
               </td>
               <td>
                 <span
                   class="cursos__tipo-badge"
-                  [class.cursos__tipo-badge--obligatorio]="h.tipo === 'obligatorio'"
-                  [class.cursos__tipo-badge--optativo]="h.tipo === 'optativo'"
+                  [class.cursos__tipo-badge--obligatorio]="fila.curso.tipo === 'obligatorio'"
+                  [class.cursos__tipo-badge--optativo]="fila.curso.tipo === 'optativo'"
                 >
-                  {{ h.tipo === 'obligatorio' ? 'Obligatorio' : 'Optativo' }}
+                  {{ fila.curso.tipo === 'obligatorio' ? 'Obligatorio' : 'Optativo' }}
                 </span>
               </td>
             </tr>
-            <tr *ngIf="historial().length === 0">
-              <td colspan="7" class="cursos__empty">No hay cursos registrados</td>
+            <tr *ngIf="filasFlat().length === 0">
+              <td colspan="8" class="cursos__empty">
+                {{ cedulaFiltro() ? 'No se encontraron cursos para esa cédula' : 'No hay cursos registrados' }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -125,7 +138,7 @@
 
       <app-paginator
         *ngIf="!loading()"
-        [totalItems]="historial().length"
+        [totalItems]="filasFlat().length"
         [pageSize]="historialPageSize"
         [currentPage]="historialPage()"
         (pageChange)="historialPage.set($event)"
@@ -148,29 +161,28 @@
         <table class="cursos__table">
           <thead>
             <tr>
-              <th>Nombre</th>
+              <th>Nombre del Curso</th>
+              <th>Institución</th>
+              <th>Boletín</th>
+              <th>N° Orden</th>
               <th>Tipo</th>
-              <th>Módulos</th>
               <th class="cursos__col-actions">Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let d of definicionesPaginadas(); trackBy: trackDefinicion">
-              <td>
-                <strong>{{ d.nombre }}</strong>
-                <small *ngIf="d.descripcion" class="cursos__sub">{{ d.descripcion }}</small>
-              </td>
+              <td><strong>{{ d.nombre_curso }}</strong></td>
+              <td>{{ d.institucion }}</td>
+              <td>{{ d.boletin ?? '—' }}</td>
+              <td>{{ d.numero_orden ?? '—' }}</td>
               <td>
                 <span
-                  class="cursos__tipo-badge"
-                  [class.cursos__tipo-badge--obligatorio]="d.tipo === 'obligatorio'"
-                  [class.cursos__tipo-badge--optativo]="d.tipo === 'optativo'"
+                  class="cursos__obligatorio-badge"
+                  [class.cursos__obligatorio-badge--si]="d.es_obligatorio"
+                  [class.cursos__obligatorio-badge--no]="!d.es_obligatorio"
                 >
-                  {{ d.tipo === 'obligatorio' ? 'Obligatorio' : 'Optativo' }}
+                  {{ d.es_obligatorio ? 'Obligatorio' : 'Optativo' }}
                 </span>
-              </td>
-              <td>
-                <span class="cursos__modulos-count">{{ d.modulos.length }}</span>
               </td>
               <td class="cursos__col-actions">
                 <button
@@ -182,11 +194,23 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
                   </svg>
                   Módulos
+                  <span class="cursos__modulos-badge" *ngIf="(d.modulos?.length ?? 0) > 0">{{ d.modulos!.length }}</span>
+                </button>
+                <button
+                  *ngIf="puedeGestionar()"
+                  type="button"
+                  class="btn btn--ghost btn--sm cursos__btn-danger"
+                  (click)="eliminarCurso(d)"
+                  aria-label="Eliminar curso"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  </svg>
                 </button>
               </td>
             </tr>
             <tr *ngIf="definiciones().length === 0">
-              <td colspan="4" class="cursos__empty">No hay cursos creados</td>
+              <td colspan="6" class="cursos__empty">No hay cursos creados</td>
             </tr>
           </tbody>
         </table>
@@ -313,19 +337,41 @@
       <form [formGroup]="nuevoCursoForm" (ngSubmit)="guardarNuevoCurso()" novalidate>
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
-        <label class="modal__field">
-          <span>Nombre <em>*</em></span>
-          <input type="text" formControlName="nombre" placeholder="ej: Curso Básico de Aviación Militar" autocomplete="off" />
-        </label>
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>Nombre del Curso <em>*</em></span>
+            <input type="text" formControlName="nombre_curso" placeholder="ej: Curso Básico de Aviación Militar" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Institución <em>*</em></span>
+            <input type="text" formControlName="institucion" placeholder="ej: Escuela Militar de Aeronáutica" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Boletín <small>(opcional)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>N° Orden <small>(opcional)</small></span>
+            <input type="text" formControlName="numero_orden" placeholder="ej: OC-1542" autocomplete="off" />
+          </label>
+        </div>
 
-        <label class="modal__field">
-          <span>Tipo <em>*</em></span>
-          <app-select formControlName="tipo" [items]="tipoOpciones" bindLabel="label" bindValue="value" placeholder="Seleccione tipo"></app-select>
-        </label>
-
-        <label class="modal__field">
-          <span>Descripción <small>(opcional)</small></span>
-          <input type="text" formControlName="descripcion" placeholder="Descripción breve del curso" autocomplete="off" />
+        <label class="cursos__toggle-row">
+          <div class="cursos__toggle-info">
+            <strong>Curso obligatorio</strong>
+            <small>Indica si el curso es de carácter obligatorio para el personal</small>
+          </div>
+          <span
+            class="cursos__toggle"
+            [class.cursos__toggle--on]="nuevoCursoForm.get('es_obligatorio')!.value"
+            (click)="nuevoCursoForm.get('es_obligatorio')!.setValue(!nuevoCursoForm.get('es_obligatorio')!.value)"
+            role="switch"
+            [attr.aria-checked]="nuevoCursoForm.get('es_obligatorio')!.value"
+            tabindex="0"
+            (keydown.space)="$event.preventDefault(); nuevoCursoForm.get('es_obligatorio')!.setValue(!nuevoCursoForm.get('es_obligatorio')!.value)"
+          >
+            <span class="cursos__toggle-thumb"></span>
+          </span>
         </label>
 
         <footer class="modal__actions">
@@ -344,7 +390,7 @@
       <header class="modal__header">
         <div>
           <h3>Módulos</h3>
-          <p>{{ curso.nombre }}</p>
+          <p>{{ curso.nombre_curso }}</p>
         </div>
         <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -354,11 +400,11 @@
       </header>
 
       <div class="cursos__modulos-list">
-        <p *ngIf="curso.modulos.length === 0" class="cursos__empty-sm">
+        <p *ngIf="(curso.modulos?.length ?? 0) === 0" class="cursos__empty-sm">
           Este curso no tiene módulos cargados.
         </p>
         <div
-          *ngFor="let m of curso.modulos; trackBy: trackModulo"
+          *ngFor="let m of (curso.modulos ?? []); trackBy: trackModulo"
           class="cursos__modulo-item"
         >
           <div class="cursos__modulo-info">

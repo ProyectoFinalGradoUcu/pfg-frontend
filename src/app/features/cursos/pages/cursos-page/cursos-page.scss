@@ -317,6 +317,30 @@ $navy-soft: #1e3a5f;
   }
 }
 
+.cursos__btn-danger {
+  border-color: #fee2e2 !important;
+  color: #dc2626 !important;
+
+  &:hover:not(:disabled) {
+    background-color: #fee2e2 !important;
+  }
+}
+
+.cursos__modulos-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background-color: $navy;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-left: 0.25rem;
+}
+
 .cursos__modulos-divider {
   display: flex;
   align-items: center;
@@ -597,4 +621,201 @@ $navy-soft: #1e3a5f;
   margin-top: 0.5rem;
   padding-top: 1rem;
   border-top: 1px solid #f1f5f9;
+}
+
+// ── Historial header + búsqueda por cédula ────────────────────────────────────
+
+.cursos__historial-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+
+  h3 {
+    margin: 0;
+  }
+}
+
+.cursos__search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 220px;
+}
+
+.cursos__search-icon {
+  position: absolute;
+  left: 0.65rem;
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.cursos__search-input {
+  width: 100%;
+  padding: 0.5rem 2.5rem 0.5rem 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus {
+    border-color: $navy;
+    box-shadow: 0 0 0 3px rgba(19, 39, 68, 0.12);
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+}
+
+.cursos__search-clear {
+  position: absolute;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  &:hover {
+    color: #475569;
+  }
+}
+
+.cursos__search-spinner {
+  position: absolute;
+  right: 0.5rem;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #e2e8f0;
+  border-top-color: $navy;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.cursos__cedula {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #475569;
+  white-space: nowrap;
+}
+
+// ── Badge obligatorio ─────────────────────────────────────────────────────────
+
+.cursos__obligatorio-badge {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--si {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+
+  &--no {
+    background-color: #f1f5f9;
+    color: #475569;
+  }
+}
+
+// ── Toggle obligatorio ────────────────────────────────────────────────────────
+
+.cursos__toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 0.25rem;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s;
+
+  &:has(.cursos__toggle--on) {
+    border-color: $navy;
+    background-color: #f0f4f9;
+  }
+}
+
+.cursos__toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  strong {
+    color: #0f172a;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  small {
+    color: #64748b;
+    font-size: 0.78rem;
+  }
+}
+
+.cursos__toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 2.75rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background-color: #cbd5e1;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+  cursor: pointer;
+  outline: none;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(19, 39, 68, 0.25);
+  }
+
+  &.cursos__toggle--on {
+    background-color: $navy;
+  }
+}
+
+.cursos__toggle-thumb {
+  position: absolute;
+  left: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+
+  .cursos__toggle--on & {
+    transform: translateX(1.25rem);
+  }
 }

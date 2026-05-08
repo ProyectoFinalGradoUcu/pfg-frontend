@@ -1,3 +1,22 @@
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ServiceStatus {
+  http_status: string;
+  http_message: string;
+}
+
+export interface ServiceResponse<T> {
+  service_response: {
+    service_status: ServiceStatus;
+    service_data: T;
+  };
+}
+
 export interface AuthenticatedUser {
   id: string;
   username: string;

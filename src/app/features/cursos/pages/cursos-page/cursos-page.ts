@@ -1,14 +1,18 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { forkJoin } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { Subject, forkJoin, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { CursosService } from '../../../../core/services/cursos.service';
 import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
 import {
   CursoDefinicion,
+  CursoFuncionarioItem,
   EstadoCurso,
+  FuncionarioConCursos,
   HistorialCurso,
   ModuloCurso,
   TipoCurso,
@@ -17,18 +21,26 @@ import {
 type TabKind = 'historial' | 'gestion';
 type ModalKind = 'registrarCurso' | 'nuevoCurso' | 'modulos' | null;
 
+interface FilaHistorial {
+  funcionarioId: string;
+  cedula: string;
+  nombre: string;
+  curso: CursoFuncionarioItem;
+}
+
 @Component({
   selector: 'app-cursos-page',
   standalone: false,
   templateUrl: './cursos-page.html',
   styleUrl: './cursos-page.scss',
 })
-export class CursosPage implements OnInit {
+export class CursosPage implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly cursosService = inject(CursosService);
   private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
+  private readonly route = inject(ActivatedRoute);
 
   // ── Estado general ─────────────────────────────────────────────────────────
   readonly tab = signal<TabKind>('historial');
@@ -37,12 +49,16 @@ export class CursosPage implements OnInit {
   readonly modalError = signal<string | null>(null);
 
   // ── Historial ──────────────────────────────────────────────────────────────
-  readonly historial = signal<HistorialCurso[]>([]);
+  readonly funcionarios = signal<FuncionarioConCursos[]>([]);
+  readonly cedulaFiltro = signal('');
+  readonly buscandoCedula = signal(false);
   readonly personal = signal<PersonaListItem[]>([]);
   readonly historialPage = signal(1);
   readonly historialPageSize = 10;
   readonly archivoCertificado = signal<File | null>(null);
   readonly dragOver = signal(false);
+
+  private readonly cedulaSubject = new Subject<string>();
 
   // ── Gestión ────────────────────────────────────────────────────────────────
   readonly definiciones = signal<CursoDefinicion[]>([]);
@@ -54,19 +70,30 @@ export class CursosPage implements OnInit {
   // ── Computed ───────────────────────────────────────────────────────────────
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('cursos.gestionar'));
 
-  readonly completados = computed(
-    () => this.historial().filter((h) => h.estado === 'completado').length,
-  );
-  readonly enCurso = computed(
-    () => this.historial().filter((h) => h.estado === 'en_curso').length,
-  );
-  readonly obligatorios = computed(
-    () => this.historial().filter((h) => h.tipo === 'obligatorio').length,
+  readonly filasFlat = computed<FilaHistorial[]>(() =>
+    this.funcionarios().flatMap((f) =>
+      f.cursos.map((c) => ({
+        funcionarioId: f.id,
+        cedula: f.cedula,
+        nombre: f.nombre,
+        curso: c,
+      })),
+    ),
   );
 
-  readonly historialPaginado = computed<HistorialCurso[]>(() => {
+  readonly completados = computed(
+    () => this.filasFlat().filter((f) => f.curso.estado === 'completado').length,
+  );
+  readonly enCurso = computed(
+    () => this.filasFlat().filter((f) => f.curso.estado === 'en_curso').length,
+  );
+  readonly obligatorios = computed(
+    () => this.filasFlat().filter((f) => f.curso.tipo === 'obligatorio').length,
+  );
+
+  readonly filasPaginadas = computed<FilaHistorial[]>(() => {
     const start = (this.historialPage() - 1) * this.historialPageSize;
-    return this.historial().slice(start, start + this.historialPageSize);
+    return this.filasFlat().slice(start, start + this.historialPageSize);
   });
 
   readonly definicionesPaginadas = computed<CursoDefinicion[]>(() => {
@@ -97,9 +124,11 @@ export class CursosPage implements OnInit {
   });
 
   readonly nuevoCursoForm = this.fb.group({
-    nombre: ['', [Validators.required, Validators.maxLength(100)]],
-    tipo: ['' as TipoCurso | '', Validators.required],
-    descripcion: [''],
+    nombre_curso: ['', [Validators.required, Validators.maxLength(150)]],
+    institucion: ['', [Validators.required, Validators.maxLength(100)]],
+    boletin: [''],
+    numero_orden: [''],
+    es_obligatorio: [false],
   });
 
   readonly moduloForm = this.fb.group({
@@ -108,18 +137,41 @@ export class CursosPage implements OnInit {
   });
 
   ngOnInit(): void {
+    const section = this.route.snapshot.data['section'] as TabKind;
+    if (section) this.tab.set(section);
     this.cargar();
+
+    this.cedulaSubject
+      .pipe(
+        debounceTime(400),
+        distinctUntilChanged(),
+        switchMap((cedula) => {
+          this.buscandoCedula.set(true);
+          return this.cursosService
+            .findFuncionariosConCursos(cedula || undefined)
+            .pipe(catchError(() => of([])));
+        }),
+      )
+      .subscribe((funcionarios) => {
+        this.funcionarios.set(funcionarios);
+        this.historialPage.set(1);
+        this.buscandoCedula.set(false);
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.cedulaSubject.complete();
   }
 
   cargar(): void {
     this.loading.set(true);
     forkJoin({
-      historial: this.cursosService.findAllHistorial(),
-      definiciones: this.cursosService.findAllDefiniciones(),
-      personal: this.personalService.findAll(),
+      funcionarios: this.cursosService.findFuncionariosConCursos().pipe(catchError(() => of([]))),
+      definiciones: this.cursosService.findAllDefiniciones().pipe(catchError(() => of([]))),
+      personal: this.personalService.findAll().pipe(catchError(() => of([]))),
     }).subscribe({
-      next: ({ historial, definiciones, personal }) => {
-        this.historial.set(historial);
+      next: ({ funcionarios, definiciones, personal }) => {
+        this.funcionarios.set(funcionarios);
         this.definiciones.set(definiciones);
         this.personal.set(personal);
         this.loading.set(false);
@@ -129,6 +181,16 @@ export class CursosPage implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  onCedulaInput(value: string): void {
+    this.cedulaFiltro.set(value);
+    this.cedulaSubject.next(value.trim());
+  }
+
+  limpiarCedula(): void {
+    this.cedulaFiltro.set('');
+    this.cedulaSubject.next('');
   }
 
   // ── Modales ────────────────────────────────────────────────────────────────
@@ -143,7 +205,7 @@ export class CursosPage implements OnInit {
   }
 
   abrirNuevoCurso(): void {
-    this.nuevoCursoForm.reset({ nombre: '', tipo: '', descripcion: '' });
+    this.nuevoCursoForm.reset({ nombre_curso: '', institucion: '', boletin: '', numero_orden: '', es_obligatorio: false });
     this.modalError.set(null);
     this.modal.set('nuevoCurso');
   }
@@ -203,19 +265,21 @@ export class CursosPage implements OnInit {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { nombre, tipo, descripcion } = this.nuevoCursoForm.getRawValue();
+    const { nombre_curso, institucion, boletin, numero_orden, es_obligatorio } = this.nuevoCursoForm.getRawValue();
 
     this.modalError.set(null);
     this.cursosService
       .createDefinicion({
-        nombre: nombre!,
-        tipo: tipo as TipoCurso,
-        descripcion: descripcion || undefined,
+        nombre_curso: nombre_curso!,
+        institucion: institucion!,
+        boletin: boletin || undefined,
+        numero_orden: numero_orden || undefined,
+        es_obligatorio: es_obligatorio ?? false,
       })
       .subscribe({
         next: (nuevo) => {
           this.cerrarModal();
-          this.toast.success(`Curso "${nuevo.nombre}" creado correctamente`);
+          this.toast.success(`Curso "${nuevo.nombre_curso}" creado correctamente`);
           this.definiciones.update((lista) => [...lista, nuevo]);
         },
         error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
@@ -236,13 +300,13 @@ export class CursosPage implements OnInit {
     this.guardandoModulo.set(true);
     this.cursosService
       .createModulo(curso.id, {
-        nombre: nombre!,
+        nombre_modulo: nombre!,
+        orden_modulo: (curso.modulos?.length ?? 0) + 1,
         descripcion: descripcion || undefined,
-        orden: curso.modulos.length + 1,
       })
       .subscribe({
         next: (nuevoModulo) => {
-          const actualizado = { ...curso, modulos: [...curso.modulos, nuevoModulo] };
+          const actualizado = { ...curso, modulos: [...(curso.modulos ?? []), nuevoModulo] };
           this.cursoSeleccionado.set(actualizado);
           this.definiciones.update((lista) =>
             lista.map((d) => (d.id === curso.id ? actualizado : d)),
@@ -257,6 +321,19 @@ export class CursosPage implements OnInit {
       });
   }
 
+  eliminarCurso(curso: CursoDefinicion): void {
+    if (!confirm(`¿Eliminar el curso "${curso.nombre_curso}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    this.cursosService.deleteDefinicion(curso.id).subscribe({
+      next: () => {
+        this.definiciones.update((lista) => lista.filter((d) => d.id !== curso.id));
+        this.toast.success(`Curso "${curso.nombre_curso}" eliminado`);
+      },
+      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+    });
+  }
+
   eliminarModulo(modulo: ModuloCurso): void {
     const curso = this.cursoSeleccionado();
     if (!curso) return;
@@ -265,7 +342,7 @@ export class CursosPage implements OnInit {
       next: () => {
         const actualizado = {
           ...curso,
-          modulos: curso.modulos.filter((m) => m.id !== modulo.id),
+          modulos: (curso.modulos ?? []).filter((m) => m.id !== modulo.id),
         };
         this.cursoSeleccionado.set(actualizado);
         this.definiciones.update((lista) =>
@@ -291,7 +368,7 @@ export class CursosPage implements OnInit {
   }
 
   // ── Tracks ─────────────────────────────────────────────────────────────────
-  trackHistorial = (_: number, h: HistorialCurso) => h.id;
+  trackFila = (_: number, f: FilaHistorial) => `${f.funcionarioId}-${f.curso.id}`;
   trackDefinicion = (_: number, d: CursoDefinicion) => d.id;
   trackModulo = (_: number, m: ModuloCurso) => m.id;
 
