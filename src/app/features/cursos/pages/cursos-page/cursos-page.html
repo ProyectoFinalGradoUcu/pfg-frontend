@@ -1,4 +1,412 @@
-<section class="module-placeholder">
-  <h1>Cursos</h1>
-  <p>Módulo en construcción. Agregá tus componentes aquí.</p>
+<section class="cursos">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header class="cursos__header">
+    <div>
+      <h2>Gestión de Cursos</h2>
+      <p>Registro y seguimiento de cursos y capacitaciones del personal</p>
+    </div>
+    <ng-container *ngIf="puedeGestionar()">
+      <button
+        *ngIf="tab() === 'historial'"
+        type="button"
+        class="btn btn--primary btn--lg"
+        (click)="abrirRegistrar()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Registrar Curso
+      </button>
+      <button
+        *ngIf="tab() === 'gestion'"
+        type="button"
+        class="btn btn--primary btn--lg"
+        (click)="abrirNuevoCurso()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Nuevo Curso
+      </button>
+    </ng-container>
+  </header>
+
+  <!-- ── Tabs ─────────────────────────────────────────────────────────────── -->
+  <div class="cursos__tabs">
+    <button
+      type="button"
+      class="cursos__tab"
+      [class.cursos__tab--active]="tab() === 'historial'"
+      (click)="tab.set('historial')"
+    >
+      Historial
+    </button>
+    <button
+      type="button"
+      class="cursos__tab"
+      [class.cursos__tab--active]="tab() === 'gestion'"
+      (click)="tab.set('gestion')"
+    >
+      Gestión
+    </button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: HISTORIAL                                                         -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="tab() === 'historial'">
+
+    <div class="cursos__stats">
+      <div class="cursos__stat cursos__stat--green">
+        <span class="cursos__stat-label">Cursos Completados</span>
+        <strong class="cursos__stat-value">{{ completados() }}</strong>
+      </div>
+      <div class="cursos__stat cursos__stat--blue">
+        <span class="cursos__stat-label">En Curso</span>
+        <strong class="cursos__stat-value">{{ enCurso() }}</strong>
+      </div>
+      <div class="cursos__stat cursos__stat--orange">
+        <span class="cursos__stat-label">Cursos Obligatorios</span>
+        <strong class="cursos__stat-value">{{ obligatorios() }}</strong>
+      </div>
+    </div>
+
+    <article class="cursos__card">
+      <h3>Historial de Cursos</h3>
+
+      <div *ngIf="loading()" class="cursos__placeholder">Cargando...</div>
+
+      <div *ngIf="!loading()" class="cursos__table-wrapper">
+        <table class="cursos__table">
+          <thead>
+            <tr>
+              <th>Personal</th>
+              <th>Curso</th>
+              <th>Institución</th>
+              <th>Fecha Inicio</th>
+              <th>Fecha Fin</th>
+              <th>Estado</th>
+              <th>Tipo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let h of historialPaginado(); trackBy: trackHistorial">
+              <td>{{ h.persona.nombre }}</td>
+              <td>{{ h.nombre }}</td>
+              <td>{{ h.institucion }}</td>
+              <td>{{ h.fechaInicio | date:'d/M/yyyy' }}</td>
+              <td>{{ h.fechaFin | date:'d/M/yyyy' }}</td>
+              <td>
+                <span
+                  class="cursos__estado-badge"
+                  [class.cursos__estado-badge--completado]="h.estado === 'completado'"
+                  [class.cursos__estado-badge--en-curso]="h.estado === 'en_curso'"
+                >
+                  {{ h.estado === 'completado' ? 'Completado' : 'En Curso' }}
+                </span>
+              </td>
+              <td>
+                <span
+                  class="cursos__tipo-badge"
+                  [class.cursos__tipo-badge--obligatorio]="h.tipo === 'obligatorio'"
+                  [class.cursos__tipo-badge--optativo]="h.tipo === 'optativo'"
+                >
+                  {{ h.tipo === 'obligatorio' ? 'Obligatorio' : 'Optativo' }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="historial().length === 0">
+              <td colspan="7" class="cursos__empty">No hay cursos registrados</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-paginator
+        *ngIf="!loading()"
+        [totalItems]="historial().length"
+        [pageSize]="historialPageSize"
+        [currentPage]="historialPage()"
+        (pageChange)="historialPage.set($event)"
+      ></app-paginator>
+    </article>
+
+  </ng-container>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: GESTIÓN                                                           -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="tab() === 'gestion'">
+
+    <article class="cursos__card">
+      <h3>Catálogo de Cursos</h3>
+
+      <div *ngIf="loading()" class="cursos__placeholder">Cargando...</div>
+
+      <div *ngIf="!loading()" class="cursos__table-wrapper">
+        <table class="cursos__table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Tipo</th>
+              <th>Módulos</th>
+              <th class="cursos__col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let d of definicionesPaginadas(); trackBy: trackDefinicion">
+              <td>
+                <strong>{{ d.nombre }}</strong>
+                <small *ngIf="d.descripcion" class="cursos__sub">{{ d.descripcion }}</small>
+              </td>
+              <td>
+                <span
+                  class="cursos__tipo-badge"
+                  [class.cursos__tipo-badge--obligatorio]="d.tipo === 'obligatorio'"
+                  [class.cursos__tipo-badge--optativo]="d.tipo === 'optativo'"
+                >
+                  {{ d.tipo === 'obligatorio' ? 'Obligatorio' : 'Optativo' }}
+                </span>
+              </td>
+              <td>
+                <span class="cursos__modulos-count">{{ d.modulos.length }}</span>
+              </td>
+              <td class="cursos__col-actions">
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--sm"
+                  (click)="abrirModulos(d)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
+                  </svg>
+                  Módulos
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="definiciones().length === 0">
+              <td colspan="4" class="cursos__empty">No hay cursos creados</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-paginator
+        *ngIf="!loading()"
+        [totalItems]="definiciones().length"
+        [pageSize]="defPageSize"
+        [currentPage]="defPage()"
+        (pageChange)="defPage.set($event)"
+      ></app-paginator>
+    </article>
+
+  </ng-container>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Registrar historial                                             -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'registrarCurso'" class="modal" (click)="cerrarModal()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Registrar Curso</h3>
+          <p>Complete la información del curso realizado por el personal.</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="registrarForm" (ngSubmit)="guardarRegistro()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>Personal <em>*</em></span>
+            <app-select formControlName="personaId" [items]="personal()" bindLabel="nombre" bindValue="id" placeholder="Seleccione personal" [searchable]="true"></app-select>
+          </label>
+          <label class="modal__field">
+            <span>Nombre del Curso <em>*</em></span>
+            <input type="text" formControlName="nombre" placeholder="ej: Curso de Liderazgo" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Institución <em>*</em></span>
+            <input type="text" formControlName="institucion" placeholder="ej: Escuela Militar de Aeronáutica" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Tipo de Curso <em>*</em></span>
+            <app-select formControlName="tipo" [items]="tipoOpciones" bindLabel="label" bindValue="value" placeholder="Seleccione tipo"></app-select>
+          </label>
+        </div>
+
+        <div class="modal__grid-3">
+          <label class="modal__field">
+            <span>Fecha Inicio <em>*</em></span>
+            <input type="date" formControlName="fechaInicio" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha Fin <em>*</em></span>
+            <input type="date" formControlName="fechaFin" />
+          </label>
+          <label class="modal__field">
+            <span>Estado <em>*</em></span>
+            <app-select formControlName="estado" [items]="estadoOpciones" bindLabel="label" bindValue="value" placeholder="Estado"></app-select>
+          </label>
+        </div>
+
+        <div class="modal__field">
+          <span>Documento (Certificado)</span>
+          <div
+            class="cursos__upload"
+            [class.cursos__upload--drag]="dragOver()"
+            (dragenter)="$event.preventDefault()"
+            (dragover)="$event.preventDefault(); dragOver.set(true)"
+            (dragleave)="dragOver.set(false)"
+            (drop)="onDrop($event)"
+            (click)="fileInputRef.click()"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="cursos__upload-icon">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+            <ng-container *ngIf="archivoCertificado(); else sinArchivo">
+              <p class="cursos__upload-filename">{{ archivoCertificado()!.name }}</p>
+            </ng-container>
+            <ng-template #sinArchivo>
+              <p>Arrastre el archivo aquí o haga clic para seleccionar</p>
+              <small>PDF, JPG, PNG (máx. 10MB)</small>
+            </ng-template>
+            <button type="button" class="btn btn--ghost btn--sm" (click)="$event.stopPropagation(); fileInputRef.click()">
+              Seleccionar Archivo
+            </button>
+          </div>
+          <input #fileInputRef type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" (change)="onFileChange($event)" />
+        </div>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Guardar Curso</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Nuevo curso                                                     -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'nuevoCurso'" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Nuevo Curso</h3>
+          <p>Agregá un nuevo curso al catálogo del sistema.</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="nuevoCursoForm" (ngSubmit)="guardarNuevoCurso()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <label class="modal__field">
+          <span>Nombre <em>*</em></span>
+          <input type="text" formControlName="nombre" placeholder="ej: Curso Básico de Aviación Militar" autocomplete="off" />
+        </label>
+
+        <label class="modal__field">
+          <span>Tipo <em>*</em></span>
+          <app-select formControlName="tipo" [items]="tipoOpciones" bindLabel="label" bindValue="value" placeholder="Seleccione tipo"></app-select>
+        </label>
+
+        <label class="modal__field">
+          <span>Descripción <small>(opcional)</small></span>
+          <input type="text" formControlName="descripcion" placeholder="Descripción breve del curso" autocomplete="off" />
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Crear Curso</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Módulos                                                         -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'modulos' && cursoSeleccionado() as curso" class="modal" (click)="cerrarModal()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Módulos</h3>
+          <p>{{ curso.nombre }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <div class="cursos__modulos-list">
+        <p *ngIf="curso.modulos.length === 0" class="cursos__empty-sm">
+          Este curso no tiene módulos cargados.
+        </p>
+        <div
+          *ngFor="let m of curso.modulos; trackBy: trackModulo"
+          class="cursos__modulo-item"
+        >
+          <div class="cursos__modulo-info">
+            <span class="cursos__modulo-orden">{{ m.orden }}</span>
+            <div>
+              <strong>{{ m.nombre }}</strong>
+              <small *ngIf="m.descripcion">{{ m.descripcion }}</small>
+            </div>
+          </div>
+          <button
+            *ngIf="puedeGestionar()"
+            type="button"
+            class="btn btn--ghost btn--sm cursos__modulo-del"
+            (click)="eliminarModulo(m)"
+            aria-label="Eliminar módulo"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <ng-container *ngIf="puedeGestionar()">
+        <div class="cursos__modulos-divider">Agregar módulo</div>
+
+        <form [formGroup]="moduloForm" (ngSubmit)="agregarModulo()" novalidate>
+          <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+          <div class="modal__grid-2">
+            <label class="modal__field">
+              <span>Nombre <em>*</em></span>
+              <input type="text" formControlName="nombre" placeholder="ej: Introducción a la Aviación" autocomplete="off" />
+            </label>
+            <label class="modal__field">
+              <span>Descripción <small>(opcional)</small></span>
+              <input type="text" formControlName="descripcion" placeholder="Descripción breve" autocomplete="off" />
+            </label>
+          </div>
+
+          <footer class="modal__actions">
+            <button type="submit" class="btn btn--primary" [disabled]="guardandoModulo()">
+              Agregar módulo
+            </button>
+          </footer>
+        </form>
+      </ng-container>
+    </div>
+  </div>
+
 </section>
