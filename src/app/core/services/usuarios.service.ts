@@ -1,9 +1,10 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
   CreateUsuarioPayload,
+  PaginatedUsuariosResponse,
   ResetPasswordPayload,
   UpdateUsuarioPayload,
   Usuario,
@@ -13,9 +14,21 @@ import {
 export class UsuariosService {
   constructor(private readonly http: HttpClient) {}
 
-  findAll(): Observable<Usuario[]> {
-    return this.http.get<Usuario[]>(`${API_BASE_URL}/usuarios`, {
+  findAll(params?: {
+    page?: number;
+    pageSize?: number;
+  }): Observable<PaginatedUsuariosResponse> {
+    let httpParams = new HttpParams();
+    if (params?.page) {
+      httpParams = httpParams.set('page', params.page.toString());
+    }
+    if (params?.pageSize) {
+      httpParams = httpParams.set('pageSize', params.pageSize.toString());
+    }
+
+    return this.http.get<PaginatedUsuariosResponse>(`${API_BASE_URL}/usuarios`, {
       withCredentials: true,
+      params: httpParams,
     });
   }
 
