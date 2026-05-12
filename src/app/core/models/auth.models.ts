@@ -44,6 +44,13 @@ export interface Permiso {
   descripcion: string | null;
 }
 
+export interface PaginatedPermisosResponse {
+  items: Permiso[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 export interface Rol {
   id: string;
   nombre: string;
@@ -100,6 +107,13 @@ export interface Usuario {
   bloqueadoHasta: string | null;
   persona: UsuarioPersona | null;
   roles: UsuarioRol[];
+}
+
+export interface PaginatedUsuariosResponse {
+  items: Usuario[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface CreateUsuarioPayload {

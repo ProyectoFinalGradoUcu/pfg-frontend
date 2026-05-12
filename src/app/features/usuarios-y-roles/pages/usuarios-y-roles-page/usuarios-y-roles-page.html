@@ -20,9 +20,9 @@
   <article class="ur__card">
     <h3>Usuarios del Sistema</h3>
 
-    <div *ngIf="loading()" class="ur__placeholder">Cargando...</div>
+    <div *ngIf="usuariosLoading()" class="ur__placeholder">Cargando...</div>
 
-    <div *ngIf="!loading()" class="ur__table-wrapper">
+    <div *ngIf="!usuariosLoading()" class="ur__table-wrapper">
       <table class="ur__table">
         <thead>
           <tr>
@@ -79,7 +79,7 @@
               </button>
             </td>
           </tr>
-          <tr *ngIf="usuarios().length === 0">
+          <tr *ngIf="usuariosTotal() === 0">
             <td [attr.colspan]="puedeGestionarUsuarios() ? 6 : 5" class="ur__empty">
               No hay usuarios registrados
             </td>
@@ -87,6 +87,13 @@
         </tbody>
       </table>
     </div>
+
+    <app-paginator
+      [totalItems]="usuariosTotal()"
+      [pageSize]="usuariosPageSize"
+      [currentPage]="usuariosPage()"
+      (pageChange)="onUsuariosPageChange($event)"
+    ></app-paginator>
   </article>
 
   <article class="ur__card" *ngIf="!loading()">
@@ -121,33 +128,40 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let p of permisosPaginados(); trackBy: trackPermiso">
-            <td>
-              <strong>{{ p.descripcion ?? p.nombre }}</strong>
-            </td>
-            <td *ngFor="let r of roles(); trackBy: trackRol" class="ur__col-center">
-              <input
-                type="checkbox"
-                [checked]="rolTienePermiso(r, p)"
-                [disabled]="!puedeGestionarRoles() || r.nombre === 'Administrador del sistema'"
-                (change)="togglePermisoEnRol(r, p, $any($event.target).checked)"
-              />
-            </td>
-          </tr>
-          <tr *ngIf="permisosFiltrados().length === 0">
+          <tr *ngIf="permisosLoading()">
             <td [attr.colspan]="roles().length + 1" class="ur__empty">
-              Sin permisos que coincidan
+              Cargando permisos...
             </td>
           </tr>
+          <ng-container *ngIf="!permisosLoading()">
+            <tr *ngFor="let p of permisos(); trackBy: trackPermiso">
+              <td>
+                <strong>{{ p.descripcion ?? p.nombre }}</strong>
+              </td>
+              <td *ngFor="let r of roles(); trackBy: trackRol" class="ur__col-center">
+                <input
+                  type="checkbox"
+                  [checked]="rolTienePermiso(r, p)"
+                  [disabled]="!puedeGestionarRoles() || r.nombre === 'Administrador del sistema'"
+                  (change)="togglePermisoEnRol(r, p, $any($event.target).checked)"
+                />
+              </td>
+            </tr>
+            <tr *ngIf="permisosTotal() === 0">
+              <td [attr.colspan]="roles().length + 1" class="ur__empty">
+                Sin permisos que coincidan
+              </td>
+            </tr>
+          </ng-container>
         </tbody>
       </table>
     </div>
 
     <app-paginator
-      [totalItems]="permisosFiltrados().length"
+      [totalItems]="permisosTotal()"
       [pageSize]="permisoPageSize"
       [currentPage]="permisoPage()"
-      (pageChange)="permisoPage.set($event)"
+      (pageChange)="onPermisoPageChange($event)"
     ></app-paginator>
   </article>
 
