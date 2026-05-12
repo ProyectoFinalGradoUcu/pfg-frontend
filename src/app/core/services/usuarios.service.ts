@@ -1,7 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
 import { API_BASE_URL } from '../api.config';
 import {
   CreateUsuarioPayload,
@@ -15,12 +14,14 @@ import {
 export class UsuariosService {
   constructor(private readonly http: HttpClient) {}
 
-  findAll(): Observable<Usuario[]> {
-    return this.http
-      .get<PaginatedResponse<Usuario>>(`${API_BASE_URL}/usuarios?pageSize=100`, {
-        withCredentials: true,
-      })
-      .pipe(map((res) => res.items));
+  findAll(params: { page: number; pageSize: number }): Observable<PaginatedResponse<Usuario>> {
+    const httpParams = new HttpParams()
+      .set('page', params.page)
+      .set('pageSize', params.pageSize);
+    return this.http.get<PaginatedResponse<Usuario>>(`${API_BASE_URL}/usuarios`, {
+      params: httpParams,
+      withCredentials: true,
+    });
   }
 
   findOne(id: string): Observable<Usuario> {
