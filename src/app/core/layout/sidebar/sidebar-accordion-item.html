@@ -1,0 +1,25 @@
+<div class="sidebar__group">
+  <a *ngIf="collapsed" class="sidebar__item" [routerLink]="route" routerLinkActive="sidebar__item--active">
+    <ng-container *ngTemplateOutlet="iconTemplate"></ng-container>
+  </a>
+
+  <!-- Expandido: trigger con chevron -->
+  <button *ngIf="!collapsed" type="button" class="sidebar__item sidebar__item--trigger"
+    [class.sidebar__item--open]="expanded()" (click)="toggle()">
+    <ng-container *ngTemplateOutlet="iconTemplate"></ng-container>
+    <span class="sidebar__label sidebar__label--flex">{{ label }}</span>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+      class="sidebar__chevron" [class.sidebar__chevron--open]="expanded()">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+    </svg>
+  </button>
+
+  <!-- Sub-items -->
+  <div *ngIf="expanded() && !collapsed" class="sidebar__sub">
+    <a *ngFor="let child of children" class="sidebar__sub-item"
+      [routerLink]="child.route" routerLinkActive="sidebar__sub-item--active">
+      <span class="sidebar__sub-dot"></span>
+      {{ child.label }}
+    </a>
+  </div>
+</div>
