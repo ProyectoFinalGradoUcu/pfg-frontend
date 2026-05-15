@@ -22,22 +22,27 @@ const routes: Routes = [
       },
       {
         path: 'personal',
+        canActivate: [permissionGuard(['personas.ver', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar'])],
         loadChildren: () => import('./features/personal/personal-module').then((m) => m.PersonalModule),
       },
       {
         path: 'ascensos-y-retiros',
+        canActivate: [permissionGuard(['ascensos.ver', 'ascensos.registrar', 'retiros.ver', 'retiros.registrar'])],
         loadChildren: () => import('./features/ascensos-y-retiros/ascensos-y-retiros-module').then((m) => m.AscensosYRetirosModule),
       },
       {
         path: 'cursos',
+        canActivate: [permissionGuard(['cursos.ver', 'cursos.gestionar'])],
         loadChildren: () => import('./features/cursos/cursos-module').then((m) => m.CursosModule),
       },
       {
         path: 'misiones',
+        canActivate: [permissionGuard(['misiones.ver', 'misiones.gestionar'])],
         loadChildren: () => import('./features/misiones/misiones-module').then((m) => m.MisionesModule),
       },
       {
         path: 'reportes',
+        canActivate: [permissionGuard(['auditoria.ver'])],
         loadChildren: () => import('./features/reportes/reportes-module').then((m) => m.ReportesModule),
       },
       {
