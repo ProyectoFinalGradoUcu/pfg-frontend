@@ -51,7 +51,7 @@
 
       <label class="personal-page__field">
         <select [value]="selectedRango()" (change)="onRangoChange($event)">
-          <option value="">Todos los rangos</option>
+          <option value="">Todos los grados</option>
           <option *ngFor="let g of todosGrados()" [value]="g.id">{{ g.denominacion }}</option>
         </select>
       </label>
@@ -85,7 +85,7 @@
           <tr>
             <th>Nombre</th>
             <th>Cédula</th>
-            <th>Rango</th>
+            <th>Grado</th>
             <th>Destino</th>
             <th>Estado</th>
             <th class="personal-page__col-actions">Acciones</th>
