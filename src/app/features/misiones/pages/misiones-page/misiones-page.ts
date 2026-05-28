@@ -208,6 +208,11 @@ export class MisionesPage implements OnInit {
   trackMision = (_: number, m: Mision) => m.id;
 
   private parseError(err: HttpErrorResponse): string {
-    return err.error?.message ?? err.message ?? 'Error inesperado';
+    return (
+      err.error?.service_response?.service_status?.http_message ??
+      err.error?.message ??
+      err.message ??
+      'Error inesperado'
+    );
   }
 }
