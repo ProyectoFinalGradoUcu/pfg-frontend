@@ -1,4 +1,4 @@
-<nav class="paginator" *ngIf="totalPages() > 1" aria-label="Paginación">
+<nav class="paginator" *ngIf="totalItems > 0" aria-label="Paginación">
   <span class="paginator__range">
     Mostrando <strong>{{ rangeStart() }}</strong>–<strong>{{ rangeEnd() }}</strong>
     de <strong>{{ totalItems }}</strong>
