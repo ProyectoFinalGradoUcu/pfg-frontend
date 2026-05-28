@@ -1,0 +1,316 @@
+<section class="nf">
+  <div class="nf__topbar">
+    <nav class="breadcrumb">
+      <a class="breadcrumb__item breadcrumb__item--link" (click)="cancelar()">Administración de Personal</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__item breadcrumb__item--current">Nuevo Personal</span>
+    </nav>
+    <app-page-header
+      title="Nuevo Personal"
+      subtitle="Completá los datos del nuevo integrante"
+    ></app-page-header>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+
+    <!-- ── Sección 1: Datos personales (siempre visible) ── -->
+    <article class="nf__card">
+      <h2 class="nf__section-title">Datos personales</h2>
+      <div class="nf__grid">
+
+        <div class="nf__field">
+          <label class="nf__label" for="cedula">Cédula <span class="nf__req">*</span></label>
+          <input id="cedula" type="text" formControlName="cedula" class="nf__input"
+            [class.nf__input--error]="hasError('cedula')" maxlength="12" placeholder="Ej: 12345678" />
+          <span class="nf__error" *ngIf="hasError('cedula')">{{ getError('cedula') }}</span>
+        </div>
+
+        <div class="nf__field nf__field--empty"></div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="primer_nombre">Primer nombre <span class="nf__req">*</span></label>
+          <input id="primer_nombre" type="text" formControlName="primer_nombre" class="nf__input"
+            [class.nf__input--error]="hasError('primer_nombre')" placeholder="Primer nombre" />
+          <span class="nf__error" *ngIf="hasError('primer_nombre')">{{ getError('primer_nombre') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="segundo_nombre">Segundo nombre</label>
+          <input id="segundo_nombre" type="text" formControlName="segundo_nombre"
+            class="nf__input" placeholder="Segundo nombre" />
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="primer_apellido">Primer apellido <span class="nf__req">*</span></label>
+          <input id="primer_apellido" type="text" formControlName="primer_apellido" class="nf__input"
+            [class.nf__input--error]="hasError('primer_apellido')" placeholder="Primer apellido" />
+          <span class="nf__error" *ngIf="hasError('primer_apellido')">{{ getError('primer_apellido') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="segundo_apellido">Segundo apellido</label>
+          <input id="segundo_apellido" type="text" formControlName="segundo_apellido"
+            class="nf__input" placeholder="Segundo apellido" />
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="fecha_nacimiento">Fecha de nacimiento</label>
+          <input id="fecha_nacimiento" type="date" formControlName="fecha_nacimiento" class="nf__input" />
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="genero">Género</label>
+          <select id="genero" formControlName="genero" class="nf__select">
+            <option value="">Seleccionar...</option>
+            <option *ngFor="let g of generoOpciones" [value]="g.value">{{ g.label }}</option>
+          </select>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="estado_civil">Estado civil</label>
+          <select id="estado_civil" formControlName="estado_civil" class="nf__select">
+            <option value="">Seleccionar...</option>
+            <option *ngFor="let ec of estadoCivilOpciones" [value]="ec">{{ ec }}</option>
+          </select>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="lugar_nacimiento">Lugar de nacimiento</label>
+          <input id="lugar_nacimiento" type="text" formControlName="lugar_nacimiento"
+            class="nf__input" placeholder="Ciudad, País" />
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="email">Email</label>
+          <input id="email" type="email" formControlName="email" class="nf__input"
+            [class.nf__input--error]="hasError('email')" placeholder="correo@ejemplo.com" />
+          <span class="nf__error" *ngIf="hasError('email')">{{ getError('email') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="telefono">Teléfono</label>
+          <input id="telefono" type="text" formControlName="telefono"
+            class="nf__input" placeholder="099 123 456" />
+        </div>
+
+        <div class="nf__field nf__field--full">
+          <label class="nf__label" for="direccion">Dirección</label>
+          <input id="direccion" type="text" formControlName="direccion"
+            class="nf__input" placeholder="Av. 18 de Julio 1234, Montevideo" />
+        </div>
+
+        <div class="nf__field nf__field--full nf__field--toggle">
+          <label class="nf__toggle-label">
+            <input type="checkbox" formControlName="es_civil" class="nf__checkbox" />
+            <span class="nf__toggle-track">
+              <span class="nf__toggle-thumb"></span>
+            </span>
+            <span>Es personal civil</span>
+          </label>
+        </div>
+
+      </div>
+    </article>
+
+    <!-- ── Sección 2a: Datos laborales (solo cuando NO es civil) ── -->
+    <article class="nf__card" *ngIf="!form.get('es_civil')?.value">
+      <h2 class="nf__section-title">Datos laborales</h2>
+      <div class="nf__grid">
+
+        <div class="nf__field">
+          <label class="nf__label" for="tipo_funcionario">Tipo de funcionario <span class="nf__req">*</span></label>
+          <select id="tipo_funcionario" formControlName="tipo_funcionario" class="nf__select"
+            [class.nf__select--error]="hasError('tipo_funcionario')">
+            <option value="">Seleccionar...</option>
+            <option *ngFor="let t of tipoFuncionarioOpciones" [value]="t.value">{{ t.label }}</option>
+          </select>
+          <span class="nf__error" *ngIf="hasError('tipo_funcionario')">{{ getError('tipo_funcionario') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="fecha_inicio">Fecha de inicio <span class="nf__req">*</span></label>
+          <input id="fecha_inicio" type="date" formControlName="fecha_inicio" class="nf__input"
+            [class.nf__input--error]="hasError('fecha_inicio')" />
+          <span class="nf__error" *ngIf="hasError('fecha_inicio')">{{ getError('fecha_inicio') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="regimen_id">Régimen <span class="nf__req">*</span></label>
+          <select id="regimen_id" formControlName="regimen_id" class="nf__select"
+            [class.nf__select--error]="hasError('regimen_id')">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let r of regimenes()" [ngValue]="r.id">{{ r.denominacion }}</option>
+          </select>
+          <span class="nf__error" *ngIf="hasError('regimen_id')">{{ getError('regimen_id') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="unidad_id">Unidad <span class="nf__req">*</span></label>
+          <select id="unidad_id" formControlName="unidad_id" class="nf__select"
+            [class.nf__select--error]="hasError('unidad_id')">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let u of unidades()" [ngValue]="u.id">{{ u.denominacion }}</option>
+          </select>
+          <span class="nf__error" *ngIf="hasError('unidad_id')">{{ getError('unidad_id') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="escalafon_id">Escalafón <span class="nf__req">*</span></label>
+          <select id="escalafon_id" formControlName="escalafon_id" class="nf__select"
+            [class.nf__select--error]="hasError('escalafon_id')">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let e of escalafones()" [ngValue]="e.id">{{ e.denominacion }}</option>
+          </select>
+          <span class="nf__error" *ngIf="hasError('escalafon_id')">{{ getError('escalafon_id') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="grado_id">
+            Grado <span class="nf__req">*</span>
+            <span class="nf__hint" *ngIf="form.get('grado_id')?.disabled">(seleccioná primero un escalafón)</span>
+          </label>
+          <select id="grado_id" formControlName="grado_id" class="nf__select"
+            [class.nf__select--error]="hasError('grado_id')">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let g of grados()" [ngValue]="g.id">{{ g.denominacion }}</option>
+          </select>
+          <span class="nf__error" *ngIf="hasError('grado_id')">{{ getError('grado_id') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="programa_id">Programa <span class="nf__req">*</span></label>
+          <select id="programa_id" formControlName="programa_id" class="nf__select"
+            [class.nf__select--error]="hasError('programa_id')">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let p of programas()" [ngValue]="p.id">{{ p.denominacion }}</option>
+          </select>
+          <span class="nf__error" *ngIf="hasError('programa_id')">{{ getError('programa_id') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="situacion_id">Situación <span class="nf__req">*</span></label>
+          <select id="situacion_id" formControlName="situacion_id" class="nf__select"
+            [class.nf__select--error]="hasError('situacion_id')">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let s of situaciones()" [ngValue]="s.id">{{ s.denominacion }}</option>
+          </select>
+          <span class="nf__error" *ngIf="hasError('situacion_id')">{{ getError('situacion_id') }}</span>
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="compania_id">Compañía</label>
+          <select id="compania_id" formControlName="compania_id" class="nf__select">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let c of companias()" [ngValue]="c.id">{{ c.denominacion }}</option>
+          </select>
+        </div>
+
+        <div class="nf__field nf__field--empty"></div>
+
+        <div class="nf__field nf__field--full">
+          <label class="nf__label" for="observaciones_laboral">Observaciones</label>
+          <textarea id="observaciones_laboral" formControlName="observaciones"
+            class="nf__textarea" rows="3" placeholder="Observaciones adicionales..."></textarea>
+        </div>
+
+      </div>
+    </article>
+
+    <!-- ── Sección 2b: Datos civil (solo cuando es civil) ── -->
+    <article class="nf__card" *ngIf="form.get('es_civil')?.value">
+      <h2 class="nf__section-title">Datos adicionales</h2>
+      <div class="nf__grid">
+
+        <!-- Familiares -->
+        <div class="nf__field nf__field--full">
+          <label class="nf__label">
+            Familiares militares <span class="nf__req">*</span>
+          </label>
+          <p class="nf__field-hint">Buscá al personal militar (oficial o subalterno) y agregalo. Podés agregar más de uno.</p>
+
+          <!-- Buscador -->
+          <div class="nf__autocomplete">
+            <div class="nf__autocomplete__input-wrap">
+              <svg class="nf__autocomplete__icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+              </svg>
+              <input
+                type="text"
+                class="nf__autocomplete__input"
+                [class.nf__autocomplete__input--error]="familiaresError()"
+                [value]="familiarSearch()"
+                (input)="onFamiliarSearch($event)"
+                (blur)="onFamiliarBlur()"
+                (focus)="familiarDropdownOpen.set(familiarResults().length > 0)"
+                placeholder="Buscar por cédula o nombre..."
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="nf__autocomplete__dropdown" *ngIf="familiarDropdownOpen()">
+              <button
+                *ngFor="let p of familiarResults()"
+                type="button"
+                class="nf__autocomplete__item"
+                (click)="addFamiliar(p)"
+              >
+                <span class="nf__autocomplete__item-nombre">{{ p.nombre }}</span>
+                <span class="nf__autocomplete__item-cedula">{{ p.cedula }}</span>
+              </button>
+              <p class="nf__autocomplete__empty"
+                *ngIf="familiarResults().length === 0 && familiarSearch().length >= 2">
+                Sin resultados
+              </p>
+            </div>
+          </div>
+
+          <span class="nf__error" *ngIf="familiaresError()">Debe agregar al menos un familiar</span>
+
+          <!-- Lista de familiares agregados -->
+          <div class="nf__familiar-list" *ngIf="familiares().length > 0">
+            <div class="nf__familiar-row" *ngFor="let f of familiares(); let i = index">
+              <div class="nf__familiar-row__info">
+                <span class="nf__familiar-row__nombre">{{ f.persona.nombre }}</span>
+                <span class="nf__familiar-row__cedula">{{ f.persona.cedula }}</span>
+              </div>
+              <select
+                class="nf__select nf__familiar-row__tipo"
+                [value]="f.tipo_relacion"
+                (change)="updateTipoRelacion(i, $event)"
+              >
+                <option value="">Tipo de relación (opcional)</option>
+                <option *ngFor="let t of tipoRelacionOpciones" [value]="t">{{ t }}</option>
+              </select>
+              <button type="button" class="nf__familiar-row__remove" (click)="removeFamiliar(i)" aria-label="Quitar">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Observaciones -->
+        <div class="nf__field nf__field--full">
+          <label class="nf__label" for="observaciones_civil">Observaciones</label>
+          <textarea id="observaciones_civil" formControlName="observaciones"
+            class="nf__textarea" rows="3" placeholder="Observaciones adicionales..."></textarea>
+        </div>
+
+      </div>
+    </article>
+
+    <!-- ── Acciones ── -->
+    <div class="nf__actions">
+      <button type="button" class="nf__btn nf__btn--ghost" (click)="cancelar()">Cancelar</button>
+      <button type="submit" class="nf__btn nf__btn--primary" [disabled]="loading()">
+        <svg *ngIf="loading()" class="nf__spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        {{ loading() ? 'Guardando...' : 'Guardar' }}
+      </button>
+    </div>
+
+  </form>
+</section>
