@@ -1,7 +1,7 @@
 $navy: #132744;
 $navy-soft: #1e3a5f;
 
-.misiones {
+.detalle {
   display: grid;
   gap: 1.5rem;
   padding-top: 1.5rem;
@@ -9,68 +9,32 @@ $navy-soft: #1e3a5f;
 
 // Header 
 
-.misiones__header {
+.detalle__header {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.75rem;
 
   h2 {
-    margin: 0 0 0.25rem;
+    margin: 0 0 0.2rem;
     color: $navy;
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 700;
   }
 
   p {
     margin: 0;
     color: #475569;
+    font-size: 0.9rem;
   }
 }
 
-// Stat cards 
-
-.misiones__stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.misiones__stat {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 1.25rem 1.5rem;
-  border-left-width: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-
-  &--green  { border-left-color: #16a34a; .misiones__stat-value { color: #16a34a; } }
-  &--blue   { border-left-color: #2563eb; .misiones__stat-value { color: #2563eb; } }
-  &--orange { border-left-color: #ea580c; .misiones__stat-value { color: #ea580c; } }
-}
-
-.misiones__stat-label {
-  font-size: 0.9rem;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.misiones__stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1;
+.detalle__back {
+  align-self: flex-start;
 }
 
 // Cards 
 
-.misiones__card {
+.detalle__card {
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -81,44 +45,77 @@ $navy-soft: #1e3a5f;
     font-size: 1.05rem;
     color: $navy;
     font-weight: 600;
-  }
-
-  &--placeholder {
     display: flex;
     align-items: center;
-    justify-content: center;
-    min-height: 10rem;
-    color: #94a3b8;
-    font-size: 0.95rem;
-
-    p { margin: 0; }
+    gap: 0.5rem;
   }
 }
 
-.misiones__placeholder,
-.misiones__empty {
+.detalle__placeholder,
+.detalle__empty {
   text-align: center;
   color: #64748b;
-  padding: 1.25rem;
+  padding: 1.5rem;
   font-size: 0.9rem;
 }
 
-.misiones__empty-sm {
-  color: #94a3b8;
-  font-size: 0.875rem;
-  text-align: center;
-  padding: 0.75rem;
+// Info grid (datos de la misión) 
+
+.detalle__info-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem 1.5rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+  }
 }
 
-// Tabla 
+.detalle__info-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 
-.misiones__table-wrapper {
+  span {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  strong {
+    font-size: 0.9rem;
+    color: #0f172a;
+    font-weight: 500;
+  }
+}
+
+// Section header 
+
+.detalle__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  h3 { margin: 0; }
+}
+
+// Tabla funcionarios 
+
+.detalle__table-wrapper {
   overflow-x: auto;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
 }
 
-.misiones__table {
+.detalle__table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
@@ -146,12 +143,19 @@ $navy-soft: #1e3a5f;
   tbody tr:hover { background-color: #f8fafc; }
 }
 
-.misiones__col-actions {
+.detalle__col-actions {
   text-align: right !important;
   white-space: nowrap;
 }
 
-.misiones__count-badge {
+.detalle__cedula {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.detalle__count-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -165,127 +169,16 @@ $navy-soft: #1e3a5f;
   font-weight: 700;
 }
 
-.misiones__table-hint {
-  font-size: 0.78rem;
-  font-weight: 400;
-  color: #94a3b8;
+.detalle__btn-danger {
+  border-color: #fee2e2 !important;
+  color: #dc2626 !important;
+
+  &:hover:not(:disabled) { background-color: #fee2e2 !important; }
 }
 
-.misiones__row--clickable {
-  cursor: pointer;
-}
+// Menú 
 
-// Detalle de misión 
-
-.misiones__detalle-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem 1.5rem;
-  margin-bottom: 1.25rem;
-
-  @media (max-width: 520px) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.misiones__detalle-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-
-  span {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  strong {
-    font-size: 0.9rem;
-    color: #0f172a;
-    font-weight: 500;
-  }
-}
-
-.misiones__section-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 1.25rem 0 1rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-
-  &::before,
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background-color: #e2e8f0;
-  }
-
-  .misiones__count-badge {
-    flex-shrink: 0;
-  }
-}
-
-// Lista de funcionarios en detalle 
-
-.misiones__func-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.misiones__func-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background-color: #f8fafc;
-}
-
-.misiones__func-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  flex: 1;
-  min-width: 0;
-
-  strong {
-    font-size: 0.9rem;
-    color: #0f172a;
-    font-weight: 500;
-  }
-
-  small {
-    font-size: 0.78rem;
-    color: #64748b;
-  }
-}
-
-.misiones__func-item-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  flex-shrink: 0;
-
-  small {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    text-align: right;
-  }
-}
-
-// Menú
-
-.misiones__menu-btn {
+.detalle__menu-btn {
   border-color: transparent !important;
 
   &:hover:not(:disabled),
@@ -295,7 +188,7 @@ $navy-soft: #1e3a5f;
   }
 }
 
-.misiones__dropdown {
+.detalle__dropdown {
   position: fixed;
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
@@ -306,7 +199,7 @@ $navy-soft: #1e3a5f;
   overflow: hidden;
 }
 
-.misiones__dropdown-item {
+.detalle__dropdown-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -331,59 +224,63 @@ $navy-soft: #1e3a5f;
   }
 }
 
-.misiones__btn-danger {
-  border-color: #fee2e2 !important;
-  color: #dc2626 !important;
+// Formulario asignar 
 
-  &:hover:not(:disabled) {
-    background-color: #fee2e2 !important;
-  }
-}
-
-// Funcionarios en modal 
-
-.misiones__func-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: 1rem 0 0.75rem;
-  padding-top: 1rem;
-  border-top: 1px solid #f1f5f9;
-
-  strong {
-    color: $navy;
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-}
-
-.misiones__func-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.85rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background-color: #f8fafc;
-  margin-bottom: 0.75rem;
-}
-
-.misiones__func-fields {
+.detalle__form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: 0 1rem;
-  flex: 1;
-  min-width: 0;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr 1fr;
+  }
 
   @media (max-width: 520px) {
     grid-template-columns: 1fr;
   }
+
+  &--modal {
+    grid-template-columns: 1fr 1fr;
+
+    @media (max-width: 520px) {
+      grid-template-columns: 1fr;
+    }
+  }
 }
 
-.misiones__func-del {
-  flex-shrink: 0;
-  margin-top: 1.4rem;
+.detalle__field--full {
+  grid-column: 1 / -1;
+}
+
+.detalle__field {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: #334155;
+  font-weight: 500;
+
+  span em { color: #dc2626; font-style: normal; margin-left: 0.15rem; }
+
+  input[type='text'] {
+    height: 2.55rem;
+    padding: 0 0.85rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background-color: #ffffff;
+    color: #0f172a;
+
+    &:focus { outline: none; border-color: $navy; }
+    &::placeholder { color: #94a3b8; }
+  }
+}
+
+.detalle__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
 }
 
 // Botones 
@@ -404,11 +301,9 @@ $navy-soft: #1e3a5f;
   color: $navy;
 
   svg { width: 16px; height: 16px; }
-
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
-.btn--lg { padding: 0.65rem 1.1rem; font-size: 0.9rem; }
 .btn--sm { padding: 0.4rem 0.75rem; font-size: 0.8rem; }
 
 .btn--primary {
@@ -448,7 +343,7 @@ $navy-soft: #1e3a5f;
   border-radius: 12px;
   padding: 1.75rem;
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
 
   &--wide { max-width: 680px; }
@@ -461,8 +356,18 @@ $navy-soft: #1e3a5f;
   gap: 1rem;
   margin-bottom: 1.25rem;
 
-  h3 { margin: 0 0 0.25rem; color: $navy; font-size: 1.15rem; font-weight: 700; }
-  p  { margin: 0; color: #64748b; font-size: 0.875rem; }
+  h3 {
+    margin: 0 0 0.25rem;
+    color: $navy;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.875rem;
+  }
 }
 
 .modal__close {
@@ -482,6 +387,15 @@ $navy-soft: #1e3a5f;
   &:hover { background-color: #f1f5f9; color: #0f172a; }
 }
 
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+}
+
 .modal__error {
   margin-bottom: 1rem;
   padding: 0.65rem 0.85rem;
@@ -497,7 +411,9 @@ $navy-soft: #1e3a5f;
   grid-template-columns: 1fr 1fr;
   gap: 0 1rem;
 
-  @media (max-width: 520px) { grid-template-columns: 1fr; }
+  @media (max-width: 520px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .modal__field {
@@ -525,11 +441,13 @@ $navy-soft: #1e3a5f;
   }
 }
 
-.modal__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-  margin-top: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #f1f5f9;
+.detalle__btn-danger-solid {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+
+  &:hover:not(:disabled) {
+    background-color: #b91c1c !important;
+    border-color: #b91c1c !important;
+  }
 }

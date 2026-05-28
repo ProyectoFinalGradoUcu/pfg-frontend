@@ -1,4 +1,213 @@
-<section class="module-placeholder">
-  <h1>Misiones</h1>
-  <p>Módulo en construcción. Agregá tus componentes aquí.</p>
+<section class="misiones" (click)="cerrarMenu()">
+
+  <!-- Header  -->
+  <header class="misiones__header">
+    <div>
+      <h2>Gestión de Misiones</h2>
+      <p>Registro y seguimiento de misiones del personal</p>
+    </div>
+    <button
+      *ngIf="puedeGestionar() && tab() === 'gestion'"
+      type="button"
+      class="btn btn--primary btn--lg"
+      (click)="abrirNueva()"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Nueva Misión
+    </button>
+  </header>
+
+  <!-- Tab: Historial -->
+  <ng-container *ngIf="tab() === 'historial'">
+    <article class="misiones__card misiones__card--placeholder">
+      <p>Próximamente: historial de misiones por funcionario.</p>
+    </article>
+  </ng-container>
+
+  <!-- Tab: Gestión -->
+  <ng-container *ngIf="tab() === 'gestion'">
+
+    <!-- Stats -->
+    <div class="misiones__stats">
+      <div class="misiones__stat misiones__stat--blue">
+        <span class="misiones__stat-label">Total</span>
+        <strong class="misiones__stat-value">{{ stats().total }}</strong>
+      </div>
+      <div class="misiones__stat misiones__stat--green">
+        <span class="misiones__stat-label">Activas</span>
+        <strong class="misiones__stat-value">{{ stats().activas }}</strong>
+      </div>
+      <div class="misiones__stat misiones__stat--orange">
+        <span class="misiones__stat-label">Finalizadas</span>
+        <strong class="misiones__stat-value">{{ stats().finalizadas }}</strong>
+      </div>
+    </div>
+
+    <!-- Tabla -->
+    <article class="misiones__card">
+      <h3>
+        Misiones
+        <small class="misiones__table-hint">— hacé clic en una fila para ver el detalle</small>
+      </h3>
+
+      <div *ngIf="loading()" class="misiones__placeholder">Cargando...</div>
+
+      <div *ngIf="!loading()" class="misiones__table-wrapper">
+        <table class="misiones__table">
+          <thead>
+            <tr>
+              <th>País</th>
+              <th>Tipo de Misión</th>
+              <th>Fecha Salida</th>
+              <th>Fecha Llegada</th>
+              <th>N° Orden</th>
+              <th>Boletín</th>
+              <th>Comando Responsable</th>
+              <th>Funcionarios</th>
+              <th *ngIf="puedeGestionar()" class="misiones__col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let m of misiones(); trackBy: trackMision"
+              class="misiones__row--clickable"
+              (click)="verDetalle(m)"
+            >
+              <td><strong>{{ m.pais }}</strong></td>
+              <td>{{ m.tipo_mision }}</td>
+              <td>{{ m.fecha_salida | date:'d/M/yyyy' }}</td>
+              <td>{{ m.fecha_llegada | date:'d/M/yyyy' }}</td>
+              <td>{{ m.numero_orden || '—' }}</td>
+              <td>{{ m.boletin || '—' }}</td>
+              <td>{{ m.comando_responsable || '—' }}</td>
+              <td>
+                <span class="misiones__count-badge">{{ m.total_funcionarios }}</span>
+              </td>
+              <td *ngIf="puedeGestionar()" class="misiones__col-actions" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--sm misiones__menu-btn"
+                  (click)="toggleMenu(m.id, $event)"
+                  [class.misiones__menu-btn--open]="menuAbierto() === m.id"
+                  aria-label="Acciones"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="misiones().length === 0">
+              <td [attr.colspan]="puedeGestionar() ? 9 : 8" class="misiones__empty">
+                No hay misiones registradas
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-paginator
+        *ngIf="!loading()"
+        [totalItems]="totalItems()"
+        [pageSize]="limit"
+        [currentPage]="page()"
+        (pageChange)="cargarMisiones($event)"
+      ></app-paginator>
+    </article>
+
+  </ng-container>
+
+  <!-- Dropdown: Acciones (fixed, escapa del overflow de la tabla) -->
+  <ng-container *ngFor="let m of misiones(); trackBy: trackMision">
+    <div
+      *ngIf="menuAbierto() === m.id && menuPosition() as pos"
+      class="misiones__dropdown"
+      [style.top.px]="pos.top"
+      [style.right.px]="pos.right"
+      (click)="$event.stopPropagation()"
+    >
+      <button type="button" class="misiones__dropdown-item" (click)="abrirEditar(m); cerrarMenu()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+        </svg>
+        Editar
+      </button>
+      <button type="button" class="misiones__dropdown-item misiones__dropdown-item--danger" (click)="eliminarMision(m); cerrarMenu()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+        </svg>
+        Eliminar
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- Modal: Crear / Editar misión -->
+  <div
+    *ngIf="modal() === 'nuevaMision' || modal() === 'editarMision'"
+    class="modal"
+    (click)="cerrarModal()"
+  >
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>{{ modal() === 'nuevaMision' ? 'Nueva Misión' : 'Editar Misión' }}</h3>
+          <p>{{ modal() === 'nuevaMision' ? 'Completá los datos de la nueva misión.' : 'Modificá los datos de la misión.' }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="misionForm" (ngSubmit)="guardarMision()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>País</span>
+            <input type="text" formControlName="pais" placeholder="ej: Congo" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Tipo de Misión</span>
+            <input type="text" formControlName="tipo_mision" placeholder="ej: Misión de Paz" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha Salida</span>
+            <input type="date" formControlName="fecha_salida" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha Llegada</span>
+            <input type="date" formControlName="fecha_llegada" />
+          </label>
+          <label class="modal__field">
+            <span>N° Orden <small>(opcional)</small></span>
+            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-12345" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Boletín <small>(opcional)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: BOL-987" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Comando Responsable <small>(opcional)</small></span>
+            <input type="text" formControlName="comando_responsable" placeholder="ej: Comando Conjunto" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Observaciones <small>(opcional)</small></span>
+            <input type="text" formControlName="observaciones" placeholder="Observaciones" autocomplete="off" />
+          </label>
+        </div>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary" [disabled]="guardando()">
+            {{ guardando() ? 'Guardando...' : (modal() === 'nuevaMision' ? 'Crear Misión' : 'Guardar cambios') }}
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
 </section>
