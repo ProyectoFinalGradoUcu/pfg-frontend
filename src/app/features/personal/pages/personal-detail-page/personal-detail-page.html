@@ -389,8 +389,9 @@
         <div class="pd__timeline-item"
           *ngFor="let h of sortedRangos(); let first = first; let last = last"
           [class.pd__timeline-item--actual]="first">
-          <div class="pd__timeline-dot" [class.pd__timeline-dot--actual]="first"></div>
-          <div class="pd__timeline-line" *ngIf="!last"></div>
+          <div class="pd__timeline-marker">
+            <div class="pd__timeline-dot" [class.pd__timeline-dot--actual]="first"></div>
+          </div>
           <div class="pd__timeline-content">
             <div class="pd__timeline-grado-row">
               <span class="pd__timeline-grado">{{ h.grado.denominacion }}</span>

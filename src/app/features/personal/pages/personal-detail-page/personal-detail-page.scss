@@ -357,7 +357,7 @@
 
 .pd__timeline-item {
   display: grid;
-  grid-template-columns: 14px 1px 1fr;
+  grid-template-columns: 14px 1fr;
   column-gap: 1rem;
   row-gap: 0;
   position: relative;
@@ -373,33 +373,53 @@
   }
 }
 
+// Columna del marcador: se estira a la altura del contenido y centra el punto.
+.pd__timeline-marker {
+  grid-column: 1;
+  align-self: stretch;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  // Línea conectora (segmentos arriba/abajo del punto, centrados en él).
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    background: #e2e8f0;
+  }
+  &::before { top: 0; bottom: 50%; }        // por encima del punto
+  &::after  { top: 50%; bottom: -1.5rem; }  // por debajo, hasta el ítem siguiente
+}
+
+.pd__timeline-item:first-child .pd__timeline-marker::before { display: none; }
+.pd__timeline-item:last-child  .pd__timeline-marker::after  { display: none; }
+
 .pd__timeline-dot {
+  position: relative;
+  z-index: 1;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: #cbd5e1;
   border: 2px solid #ffffff;
   box-shadow: 0 0 0 2px #cbd5e1;
-  align-self: start;
-  margin-top: 6px;
 
   &--actual {
     width: 14px;
     height: 14px;
     background: #132744;
     box-shadow: 0 0 0 2px #132744;
-    margin-top: 5px;
   }
 }
 
-.pd__timeline-line {
-  width: 1px;
-  background: #e2e8f0;
-  justify-self: center;
-  grid-row: 1 / span 2;
-}
-
 .pd__timeline-content {
+  grid-column: 2;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
