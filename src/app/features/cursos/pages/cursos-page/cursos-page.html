@@ -1,4 +1,4 @@
-<section class="cursos">
+<section class="cursos" (click)="cerrarMenu()">
 
   <!-- ── Header ──────────────────────────────────────────────────────────── -->
   <header class="cursos__header">
@@ -106,8 +106,8 @@
               <td class="cursos__cedula">{{ fila.cedula }}</td>
               <td><strong>{{ fila.curso.nombre_curso }}</strong></td>
               <td>{{ fila.curso.institucion }}</td>
-              <td>{{ fila.curso.fechaInicio | date:'d/M/yyyy' }}</td>
-              <td>{{ fila.curso.fechaFin | date:'d/M/yyyy' }}</td>
+              <td>{{ fila.curso.fechaInicio | date:'d/M/yyyy':'UTC' }}</td>
+              <td>{{ fila.curso.fechaFin | date:'d/M/yyyy':'UTC' }}</td>
               <td>
                 <span
                   class="cursos__estado-badge"
@@ -163,8 +163,6 @@
             <tr>
               <th>Nombre del Curso</th>
               <th>Institución</th>
-              <th>Boletín</th>
-              <th>N° Orden</th>
               <th>Tipo</th>
               <th class="cursos__col-actions">Acciones</th>
             </tr>
@@ -173,8 +171,6 @@
             <tr *ngFor="let d of definicionesPaginadas(); trackBy: trackDefinicion">
               <td><strong>{{ d.nombre_curso }}</strong></td>
               <td>{{ d.institucion }}</td>
-              <td>{{ d.boletin ?? '—' }}</td>
-              <td>{{ d.numero_orden ?? '—' }}</td>
               <td>
                 <span
                   class="cursos__obligatorio-badge"
@@ -184,27 +180,16 @@
                   {{ d.es_obligatorio ? 'Obligatorio' : 'Optativo' }}
                 </span>
               </td>
-              <td class="cursos__col-actions">
+              <td class="cursos__col-actions" (click)="$event.stopPropagation()">
                 <button
                   type="button"
-                  class="btn btn--ghost btn--sm"
-                  (click)="abrirModulos(d)"
+                  class="btn btn--ghost btn--sm cursos__menu-btn"
+                  (click)="toggleMenu(d.id, $event)"
+                  [attr.aria-expanded]="openMenuId() === d.id"
+                  aria-label="Acciones"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
-                  </svg>
-                  Módulos
-                  <span class="cursos__modulos-badge" *ngIf="(d.modulos?.length ?? 0) > 0">{{ d.modulos!.length }}</span>
-                </button>
-                <button
-                  *ngIf="puedeGestionar()"
-                  type="button"
-                  class="btn btn--ghost btn--sm cursos__btn-danger"
-                  (click)="eliminarCurso(d)"
-                  aria-label="Eliminar curso"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
                   </svg>
                 </button>
               </td>
@@ -224,6 +209,43 @@
         (pageChange)="defPage.set($event)"
       ></app-paginator>
     </article>
+
+    <!-- Dropdown: Acciones (fixed, escapa del overflow de la tabla) -->
+    <ng-container *ngFor="let d of definicionesPaginadas(); trackBy: trackDefinicion">
+      <div
+        *ngIf="openMenuId() === d.id && menuPosition() as pos"
+        class="cursos__dropdown"
+        [style.top.px]="pos.top"
+        [style.right.px]="pos.right"
+        (click)="$event.stopPropagation()"
+      >
+        <button *ngIf="puedeGestionar()" type="button" class="cursos__dropdown-item" (click)="abrirDesignar(d)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+          </svg>
+          Designar / Dictar
+        </button>
+        <button type="button" class="cursos__dropdown-item" (click)="abrirModulos(d)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
+          </svg>
+          Módulos
+          <span class="cursos__modulos-badge" *ngIf="(d.modulos?.length ?? 0) > 0">{{ d.modulos!.length }}</span>
+        </button>
+        <button *ngIf="puedeGestionar()" type="button" class="cursos__dropdown-item" (click)="abrirEditar(d)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+          </svg>
+          Editar
+        </button>
+        <button *ngIf="puedeGestionar()" type="button" class="cursos__dropdown-item cursos__dropdown-item--danger" (click)="eliminarCurso(d)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+          </svg>
+          Eliminar
+        </button>
+      </div>
+    </ng-container>
 
   </ng-container>
 
@@ -321,7 +343,7 @@
   <!-- MODAL: Nuevo curso                                                     -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <div *ngIf="modal() === 'nuevoCurso'" class="modal" (click)="cerrarModal()">
-    <div class="modal__card" (click)="$event.stopPropagation()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
       <header class="modal__header">
         <div>
           <h3>Nuevo Curso</h3>
@@ -346,14 +368,6 @@
             <span>Institución <em>*</em></span>
             <input type="text" formControlName="institucion" placeholder="ej: Escuela Militar de Aeronáutica" autocomplete="off" />
           </label>
-          <label class="modal__field">
-            <span>Boletín <small>(opcional)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>N° Orden <small>(opcional)</small></span>
-            <input type="text" formControlName="numero_orden" placeholder="ej: OC-1542" autocomplete="off" />
-          </label>
         </div>
 
         <label class="cursos__toggle-row">
@@ -373,6 +387,57 @@
             <span class="cursos__toggle-thumb"></span>
           </span>
         </label>
+
+        <label class="cursos__toggle-row">
+          <div class="cursos__toggle-info">
+            <strong>Designar ahora</strong>
+            <small>Designá personal a este curso en el mismo paso (orden/boletín opcionales)</small>
+          </div>
+          <span
+            class="cursos__toggle"
+            [class.cursos__toggle--on]="nuevoCursoForm.get('designar_ahora')!.value"
+            (click)="nuevoCursoForm.get('designar_ahora')!.setValue(!nuevoCursoForm.get('designar_ahora')!.value)"
+            role="switch"
+            [attr.aria-checked]="nuevoCursoForm.get('designar_ahora')!.value"
+            tabindex="0"
+            (keydown.space)="$event.preventDefault(); nuevoCursoForm.get('designar_ahora')!.setValue(!nuevoCursoForm.get('designar_ahora')!.value)"
+          >
+            <span class="cursos__toggle-thumb"></span>
+          </span>
+        </label>
+
+        <div *ngIf="nuevoCursoForm.get('designar_ahora')!.value" class="cursos__designar-box">
+          <div class="modal__grid-2">
+            <label class="modal__field">
+              <span>N° Orden <small>(opcional)</small></span>
+              <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
+            </label>
+            <label class="modal__field">
+              <span>Boletín <small>(opcional)</small></span>
+              <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+            </label>
+            <label class="modal__field">
+              <span>Fecha Inicio <small>(opcional)</small></span>
+              <input type="date" formControlName="fecha_inicio" />
+            </label>
+            <label class="modal__field">
+              <span>Fecha Fin <small>(opcional)</small></span>
+              <input type="date" formControlName="fecha_fin" />
+            </label>
+          </div>
+          <label class="modal__field">
+            <span>Personal a designar <em>*</em></span>
+            <app-select
+              formControlName="persona_ids"
+              [items]="personal()"
+              bindLabel="nombre"
+              bindValue="id"
+              placeholder="Seleccione una o más personas"
+              [searchable]="true"
+              [multiple]="true"
+            ></app-select>
+          </label>
+        </div>
 
         <footer class="modal__actions">
           <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
@@ -452,6 +517,141 @@
           </footer>
         </form>
       </ng-container>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Designar / Dictar                                               -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'designar' && cursoSeleccionado() as curso" class="modal" (click)="cerrarModal()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Designar / Dictar</h3>
+          <p>{{ curso.nombre_curso }} — designá personal bajo una orden/boletín. Sirve para un nuevo dictado.</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="designarForm" (ngSubmit)="guardarDesignar()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>N° Orden <small>(opcional)</small></span>
+            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Boletín <small>(opcional)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha Inicio <small>(opcional)</small></span>
+            <input type="date" formControlName="fecha_inicio" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha Fin <small>(opcional)</small></span>
+            <input type="date" formControlName="fecha_fin" />
+          </label>
+        </div>
+
+        <label class="modal__field">
+          <span>Personal <em>*</em></span>
+          <app-select
+            formControlName="persona_ids"
+            [items]="personal()"
+            bindLabel="nombre"
+            bindValue="id"
+            placeholder="Seleccione una o más personas"
+            [searchable]="true"
+            [multiple]="true"
+          ></app-select>
+        </label>
+
+        <div class="modal__field" *ngIf="(curso.modulos?.length ?? 0) > 0">
+          <span>Módulos <small>(opcional — vacío = designación a nivel curso)</small></span>
+          <div class="cursos__modulo-checks">
+            <label
+              *ngFor="let m of (curso.modulos ?? []); trackBy: trackModulo"
+              class="cursos__modulo-check"
+              [class.cursos__modulo-check--on]="moduloSeleccionado(m.id)"
+            >
+              <input
+                type="checkbox"
+                [checked]="moduloSeleccionado(m.id)"
+                (change)="toggleModuloDesignar(m.id)"
+              />
+              <span>{{ m.orden }}. {{ m.nombre }}</span>
+            </label>
+          </div>
+        </div>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary" [disabled]="designando()">Designar</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Editar curso                                                    -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'editar' && cursoSeleccionado() as curso" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Editar Curso</h3>
+          <p>{{ curso.nombre_curso }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="editarForm" (ngSubmit)="guardarEditar()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>Nombre del Curso <em>*</em></span>
+            <input type="text" formControlName="nombre_curso" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Institución <em>*</em></span>
+            <input type="text" formControlName="institucion" autocomplete="off" />
+          </label>
+        </div>
+
+        <label class="cursos__toggle-row">
+          <div class="cursos__toggle-info">
+            <strong>Curso obligatorio</strong>
+            <small>Indica si el curso es de carácter obligatorio para el personal</small>
+          </div>
+          <span
+            class="cursos__toggle"
+            [class.cursos__toggle--on]="editarForm.get('es_obligatorio')!.value"
+            (click)="editarForm.get('es_obligatorio')!.setValue(!editarForm.get('es_obligatorio')!.value)"
+            role="switch"
+            [attr.aria-checked]="editarForm.get('es_obligatorio')!.value"
+            tabindex="0"
+            (keydown.space)="$event.preventDefault(); editarForm.get('es_obligatorio')!.setValue(!editarForm.get('es_obligatorio')!.value)"
+          >
+            <span class="cursos__toggle-thumb"></span>
+          </span>
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Guardar cambios</button>
+        </footer>
+      </form>
     </div>
   </div>
 

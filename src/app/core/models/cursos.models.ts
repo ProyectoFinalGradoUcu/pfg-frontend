@@ -28,6 +28,8 @@ export interface CursoFuncionarioItem {
   fechaInicio: string;
   fechaFin: string;
   estado: EstadoCurso;
+  numero_orden?: string | null;
+  boletin?: string | null;
   documentoUrl?: string | null;
 }
 
@@ -61,8 +63,6 @@ export interface CursoDefinicion {
   id: string;
   nombre_curso: string;
   institucion: string;
-  boletin?: string | null;
-  numero_orden?: string | null;
   es_obligatorio?: boolean;
   modulos?: ModuloCurso[];
 }
@@ -70,8 +70,6 @@ export interface CursoDefinicion {
 export interface CreateCursoDefinicionPayload {
   nombre_curso: string;
   institucion: string;
-  boletin?: string;
-  numero_orden?: string;
   es_obligatorio?: boolean;
 }
 
@@ -79,4 +77,21 @@ export interface CreateModuloPayload {
   nombre_modulo: string;
   orden_modulo: number;
   descripcion?: string;
+}
+
+export interface UpdateCursoPayload {
+  nombre_curso?: string;
+  institucion?: string;
+  es_obligatorio?: boolean;
+}
+
+// ── Designaciones / Instancias ───────────────────────────────────────────────
+
+export interface CreateDesignacionPayload {
+  persona_ids: number[];
+  modulo_ids?: number[];
+  numero_orden?: string;
+  boletin?: string;
+  fecha_inicio?: string;
+  fecha_fin?: string;
 }
