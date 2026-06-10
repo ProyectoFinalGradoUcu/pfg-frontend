@@ -559,8 +559,13 @@ $navy-soft: #1e3a5f;
 
 .modal__grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 1.5rem;
+  min-width: 0;
+
+  > * {
+    min-width: 0;
+  }
 
   @media (max-width: 520px) {
     grid-template-columns: 1fr;
@@ -818,4 +823,97 @@ $navy-soft: #1e3a5f;
   .cursos__toggle--on & {
     transform: translateX(1.25rem);
   }
+}
+
+// ── Menú de acciones (kebab) + dropdown ──────────────────────────────────────
+
+.cursos__menu-btn {
+  border-color: transparent !important;
+
+  &:hover:not(:disabled) {
+    border-color: #e2e8f0 !important;
+    background-color: #f1f5f9 !important;
+  }
+}
+
+.cursos__dropdown {
+  position: fixed;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  min-width: 180px;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.cursos__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+
+  svg { width: 1.1rem; height: 1.1rem; flex-shrink: 0; }
+
+  &:hover { background-color: #f1f5f9; }
+
+  &--danger {
+    color: #b91c1c;
+    &:hover { background-color: #fef2f2; }
+  }
+
+  .cursos__modulos-badge { margin-left: auto; }
+}
+
+// ── Caja "Designar ahora" + checks de módulos ────────────────────────────────
+
+.cursos__designar-box {
+  margin-top: 0.75rem;
+  padding: 0.9rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background-color: #f8fafc;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+
+  > * {
+    min-width: 0;
+  }
+}
+
+.cursos__modulo-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cursos__modulo-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  user-select: none;
+
+  &--on {
+    border-color: $navy;
+    background-color: #eef2f7;
+    color: $navy;
+    font-weight: 600;
+  }
+
+  input { accent-color: $navy; }
 }

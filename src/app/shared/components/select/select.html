@@ -5,12 +5,12 @@
     (click)="toggle()"
     [disabled]="disabledState()"
   >
-    <span *ngIf="selectedLabel() as label" class="appsel__value">{{ label }}</span>
-    <span *ngIf="!selectedLabel()" class="appsel__placeholder">{{ placeholder }}</span>
+    <span *ngIf="(multiple ? multipleLabel() : selectedLabel()) as label" class="appsel__value">{{ label }}</span>
+    <span *ngIf="!(multiple ? multipleLabel() : selectedLabel())" class="appsel__placeholder">{{ placeholder }}</span>
 
     <span class="appsel__icons">
       <button
-        *ngIf="clearable && selectedValue() !== null && selectedValue() !== ''"
+        *ngIf="clearable && hasValue()"
         type="button"
         class="appsel__clear"
         (click)="clear($event)"
@@ -28,8 +28,8 @@
     </span>
   </button>
 
-  <div *ngIf="open()" class="appsel__dropdown">
-    <ul *ngIf="selectedItem() as sel" class="appsel__list appsel__list--top">
+  <div *ngIf="open()" class="appsel__dropdown" (click)="$event.preventDefault()">
+    <ul *ngIf="!multiple && selectedItem() as sel" class="appsel__list appsel__list--top">
       <li
         class="appsel__option appsel__option--selected"
         role="option"
@@ -63,21 +63,27 @@
 
     <ul class="appsel__list">
       <li
-        *ngFor="let item of otherFilteredItems(); trackBy: trackItem"
+        *ngFor="let item of displayItems(); trackBy: trackItem"
         class="appsel__option"
+        [class.appsel__option--selected]="multiple && isSelected(item)"
         role="option"
-        aria-selected="false"
+        [attr.aria-selected]="multiple ? isSelected(item) : false"
         (click)="pick(item)"
       >
         <span>{{ getLabelOf(item) }}</span>
+        <svg
+          *ngIf="multiple && isSelected(item)"
+          class="appsel__check"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2.5"
+          stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+        </svg>
       </li>
-      <li *ngIf="otherFilteredItems().length === 0 && !selectedItem()" class="appsel__empty">
-        Sin resultados
-      </li>
-      <li
-        *ngIf="otherFilteredItems().length === 0 && selectedItem() && searchTerm()"
-        class="appsel__empty"
-      >
+      <li *ngIf="displayItems().length === 0" class="appsel__empty">
         Sin resultados
       </li>
     </ul>

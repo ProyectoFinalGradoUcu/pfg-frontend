@@ -19,7 +19,13 @@ import {
 } from '../../../../core/models/cursos.models';
 
 type TabKind = 'historial' | 'gestion';
-type ModalKind = 'registrarCurso' | 'nuevoCurso' | 'modulos' | null;
+type ModalKind =
+  | 'registrarCurso'
+  | 'nuevoCurso'
+  | 'modulos'
+  | 'designar'
+  | 'editar'
+  | null;
 
 interface FilaHistorial {
   funcionarioId: string;
@@ -66,6 +72,13 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly defPageSize = 10;
   readonly cursoSeleccionado = signal<CursoDefinicion | null>(null);
   readonly guardandoModulo = signal(false);
+
+  // ── Menú de acciones (kebab) ────────────────────────────────────────────────
+  readonly openMenuId = signal<string | null>(null);
+  readonly menuPosition = signal<{ top: number; right: number } | null>(null);
+
+  // ── Designar ────────────────────────────────────────────────────────────────
+  readonly designando = signal(false);
 
   // ── Computed ───────────────────────────────────────────────────────────────
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('cursos.gestionar'));
@@ -126,14 +139,34 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly nuevoCursoForm = this.fb.group({
     nombre_curso: ['', [Validators.required, Validators.maxLength(150)]],
     institucion: ['', [Validators.required, Validators.maxLength(100)]],
-    boletin: [''],
-    numero_orden: [''],
     es_obligatorio: [false],
+    // Designar ahora (toggle): si está activo, crea el curso y una primera designación.
+    designar_ahora: [false],
+    numero_orden: [''],
+    boletin: [''],
+    fecha_inicio: [''],
+    fecha_fin: [''],
+    persona_ids: [[] as string[]],
   });
 
   readonly moduloForm = this.fb.group({
     nombre: ['', [Validators.required, Validators.maxLength(100)]],
     descripcion: [''],
+  });
+
+  readonly designarForm = this.fb.group({
+    numero_orden: [''],
+    boletin: [''],
+    fecha_inicio: [''],
+    fecha_fin: [''],
+    persona_ids: [[] as string[], Validators.required],
+    modulo_ids: [[] as string[]],
+  });
+
+  readonly editarForm = this.fb.group({
+    nombre_curso: ['', [Validators.required, Validators.maxLength(150)]],
+    institucion: ['', [Validators.required, Validators.maxLength(100)]],
+    es_obligatorio: [false],
   });
 
   ngOnInit(): void {
@@ -205,12 +238,17 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   abrirNuevoCurso(): void {
-    this.nuevoCursoForm.reset({ nombre_curso: '', institucion: '', boletin: '', numero_orden: '', es_obligatorio: false });
+    this.nuevoCursoForm.reset({
+      nombre_curso: '', institucion: '', es_obligatorio: false,
+      designar_ahora: false, numero_orden: '', boletin: '',
+      fecha_inicio: '', fecha_fin: '', persona_ids: [],
+    });
     this.modalError.set(null);
     this.modal.set('nuevoCurso');
   }
 
   abrirModulos(curso: CursoDefinicion): void {
+    this.cerrarMenu();
     this.cursoSeleccionado.set(curso);
     this.moduloForm.reset({ nombre: '', descripcion: '' });
     this.modalError.set(null);
@@ -222,6 +260,131 @@ export class CursosPage implements OnInit, OnDestroy {
     this.modalError.set(null);
     this.archivoCertificado.set(null);
     this.cursoSeleccionado.set(null);
+  }
+
+  // ── Menú de acciones (kebab) ────────────────────────────────────────────────
+
+  toggleMenu(id: string, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.openMenuId() === id) {
+      this.cerrarMenu();
+    } else {
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      this.menuPosition.set({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+      this.openMenuId.set(id);
+    }
+  }
+
+  cerrarMenu(): void {
+    this.openMenuId.set(null);
+    this.menuPosition.set(null);
+  }
+
+  // ── Designar / Dictar ───────────────────────────────────────────────────────
+
+  abrirDesignar(curso: CursoDefinicion): void {
+    this.cerrarMenu();
+    this.cursoSeleccionado.set(curso);
+    this.designarForm.reset({
+      numero_orden: '', boletin: '', fecha_inicio: '', fecha_fin: '',
+      persona_ids: [], modulo_ids: [],
+    });
+    this.modalError.set(null);
+    this.modal.set('designar');
+  }
+
+  toggleModuloDesignar(moduloId: string): void {
+    const actuales = this.designarForm.controls.modulo_ids.value ?? [];
+    const next = actuales.includes(moduloId)
+      ? actuales.filter((m) => m !== moduloId)
+      : [...actuales, moduloId];
+    this.designarForm.controls.modulo_ids.setValue(next);
+  }
+
+  moduloSeleccionado(moduloId: string): boolean {
+    return (this.designarForm.controls.modulo_ids.value ?? []).includes(moduloId);
+  }
+
+  guardarDesignar(): void {
+    const curso = this.cursoSeleccionado();
+    if (!curso) return;
+    if (this.designarForm.invalid) {
+      this.designarForm.markAllAsTouched();
+      this.modalError.set('Seleccioná al menos una persona');
+      return;
+    }
+    const raw = this.designarForm.getRawValue();
+    const personaIds = (raw.persona_ids ?? []).map((id) => Number(id));
+    if (personaIds.length === 0) {
+      this.modalError.set('Seleccioná al menos una persona');
+      return;
+    }
+
+    this.modalError.set(null);
+    this.designando.set(true);
+    this.cursosService
+      .crearDesignacion(curso.id, {
+        persona_ids: personaIds,
+        modulo_ids: (raw.modulo_ids ?? []).map((id) => Number(id)),
+        numero_orden: raw.numero_orden || undefined,
+        boletin: raw.boletin || undefined,
+        fecha_inicio: raw.fecha_inicio || undefined,
+        fecha_fin: raw.fecha_fin || undefined,
+      })
+      .subscribe({
+        next: (res) => {
+          this.designando.set(false);
+          this.cerrarModal();
+          this.toast.success(`Designación registrada: ${res.personas_designadas} persona(s)`);
+          this.cargar();
+        },
+        error: (err: HttpErrorResponse) => {
+          this.designando.set(false);
+          this.modalError.set(this.parseError(err));
+        },
+      });
+  }
+
+  // ── Editar curso ──────────────────────────────────────────────────────────
+
+  abrirEditar(curso: CursoDefinicion): void {
+    this.cerrarMenu();
+    this.cursoSeleccionado.set(curso);
+    this.editarForm.reset({
+      nombre_curso: curso.nombre_curso,
+      institucion: curso.institucion,
+      es_obligatorio: curso.es_obligatorio ?? false,
+    });
+    this.modalError.set(null);
+    this.modal.set('editar');
+  }
+
+  guardarEditar(): void {
+    const curso = this.cursoSeleccionado();
+    if (!curso) return;
+    if (this.editarForm.invalid) {
+      this.editarForm.markAllAsTouched();
+      this.modalError.set('Completá todos los campos requeridos');
+      return;
+    }
+    const { nombre_curso, institucion, es_obligatorio } = this.editarForm.getRawValue();
+    this.modalError.set(null);
+    this.cursosService
+      .editarCurso(curso.id, {
+        nombre_curso: nombre_curso!,
+        institucion: institucion!,
+        es_obligatorio: es_obligatorio ?? false,
+      })
+      .subscribe({
+        next: (actualizado) => {
+          this.definiciones.update((lista) =>
+            lista.map((d) => (d.id === curso.id ? { ...d, ...actualizado } : d)),
+          );
+          this.cerrarModal();
+          this.toast.success('Curso actualizado');
+        },
+        error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
+      });
   }
 
   // ── Acciones ───────────────────────────────────────────────────────────────
@@ -265,22 +428,52 @@ export class CursosPage implements OnInit, OnDestroy {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { nombre_curso, institucion, boletin, numero_orden, es_obligatorio } = this.nuevoCursoForm.getRawValue();
+    const raw = this.nuevoCursoForm.getRawValue();
+    const designarAhora = !!raw.designar_ahora;
+    const personaIds = (raw.persona_ids ?? []).map((id) => Number(id));
+
+    if (designarAhora && personaIds.length === 0) {
+      this.modalError.set('Seleccioná al menos una persona para designar, o desactivá "Designar ahora"');
+      return;
+    }
 
     this.modalError.set(null);
     this.cursosService
       .createDefinicion({
-        nombre_curso: nombre_curso!,
-        institucion: institucion!,
-        boletin: boletin || undefined,
-        numero_orden: numero_orden || undefined,
-        es_obligatorio: es_obligatorio ?? false,
+        nombre_curso: raw.nombre_curso!,
+        institucion: raw.institucion!,
+        es_obligatorio: raw.es_obligatorio ?? false,
       })
       .subscribe({
         next: (nuevo) => {
-          this.cerrarModal();
-          this.toast.success(`Curso "${nuevo.nombre_curso}" creado correctamente`);
           this.definiciones.update((lista) => [...lista, nuevo]);
+
+          if (!designarAhora) {
+            this.cerrarModal();
+            this.toast.success(`Curso "${nuevo.nombre_curso}" creado correctamente`);
+            return;
+          }
+
+          // Designación a nivel curso (sin módulos: el curso recién se crea).
+          this.cursosService
+            .crearDesignacion(nuevo.id, {
+              persona_ids: personaIds,
+              numero_orden: raw.numero_orden || undefined,
+              boletin: raw.boletin || undefined,
+              fecha_inicio: raw.fecha_inicio || undefined,
+              fecha_fin: raw.fecha_fin || undefined,
+            })
+            .subscribe({
+              next: () => {
+                this.cerrarModal();
+                this.toast.success(`Curso "${nuevo.nombre_curso}" creado y designado`);
+                this.cargar();
+              },
+              error: (err: HttpErrorResponse) => {
+                this.toast.error('Curso creado, pero falló la designación: ' + this.parseError(err));
+                this.cerrarModal();
+              },
+            });
         },
         error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
       });
@@ -322,6 +515,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   eliminarCurso(curso: CursoDefinicion): void {
+    this.cerrarMenu();
     if (!confirm(`¿Eliminar el curso "${curso.nombre_curso}"? Esta acción no se puede deshacer.`)) {
       return;
     }

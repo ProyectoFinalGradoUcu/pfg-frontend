@@ -34,14 +34,18 @@ export class Select implements ControlValueAccessor {
   @Input() placeholder = 'Seleccionar...';
   @Input() searchable = false;
   @Input() clearable = false;
+  /** Selección múltiple: el valor del control pasa a ser un array y el panel no se cierra al elegir. */
+  @Input() multiple = false;
 
   @ViewChild('searchInputRef') searchInputRef?: ElementRef<HTMLInputElement>;
 
   readonly open = signal(false);
   readonly searchTerm = signal('');
+  // Single: valor escalar. Múltiple: array de valores.
   readonly selectedValue = signal<unknown>(null);
   readonly disabledState = signal(false);
 
+  // ── Single ──────────────────────────────────────────────────────────────
   readonly selectedItem = computed<unknown | null>(() => {
     const value = this.selectedValue();
     if (value === null || value === undefined || value === '') return null;
@@ -65,6 +69,48 @@ export class Select implements ControlValueAccessor {
       );
     }
     return list;
+  });
+
+  // ── Múltiple ──────────────────────────────────────────────────────────────
+  readonly selectedValuesArr = computed<unknown[]>(() => {
+    const v = this.selectedValue();
+    return Array.isArray(v) ? v : [];
+  });
+
+  readonly selectedItemsMulti = computed<unknown[]>(() => {
+    const vals = this.selectedValuesArr();
+    return this.items.filter((it) => vals.some((v) => v === this.getValue(it)));
+  });
+
+  readonly multipleLabel = computed<string | null>(() => {
+    const items = this.selectedItemsMulti();
+    if (!items.length) return null;
+    if (items.length <= 2) {
+      return items.map((i) => String(this.getLabel(i))).join(', ');
+    }
+    return `${items.length} seleccionados`;
+  });
+
+  readonly filteredItems = computed<unknown[]>(() => {
+    const term = this.searchTerm().toLowerCase().trim();
+    let list = this.items.slice();
+    if (this.searchable && term) {
+      list = list.filter((item) =>
+        String(this.getLabel(item)).toLowerCase().includes(term),
+      );
+    }
+    return list;
+  });
+
+  // ── Comunes ────────────────────────────────────────────────────────────────
+  readonly displayItems = computed<unknown[]>(() =>
+    this.multiple ? this.filteredItems() : this.otherFilteredItems(),
+  );
+
+  readonly hasValue = computed<boolean>(() => {
+    if (this.multiple) return this.selectedValuesArr().length > 0;
+    const v = this.selectedValue();
+    return v !== null && v !== undefined && v !== '';
   });
 
   private onChange: (value: unknown) => void = () => {};
@@ -101,8 +147,27 @@ export class Select implements ControlValueAccessor {
     this.open.update((v) => !v);
   }
 
+  isSelected(item: unknown): boolean {
+    const val = this.getValue(item);
+    return this.selectedValuesArr().some((v) => v === val);
+  }
+
   pick(item: unknown): void {
     const value = this.getValue(item);
+
+    if (this.multiple) {
+      const current = this.selectedValuesArr();
+      const exists = current.some((v) => v === value);
+      const next = exists
+        ? current.filter((v) => v !== value)
+        : [...current, value];
+      this.selectedValue.set(next);
+      this.onChange(next);
+      this.onTouched();
+      // Múltiple: el panel queda abierto para seguir agregando.
+      return;
+    }
+
     this.selectedValue.set(value);
     this.onChange(value);
     this.onTouched();
@@ -112,8 +177,9 @@ export class Select implements ControlValueAccessor {
 
   clear(event: MouseEvent): void {
     event.stopPropagation();
-    this.selectedValue.set(null);
-    this.onChange(null);
+    const empty = this.multiple ? [] : null;
+    this.selectedValue.set(empty);
+    this.onChange(empty);
     this.onTouched();
   }
 
@@ -142,9 +208,13 @@ export class Select implements ControlValueAccessor {
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    if (!this.elementRef.nativeElement.contains(event.target as Node)) {
-      this.open.set(false);
+    const host = this.elementRef.nativeElement as HTMLElement;
+    // composedPath se calcula al dispatch: robusto aunque el nodo se re-renderice.
+    const path = (event.composedPath?.() ?? []) as EventTarget[];
+    if (path.includes(host) || host.contains(event.target as Node)) {
+      return;
     }
+    this.open.set(false);
   }
 
   @HostListener('document:keydown.escape')
