@@ -4,20 +4,53 @@
       <h2>Gestión de Usuarios y Roles</h2>
       <p>Administración de usuarios del sistema y asignación de permisos</p>
     </div>
-    <button
-      *ngIf="puedeGestionarUsuarios()"
-      type="button"
-      class="btn btn--ghost btn--lg"
-      (click)="abrirNuevoUsuario()"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
-      </svg>
-      Nuevo Usuario
-    </button>
+    <div class="ur__header-actions">
+      <button
+        *ngIf="tab() === 'usuarios' && puedeGestionarUsuarios()"
+        type="button"
+        class="btn btn--ghost btn--lg"
+        (click)="abrirNuevoUsuario()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+        </svg>
+        Nuevo Usuario
+      </button>
+      <button
+        *ngIf="tab() === 'invitaciones' && puedeGestionarUsuarios()"
+        type="button"
+        class="btn btn--ghost btn--lg"
+        (click)="abrirNuevaInvitacion()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+        </svg>
+        Nueva Invitación
+      </button>
+    </div>
   </header>
 
-  <article class="ur__card">
+  <!-- Tabs -->
+  <nav class="ur__tabs">
+    <button
+      class="ur__tab"
+      [class.ur__tab--active]="tab() === 'usuarios'"
+      (click)="cambiarTab('usuarios')"
+    >Usuarios</button>
+    <button
+      class="ur__tab"
+      [class.ur__tab--active]="tab() === 'invitaciones'"
+      (click)="cambiarTab('invitaciones')"
+    >Invitaciones</button>
+    <button
+      class="ur__tab"
+      [class.ur__tab--active]="tab() === 'roles'"
+      (click)="cambiarTab('roles')"
+    >Roles y Permisos</button>
+  </nav>
+
+  <!-- ── TAB: USUARIOS ─────────────────────────────────────────────────── -->
+  <article class="ur__card" *ngIf="tab() === 'usuarios'">
     <h3>Usuarios del Sistema</h3>
 
     <div *ngIf="usuariosLoading()" class="ur__placeholder">Cargando...</div>
@@ -46,11 +79,7 @@
             </td>
             <td><span class="ur__email">{{ u.username }}</span></td>
             <td>
-              <span
-                *ngFor="let r of u.roles"
-                class="ur__rol-badge"
-                [attr.data-rol]="r.nombre"
-              >
+              <span *ngFor="let r of u.roles" class="ur__rol-badge" [attr.data-rol]="r.nombre">
                 {{ r.nombre }}
               </span>
               <small *ngIf="u.roles.length === 0" class="ur__muted">sin roles</small>
@@ -67,11 +96,7 @@
               </span>
             </td>
             <td *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">
-              <button
-                type="button"
-                class="btn btn--ghost btn--sm"
-                (click)="abrirEditar(u)"
-              >
+              <button type="button" class="btn btn--ghost btn--sm" (click)="abrirEditar(u)">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                 </svg>
@@ -96,7 +121,72 @@
     ></app-paginator>
   </article>
 
-  <article class="ur__card" *ngIf="!loading()">
+  <!-- ── TAB: INVITACIONES ─────────────────────────────────────────────── -->
+  <article class="ur__card" *ngIf="tab() === 'invitaciones'">
+    <header class="ur__card-header">
+      <h3>Invitaciones</h3>
+      <div class="ur__filter">
+        <select [value]="estadoFiltro()" (change)="onEstadoFiltroChange($event)">
+          <option *ngFor="let o of estadosFiltro" [value]="o.value">{{ o.label }}</option>
+        </select>
+      </div>
+    </header>
+
+    <div *ngIf="invitacionesLoading()" class="ur__placeholder">Cargando...</div>
+
+    <div *ngIf="!invitacionesLoading()" class="ur__table-wrapper">
+      <table class="ur__table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Roles</th>
+            <th>Estado</th>
+            <th>Creada</th>
+            <th>Expira</th>
+            <th *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let inv of invitaciones(); trackBy: trackInvitacion">
+            <td><span class="ur__email">{{ inv.email }}</span></td>
+            <td>
+              <span *ngFor="let r of inv.roles" class="ur__rol-badge" [attr.data-rol]="r">{{ r }}</span>
+              <small *ngIf="inv.roles.length === 0" class="ur__muted">—</small>
+            </td>
+            <td>
+              <span
+                class="ur__inv-estado"
+                [class.ur__inv-estado--pendiente]="inv.estado === 'pendiente'"
+                [class.ur__inv-estado--aceptada]="inv.estado === 'aceptada'"
+                [class.ur__inv-estado--expirada]="inv.estado === 'expirada'"
+              >{{ inv.estado }}</span>
+            </td>
+            <td class="ur__date">{{ inv.creadoEn | date:'dd/MM/yyyy' }}</td>
+            <td class="ur__date">{{ inv.expiraEn | date:'dd/MM/yyyy HH:mm' }}</td>
+            <td *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">
+              <button
+                *ngIf="inv.estado === 'pendiente'"
+                type="button"
+                class="btn btn--danger btn--sm"
+                [disabled]="revocandoId() === inv.id"
+                (click)="revocarInvitacion(inv)"
+              >
+                Revocar
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="invitaciones().length === 0">
+            <td [attr.colspan]="puedeGestionarUsuarios() ? 6 : 5" class="ur__empty">
+              No hay invitaciones con ese estado
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <!-- ── TAB: ROLES Y PERMISOS ─────────────────────────────────────────── -->
+  <article class="ur__card" *ngIf="tab() === 'roles' && !loading()">
     <header class="ur__card-header">
       <h3>Matriz de Permisos por Rol</h3>
       <div class="ur__search">
@@ -129,9 +219,7 @@
         </thead>
         <tbody>
           <tr *ngIf="permisosLoading()">
-            <td [attr.colspan]="roles().length + 1" class="ur__empty">
-              Cargando permisos...
-            </td>
+            <td [attr.colspan]="roles().length + 1" class="ur__empty">Cargando permisos...</td>
           </tr>
           <ng-container *ngIf="!permisosLoading()">
             <tr *ngFor="let p of permisos(); trackBy: trackPermiso">
@@ -148,9 +236,7 @@
               </td>
             </tr>
             <tr *ngIf="permisosTotal() === 0">
-              <td [attr.colspan]="roles().length + 1" class="ur__empty">
-                Sin permisos que coincidan
-              </td>
+              <td [attr.colspan]="roles().length + 1" class="ur__empty">Sin permisos que coincidan</td>
             </tr>
           </ng-container>
         </tbody>
@@ -165,6 +251,7 @@
     ></app-paginator>
   </article>
 
+  <!-- ── MODAL: NUEVO USUARIO ──────────────────────────────────────────── -->
   <div *ngIf="modal() === 'nuevoUsuario'" class="modal" (click)="cerrarModal()">
     <div class="modal__card" (click)="$event.stopPropagation()">
       <header class="modal__header">
@@ -180,9 +267,7 @@
       </header>
 
       <form [formGroup]="nuevoUsuarioForm" (ngSubmit)="crearUsuario()" novalidate>
-        <div *ngIf="modalError()" class="modal__error" role="alert">
-          {{ modalError() }}
-        </div>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
         <label class="modal__field">
           <span>Email <em>*</em></span>
@@ -214,6 +299,7 @@
     </div>
   </div>
 
+  <!-- ── MODAL: EDITAR USUARIO ─────────────────────────────────────────── -->
   <div *ngIf="modal() === 'editarUsuario' && editTarget() as t" class="modal" (click)="cerrarModal()">
     <div class="modal__card" (click)="$event.stopPropagation()">
       <header class="modal__header">
@@ -229,9 +315,7 @@
       </header>
 
       <form [formGroup]="editForm" (ngSubmit)="guardarEdicion()" novalidate>
-        <div *ngIf="modalError()" class="modal__error" role="alert">
-          {{ modalError() }}
-        </div>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
         <label class="modal__field">
           <span>Rol <em>*</em></span>
@@ -265,6 +349,70 @@
         <footer class="modal__actions">
           <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
           <button type="submit" class="btn btn--primary">Guardar cambios</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL: NUEVA INVITACIÓN ───────────────────────────────────────── -->
+  <div *ngIf="modal() === 'nuevaInvitacion'" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Nueva Invitación</h3>
+          <p>Se enviará un email con el link de registro.</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="nuevaInvitacionForm" (ngSubmit)="enviarInvitacion()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <label class="modal__field">
+          <span>Email <em>*</em></span>
+          <input
+            type="email"
+            formControlName="email"
+            placeholder="ej: juan.perez@fau.mil.uy"
+            autocomplete="off"
+          />
+        </label>
+
+        <label class="modal__field">
+          <span>Persona ID <small>(opcional)</small></span>
+          <input
+            type="number"
+            formControlName="personaId"
+            placeholder="ID numérico de la persona"
+            autocomplete="off"
+          />
+        </label>
+
+        <div class="modal__field" *ngIf="roles().length > 0">
+          <legend>Roles <small>(opcional)</small></legend>
+          <div class="modal__chips">
+            <label
+              *ngFor="let r of roles(); trackBy: trackRol"
+              class="modal__chip"
+              [class.modal__chip--selected]="rolesInvitacion().includes(r.nombre)"
+            >
+              <input
+                type="checkbox"
+                [checked]="rolesInvitacion().includes(r.nombre)"
+                (change)="toggleRolInvitacion(r.nombre)"
+              />
+              {{ r.nombre }}
+            </label>
+          </div>
+        </div>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Enviar invitación</button>
         </footer>
       </form>
     </div>

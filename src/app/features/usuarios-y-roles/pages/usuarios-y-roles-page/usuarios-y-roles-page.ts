@@ -3,13 +3,15 @@ import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, forkJoin } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
+import { InvitacionesService } from '../../../../core/services/invitaciones.service';
 import { PermisosService } from '../../../../core/services/permisos.service';
 import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
-import { Permiso, Rol, Usuario } from '../../../../core/models/auth.models';
+import { Invitacion, Permiso, Rol, Usuario } from '../../../../core/models/auth.models';
 
-type ModalKind = 'nuevoUsuario' | 'editarUsuario' | null;
+type Tab = 'usuarios' | 'invitaciones' | 'roles';
+type ModalKind = 'nuevoUsuario' | 'editarUsuario' | 'nuevaInvitacion' | null;
 
 @Component({
   selector: 'app-usuarios-y-roles-page',
@@ -23,20 +25,48 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly usuariosService = inject(UsuariosService);
   private readonly rolesService = inject(RolesService);
   private readonly permisosService = inject(PermisosService);
+  private readonly invitacionesService = inject(InvitacionesService);
   private readonly toast = inject(ToastService);
 
+  // ── Tab ──────────────────────────────────────────────────────────────────
+  readonly tab = signal<Tab>('usuarios');
+
+  // ── Usuarios ──────────────────────────────────────────────────────────────
   readonly usuarios = signal<Usuario[]>([]);
   readonly usuariosTotal = signal(0);
+  readonly usuariosLoading = signal(false);
+  readonly usuariosPage = signal(1);
+  readonly usuariosPageSize = 10;
+
+  // ── Roles / Permisos ──────────────────────────────────────────────────────
   readonly roles = signal<Rol[]>([]);
   readonly permisos = signal<Permiso[]>([]);
   readonly permisosTotal = signal(0);
   readonly loading = signal(false);
-  readonly usuariosLoading = signal(false);
   readonly permisosLoading = signal(false);
+  readonly permisoSearch = signal('');
+  readonly permisoPage = signal(1);
+  readonly permisoPageSize = 10;
+
+  // ── Invitaciones ─────────────────────────────────────────────────────────
+  readonly invitaciones = signal<Invitacion[]>([]);
+  readonly invitacionesLoading = signal(false);
+  readonly estadoFiltro = signal<string>('pendiente');
+  readonly rolesInvitacion = signal<string[]>([]);
+
+  readonly estadosFiltro = [
+    { value: 'pendiente', label: 'Pendientes' },
+    { value: 'aceptada', label: 'Aceptadas' },
+    { value: 'expirada', label: 'Expiradas' },
+  ];
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
   readonly modal = signal<ModalKind>(null);
   readonly modalError = signal<string | null>(null);
   readonly editTarget = signal<Usuario | null>(null);
+  readonly revocandoId = signal<string | null>(null);
 
+  // ── Computed permisos ─────────────────────────────────────────────────────
   readonly puedeGestionarUsuarios = computed(() =>
     this.auth.hasPermiso('usuarios.gestionar'),
   );
@@ -50,24 +80,7 @@ export class UsuariosYRolesPage implements OnInit {
     { value: 'bloqueado', label: 'Bloqueado' },
   ];
 
-  readonly usuariosPage = signal(1);
-  readonly usuariosPageSize = 10;
-
-  readonly permisoSearch = signal('');
-  readonly permisoPage = signal(1);
-  readonly permisoPageSize = 10;
-
-  onPermisoSearch(event: Event): void {
-    this.permisoSearch.set((event.target as HTMLInputElement).value);
-    this.permisoPage.set(1);
-    this.cargarPermisos();
-  }
-
-  onPermisoPageChange(page: number): void {
-    this.permisoPage.set(page);
-    this.cargarPermisos();
-  }
-
+  // ── Forms ─────────────────────────────────────────────────────────────────
   readonly nuevoUsuarioForm = this.fb.group({
     username: ['', [Validators.required, Validators.email, Validators.maxLength(60)]],
     password: ['', [Validators.required, Validators.minLength(8)]],
@@ -80,6 +93,12 @@ export class UsuariosYRolesPage implements OnInit {
     nuevaPassword: [''],
   });
 
+  readonly nuevaInvitacionForm = this.fb.group({
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(60)]],
+    personaId: [null as number | null],
+  });
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.cargar();
   }
@@ -100,6 +119,7 @@ export class UsuariosYRolesPage implements OnInit {
     });
   }
 
+  // ── Usuarios ──────────────────────────────────────────────────────────────
   onUsuariosPageChange(page: number): void {
     this.usuariosPage.set(page);
     this.cargarUsuarios();
@@ -108,10 +128,7 @@ export class UsuariosYRolesPage implements OnInit {
   private cargarUsuarios(): void {
     this.usuariosLoading.set(true);
     this.usuariosService
-      .findAll({
-        page: this.usuariosPage(),
-        pageSize: this.usuariosPageSize,
-      })
+      .findAll({ page: this.usuariosPage(), pageSize: this.usuariosPageSize })
       .subscribe({
         next: ({ items, total }) => {
           this.usuarios.set(items);
@@ -125,33 +142,8 @@ export class UsuariosYRolesPage implements OnInit {
       });
   }
 
-  private cargarPermisos(): void {
-    this.permisosLoading.set(true);
-    this.permisosService
-      .findAll({
-        page: this.permisoPage(),
-        pageSize: this.permisoPageSize,
-        search: this.permisoSearch(),
-      })
-      .subscribe({
-        next: ({ items, total }) => {
-          this.permisos.set(items);
-          this.permisosTotal.set(total);
-          this.permisosLoading.set(false);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.toast.error(this.parseError(err));
-          this.permisosLoading.set(false);
-        },
-      });
-  }
-
   abrirNuevoUsuario(): void {
-    this.nuevoUsuarioForm.reset({
-      username: '',
-      password: '',
-      rol: '',
-    });
+    this.nuevoUsuarioForm.reset({ username: '', password: '', rol: '' });
     this.modalError.set(null);
     this.modal.set('nuevoUsuario');
   }
@@ -169,12 +161,6 @@ export class UsuariosYRolesPage implements OnInit {
     this.modal.set('editarUsuario');
   }
 
-  cerrarModal(): void {
-    this.modal.set(null);
-    this.modalError.set(null);
-    this.editTarget.set(null);
-  }
-
   crearUsuario(): void {
     if (this.nuevoUsuarioForm.invalid) {
       this.nuevoUsuarioForm.markAllAsTouched();
@@ -184,11 +170,7 @@ export class UsuariosYRolesPage implements OnInit {
     const { username, password, rol } = this.nuevoUsuarioForm.getRawValue();
     this.modalError.set(null);
     this.usuariosService
-      .create({
-        username: username!,
-        password: password!,
-        roles: rol ? [rol] : undefined,
-      })
+      .create({ username: username!, password: password!, roles: rol ? [rol] : undefined })
       .subscribe({
         next: () => {
           this.cerrarModal();
@@ -231,9 +213,7 @@ export class UsuariosYRolesPage implements OnInit {
     }
 
     if (nuevaPassword && nuevaPassword.length >= 8) {
-      tasks.push(
-        this.usuariosService.resetPassword(target.id, { password: nuevaPassword }),
-      );
+      tasks.push(this.usuariosService.resetPassword(target.id, { password: nuevaPassword }));
     }
 
     if (tasks.length === 0) {
@@ -250,6 +230,39 @@ export class UsuariosYRolesPage implements OnInit {
       },
       error: (err) => this.modalError.set(this.parseError(err)),
     });
+  }
+
+  // ── Roles / Permisos ──────────────────────────────────────────────────────
+  onPermisoSearch(event: Event): void {
+    this.permisoSearch.set((event.target as HTMLInputElement).value);
+    this.permisoPage.set(1);
+    this.cargarPermisos();
+  }
+
+  onPermisoPageChange(page: number): void {
+    this.permisoPage.set(page);
+    this.cargarPermisos();
+  }
+
+  private cargarPermisos(): void {
+    this.permisosLoading.set(true);
+    this.permisosService
+      .findAll({
+        page: this.permisoPage(),
+        pageSize: this.permisoPageSize,
+        search: this.permisoSearch(),
+      })
+      .subscribe({
+        next: ({ items, total }) => {
+          this.permisos.set(items);
+          this.permisosTotal.set(total);
+          this.permisosLoading.set(false);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.toast.error(this.parseError(err));
+          this.permisosLoading.set(false);
+        },
+      });
   }
 
   togglePermisoEnRol(rol: Rol, permiso: Permiso, activar: boolean): void {
@@ -273,9 +286,98 @@ export class UsuariosYRolesPage implements OnInit {
     return rol.permisos.some((p) => p.id === permiso.id);
   }
 
+  // ── Invitaciones ─────────────────────────────────────────────────────────
+  cargarInvitaciones(): void {
+    this.invitacionesLoading.set(true);
+    this.invitacionesService.findAll({ estado: this.estadoFiltro() }).subscribe({
+      next: (items) => {
+        this.invitaciones.set(items);
+        this.invitacionesLoading.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.toast.error(this.parseError(err));
+        this.invitacionesLoading.set(false);
+      },
+    });
+  }
+
+  onEstadoFiltroChange(event: Event): void {
+    this.estadoFiltro.set((event.target as HTMLSelectElement).value);
+    this.cargarInvitaciones();
+  }
+
+  cambiarTab(t: Tab): void {
+    this.tab.set(t);
+    if (t === 'invitaciones') {
+      this.cargarInvitaciones();
+    }
+  }
+
+  abrirNuevaInvitacion(): void {
+    this.nuevaInvitacionForm.reset({ email: '', personaId: null });
+    this.rolesInvitacion.set([]);
+    this.modalError.set(null);
+    this.modal.set('nuevaInvitacion');
+  }
+
+  toggleRolInvitacion(nombre: string): void {
+    this.rolesInvitacion.update((current) =>
+      current.includes(nombre) ? current.filter((r) => r !== nombre) : [...current, nombre],
+    );
+  }
+
+  enviarInvitacion(): void {
+    if (this.nuevaInvitacionForm.invalid) {
+      this.nuevaInvitacionForm.markAllAsTouched();
+      this.modalError.set('Completá los campos requeridos');
+      return;
+    }
+    const { email, personaId } = this.nuevaInvitacionForm.getRawValue();
+    this.modalError.set(null);
+    this.invitacionesService
+      .create({
+        email: email!,
+        personaId: personaId ?? undefined,
+        roles: this.rolesInvitacion().length > 0 ? this.rolesInvitacion() : undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.cerrarModal();
+          this.toast.success(`Invitación enviada a ${email}`);
+          this.cargarInvitaciones();
+        },
+        error: (err) => this.modalError.set(this.parseError(err)),
+      });
+  }
+
+  revocarInvitacion(inv: Invitacion): void {
+    if (!confirm(`¿Revocar la invitación enviada a ${inv.email}?`)) return;
+    this.revocandoId.set(inv.id);
+    this.invitacionesService.remove(inv.id).subscribe({
+      next: () => {
+        this.revocandoId.set(null);
+        this.toast.success(`Invitación a ${inv.email} revocada`);
+        this.cargarInvitaciones();
+      },
+      error: (err) => {
+        this.revocandoId.set(null);
+        this.toast.error(this.parseError(err));
+      },
+    });
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  cerrarModal(): void {
+    this.modal.set(null);
+    this.modalError.set(null);
+    this.editTarget.set(null);
+  }
+
+  // ── Track ─────────────────────────────────────────────────────────────────
   trackUsuario = (_: number, u: Usuario) => u.id;
   trackRol = (_: number, r: Rol) => r.id;
   trackPermiso = (_: number, p: Permiso) => p.id;
+  trackInvitacion = (_: number, i: Invitacion) => i.id;
 
   private parseError(err: HttpErrorResponse): string {
     return err.error?.message ?? err.message ?? 'Error inesperado';

@@ -10,6 +10,10 @@
       <p>Sistema de Gestión de Personal</p>
     </div>
 
+    <div *ngIf="successMessage" class="login__success" role="status">
+      {{ successMessage }}
+    </div>
+
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <div class="login__field">
         <label for="username">Email</label>
@@ -40,6 +44,10 @@
       <button type="submit" class="login__submit" [disabled]="loading">
         {{ loading ? 'Ingresando...' : 'Iniciar Sesión' }}
       </button>
+
+      <div class="login__links">
+        <a routerLink="/auth/forgot-password" class="login__link">¿Olvidaste tu contraseña?</a>
+      </div>
     </form>
 
     <div class="login__footer">

@@ -12,7 +12,7 @@ export const authErrorInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error: HttpErrorResponse) => {
       if (error.status === 401 && !req.url.endsWith('/auth/sign-in')) {
         auth.clearLocalSession();
-        router.navigate(['/login']);
+        router.navigate(['/auth/login']);
       }
       return throwError(() => error);
     }),

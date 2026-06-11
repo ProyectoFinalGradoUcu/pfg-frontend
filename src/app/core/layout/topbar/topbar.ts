@@ -16,10 +16,10 @@ export class Topbar {
 
   signOut(): void {
     this.auth.signOut().subscribe({
-      next: () => this.router.navigate(['/login']),
+      next: () => this.router.navigate(['/auth/login']),
       error: () => {
         this.auth.clearLocalSession();
-        this.router.navigate(['/login']);
+        this.router.navigate(['/auth/login']);
       },
     });
   }
