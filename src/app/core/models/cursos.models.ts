@@ -20,6 +20,11 @@ export interface HistorialCurso {
   documentoUrl?: string | null;
 }
 
+export interface BajaInfo {
+  id: string;
+  username: string;
+}
+
 export interface CursoFuncionarioItem {
   id: string;
   designacionId: string;
@@ -32,6 +37,10 @@ export interface CursoFuncionarioItem {
   numero_orden?: string | null;
   boletin?: string | null;
   documentoUrl?: string | null;
+  dadoDeBaja?: boolean;
+  motivoBaja?: string | null;
+  fechaBaja?: string | null;
+  dadoDeBajaPor?: BajaInfo | null;
 }
 
 export interface FuncionarioConCursos {

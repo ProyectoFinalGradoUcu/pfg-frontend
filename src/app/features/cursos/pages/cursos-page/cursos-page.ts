@@ -26,6 +26,7 @@ type ModalKind =
   | 'designar'
   | 'editar'
   | 'calificacionMasiva'
+  | 'baja'
   | null;
 
 interface FilaHistorial {
@@ -64,6 +65,12 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly historialPageSize = 10;
   readonly archivoCertificado = signal<File | null>(null);
   readonly dragOver = signal(false);
+
+  // ── Baja / Reactivación ──────────────────────────────────────────────────
+  readonly verBajas = signal(false);
+  readonly bajaFila = signal<FilaHistorial | null>(null);
+  readonly guardandoBaja = signal(false);
+  readonly reactivandoId = signal<string | null>(null);
 
   private readonly cedulaSubject = new Subject<string>();
 
@@ -209,6 +216,10 @@ export class CursosPage implements OnInit, OnDestroy {
     es_obligatorio: [false],
   });
 
+  readonly bajaForm = this.fb.group({
+    motivo: ['', [Validators.required, Validators.minLength(5), Validators.maxLength(500)]],
+  });
+
   ngOnInit(): void {
     const section = this.route.snapshot.data['section'] as TabKind;
     if (section) this.tab.set(section);
@@ -222,7 +233,7 @@ export class CursosPage implements OnInit, OnDestroy {
         switchMap((cedula) => {
           this.buscandoCedula.set(true);
           return this.cursosService
-            .findFuncionariosConCursos(cedula || undefined)
+            .findFuncionariosConCursos(cedula || undefined, 1, 100, this.verBajas())
             .pipe(catchError(() => of([])));
         }),
       )
@@ -248,7 +259,9 @@ export class CursosPage implements OnInit, OnDestroy {
   cargar(): void {
     this.loading.set(true);
     forkJoin({
-      funcionarios: this.cursosService.findFuncionariosConCursos().pipe(catchError(() => of([]))),
+      funcionarios: this.cursosService
+        .findFuncionariosConCursos(this.cedulaFiltro().trim() || undefined, 1, 100, this.verBajas())
+        .pipe(catchError(() => of([]))),
       personal: this.personalService.findAll().pipe(catchError(() => of([]))),
     }).subscribe({
       next: ({ funcionarios, personal }) => {
@@ -356,6 +369,7 @@ export class CursosPage implements OnInit, OnDestroy {
     this.modalError.set(null);
     this.archivoCertificado.set(null);
     this.cursoSeleccionado.set(null);
+    this.bajaFila.set(null);
   }
 
   // ── Menú de acciones (kebab) ────────────────────────────────────────────────
@@ -657,6 +671,65 @@ export class CursosPage implements OnInit, OnDestroy {
         );
       },
       error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+    });
+  }
+
+  // ── Baja / Reactivación ─────────────────────────────────────────────────────
+
+  toggleVerBajas(): void {
+    this.verBajas.update((v) => !v);
+    this.historialPage.set(1);
+    this.cargar();
+  }
+
+  abrirBaja(fila: FilaHistorial): void {
+    this.bajaFila.set(fila);
+    this.bajaForm.reset({ motivo: '' });
+    this.modalError.set(null);
+    this.modal.set('baja');
+  }
+
+  confirmarBaja(): void {
+    const fila = this.bajaFila();
+    if (!fila) return;
+    if (this.bajaForm.invalid) {
+      this.bajaForm.markAllAsTouched();
+      this.modalError.set('El motivo es obligatorio (mínimo 5 caracteres).');
+      return;
+    }
+    const motivo = this.bajaForm.getRawValue().motivo!.trim();
+    this.modalError.set(null);
+    this.guardandoBaja.set(true);
+    this.cursosService.darDeBaja(fila.curso.id, fila.curso.designacionId, motivo).subscribe({
+      next: () => {
+        this.guardandoBaja.set(false);
+        this.cerrarModal();
+        this.bajaFila.set(null);
+        this.toast.success(`${fila.nombre} fue dado de baja del curso`);
+        this.cargar();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoBaja.set(false);
+        this.modalError.set(this.parseError(err));
+      },
+    });
+  }
+
+  reactivar(fila: FilaHistorial): void {
+    if (!confirm(`¿Reactivar la inscripción de ${fila.nombre} en "${fila.curso.nombre_curso}"?`)) {
+      return;
+    }
+    this.reactivandoId.set(fila.curso.designacionId);
+    this.cursosService.reactivar(fila.curso.id, fila.curso.designacionId).subscribe({
+      next: () => {
+        this.reactivandoId.set(null);
+        this.toast.success(`Inscripción de ${fila.nombre} reactivada`);
+        this.cargar();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.reactivandoId.set(null);
+        this.toast.error(this.parseError(err));
+      },
     });
   }
 

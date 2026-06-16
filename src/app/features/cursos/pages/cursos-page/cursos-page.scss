@@ -137,6 +137,7 @@ $navy-soft: #1e3a5f;
     font-size: 0.78rem;
     font-weight: 600;
     border-bottom: none;
+    white-space: nowrap;
 
     &:first-child {
       border-top-left-radius: 8px;
@@ -472,6 +473,17 @@ $navy-soft: #1e3a5f;
 
   &:hover:not(:disabled) {
     background-color: #f1f5f9;
+  }
+}
+
+.btn--danger {
+  background-color: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+
+  &:hover:not(:disabled) {
+    background-color: #b91c1c;
+    border-color: #b91c1c;
   }
 }
 
@@ -1182,4 +1194,67 @@ $navy-soft: #1e3a5f;
 .cursos__cal-masiva-td-nota {
   width: 110px;
   text-align: center;
+}
+
+// ── Baja / Reactivación ──────────────────────────────────────────────────────
+.cursos__ver-bajas-btn {
+  margin-left: auto;
+  white-space: nowrap;
+
+  &--active {
+    background-color: #fee2e2;
+    border-color: #dc2626;
+    color: #991b1b;
+  }
+}
+
+.cursos__row--baja {
+  background-color: #fef2f2;
+  color: #9ca3af;
+
+  strong { color: #6b7280; }
+}
+
+.cursos__curso-cell {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+// Evita que el nombre del funcionario se parta en dos líneas al aparecer la baja
+.cursos__table tbody td:first-child {
+  white-space: nowrap;
+}
+
+.cursos__baja-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  cursor: help;
+  white-space: nowrap;
+}
+
+.cursos__baja-btn {
+  color: #b91c1c;
+  border-color: #fca5a5;
+
+  &:hover:not(:disabled) {
+    background-color: #fee2e2;
+  }
+}
+
+.cursos__reactivar-btn {
+  color: #047857;
+  border-color: #6ee7b7;
+
+  &:hover:not(:disabled) {
+    background-color: #d1fae5;
+  }
 }
