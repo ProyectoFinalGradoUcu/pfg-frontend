@@ -3,39 +3,38 @@
   <!-- ── Header ──────────────────────────────────────────────────────────── -->
   <header class="cursos__header">
     <div>
-      <h2>Gestión de Cursos</h2>
-      <p>Registro y seguimiento de cursos y capacitaciones del personal</p>
+      <h2>Cursos y Capacitaciones</h2>
+      <p>Inscripciones del personal y catálogo de cursos</p>
     </div>
-    <ng-container *ngIf="puedeGestionar()">
-      <button
-        *ngIf="tab() === 'historial'"
-        type="button"
-        class="btn btn--primary btn--lg"
-        (click)="abrirRegistrar()"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Registrar Curso
-      </button>
-      <button
-        *ngIf="tab() === 'gestion'"
-        type="button"
-        class="btn btn--primary btn--lg"
-        (click)="abrirNuevoCurso()"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Nuevo Curso
-      </button>
-    </ng-container>
+    <button
+      *ngIf="tab() === 'inscripciones' && cursosAptos().length > 0 && puedeGestionar()"
+      type="button"
+      class="btn btn--primary btn--lg"
+      (click)="abrirCalificacionMasiva()"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+      </svg>
+      Calificación masiva
+      <span class="cursos__aptos-badge">{{ cursosAptos().length }}</span>
+    </button>
+    <button
+      *ngIf="tab() === 'catalogo' && puedeGestionar()"
+      type="button"
+      class="btn btn--primary btn--lg"
+      (click)="abrirNuevoCurso()"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Nuevo Curso
+    </button>
   </header>
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- TAB: HISTORIAL                                                         -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
-  <ng-container *ngIf="tab() === 'historial'">
+  <ng-container *ngIf="tab() === 'inscripciones'">
 
     <div class="cursos__stats">
       <div class="cursos__stat cursos__stat--green">
@@ -54,7 +53,7 @@
 
     <article class="cursos__card">
       <div class="cursos__historial-header">
-        <h3>Historial de Cursos</h3>
+        <h3>Inscripciones</h3>
 
         <div class="cursos__search-wrap">
           <svg class="cursos__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
@@ -96,8 +95,8 @@
               <th>Institución</th>
               <th>Fecha Inicio</th>
               <th>Fecha Fin</th>
-              <th>Estado</th>
               <th>Tipo</th>
+              <th>Calificación</th>
             </tr>
           </thead>
           <tbody>
@@ -110,21 +109,83 @@
               <td>{{ fila.curso.fechaFin | date:'d/M/yyyy':'UTC' }}</td>
               <td>
                 <span
-                  class="cursos__estado-badge"
-                  [class.cursos__estado-badge--completado]="fila.curso.estado === 'completado'"
-                  [class.cursos__estado-badge--en-curso]="fila.curso.estado === 'en_curso'"
-                >
-                  {{ fila.curso.estado === 'completado' ? 'Completado' : 'En Curso' }}
-                </span>
-              </td>
-              <td>
-                <span
                   class="cursos__tipo-badge"
                   [class.cursos__tipo-badge--obligatorio]="fila.curso.tipo === 'obligatorio'"
                   [class.cursos__tipo-badge--optativo]="fila.curso.tipo === 'optativo'"
                 >
                   {{ fila.curso.tipo === 'obligatorio' ? 'Obligatorio' : 'Optativo' }}
                 </span>
+              </td>
+
+              <!-- ── Calificación ─────────────────────────────────────── -->
+              <td class="cursos__cal-cell">
+
+                <!-- Modo edición: ingresando nota -->
+                <ng-container *ngIf="calificandoId() === fila.funcionarioId + '-' + fila.curso.id + '-' + fila.curso.designacionId">
+                  <div class="cursos__cal-row">
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      step="1"
+                      class="cursos__cal-input"
+                      [value]="calificacionValor()"
+                      (input)="calificacionValor.set(+$any($event.target).value)"
+                      aria-label="Calificación (1-10)"
+                    />
+                    <button
+                      type="button"
+                      class="btn btn--primary btn--sm"
+                      [disabled]="guardandoCalificacion()"
+                      (click)="guardarCalificacion(fila)"
+                    >
+                      <svg *ngIf="guardandoCalificacion()" class="cursos__cal-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                      </svg>
+                      {{ guardandoCalificacion() ? '' : 'Guardar' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn--ghost btn--sm"
+                      (click)="cancelarCalificacion()"
+                    >Cancelar</button>
+                  </div>
+                </ng-container>
+
+                <!-- Calificación ya registrada -->
+                <ng-container *ngIf="calificandoId() !== fila.funcionarioId + '-' + fila.curso.id + '-' + fila.curso.designacionId">
+                  <span
+                    *ngIf="fila.curso.calificacion !== null"
+                    class="cursos__calificacion-badge"
+                    [class.cursos__calificacion-badge--alta]="fila.curso.calificacion! >= 9"
+                    [class.cursos__calificacion-badge--media]="fila.curso.calificacion! >= 6 && fila.curso.calificacion! < 9"
+                    [class.cursos__calificacion-badge--baja]="fila.curso.calificacion! < 6"
+                  >
+                    {{ fila.curso.calificacion }}/10
+                  </span>
+
+                  <!-- Sin nota: curso ya terminó → botón cargar -->
+                  <button
+                    *ngIf="fila.curso.calificacion === null && cursoTerminado(fila.curso)"
+                    type="button"
+                    class="btn btn--ghost btn--sm cursos__cal-btn"
+                    (click)="iniciarCalificacion(fila)"
+                    title="El curso finalizó — cargá la nota"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                    </svg>
+                    Cargar nota
+                  </button>
+
+                  <!-- Sin nota: curso todavía activo -->
+                  <span
+                    *ngIf="fila.curso.calificacion === null && !cursoTerminado(fila.curso)"
+                    class="cursos__sin-nota"
+                  >—</span>
+                </ng-container>
+
               </td>
             </tr>
             <tr *ngIf="filasFlat().length === 0">
@@ -150,14 +211,80 @@
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- TAB: GESTIÓN                                                           -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
-  <ng-container *ngIf="tab() === 'gestion'">
+  <ng-container *ngIf="tab() === 'catalogo'">
 
     <article class="cursos__card">
-      <h3>Catálogo de Cursos</h3>
+      <div class="cursos__gestion-header">
+        <h3>Catálogo de Cursos</h3>
 
-      <div *ngIf="loading()" class="cursos__placeholder">Cargando...</div>
+        <!-- Fila de filtros -->
+        <div class="cursos__def-filters">
+          <div class="cursos__search-wrap">
+            <svg class="cursos__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="text"
+              class="cursos__search-input"
+              placeholder="Nombre del curso..."
+              [value]="filtroNombre()"
+              (input)="onNombreInput($any($event.target).value)"
+              autocomplete="off"
+            />
+            <button *ngIf="filtroNombre()" type="button" class="cursos__search-clear" (click)="onNombreInput('')" aria-label="Limpiar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-      <div *ngIf="!loading()" class="cursos__table-wrapper">
+          <div class="cursos__search-wrap">
+            <svg class="cursos__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21" />
+            </svg>
+            <input
+              type="text"
+              class="cursos__search-input"
+              placeholder="Institución..."
+              [value]="filtroInstitucion()"
+              (input)="onInstitucionInput($any($event.target).value)"
+              autocomplete="off"
+            />
+            <button *ngIf="filtroInstitucion()" type="button" class="cursos__search-clear" (click)="onInstitucionInput('')" aria-label="Limpiar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <select
+            class="cursos__def-tipo-select"
+            [value]="filtroTipo()"
+            (change)="onTipoFilterChange($any($event.target).value)"
+          >
+            <option value="">Todos los tipos</option>
+            <option value="true">Obligatorio</option>
+            <option value="false">Optativo</option>
+          </select>
+
+          <button
+            type="button"
+            class="btn cursos__clear-btn"
+            [disabled]="!hayFiltrosDef()"
+            (click)="limpiarFiltrosDef()"
+            aria-label="Borrar filtros"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="loadingDef()" class="cursos__placeholder">Cargando...</div>
+
+      <div *ngIf="!loadingDef()" class="cursos__table-wrapper">
         <table class="cursos__table">
           <thead>
             <tr>
@@ -168,7 +295,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let d of definicionesPaginadas(); trackBy: trackDefinicion">
+            <tr *ngFor="let d of definiciones(); trackBy: trackDefinicion">
               <td><strong>{{ d.nombre_curso }}</strong></td>
               <td>{{ d.institucion }}</td>
               <td>
@@ -194,24 +321,26 @@
                 </button>
               </td>
             </tr>
-            <tr *ngIf="definiciones().length === 0">
-              <td colspan="6" class="cursos__empty">No hay cursos creados</td>
+            <tr *ngIf="!loadingDef() && definiciones().length === 0">
+              <td colspan="4" class="cursos__empty">
+                {{ hayFiltrosDef() ? 'No se encontraron cursos con esos filtros' : 'No hay cursos creados' }}
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <app-paginator
-        *ngIf="!loading()"
-        [totalItems]="definiciones().length"
+        *ngIf="!loadingDef()"
+        [totalItems]="defTotal()"
         [pageSize]="defPageSize"
         [currentPage]="defPage()"
-        (pageChange)="defPage.set($event)"
+        (pageChange)="onDefPageChange($event)"
       ></app-paginator>
     </article>
 
     <!-- Dropdown: Acciones (fixed, escapa del overflow de la tabla) -->
-    <ng-container *ngFor="let d of definicionesPaginadas(); trackBy: trackDefinicion">
+    <ng-container *ngFor="let d of definiciones(); trackBy: trackDefinicion">
       <div
         *ngIf="openMenuId() === d.id && menuPosition() as pos"
         class="cursos__dropdown"
@@ -391,7 +520,7 @@
         <label class="cursos__toggle-row">
           <div class="cursos__toggle-info">
             <strong>Designar ahora</strong>
-            <small>Designá personal a este curso en el mismo paso (orden/boletín opcionales)</small>
+            <small>Designá personal a este curso en el mismo paso. Requiere fechas y al menos orden o boletín.</small>
           </div>
           <span
             class="cursos__toggle"
@@ -407,21 +536,25 @@
         </label>
 
         <div *ngIf="nuevoCursoForm.get('designar_ahora')!.value" class="cursos__designar-box">
+          <p class="cursos__form-note">
+            <em>*</em> Campos obligatorios para la designación &nbsp;·&nbsp;
+            Al menos uno entre N° Orden y Boletín es requerido.
+          </p>
           <div class="modal__grid-2">
             <label class="modal__field">
-              <span>N° Orden <small>(opcional)</small></span>
+              <span>N° Orden <em>*</em> <small>(o boletín)</small></span>
               <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
             </label>
             <label class="modal__field">
-              <span>Boletín <small>(opcional)</small></span>
+              <span>Boletín <em>*</em> <small>(o N° orden)</small></span>
               <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
             </label>
             <label class="modal__field">
-              <span>Fecha Inicio <small>(opcional)</small></span>
+              <span>Fecha Inicio <em>*</em></span>
               <input type="date" formControlName="fecha_inicio" />
             </label>
             <label class="modal__field">
-              <span>Fecha Fin <small>(opcional)</small></span>
+              <span>Fecha Fin <em>*</em></span>
               <input type="date" formControlName="fecha_fin" />
             </label>
           </div>
@@ -540,21 +673,26 @@
       <form [formGroup]="designarForm" (ngSubmit)="guardarDesignar()" novalidate>
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
+        <p class="cursos__form-note">
+          <em>*</em> Campos obligatorios &nbsp;·&nbsp;
+          Al menos uno entre N° Orden y Boletín es requerido.
+        </p>
+
         <div class="modal__grid-2">
           <label class="modal__field">
-            <span>N° Orden <small>(opcional)</small></span>
+            <span>N° Orden <em>*</em> <small>(o boletín)</small></span>
             <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
           </label>
           <label class="modal__field">
-            <span>Boletín <small>(opcional)</small></span>
+            <span>Boletín <em>*</em> <small>(o N° orden)</small></span>
             <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
           </label>
           <label class="modal__field">
-            <span>Fecha Inicio <small>(opcional)</small></span>
+            <span>Fecha Inicio <em>*</em></span>
             <input type="date" formControlName="fecha_inicio" />
           </label>
           <label class="modal__field">
-            <span>Fecha Fin <small>(opcional)</small></span>
+            <span>Fecha Fin <em>*</em></span>
             <input type="date" formControlName="fecha_fin" />
           </label>
         </div>
@@ -652,6 +790,98 @@
           <button type="submit" class="btn btn--primary">Guardar cambios</button>
         </footer>
       </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Calificación masiva                                             -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'calificacionMasiva'" class="modal" (click)="cerrarModal()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+
+      <header class="modal__header">
+        <div>
+          <h3>Calificación masiva</h3>
+          <p>Seleccioná un curso finalizado y cargá las notas de todos sus alumnos.</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+      <!-- Selector de curso -->
+      <label class="modal__field">
+        <span>Curso finalizado pendiente de calificación <em>*</em></span>
+        <select
+          class="cursos__cal-masiva-select"
+          [value]="cursoMasivoId() ?? ''"
+          (change)="onCursoMasivoChange($any($event.target).value)"
+        >
+          <option value="" disabled>Seleccioná un curso...</option>
+          <option *ngFor="let c of cursosAptos()" [value]="c.id">
+            {{ c.nombre }} — {{ c.institucion }}
+          </option>
+        </select>
+      </label>
+
+      <!-- Tabla de alumnos -->
+      <ng-container *ngIf="cursoMasivoId()">
+        <p *ngIf="filasCursoMasivo().length === 0" class="cursos__empty-sm">
+          No hay alumnos pendientes de calificación en este curso.
+        </p>
+
+        <div *ngIf="filasCursoMasivo().length > 0" class="cursos__cal-masiva-wrap">
+          <table class="cursos__cal-masiva-table">
+            <thead>
+              <tr>
+                <th>Funcionario</th>
+                <th>Cédula</th>
+                <th class="cursos__cal-masiva-th-nota">Nota (1–10)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let fila of filasCursoMasivo(); trackBy: trackFila">
+                <td>{{ fila.nombre }}</td>
+                <td class="cursos__cedula">{{ fila.cedula }}</td>
+                <td class="cursos__cal-masiva-td-nota">
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    step="1"
+                    class="cursos__cal-input"
+                    [value]="calificacionesMasivas()[fila.curso.designacionId] ?? 10"
+                    (input)="setCalificacionMasiva(fila.curso.designacionId, +$any($event.target).value)"
+                    aria-label="Nota de {{ fila.nombre }}"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+        <button
+          *ngIf="filasCursoMasivo().length > 0"
+          type="button"
+          class="btn btn--primary"
+          [disabled]="guardandoMasivo()"
+          (click)="guardarCalificacionMasiva()"
+        >
+          <svg *ngIf="guardandoMasivo()" class="cursos__cal-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          {{ guardandoMasivo() ? 'Guardando...' : 'Guardar ' + filasCursoMasivo().length + ' calificación(es)' }}
+        </button>
+      </footer>
+
     </div>
   </div>
 

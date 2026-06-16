@@ -18,13 +18,14 @@ import {
   TipoCurso,
 } from '../../../../core/models/cursos.models';
 
-type TabKind = 'historial' | 'gestion';
+type TabKind = 'inscripciones' | 'catalogo';
 type ModalKind =
   | 'registrarCurso'
   | 'nuevoCurso'
   | 'modulos'
   | 'designar'
   | 'editar'
+  | 'calificacionMasiva'
   | null;
 
 interface FilaHistorial {
@@ -49,7 +50,7 @@ export class CursosPage implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
 
   // ── Estado general ─────────────────────────────────────────────────────────
-  readonly tab = signal<TabKind>('historial');
+  readonly tab = signal<TabKind>('inscripciones');
   readonly loading = signal(false);
   readonly modal = signal<ModalKind>(null);
   readonly modalError = signal<string | null>(null);
@@ -67,21 +68,65 @@ export class CursosPage implements OnInit, OnDestroy {
   private readonly cedulaSubject = new Subject<string>();
 
   // ── Gestión ────────────────────────────────────────────────────────────────
-  readonly definiciones = signal<CursoDefinicion[]>([]);
-  readonly defPage = signal(1);
-  readonly defPageSize = 10;
+  readonly definiciones      = signal<CursoDefinicion[]>([]);
+  readonly defPage           = signal(1);
+  readonly defPageSize       = 10;
+  readonly defTotal          = signal(0);
+  readonly loadingDef        = signal(false);
   readonly cursoSeleccionado = signal<CursoDefinicion | null>(null);
-  readonly guardandoModulo = signal(false);
+  readonly guardandoModulo   = signal(false);
+
+  // ── Filtros gestión ────────────────────────────────────────────────────────
+  readonly filtroNombre      = signal('');
+  readonly filtroInstitucion = signal('');
+  readonly filtroTipo        = signal<'' | 'true' | 'false'>('');
+  readonly hayFiltrosDef     = computed(
+    () => !!this.filtroNombre() || !!this.filtroInstitucion() || !!this.filtroTipo(),
+  );
+  private readonly defTextSubject = new Subject<void>();
 
   // ── Menú de acciones (kebab) ────────────────────────────────────────────────
   readonly openMenuId = signal<string | null>(null);
   readonly menuPosition = signal<{ top: number; right: number } | null>(null);
+
+  // ── Calificaciones (individual) ───────────────────────────────────────────
+  readonly calificandoId         = signal<string | null>(null);
+  readonly calificacionValor     = signal<number>(10);
+  readonly guardandoCalificacion = signal(false);
+
+  // ── Calificación masiva ────────────────────────────────────────────────────
+  readonly cursoMasivoId        = signal<string | null>(null);
+  readonly calificacionesMasivas = signal<Record<string, number>>({});
+  readonly guardandoMasivo       = signal(false);
+
+  readonly cursosAptos = computed(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const vistos = new Set<string>();
+    const result: { id: string; nombre: string; institucion: string }[] = [];
+    for (const fila of this.filasFlat()) {
+      if (!fila.curso.fechaFin) continue;
+      if (new Date(fila.curso.fechaFin) >= hoy) continue;
+      if (fila.curso.calificacion !== null) continue;
+      if (vistos.has(fila.curso.id)) continue;
+      vistos.add(fila.curso.id);
+      result.push({ id: fila.curso.id, nombre: fila.curso.nombre_curso, institucion: fila.curso.institucion });
+    }
+    return result;
+  });
+
+  readonly filasCursoMasivo = computed<FilaHistorial[]>(() => {
+    const id = this.cursoMasivoId();
+    if (!id) return [];
+    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.calificacion === null);
+  });
 
   // ── Designar ────────────────────────────────────────────────────────────────
   readonly designando = signal(false);
 
   // ── Computed ───────────────────────────────────────────────────────────────
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('cursos.gestionar'));
+  // definicionesPaginadas eliminado: paginación server-side via cargarDefiniciones()
 
   readonly filasFlat = computed<FilaHistorial[]>(() =>
     this.funcionarios().flatMap((f) =>
@@ -95,10 +140,10 @@ export class CursosPage implements OnInit, OnDestroy {
   );
 
   readonly completados = computed(
-    () => this.filasFlat().filter((f) => f.curso.estado === 'completado').length,
+    () => this.filasFlat().filter((f) => f.curso.calificacion !== null).length,
   );
   readonly enCurso = computed(
-    () => this.filasFlat().filter((f) => f.curso.estado === 'en_curso').length,
+    () => this.filasFlat().filter((f) => f.curso.calificacion === null).length,
   );
   readonly obligatorios = computed(
     () => this.filasFlat().filter((f) => f.curso.tipo === 'obligatorio').length,
@@ -107,11 +152,6 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly filasPaginadas = computed<FilaHistorial[]>(() => {
     const start = (this.historialPage() - 1) * this.historialPageSize;
     return this.filasFlat().slice(start, start + this.historialPageSize);
-  });
-
-  readonly definicionesPaginadas = computed<CursoDefinicion[]>(() => {
-    const start = (this.defPage() - 1) * this.defPageSize;
-    return this.definiciones().slice(start, start + this.defPageSize);
   });
 
   // ── Opciones ───────────────────────────────────────────────────────────────
@@ -173,6 +213,7 @@ export class CursosPage implements OnInit, OnDestroy {
     const section = this.route.snapshot.data['section'] as TabKind;
     if (section) this.tab.set(section);
     this.cargar();
+    this.cargarDefiniciones();
 
     this.cedulaSubject
       .pipe(
@@ -190,22 +231,28 @@ export class CursosPage implements OnInit, OnDestroy {
         this.historialPage.set(1);
         this.buscandoCedula.set(false);
       });
+
+    this.defTextSubject
+      .pipe(debounceTime(350))
+      .subscribe(() => {
+        this.defPage.set(1);
+        this.cargarDefiniciones();
+      });
   }
 
   ngOnDestroy(): void {
     this.cedulaSubject.complete();
+    this.defTextSubject.complete();
   }
 
   cargar(): void {
     this.loading.set(true);
     forkJoin({
       funcionarios: this.cursosService.findFuncionariosConCursos().pipe(catchError(() => of([]))),
-      definiciones: this.cursosService.findAllDefiniciones().pipe(catchError(() => of([]))),
       personal: this.personalService.findAll().pipe(catchError(() => of([]))),
     }).subscribe({
-      next: ({ funcionarios, definiciones, personal }) => {
+      next: ({ funcionarios, personal }) => {
         this.funcionarios.set(funcionarios);
-        this.definiciones.set(definiciones);
         this.personal.set(personal);
         this.loading.set(false);
       },
@@ -214,6 +261,55 @@ export class CursosPage implements OnInit, OnDestroy {
         this.loading.set(false);
       },
     });
+  }
+
+  cargarDefiniciones(): void {
+    this.loadingDef.set(true);
+    const tipo = this.filtroTipo();
+    const esObligatorio = tipo === '' ? undefined : tipo === 'true';
+    this.cursosService
+      .findAllDefiniciones(
+        this.defPage(),
+        this.defPageSize,
+        this.filtroNombre().trim() || undefined,
+        this.filtroInstitucion().trim() || undefined,
+        esObligatorio,
+      )
+      .pipe(catchError(() => of({ items: [] as CursoDefinicion[], total: 0, page: 1, pageSize: this.defPageSize })))
+      .subscribe((res) => {
+        this.definiciones.set(res.items);
+        this.defTotal.set(res.total);
+        this.loadingDef.set(false);
+      });
+  }
+
+  onNombreInput(value: string): void {
+    this.filtroNombre.set(value);
+    this.defTextSubject.next();
+  }
+
+  onInstitucionInput(value: string): void {
+    this.filtroInstitucion.set(value);
+    this.defTextSubject.next();
+  }
+
+  onTipoFilterChange(value: string): void {
+    this.filtroTipo.set(value as '' | 'true' | 'false');
+    this.defPage.set(1);
+    this.cargarDefiniciones();
+  }
+
+  limpiarFiltrosDef(): void {
+    this.filtroNombre.set('');
+    this.filtroInstitucion.set('');
+    this.filtroTipo.set('');
+    this.defPage.set(1);
+    this.cargarDefiniciones();
+  }
+
+  onDefPageChange(page: number): void {
+    this.defPage.set(page);
+    this.cargarDefiniciones();
   }
 
   onCedulaInput(value: string): void {
@@ -308,15 +404,21 @@ export class CursosPage implements OnInit, OnDestroy {
   guardarDesignar(): void {
     const curso = this.cursoSeleccionado();
     if (!curso) return;
-    if (this.designarForm.invalid) {
-      this.designarForm.markAllAsTouched();
-      this.modalError.set('Seleccioná al menos una persona');
+
+    const raw = this.designarForm.getRawValue();
+
+    if (!raw.fecha_inicio || !raw.fecha_fin) {
+      this.modalError.set('Las fechas de inicio y fin son obligatorias.');
       return;
     }
-    const raw = this.designarForm.getRawValue();
+    if (!raw.numero_orden?.trim() && !raw.boletin?.trim()) {
+      this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
+      return;
+    }
+
     const personaIds = (raw.persona_ids ?? []).map((id) => Number(id));
     if (personaIds.length === 0) {
-      this.modalError.set('Seleccioná al menos una persona');
+      this.modalError.set('Seleccioná al menos una persona.');
       return;
     }
 
@@ -433,7 +535,15 @@ export class CursosPage implements OnInit, OnDestroy {
     const personaIds = (raw.persona_ids ?? []).map((id) => Number(id));
 
     if (designarAhora && personaIds.length === 0) {
-      this.modalError.set('Seleccioná al menos una persona para designar, o desactivá "Designar ahora"');
+      this.modalError.set('Seleccioná al menos una persona para designar, o desactivá "Designar ahora".');
+      return;
+    }
+    if (designarAhora && (!raw.fecha_inicio || !raw.fecha_fin)) {
+      this.modalError.set('Las fechas de inicio y fin son obligatorias para la designación.');
+      return;
+    }
+    if (designarAhora && !raw.numero_orden?.trim() && !raw.boletin?.trim()) {
+      this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
       return;
     }
 
@@ -521,7 +631,10 @@ export class CursosPage implements OnInit, OnDestroy {
     }
     this.cursosService.deleteDefinicion(curso.id).subscribe({
       next: () => {
-        this.definiciones.update((lista) => lista.filter((d) => d.id !== curso.id));
+        if (this.definiciones().length === 1 && this.defPage() > 1) {
+          this.defPage.update((p) => p - 1);
+        }
+        this.cargarDefiniciones();
         this.toast.success(`Curso "${curso.nombre_curso}" eliminado`);
       },
       error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
@@ -559,6 +672,125 @@ export class CursosPage implements OnInit, OnDestroy {
     this.dragOver.set(false);
     const file = event.dataTransfer?.files?.[0] ?? null;
     if (file) this.archivoCertificado.set(file);
+  }
+
+  // ── Calificaciones ────────────────────────────────────────────────────────
+
+  abrirCalificacionMasiva(): void {
+    this.cursoMasivoId.set(null);
+    this.calificacionesMasivas.set({});
+    this.modalError.set(null);
+    this.modal.set('calificacionMasiva');
+  }
+
+  onCursoMasivoChange(cursoId: string): void {
+    this.cursoMasivoId.set(cursoId);
+    const inicial: Record<string, number> = {};
+    for (const fila of this.filasCursoMasivo()) {
+      inicial[fila.curso.designacionId] = 10;
+    }
+    this.calificacionesMasivas.set(inicial);
+  }
+
+  setCalificacionMasiva(designacionId: string, valor: number): void {
+    this.calificacionesMasivas.update((prev) => ({ ...prev, [designacionId]: valor }));
+  }
+
+  guardarCalificacionMasiva(): void {
+    const filas = this.filasCursoMasivo();
+    const notas = this.calificacionesMasivas();
+    if (filas.length === 0) return;
+
+    for (const fila of filas) {
+      const val = notas[fila.curso.designacionId];
+      if (!val || isNaN(val) || val < 1 || val > 10 || !Number.isInteger(Math.round(val))) {
+        this.modalError.set(`Nota inválida para ${fila.nombre} (debe ser entre 1 y 10)`);
+        return;
+      }
+    }
+
+    this.modalError.set(null);
+    this.guardandoMasivo.set(true);
+
+    const requests = filas.map((fila) =>
+      this.cursosService.registrarCalificacion(
+        fila.curso.id,
+        fila.curso.designacionId,
+        Math.round(notas[fila.curso.designacionId]),
+      ),
+    );
+
+    forkJoin(requests).subscribe({
+      next: (results) => {
+        const porDesignacion = new Map(filas.map((f, i) => [f.curso.designacionId, results[i]]));
+        this.funcionarios.update((lista) =>
+          lista.map((f) => ({
+            ...f,
+            cursos: f.cursos.map((c) => {
+              const res = porDesignacion.get(c.designacionId);
+              return res ? { ...c, calificacion: res.calificacion } : c;
+            }),
+          })),
+        );
+        this.guardandoMasivo.set(false);
+        this.cerrarModal();
+        this.toast.success(`${filas.length} calificación(es) registrada(s) correctamente`);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoMasivo.set(false);
+        this.modalError.set('Error al registrar calificaciones: ' + this.parseError(err));
+      },
+    });
+  }
+
+  cursoTerminado(curso: CursoFuncionarioItem): boolean {
+    if (!curso.fechaFin) return false;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return new Date(curso.fechaFin) < hoy;
+  }
+
+  iniciarCalificacion(fila: FilaHistorial): void {
+    this.calificandoId.set(`${fila.funcionarioId}-${fila.curso.id}-${fila.curso.designacionId}`);
+    this.calificacionValor.set(10);
+  }
+
+  cancelarCalificacion(): void {
+    this.calificandoId.set(null);
+  }
+
+  guardarCalificacion(fila: FilaHistorial): void {
+    const val = Math.round(this.calificacionValor());
+    if (isNaN(val) || val < 1 || val > 10) {
+      this.toast.error('La calificación debe ser un número entero entre 1 y 10');
+      return;
+    }
+    this.guardandoCalificacion.set(true);
+    this.cursosService.registrarCalificacion(fila.curso.id, fila.curso.designacionId, val).subscribe({
+      next: (res) => {
+        this.funcionarios.update((lista) =>
+          lista.map((f) =>
+            f.id !== fila.funcionarioId
+              ? f
+              : {
+                  ...f,
+                  cursos: f.cursos.map((c) =>
+                    c.designacionId === fila.curso.designacionId
+                      ? { ...c, calificacion: res.calificacion }
+                      : c,
+                  ),
+                },
+          ),
+        );
+        this.calificandoId.set(null);
+        this.guardandoCalificacion.set(false);
+        this.toast.success('Calificación registrada correctamente');
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoCalificacion.set(false);
+        this.toast.error(this.parseError(err));
+      },
+    });
   }
 
   // ── Tracks ─────────────────────────────────────────────────────────────────
