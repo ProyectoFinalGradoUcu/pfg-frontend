@@ -26,6 +26,7 @@ type ModalKind =
   | 'designar'
   | 'editar'
   | 'calificacionMasiva'
+  | 'confirmarEliminar'
   | null;
 
 interface FilaHistorial {
@@ -126,6 +127,12 @@ export class CursosPage implements OnInit, OnDestroy {
 
   // ── Computed ───────────────────────────────────────────────────────────────
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('cursos.gestionar'));
+
+  readonly cursoTieneDesignados = computed(() => {
+    const curso = this.cursoSeleccionado();
+    if (!curso) return false;
+    return this.filasFlat().some((f) => f.curso.id === curso.id);
+  });
   // definicionesPaginadas eliminado: paginación server-side via cargarDefiniciones()
 
   readonly filasFlat = computed<FilaHistorial[]>(() =>
@@ -485,7 +492,11 @@ export class CursosPage implements OnInit, OnDestroy {
           this.cerrarModal();
           this.toast.success('Curso actualizado');
         },
-        error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
+        error: (err: HttpErrorResponse) => {
+          const msg = this.parseError(err);
+          this.modalError.set(msg);
+          this.editarForm.controls.nombre_curso.setErrors({ backend: msg });
+        },
       });
   }
 
@@ -585,7 +596,11 @@ export class CursosPage implements OnInit, OnDestroy {
               },
             });
         },
-        error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
+        error: (err: HttpErrorResponse) => {
+          const msg = this.parseError(err);
+          this.modalError.set(msg);
+          this.nuevoCursoForm.controls.nombre_curso.setErrors({ backend: msg });
+        },
       });
   }
 
@@ -626,9 +641,14 @@ export class CursosPage implements OnInit, OnDestroy {
 
   eliminarCurso(curso: CursoDefinicion): void {
     this.cerrarMenu();
-    if (!confirm(`¿Eliminar el curso "${curso.nombre_curso}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
+    this.cursoSeleccionado.set(curso);
+    this.modalError.set(null);
+    this.modal.set('confirmarEliminar');
+  }
+
+  confirmarEliminar(): void {
+    const curso = this.cursoSeleccionado();
+    if (!curso) return;
     this.cursosService.deleteDefinicion(curso.id).subscribe({
       next: () => {
         if (this.definiciones().length === 1 && this.defPage() > 1) {
@@ -636,8 +656,9 @@ export class CursosPage implements OnInit, OnDestroy {
         }
         this.cargarDefiniciones();
         this.toast.success(`Curso "${curso.nombre_curso}" eliminado`);
+        this.cerrarModal();
       },
-      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+      error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
     });
   }
 
@@ -799,6 +820,18 @@ export class CursosPage implements OnInit, OnDestroy {
   trackModulo = (_: number, m: ModuloCurso) => m.id;
 
   private parseError(err: HttpErrorResponse): string {
-    return err.error?.message ?? err.message ?? 'Error inesperado';
+    const body = err.error;
+    if (typeof body === 'string' && body.trim()) return body.trim();
+    if (Array.isArray(body?.message) && body.message.length) return body.message[0];
+    if (typeof body?.message === 'string' && body.message.trim()) return body.message.trim();
+    if (typeof body?.error === 'string' && body.error.trim() && body.error !== 'Conflict' && body.error !== 'Bad Request') return body.error.trim();
+    switch (err.status) {
+      case 409: return 'Ya existe un curso con ese nombre.';
+      case 400: return 'Los datos ingresados no son válidos.';
+      case 404: return 'El recurso no fue encontrado.';
+      case 403: return 'No tenés permiso para realizar esta acción.';
+      case 0:   return 'No se pudo conectar con el servidor.';
+      default:  return 'Ocurrió un error inesperado. Intentá de nuevo.';
+    }
   }
 }
