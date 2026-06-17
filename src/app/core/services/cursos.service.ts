@@ -52,9 +52,15 @@ export class CursosService {
 
   // ── Funcionarios con cursos ────────────────────────────────────────────────
 
-  findFuncionariosConCursos(cedula?: string, page = 1, pageSize = 100): Observable<FuncionarioConCursos[]> {
+  findFuncionariosConCursos(
+    cedula?: string,
+    page = 1,
+    pageSize = 100,
+    incluirBajas = false,
+  ): Observable<FuncionarioConCursos[]> {
     const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     if (cedula) qs.set('cedula', cedula);
+    if (incluirBajas) qs.set('incluir_bajas', 'true');
     return this.http
       .get<PaginatedResponse<any>>(`${API_BASE_URL}/cursos/funcionarios?${qs}`, { withCredentials: true })
       .pipe(
@@ -157,6 +163,24 @@ export class CursosService {
     );
   }
 
+  // ── Baja / Reactivación de inscripción ─────────────────────────────────────
+
+  darDeBaja(cursoId: string, designacionId: string, motivo: string): Observable<any> {
+    return this.http.patch<any>(
+      `${API_BASE_URL}/cursos/${cursoId}/designaciones/${designacionId}/baja`,
+      { motivo },
+      { withCredentials: true },
+    );
+  }
+
+  reactivar(cursoId: string, designacionId: string): Observable<any> {
+    return this.http.patch<any>(
+      `${API_BASE_URL}/cursos/${cursoId}/designaciones/${designacionId}/reactivar`,
+      {},
+      { withCredentials: true },
+    );
+  }
+
   // ── Mapeo API → modelo ─────────────────────────────────────────────────────
 
   private mapCursoFuncionario(raw: any): CursoFuncionarioItem {
@@ -173,6 +197,12 @@ export class CursosService {
       numero_orden:  raw.numero_orden ?? null,
       boletin:       raw.boletin      ?? null,
       documentoUrl:  raw.documentoUrl ?? raw.documento_url ?? null,
+      dadoDeBaja:    raw.dado_de_baja ?? false,
+      motivoBaja:    raw.motivo_baja  ?? null,
+      fechaBaja:     raw.fecha_baja   ?? null,
+      dadoDeBajaPor: raw.dado_de_baja_por
+        ? { id: String(raw.dado_de_baja_por.id ?? ''), username: raw.dado_de_baja_por.username ?? '' }
+        : null,
     };
   }
 
