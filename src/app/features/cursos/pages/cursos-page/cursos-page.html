@@ -81,6 +81,17 @@
           </button>
           <span *ngIf="buscandoCedula()" class="cursos__search-spinner"></span>
         </div>
+
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm cursos__ver-bajas-btn"
+          [class.cursos__ver-bajas-btn--active]="verBajas()"
+          (click)="toggleVerBajas()"
+          [attr.aria-pressed]="verBajas()"
+          title="Mostrar u ocultar inscripciones dadas de baja"
+        >
+          {{ verBajas() ? 'Ocultar bajas' : 'Ver bajas' }}
+        </button>
       </div>
 
       <div *ngIf="loading()" class="cursos__placeholder">Cargando...</div>
@@ -97,13 +108,30 @@
               <th>Fecha Fin</th>
               <th>Tipo</th>
               <th>Calificación</th>
+              <th *ngIf="puedeGestionar()" class="cursos__col-actions">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let fila of filasPaginadas(); trackBy: trackFila">
+            <tr
+              *ngFor="let fila of filasPaginadas(); trackBy: trackFila"
+              [class.cursos__row--baja]="fila.curso.dadoDeBaja"
+            >
               <td>{{ fila.nombre }}</td>
               <td class="cursos__cedula">{{ fila.cedula }}</td>
-              <td><strong>{{ fila.curso.nombre_curso }}</strong></td>
+              <td>
+                <div class="cursos__curso-cell">
+                  <strong>{{ fila.curso.nombre_curso }}</strong>
+                  <span
+                    *ngIf="fila.curso.dadoDeBaja"
+                    class="cursos__baja-badge"
+                    [title]="'Motivo: ' + (fila.curso.motivoBaja || '—')
+                      + (fila.curso.fechaBaja ? ' · Fecha: ' + (fila.curso.fechaBaja | date:'d/M/yyyy':'UTC') : '')
+                      + (fila.curso.dadoDeBajaPor?.username ? ' · Por: ' + fila.curso.dadoDeBajaPor!.username : '')"
+                  >
+                    Dado de baja
+                  </span>
+                </div>
+              </td>
               <td>{{ fila.curso.institucion }}</td>
               <td>{{ fila.curso.fechaInicio | date:'d/M/yyyy':'UTC' }}</td>
               <td>{{ fila.curso.fechaFin | date:'d/M/yyyy':'UTC' }}</td>
@@ -187,9 +215,32 @@
                 </ng-container>
 
               </td>
+
+              <!-- ── Acciones ─────────────────────────────────────────── -->
+              <td *ngIf="puedeGestionar()" class="cursos__col-actions">
+                <button
+                  *ngIf="!fila.curso.dadoDeBaja"
+                  type="button"
+                  class="btn btn--ghost btn--sm cursos__baja-btn"
+                  (click)="abrirBaja(fila)"
+                  title="Dar de baja del curso"
+                >
+                  Dar de baja
+                </button>
+                <button
+                  *ngIf="fila.curso.dadoDeBaja"
+                  type="button"
+                  class="btn btn--ghost btn--sm cursos__reactivar-btn"
+                  [disabled]="reactivandoId() === fila.curso.designacionId"
+                  (click)="reactivar(fila)"
+                  title="Reactivar la inscripción"
+                >
+                  {{ reactivandoId() === fila.curso.designacionId ? 'Reactivando…' : 'Reactivar' }}
+                </button>
+              </td>
             </tr>
             <tr *ngIf="filasFlat().length === 0">
-              <td colspan="8" class="cursos__empty">
+              <td [attr.colspan]="puedeGestionar() ? 9 : 8" class="cursos__empty">
                 {{ cedulaFiltro() ? 'No se encontraron cursos para esa cédula' : 'No hay cursos registrados' }}
               </td>
             </tr>
@@ -794,6 +845,47 @@
         <footer class="modal__actions">
           <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
           <button type="submit" class="btn btn--primary">Guardar cambios</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Dar de baja                                                     -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'baja' && bajaFila() as fila" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Dar de baja del curso</h3>
+          <p>{{ fila.nombre }} — {{ fila.curso.nombre_curso }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="bajaForm" (ngSubmit)="confirmarBaja()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <label class="modal__field">
+          <span>Motivo de la baja <em>*</em></span>
+          <textarea
+            formControlName="motivo"
+            rows="4"
+            maxlength="500"
+            placeholder="Ej: Solicito la baja por confusión al inscribirlo."
+          ></textarea>
+          <small class="modal__hint">Mínimo 5 caracteres. Quedará registrado junto con la fecha y tu usuario.</small>
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--danger" [disabled]="guardandoBaja()">
+            {{ guardandoBaja() ? 'Dando de baja…' : 'Confirmar baja' }}
+          </button>
         </footer>
       </form>
     </div>
