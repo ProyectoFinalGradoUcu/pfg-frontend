@@ -1,7 +1,8 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { RouterTestingModule } from '@angular/router/testing';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 
@@ -15,7 +16,7 @@ describe('LoginPage', () => {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       declarations: [LoginPage],
-      imports: [ReactiveFormsModule, HttpClientTestingModule],
+      imports: [RouterTestingModule, HttpClientTestingModule, ReactiveFormsModule],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
       providers: [
         { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
