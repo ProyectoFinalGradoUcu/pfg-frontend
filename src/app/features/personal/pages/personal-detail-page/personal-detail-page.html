@@ -219,9 +219,9 @@
                 <span class="pd__label">Tiene mando</span>
                 <span class="pd__value">{{ rl.tiene_mando ? 'Sí' : 'No' }}</span>
               </div>
-              <div class="pd__field" *ngIf="rl.compania">
-                <span class="pd__label">Compañía</span>
-                <span class="pd__value">{{ rl.compania!.denominacion }}</span>
+              <div class="pd__field" *ngIf="rl.sub_unidad">
+                <span class="pd__label">Sub-unidad</span>
+                <span class="pd__value">{{ rl.sub_unidad!.denominacion }}</span>
               </div>
               <div class="pd__field" *ngIf="rl.observaciones">
                 <span class="pd__label">Observaciones</span>
@@ -277,10 +277,10 @@
                 </select>
               </div>
               <div class="pd__field">
-                <span class="pd__label">Compañía</span>
-                <select formControlName="compania_id" class="pd__edit-select">
-                  <option [ngValue]="null">Sin compañía</option>
-                  <option *ngFor="let comp of editCompanias()" [ngValue]="comp.id">{{ comp.denominacion }}</option>
+                <span class="pd__label">Sub-unidad</span>
+                <select formControlName="sub_unidad_id" class="pd__edit-select">
+                  <option [ngValue]="null">Sin sub-unidad</option>
+                  <option *ngFor="let comp of editSubUnidades()" [ngValue]="comp.id">{{ comp.denominacion }}</option>
                 </select>
               </div>
               <div class="pd__field">
