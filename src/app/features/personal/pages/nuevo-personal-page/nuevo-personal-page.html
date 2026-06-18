@@ -198,10 +198,10 @@
         </div>
 
         <div class="nf__field">
-          <label class="nf__label" for="compania_id">Compañía</label>
-          <select id="compania_id" formControlName="compania_id" class="nf__select">
+          <label class="nf__label" for="sub_unidad_id">Sub-unidad</label>
+          <select id="sub_unidad_id" formControlName="sub_unidad_id" class="nf__select">
             <option [ngValue]="null">Seleccionar...</option>
-            <option *ngFor="let c of companias()" [ngValue]="c.id">{{ c.denominacion }}</option>
+            <option *ngFor="let c of subUnidades()" [ngValue]="c.id">{{ c.denominacion }}</option>
           </select>
         </div>
 

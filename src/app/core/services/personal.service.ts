@@ -81,8 +81,8 @@ export class PersonalService {
     return this.http.get<OpcionSelect[]>(`${this.catalogos}/programas`, { withCredentials: true });
   }
 
-  getCompanias(): Observable<OpcionSelect[]> {
-    return this.http.get<OpcionSelect[]>(`${this.catalogos}/companias`, { withCredentials: true });
+  getSubUnidades(): Observable<OpcionSelect[]> {
+    return this.http.get<OpcionSelect[]>(`${this.catalogos}/sub-unidades`, { withCredentials: true });
   }
 
   getById(id: number): Observable<PersonaDetalle> {

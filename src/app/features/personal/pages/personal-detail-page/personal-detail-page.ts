@@ -77,7 +77,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly editRegimenes  = signal<OpcionSelect[]>([]);
   readonly editProgramas  = signal<OpcionSelect[]>([]);
   readonly editEscalafones= signal<OpcionSelect[]>([]);
-  readonly editCompanias  = signal<OpcionSelect[]>([]);
+  readonly editSubUnidades = signal<OpcionSelect[]>([]);
   private catalogsLoaded  = false;
 
   readonly generoOpciones = [
@@ -104,7 +104,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     situacion_id:          [null],
     regimen_id:            [null],
     programa_id:           [null],
-    compania_id:           [null],
+    sub_unidad_id:         [null],
     prima_tecnica:         [''],
     tiene_mando:           [false],
     observaciones_laborales: [''],
@@ -225,7 +225,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       situacion_id:          rl?.situacion?.id   ?? null,
       regimen_id:            rl?.regimen?.id     ?? null,
       programa_id:           rl?.programa?.id    ?? null,
-      compania_id:           rl?.compania?.id    ?? null,
+      sub_unidad_id:         rl?.sub_unidad?.id  ?? null,
       prima_tecnica:         rl?.prima_tecnica   ?? '',
       tiene_mando:           rl?.tiene_mando     ?? false,
       observaciones_laborales: rl?.observaciones ?? '',
@@ -242,7 +242,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       this.svc.getRegimenes().subscribe({ next: d => this.editRegimenes.set(d) });
       this.svc.getProgramas().subscribe({ next: d => this.editProgramas.set(d) });
       this.svc.getEscalafones().subscribe({ next: d => this.editEscalafones.set(d) });
-      this.svc.getCompanias().subscribe({ next: d => this.editCompanias.set(d) });
+      this.svc.getSubUnidades().subscribe({ next: d => this.editSubUnidades.set(d) });
       if (rl?.escalafon?.id) {
         this.svc.getGrados(rl.escalafon.id).subscribe({ next: d => this.editGrados.set(d) });
       }
@@ -279,7 +279,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       ...(raw.situacion_id          && { situacion_id:          Number(raw.situacion_id) }),
       ...(raw.regimen_id            && { regimen_id:            Number(raw.regimen_id) }),
       ...(raw.programa_id           && { programa_id:           Number(raw.programa_id) }),
-      compania_id:                     raw.compania_id ? Number(raw.compania_id) : null,
+      sub_unidad_id:                   raw.sub_unidad_id ? Number(raw.sub_unidad_id) : null,
       prima_tecnica:                   raw.prima_tecnica || null,
       tiene_mando:                     raw.tiene_mando,
       observaciones_laborales:         raw.observaciones_laborales || null,

@@ -67,7 +67,7 @@ export interface RelacionLaboral {
   regimen: SimpleRef;
   programa: SimpleRef;
   escalafon: SimpleRef;
-  compania: SimpleRef | null;
+  sub_unidad: SimpleRef | null;
 }
 
 export interface PersonaDetalle {
@@ -153,7 +153,7 @@ export interface PatchPersonaPayload {
   regimen_id?: number;
   programa_id?: number;
   escalafon_id?: number;
-  compania_id?: number | null;
+  sub_unidad_id?: number | null;
   prima_tecnica?: string | null;
   tiene_mando?: boolean;
   observaciones_laborales?: string | null;
@@ -182,7 +182,7 @@ export interface CrearPersonaPayload {
   escalafon_id: number;
   grado_id: number;
   fecha_inicio: string;
-  compania_id?: number;
+  sub_unidad_id?: number;
   observaciones?: string;
 }
 
