@@ -9,6 +9,7 @@ describe('MainLayout', () => {
   let fixture: ComponentFixture<MainLayout>;
 
   beforeEach(async () => {
+    TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       declarations: [MainLayout],
       imports: [RouterTestingModule],

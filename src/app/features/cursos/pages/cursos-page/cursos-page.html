@@ -540,9 +540,12 @@
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
         <div class="modal__grid-2">
-          <label class="modal__field">
+          <label class="modal__field" [class.modal__field--error]="nuevoCursoForm.controls.nombre_curso.errors?.['backend']">
             <span>Nombre del Curso <em>*</em></span>
             <input type="text" formControlName="nombre_curso" placeholder="ej: Curso Básico de Aviación Militar" autocomplete="off" />
+            <small *ngIf="nuevoCursoForm.controls.nombre_curso.errors?.['backend']" class="modal__field-error-msg">
+              {{ nuevoCursoForm.controls.nombre_curso.errors?.['backend'] }}
+            </small>
           </label>
           <label class="modal__field">
             <span>Institución <em>*</em></span>
@@ -808,9 +811,12 @@
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
         <div class="modal__grid-2">
-          <label class="modal__field">
+          <label class="modal__field" [class.modal__field--error]="editarForm.controls.nombre_curso.errors?.['backend']">
             <span>Nombre del Curso <em>*</em></span>
             <input type="text" formControlName="nombre_curso" autocomplete="off" />
+            <small *ngIf="editarForm.controls.nombre_curso.errors?.['backend']" class="modal__field-error-msg">
+              {{ editarForm.controls.nombre_curso.errors?.['backend'] }}
+            </small>
           </label>
           <label class="modal__field">
             <span>Institución <em>*</em></span>
@@ -974,6 +980,43 @@
         </button>
       </footer>
 
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Confirmar eliminar curso                                        -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'confirmarEliminar' && cursoSeleccionado() as curso" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Eliminar curso</h3>
+          <p>{{ curso.nombre_curso }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <p class="modal__confirm-text">
+        ¿Estás seguro que querés eliminar el curso <strong>{{ curso.nombre_curso }}</strong>? Esta acción no se puede deshacer.
+      </p>
+
+      <div *ngIf="cursoTieneDesignados()" class="modal__warning" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <span>Este curso tiene personal designado. Al eliminarlo se borrarán también todos los registros de designación e historial asociados.</span>
+      </div>
+
+      <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+        <button type="button" class="btn btn--danger" (click)="confirmarEliminar()">Eliminar</button>
+      </footer>
     </div>
   </div>
 
