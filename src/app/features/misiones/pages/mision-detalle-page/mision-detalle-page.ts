@@ -68,8 +68,6 @@ export class MisionDetallePage implements OnInit {
     tipo_mision: [''],
     fecha_salida: [''],
     fecha_llegada: [''],
-    numero_orden: [''],
-    boletin: [''],
     observaciones: [''],
     comando_responsable: [''],
   });
@@ -134,8 +132,6 @@ export class MisionDetallePage implements OnInit {
       tipo_mision: m.tipo_mision,
       fecha_salida: m.fecha_salida,
       fecha_llegada: m.fecha_llegada,
-      numero_orden: m.numero_orden,
-      boletin: m.boletin,
       observaciones: m.observaciones,
       comando_responsable: m.comando_responsable,
     });
@@ -161,8 +157,6 @@ export class MisionDetallePage implements OnInit {
       tipo_mision: raw.tipo_mision || undefined,
       fecha_salida: raw.fecha_salida || undefined,
       fecha_llegada: raw.fecha_llegada || undefined,
-      numero_orden: raw.numero_orden || undefined,
-      boletin: raw.boletin || undefined,
       observaciones: raw.observaciones || undefined,
       comando_responsable: raw.comando_responsable || undefined,
     };

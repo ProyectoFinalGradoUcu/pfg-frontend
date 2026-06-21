@@ -67,8 +67,6 @@ export interface CreateMisionPayload {
   tipo_mision?: string;
   fecha_salida?: string;
   fecha_llegada?: string;
-  numero_orden?: string;
-  boletin?: string;
   observaciones?: string;
   comando_responsable?: string;
 }

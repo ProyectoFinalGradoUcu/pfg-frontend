@@ -49,8 +49,6 @@ export class MisionesPage implements OnInit {
     tipo_mision: [''],
     fecha_salida: [''],
     fecha_llegada: [''],
-    numero_orden: [''],
-    boletin: [''],
     observaciones: [''],
     comando_responsable: [''],
   });
@@ -105,8 +103,6 @@ export class MisionesPage implements OnInit {
       tipo_mision: '',
       fecha_salida: '',
       fecha_llegada: '',
-      numero_orden: '',
-      boletin: '',
       observaciones: '',
       comando_responsable: '',
     });
@@ -123,8 +119,6 @@ export class MisionesPage implements OnInit {
       tipo_mision: mision.tipo_mision,
       fecha_salida: mision.fecha_salida,
       fecha_llegada: mision.fecha_llegada,
-      numero_orden: mision.numero_orden,
-      boletin: mision.boletin,
       observaciones: mision.observaciones,
       comando_responsable: mision.comando_responsable,
     });
@@ -152,8 +146,6 @@ export class MisionesPage implements OnInit {
       tipo_mision: raw.tipo_mision || undefined,
       fecha_salida: raw.fecha_salida || undefined,
       fecha_llegada: raw.fecha_llegada || undefined,
-      numero_orden: raw.numero_orden || undefined,
-      boletin: raw.boletin || undefined,
       observaciones: raw.observaciones || undefined,
       comando_responsable: raw.comando_responsable || undefined,
     };
