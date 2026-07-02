@@ -1,0 +1,85 @@
+<section class="epr">
+  <!-- Breadcrumb -->
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" (click)="volver()">Usuarios y Roles</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">
+      Permisos · {{ rol()?.nombre ?? '...' }}
+    </span>
+  </nav>
+
+  <header class="epr__header">
+    <div>
+      <h2>Permisos del rol</h2>
+      <p *ngIf="rol() as r">
+        {{ r.nombre }}<span *ngIf="r.descripcion"> — {{ r.descripcion }}</span>
+      </p>
+    </div>
+  </header>
+
+  <div *ngIf="loading()" class="epr__placeholder">Cargando rol...</div>
+
+  <article class="epr__card" *ngIf="!loading()">
+    <header class="epr__card-header">
+      <h3>Permisos disponibles</h3>
+      <div class="epr__search">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input
+          type="text"
+          [value]="search()"
+          (input)="onSearch($event)"
+          placeholder="Buscar permiso..."
+          autocomplete="off"
+        />
+      </div>
+    </header>
+
+    <p *ngIf="esAdministrador()" class="epr__note">
+      El rol «Administrador del sistema» tiene todos los permisos y no se pueden modificar.
+    </p>
+
+    <div class="epr__table-wrapper">
+      <table class="epr__table">
+        <thead>
+          <tr>
+            <th>Permiso</th>
+            <th class="epr__col-center">Asignado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="permisosLoading()">
+            <td colspan="2" class="epr__empty">Cargando permisos...</td>
+          </tr>
+          <ng-container *ngIf="!permisosLoading()">
+            <tr *ngFor="let p of permisos(); trackBy: trackPermiso">
+              <td>
+                <strong>{{ p.descripcion ?? p.nombre }}</strong>
+                <small *ngIf="p.descripcion" class="epr__muted">{{ p.nombre }}</small>
+              </td>
+              <td class="epr__col-center">
+                <input
+                  type="checkbox"
+                  [checked]="rolTienePermiso(p)"
+                  [disabled]="!puedeGestionarRoles() || esAdministrador()"
+                  (change)="togglePermiso(p, $any($event.target).checked)"
+                />
+              </td>
+            </tr>
+            <tr *ngIf="permisosTotal() === 0">
+              <td colspan="2" class="epr__empty">Sin permisos que coincidan</td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <app-paginator
+      [totalItems]="permisosTotal()"
+      [pageSize]="pageSize"
+      [currentPage]="page()"
+      (pageChange)="onPageChange($event)"
+    ></app-paginator>
+  </article>
+</section>
