@@ -16,17 +16,6 @@
         </svg>
         Nuevo Usuario
       </button>
-      <button
-        *ngIf="tab() === 'invitaciones' && puedeGestionarUsuarios()"
-        type="button"
-        class="btn btn--ghost btn--lg"
-        (click)="abrirNuevaInvitacion()"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-        </svg>
-        Nueva Invitación
-      </button>
     </div>
   </header>
 
@@ -257,7 +246,7 @@
       <header class="modal__header">
         <div>
           <h3>Nuevo Usuario</h3>
-          <p>Complete los datos del nuevo usuario del sistema.</p>
+          <p>Se enviará un correo de invitación para que el usuario establezca su contraseña.</p>
         </div>
         <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -275,11 +264,6 @@
         </label>
 
         <label class="modal__field">
-          <span>Contraseña inicial <em>*</em></span>
-          <input type="text" formControlName="password" placeholder="Mínimo 8 caracteres" autocomplete="off" />
-        </label>
-
-        <label class="modal__field">
           <span>Rol <em>*</em></span>
           <app-select
             formControlName="rol"
@@ -293,7 +277,7 @@
 
         <footer class="modal__actions">
           <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
-          <button type="submit" class="btn btn--primary">Crear Usuario</button>
+          <button type="submit" class="btn btn--primary">Enviar invitación</button>
         </footer>
       </form>
     </div>
@@ -354,67 +338,5 @@
     </div>
   </div>
 
-  <!-- ── MODAL: NUEVA INVITACIÓN ───────────────────────────────────────── -->
-  <div *ngIf="modal() === 'nuevaInvitacion'" class="modal" (click)="cerrarModal()">
-    <div class="modal__card" (click)="$event.stopPropagation()">
-      <header class="modal__header">
-        <div>
-          <h3>Nueva Invitación</h3>
-          <p>Se enviará un email con el link de registro.</p>
-        </div>
-        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </header>
 
-      <form [formGroup]="nuevaInvitacionForm" (ngSubmit)="enviarInvitacion()" novalidate>
-        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
-
-        <label class="modal__field">
-          <span>Email <em>*</em></span>
-          <input
-            type="email"
-            formControlName="email"
-            placeholder="ej: juan.perez@fau.mil.uy"
-            autocomplete="off"
-          />
-        </label>
-
-        <label class="modal__field">
-          <span>Persona ID <small>(opcional)</small></span>
-          <input
-            type="number"
-            formControlName="personaId"
-            placeholder="ID numérico de la persona"
-            autocomplete="off"
-          />
-        </label>
-
-        <div class="modal__field" *ngIf="roles().length > 0">
-          <legend>Roles <small>(opcional)</small></legend>
-          <div class="modal__chips">
-            <label
-              *ngFor="let r of roles(); trackBy: trackRol"
-              class="modal__chip"
-              [class.modal__chip--selected]="rolesInvitacion().includes(r.nombre)"
-            >
-              <input
-                type="checkbox"
-                [checked]="rolesInvitacion().includes(r.nombre)"
-                (change)="toggleRolInvitacion(r.nombre)"
-              />
-              {{ r.nombre }}
-            </label>
-          </div>
-        </div>
-
-        <footer class="modal__actions">
-          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
-          <button type="submit" class="btn btn--primary">Enviar invitación</button>
-        </footer>
-      </form>
-    </div>
-  </div>
 </section>

@@ -11,7 +11,7 @@ import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { Invitacion, Permiso, Rol, Usuario } from '../../../../core/models/auth.models';
 
 type Tab = 'usuarios' | 'invitaciones' | 'roles';
-type ModalKind = 'nuevoUsuario' | 'editarUsuario' | 'nuevaInvitacion' | null;
+type ModalKind = 'nuevoUsuario' | 'editarUsuario' | null;
 
 @Component({
   selector: 'app-usuarios-y-roles-page',
@@ -50,9 +50,9 @@ export class UsuariosYRolesPage implements OnInit {
 
   // ── Invitaciones ─────────────────────────────────────────────────────────
   readonly invitaciones = signal<Invitacion[]>([]);
+  readonly invitacionesTodas = signal<Invitacion[]>([]);
   readonly invitacionesLoading = signal(false);
   readonly estadoFiltro = signal<string>('pendiente');
-  readonly rolesInvitacion = signal<string[]>([]);
 
   readonly estadosFiltro = [
     { value: 'pendiente', label: 'Pendientes' },
@@ -83,7 +83,6 @@ export class UsuariosYRolesPage implements OnInit {
   // ── Forms ─────────────────────────────────────────────────────────────────
   readonly nuevoUsuarioForm = this.fb.group({
     username: ['', [Validators.required, Validators.email, Validators.maxLength(60)]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
     rol: ['', Validators.required],
   });
 
@@ -91,11 +90,6 @@ export class UsuariosYRolesPage implements OnInit {
     rol: [''],
     estado: ['activo' as 'activo' | 'bloqueado'],
     nuevaPassword: [''],
-  });
-
-  readonly nuevaInvitacionForm = this.fb.group({
-    email: ['', [Validators.required, Validators.email, Validators.maxLength(60)]],
-    personaId: [null as number | null],
   });
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -143,8 +137,11 @@ export class UsuariosYRolesPage implements OnInit {
   }
 
   abrirNuevoUsuario(): void {
-    this.nuevoUsuarioForm.reset({ username: '', password: '', rol: '' });
+    this.nuevoUsuarioForm.reset({ username: '', rol: '' });
     this.modalError.set(null);
+    this.invitacionesService.findAll().subscribe({
+      next: (items) => this.invitacionesTodas.set(items),
+    });
     this.modal.set('nuevoUsuario');
   }
 
@@ -167,15 +164,34 @@ export class UsuariosYRolesPage implements OnInit {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { username, password, rol } = this.nuevoUsuarioForm.getRawValue();
+    const { username, rol } = this.nuevoUsuarioForm.getRawValue();
+    const emailNorm = username!.trim().toLowerCase();
+
+    const usuarioExistente = this.usuarios().some(
+      (u) => u.username.toLowerCase() === emailNorm,
+    );
+    if (usuarioExistente) {
+      this.modalError.set('Ya existe un usuario registrado con ese correo electrónico.');
+      return;
+    }
+
+    const invExistente = this.invitacionesTodas().some(
+      (i) => i.email.toLowerCase() === emailNorm && i.estado === 'pendiente',
+    );
+    if (invExistente) {
+      this.modalError.set('Ya existe una invitación pendiente para ese correo electrónico.');
+      return;
+    }
+
     this.modalError.set(null);
-    this.usuariosService
-      .create({ username: username!, password: password!, roles: rol ? [rol] : undefined })
+    this.invitacionesService
+      .create({ email: username!, roles: rol ? [rol] : undefined })
       .subscribe({
         next: () => {
           this.cerrarModal();
-          this.toast.success(`Usuario ${username} creado correctamente`);
-          this.cargar();
+          this.toast.success(
+            `Se realizó una nueva invitación a ${username}. Esto queda visible en la sección de invitaciones.`,
+          );
         },
         error: (err) => this.modalError.set(this.parseError(err)),
       });
@@ -313,42 +329,6 @@ export class UsuariosYRolesPage implements OnInit {
     }
   }
 
-  abrirNuevaInvitacion(): void {
-    this.nuevaInvitacionForm.reset({ email: '', personaId: null });
-    this.rolesInvitacion.set([]);
-    this.modalError.set(null);
-    this.modal.set('nuevaInvitacion');
-  }
-
-  toggleRolInvitacion(nombre: string): void {
-    this.rolesInvitacion.update((current) =>
-      current.includes(nombre) ? current.filter((r) => r !== nombre) : [...current, nombre],
-    );
-  }
-
-  enviarInvitacion(): void {
-    if (this.nuevaInvitacionForm.invalid) {
-      this.nuevaInvitacionForm.markAllAsTouched();
-      this.modalError.set('Completá los campos requeridos');
-      return;
-    }
-    const { email, personaId } = this.nuevaInvitacionForm.getRawValue();
-    this.modalError.set(null);
-    this.invitacionesService
-      .create({
-        email: email!,
-        personaId: personaId ?? undefined,
-        roles: this.rolesInvitacion().length > 0 ? this.rolesInvitacion() : undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.cerrarModal();
-          this.toast.success(`Invitación enviada a ${email}`);
-          this.cargarInvitaciones();
-        },
-        error: (err) => this.modalError.set(this.parseError(err)),
-      });
-  }
 
   revocarInvitacion(inv: Invitacion): void {
     if (!confirm(`¿Revocar la invitación enviada a ${inv.email}?`)) return;
