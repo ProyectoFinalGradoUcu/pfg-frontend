@@ -1,0 +1,112 @@
+<section class="aud">
+  <app-page-header
+    title="Auditoría"
+    subtitle="Bitácora de acciones realizadas en el sistema"
+  ></app-page-header>
+
+  <form class="aud__filtros" [formGroup]="filtrosForm" (ngSubmit)="aplicarFiltros()">
+    <div class="aud__filtro">
+      <label>Acción</label>
+      <select formControlName="accion">
+        <option value="">Todas</option>
+        <option *ngFor="let a of acciones()" [value]="a.nombre">{{ a.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="aud__filtro">
+      <label>Contexto</label>
+      <select formControlName="contexto">
+        <option value="">Todos</option>
+        <option *ngFor="let c of contextos()" [value]="c.nombre">{{ c.nombre }}</option>
+      </select>
+    </div>
+
+    <div class="aud__filtro">
+      <label>Desde</label>
+      <input type="date" formControlName="desde" />
+    </div>
+
+    <div class="aud__filtro">
+      <label>Hasta</label>
+      <input type="date" formControlName="hasta" />
+    </div>
+
+    <div class="aud__filtro-acciones">
+      <button type="submit" class="btn btn--primary btn--sm">Filtrar</button>
+      <button type="button" class="btn btn--ghost btn--sm" (click)="limpiarFiltros()">Limpiar</button>
+    </div>
+  </form>
+
+  <article class="aud__card">
+    <div *ngIf="loading()" class="aud__placeholder">Cargando...</div>
+
+    <app-empty-state
+      *ngIf="!loading() && registros().length === 0"
+      title="Sin registros"
+      description="No hay eventos de auditoría para los filtros seleccionados."
+    ></app-empty-state>
+
+    <div *ngIf="!loading() && registros().length > 0" class="aud__table-wrapper">
+      <table class="aud__table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Usuario</th>
+            <th>Acción</th>
+            <th>Contexto</th>
+            <th>Entidad</th>
+            <th>Host</th>
+            <th class="aud__col-actions">Detalle</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of registros(); trackBy: trackRegistro">
+            <td class="aud__fecha">{{ r.fecha | date: 'dd/MM/yyyy HH:mm:ss' }}</td>
+            <td>{{ r.usuario.username }}</td>
+            <td><span class="aud__badge" [attr.data-accion]="r.accion">{{ r.accion }}</span></td>
+            <td>{{ r.contexto }}</td>
+            <td>
+              <span *ngIf="r.entidad">{{ r.entidad }}</span>
+              <span *ngIf="r.entidadId" class="aud__muted"> #{{ r.entidadId }}</span>
+              <span *ngIf="!r.entidad && !r.entidadId" class="aud__muted">—</span>
+            </td>
+            <td><span class="aud__muted">{{ r.host || '—' }}</span></td>
+            <td class="aud__col-actions">
+              <button
+                *ngIf="r.detalle"
+                type="button"
+                class="btn btn--ghost btn--sm"
+                (click)="verDetalle(r)"
+              >
+                Ver
+              </button>
+              <span *ngIf="!r.detalle" class="aud__muted">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-paginator
+      *ngIf="!loading() && total() > 0"
+      [totalItems]="total()"
+      [pageSize]="pageSize"
+      [currentPage]="page()"
+      (pageChange)="onPageChange($event)"
+    ></app-paginator>
+  </article>
+</section>
+
+<div *ngIf="detalleAbierto() as reg" class="aud__modal-overlay" (click)="cerrarDetalle()">
+  <div class="aud__modal" (click)="$event.stopPropagation()">
+    <header class="aud__modal-header">
+      <h3>Detalle del evento</h3>
+      <button type="button" class="aud__modal-close" (click)="cerrarDetalle()">&times;</button>
+    </header>
+    <div class="aud__modal-meta">
+      <span><strong>{{ reg.accion }}</strong> · {{ reg.contexto }}</span>
+      <span class="aud__muted">{{ reg.fecha | date: 'dd/MM/yyyy HH:mm:ss' }} · {{ reg.usuario.username }}</span>
+    </div>
+    <pre class="aud__detalle">{{ detalleJson(reg.detalle) }}</pre>
+  </div>
+</div>
