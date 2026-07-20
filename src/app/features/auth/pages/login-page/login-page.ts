@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -21,22 +21,22 @@ export class LoginPage implements OnInit {
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
-  loading = false;
-  errorMessage: string | null = null;
-  successMessage: string | null = null;
+  readonly loading = signal(false);
+  readonly errorMessage = signal<string | null>(null);
+  readonly successMessage = signal<string | null>(null);
 
   ngOnInit(): void {
-    this.successMessage = this.route.snapshot.queryParamMap.get('mensaje');
+    this.successMessage.set(this.route.snapshot.queryParamMap.get('mensaje'));
   }
 
   submit(): void {
-    if (this.form.invalid || this.loading) {
+    if (this.form.invalid || this.loading()) {
       this.form.markAllAsTouched();
       return;
     }
 
-    this.loading = true;
-    this.errorMessage = null;
+    this.loading.set(true);
+    this.errorMessage.set(null);
 
     const { username, password } = this.form.getRawValue();
     this.auth.signIn({ username: username!, password: password! }).subscribe({
@@ -45,8 +45,8 @@ export class LoginPage implements OnInit {
         this.router.navigateByUrl(returnUrl);
       },
       error: (err: HttpErrorResponse) => {
-        this.loading = false;
-        this.errorMessage = this.parseError(err);
+        this.loading.set(false);
+        this.errorMessage.set(this.parseError(err));
       },
     });
   }

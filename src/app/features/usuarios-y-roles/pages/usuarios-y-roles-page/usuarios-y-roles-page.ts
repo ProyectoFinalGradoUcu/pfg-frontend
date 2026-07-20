@@ -83,7 +83,7 @@ export class UsuariosYRolesPage implements OnInit {
   // ── Forms ─────────────────────────────────────────────────────────────────
   readonly nuevoUsuarioForm = this.fb.group({
     username: ['', [Validators.required, Validators.email, Validators.maxLength(60)]],
-    rol: ['', Validators.required],
+    roles: [[] as string[], Validators.required],
   });
 
   readonly editForm = this.fb.group({
@@ -137,7 +137,7 @@ export class UsuariosYRolesPage implements OnInit {
   }
 
   abrirNuevoUsuario(): void {
-    this.nuevoUsuarioForm.reset({ username: '', rol: '' });
+    this.nuevoUsuarioForm.reset({ username: '', roles: [] });
     this.modalError.set(null);
     this.invitacionesService.findAll().subscribe({
       next: (items) => this.invitacionesTodas.set(items),
@@ -164,7 +164,7 @@ export class UsuariosYRolesPage implements OnInit {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { username, rol } = this.nuevoUsuarioForm.getRawValue();
+    const { username, roles } = this.nuevoUsuarioForm.getRawValue();
     const emailNorm = username!.trim().toLowerCase();
 
     const usuarioExistente = this.usuarios().some(
@@ -185,7 +185,7 @@ export class UsuariosYRolesPage implements OnInit {
 
     this.modalError.set(null);
     this.invitacionesService
-      .create({ email: username!, roles: rol ? [rol] : undefined })
+      .create({ email: username!, roles: roles && roles.length ? roles : undefined })
       .subscribe({
         next: () => {
           this.cerrarModal();

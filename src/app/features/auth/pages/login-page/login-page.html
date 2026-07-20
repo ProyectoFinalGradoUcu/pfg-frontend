@@ -10,8 +10,8 @@
       <p>Sistema de Gestión de Personal</p>
     </div>
 
-    <div *ngIf="successMessage" class="login__success" role="status">
-      {{ successMessage }}
+    <div *ngIf="successMessage()" class="login__success" role="status">
+      {{ successMessage() }}
     </div>
 
     <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
@@ -37,12 +37,12 @@
         />
       </div>
 
-      <div *ngIf="errorMessage" class="login__error" role="alert">
-        {{ errorMessage }}
+      <div *ngIf="errorMessage()" class="login__error" role="alert">
+        {{ errorMessage() }}
       </div>
 
-      <button type="submit" class="login__submit" [disabled]="loading">
-        {{ loading ? 'Ingresando...' : 'Iniciar Sesión' }}
+      <button type="submit" class="login__submit" [disabled]="loading()">
+        {{ loading() ? 'Ingresando...' : 'Iniciar Sesión' }}
       </button>
 
       <div class="login__links">

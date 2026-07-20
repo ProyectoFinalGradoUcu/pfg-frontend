@@ -266,12 +266,13 @@
         <label class="modal__field">
           <span>Rol <em>*</em></span>
           <app-select
-            formControlName="rol"
+            formControlName="roles"
             [items]="roles()"
             bindLabel="nombre"
             bindValue="nombre"
-            placeholder="Seleccione un rol"
+            placeholder="Seleccione uno o más roles"
             [searchable]="true"
+            [multiple]="true"
           ></app-select>
         </label>
 
