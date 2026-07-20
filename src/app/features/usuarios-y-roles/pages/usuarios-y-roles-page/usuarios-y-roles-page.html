@@ -1,4 +1,4 @@
-<section class="ur">
+<section class="ur" (click)="cerrarMenu()">
   <header class="ur__header">
     <div>
       <h2>Gestión de Usuarios y Roles</h2>
@@ -50,7 +50,7 @@
           <tr>
             <th>Nombre</th>
             <th>Email</th>
-            <th>Rol</th>
+            <th>Roles</th>
             <th>Unidad</th>
             <th>Estado</th>
             <th *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">Acciones</th>
@@ -177,33 +177,29 @@
   <!-- ── TAB: ROLES Y PERMISOS ─────────────────────────────────────────── -->
   <article class="ur__card" *ngIf="tab() === 'roles' && !loading()">
     <header class="ur__card-header">
-      <h3>Matriz de Permisos por Rol</h3>
-      <div class="ur__search">
+      <h3>Roles del Sistema</h3>
+      <button
+        *ngIf="puedeGestionarRoles()"
+        type="button"
+        class="btn btn--primary"
+        (click)="abrirNuevoRol()"
+      >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
-        <input
-          type="text"
-          [value]="permisoSearch()"
-          (input)="onPermisoSearch($event)"
-          placeholder="Buscar permiso..."
-          autocomplete="off"
-        />
-      </div>
+        Crear rol
+      </button>
     </header>
 
     <div class="ur__table-wrapper">
-      <table class="ur__table ur__table--matrix">
+      <table class="ur__table">
         <thead>
           <tr>
-            <th>Permiso</th>
-            <th
-              *ngFor="let r of roles(); trackBy: trackRol"
-              class="ur__col-center ur__rolhead"
-              [attr.data-rol]="r.nombre"
-            >
-              {{ r.nombre }}
-            </th>
+            <th>Rol</th>
+            <th>Descripción</th>
+            <th>Permisos</th>
+            <th>Usuarios</th>
+            <th *ngIf="puedeGestionarRoles()" class="ur__col-actions">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -231,13 +227,6 @@
         </tbody>
       </table>
     </div>
-
-    <app-paginator
-      [totalItems]="permisosTotal()"
-      [pageSize]="permisoPageSize"
-      [currentPage]="permisoPage()"
-      (pageChange)="onPermisoPageChange($event)"
-    ></app-paginator>
   </article>
 
   <!-- ── MODAL: NUEVO USUARIO ──────────────────────────────────────────── -->
@@ -303,13 +292,14 @@
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
         <label class="modal__field">
-          <span>Rol <em>*</em></span>
+          <span>Roles</span>
           <app-select
-            formControlName="rol"
+            formControlName="roles"
             [items]="roles()"
             bindLabel="nombre"
             bindValue="nombre"
-            placeholder="Seleccione un rol"
+            placeholder="Seleccione uno o más roles"
+            [multiple]="true"
             [searchable]="true"
           ></app-select>
         </label>

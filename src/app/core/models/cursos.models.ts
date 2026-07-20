@@ -20,17 +20,27 @@ export interface HistorialCurso {
   documentoUrl?: string | null;
 }
 
+export interface BajaInfo {
+  id: string;
+  username: string;
+}
+
 export interface CursoFuncionarioItem {
   id: string;
+  designacionId: string;
   nombre_curso: string;
   institucion: string;
   tipo: TipoCurso;
   fechaInicio: string;
   fechaFin: string;
-  estado: EstadoCurso;
+  calificacion: number | null;
   numero_orden?: string | null;
   boletin?: string | null;
   documentoUrl?: string | null;
+  dadoDeBaja?: boolean;
+  motivoBaja?: string | null;
+  fechaBaja?: string | null;
+  dadoDeBajaPor?: BajaInfo | null;
 }
 
 export interface FuncionarioConCursos {
@@ -83,6 +93,14 @@ export interface UpdateCursoPayload {
   nombre_curso?: string;
   institucion?: string;
   es_obligatorio?: boolean;
+}
+
+export interface CalificacionResponse {
+  id: string;
+  curso_id: string;
+  persona_id: string;
+  calificacion: number;
+  estado: EstadoCurso;
 }
 
 // ── Designaciones / Instancias ───────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { Observable, forkJoin } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
 import { InvitacionesService } from '../../../../core/services/invitaciones.service';
@@ -27,6 +28,7 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly permisosService = inject(PermisosService);
   private readonly invitacionesService = inject(InvitacionesService);
   private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
 
   // ── Tab ──────────────────────────────────────────────────────────────────
   readonly tab = signal<Tab>('usuarios');
@@ -40,8 +42,6 @@ export class UsuariosYRolesPage implements OnInit {
 
   // ── Roles / Permisos ──────────────────────────────────────────────────────
   readonly roles = signal<Rol[]>([]);
-  readonly permisos = signal<Permiso[]>([]);
-  readonly permisosTotal = signal(0);
   readonly loading = signal(false);
   readonly permisosLoading = signal(false);
   readonly permisoSearch = signal('');
@@ -87,7 +87,7 @@ export class UsuariosYRolesPage implements OnInit {
   });
 
   readonly editForm = this.fb.group({
-    rol: [''],
+    roles: [[] as string[]],
     estado: ['activo' as 'activo' | 'bloqueado'],
     nuevaPassword: [''],
   });
@@ -104,7 +104,6 @@ export class UsuariosYRolesPage implements OnInit {
         this.roles.set(roles);
         this.loading.set(false);
         this.cargarUsuarios();
-        this.cargarPermisos();
       },
       error: (err: HttpErrorResponse) => {
         this.toast.error(this.parseError(err));
@@ -146,10 +145,8 @@ export class UsuariosYRolesPage implements OnInit {
   }
 
   abrirEditar(usuario: Usuario): void {
-    this.editForm.controls.rol.enable();
-    this.editForm.controls.estado.enable();
     this.editForm.reset({
-      rol: usuario.roles[0]?.nombre ?? '',
+      roles: usuario.roles.map((r) => r.nombre),
       estado: usuario.estado,
       nuevaPassword: '',
     });
@@ -201,7 +198,7 @@ export class UsuariosYRolesPage implements OnInit {
     const target = this.editTarget();
     if (!target) return;
 
-    const { rol, estado, nuevaPassword } = this.editForm.getRawValue();
+    const { roles, estado, nuevaPassword } = this.editForm.getRawValue();
 
     if (nuevaPassword && nuevaPassword.length > 0 && nuevaPassword.length < 8) {
       this.modalError.set('La nueva contraseña debe tener al menos 8 caracteres');
@@ -211,17 +208,18 @@ export class UsuariosYRolesPage implements OnInit {
     this.modalError.set(null);
     const tasks: Observable<unknown>[] = [];
 
-    const rolActual = target.roles[0]?.nombre ?? '';
-    if (rol !== rolActual) {
-      for (const r of target.roles) {
-        tasks.push(this.usuariosService.quitarRol(target.id, r.id));
-      }
-      if (rol) {
-        const nuevoRol = this.roles().find((r) => r.nombre === rol);
-        if (nuevoRol) {
-          tasks.push(this.usuariosService.asignarRol(target.id, nuevoRol.id));
-        }
-      }
+    const rolesNuevos = (roles ?? []) as string[];
+    const rolesActuales = target.roles.map((r) => r.nombre);
+
+    const aAgregar = rolesNuevos.filter((n) => !rolesActuales.includes(n));
+    const aQuitar = target.roles.filter((r) => !rolesNuevos.includes(r.nombre));
+
+    for (const nombre of aAgregar) {
+      const rol = this.roles().find((r) => r.nombre === nombre);
+      if (rol) tasks.push(this.usuariosService.asignarRol(target.id, rol.id));
+    }
+    for (const r of aQuitar) {
+      tasks.push(this.usuariosService.quitarRol(target.id, r.id));
     }
 
     if (estado && estado !== target.estado) {
@@ -286,20 +284,45 @@ export class UsuariosYRolesPage implements OnInit {
       ? this.rolesService.activarPermiso(rol.id, permiso.id)
       : this.rolesService.desactivarPermiso(rol.id, permiso.id);
     op.subscribe({
-      next: (actualizado) => {
-        this.roles.update((lista) =>
-          lista.map((r) => (r.id === actualizado.id ? actualizado : r)),
-        );
+      next: () => {
+        this.cerrarModal();
         this.toast.success(
-          `Permiso ${activar ? 'activado' : 'desactivado'} para ${rol.nombre}`,
+          target ? 'Rol actualizado correctamente' : `Rol ${nombre} creado correctamente`,
         );
+        this.cargar();
       },
-      error: (err) => this.toast.error(this.parseError(err)),
+      error: (err) => this.modalError.set(this.parseError(err)),
     });
   }
 
-  rolTienePermiso(rol: Rol, permiso: Permiso): boolean {
-    return rol.permisos.some((p) => p.id === permiso.id);
+  eliminarRol(rol: Rol): void {
+    this.cerrarMenu();
+    if (
+      !confirm(
+        `¿Eliminar el rol "${rol.nombre}"? Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    this.rolesService.remove(rol.id).subscribe({
+      next: () => {
+        this.toast.success('Rol eliminado');
+        this.cargar();
+      },
+      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+    });
+  }
+
+  irAEditarPermisos(rol: Rol): void {
+    this.cerrarMenu();
+    this.router.navigate(['/usuarios-y-roles/roles', rol.id, 'permisos']);
+  }
+
+  cerrarModal(): void {
+    this.modal.set(null);
+    this.modalError.set(null);
+    this.editTarget.set(null);
+    this.editRolTarget.set(null);
   }
 
   // ── Invitaciones ─────────────────────────────────────────────────────────
