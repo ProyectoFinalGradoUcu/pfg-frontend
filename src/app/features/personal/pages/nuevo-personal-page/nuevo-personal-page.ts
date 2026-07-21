@@ -29,7 +29,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   readonly unidades    = signal<OpcionSelect[]>([]);
   readonly programas   = signal<OpcionSelect[]>([]);
   readonly situaciones = signal<OpcionSelect[]>([]);
-  readonly companias   = signal<OpcionSelect[]>([]);
+  readonly subUnidades = signal<OpcionSelect[]>([]);
 
   // ─── Familiares (civil) ───────────────────────────────────────────────────────
   readonly familiares       = signal<FamiliarEntry[]>([]);
@@ -77,7 +77,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     unidad_id:        [null, Validators.required],
     programa_id:      [null, Validators.required],
     situacion_id:     [null, Validators.required],
-    compania_id:      [null],
+    sub_unidad_id:    [null],
     fecha_inicio:     ['', Validators.required],
     // Siempre presente
     observaciones:    [''],
@@ -106,7 +106,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     this.personalService.getUnidades().subscribe({ next: d => this.unidades.set(d) });
     this.personalService.getProgramas().subscribe({ next: d => this.programas.set(d) });
     this.personalService.getSituaciones().subscribe({ next: d => this.situaciones.set(d) });
-    this.personalService.getCompanias().subscribe({ next: d => this.companias.set(d) });
+    this.personalService.getSubUnidades().subscribe({ next: d => this.subUnidades.set(d) });
   }
 
   private setupEscalafonCascade(): void {
@@ -285,7 +285,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       payload['programa_id']      = Number(raw.programa_id);
       payload['situacion_id']     = Number(raw.situacion_id);
       payload['fecha_inicio']     = raw.fecha_inicio;
-      if (raw.compania_id) payload['compania_id'] = Number(raw.compania_id);
+      if (raw.sub_unidad_id) payload['sub_unidad_id'] = Number(raw.sub_unidad_id);
     }
 
     this.personalService.crear(payload as never).subscribe({

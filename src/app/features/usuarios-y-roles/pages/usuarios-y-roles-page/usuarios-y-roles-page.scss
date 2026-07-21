@@ -330,6 +330,73 @@ $navy-soft: #1e3a5f;
   white-space: nowrap;
 }
 
+.ur__count-badge {
+  display: inline-block;
+  min-width: 1.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background-color: #f1f5f9;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.ur__menu-btn {
+  border-color: transparent !important;
+
+  &:hover:not(:disabled),
+  &--open {
+    border-color: #e2e8f0 !important;
+    background-color: #f1f5f9 !important;
+  }
+}
+
+.ur__dropdown {
+  position: fixed;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  min-width: 170px;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.ur__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+
+  svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background-color: #f8fafc;
+  }
+
+  &--danger {
+    color: #dc2626;
+
+    &:hover {
+      background-color: #fff1f2;
+    }
+  }
+}
+
 .ur__user-cell {
   display: flex;
   align-items: center;

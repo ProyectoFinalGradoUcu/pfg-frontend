@@ -47,6 +47,11 @@ const routes: Routes = [
         loadChildren: () => import('./features/reportes/reportes-module').then((m) => m.ReportesModule),
       },
       {
+        path: 'auditoria',
+        canActivate: [permissionGuard(['auditoria.ver'])],
+        loadChildren: () => import('./features/auditoria/auditoria-module').then((m) => m.AuditoriaModule),
+      },
+      {
         path: 'usuarios-y-roles',
         canActivate: [permissionGuard(['usuarios.ver', 'roles.ver'])],
         loadChildren: () => import('./features/usuarios-y-roles/usuarios-y-roles-module').then((m) => m.UsuariosYRolesModule),
