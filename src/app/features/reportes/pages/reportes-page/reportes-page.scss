@@ -1,0 +1,114 @@
+.reportes {
+  padding: 2rem;
+
+  &__encabezado {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  &__estado {
+    color: #64748b;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  background-color: transparent;
+  color: #132744;
+  transition: background-color 0.15s, filter 0.15s;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+}
+
+.btn--primary {
+  background-color: #132744;
+  color: #ffffff;
+  border-color: #132744;
+  padding: 0.65rem 1.1rem;
+
+  &:hover {
+    filter: brightness(0.92);
+  }
+}
+
+.btn-crear {
+  flex: none;
+  margin-top: 0.35rem;
+}
+
+.reporte-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+    transform: translateY(-2px);
+  }
+
+  &__titulo {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  &__desc {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.4;
+  }
+
+  &__cta {
+    margin-top: auto;
+    width: 100%;
+    text-align: center;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    background: transparent;
+    border: 1.5px solid #132744;
+    color: #132744;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  &:hover &__cta {
+    background: #132744;
+    color: #ffffff;
+  }
+}

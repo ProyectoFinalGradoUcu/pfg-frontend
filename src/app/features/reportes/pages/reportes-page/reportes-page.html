@@ -1,4 +1,33 @@
-<section class="module-placeholder">
-  <h1>Reportes</h1>
-  <p>Módulo en construcción. Agregá tus componentes aquí.</p>
+<section class="reportes">
+  <div class="reportes__encabezado">
+    <app-page-header
+      title="Reportes"
+      subtitle="Generá reportes predefinidos y exportalos a Excel."
+    ></app-page-header>
+    <a class="btn btn--primary btn-crear" routerLink="/reportes/personalizado">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      Crear reporte personalizado
+    </a>
+  </div>
+
+  @if (loading()) {
+    <p class="reportes__estado">Cargando reportes…</p>
+  } @else if (reportes().length === 0) {
+    <app-empty-state
+      title="Sin reportes"
+      description="Todavía no hay reportes disponibles."
+    ></app-empty-state>
+  } @else {
+    <div class="reportes__grid">
+      @for (reporte of reportes(); track reporte.clave) {
+        <button type="button" class="reporte-card" (click)="abrir(reporte)">
+          <h3 class="reporte-card__titulo">{{ reporte.titulo }}</h3>
+          <p class="reporte-card__desc">{{ reporte.descripcion }}</p>
+          <span class="reporte-card__cta">Generar</span>
+        </button>
+      }
+    </div>
+  }
 </section>

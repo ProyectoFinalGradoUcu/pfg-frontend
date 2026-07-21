@@ -1,0 +1,78 @@
+.visor {
+  padding: 2rem;
+
+  &__estado {
+    color: #64748b;
+  }
+
+  &__filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1rem;
+    margin: 1rem 0 1.5rem;
+    padding: 1.25rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+  }
+
+  &__acciones {
+    display: flex;
+    gap: 0.75rem;
+    margin-left: auto;
+  }
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 200px;
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  select,
+  input {
+    padding: 0.5rem 0.65rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: #fff;
+  }
+
+  &__ayuda {
+    font-size: 0.72rem;
+    color: #94a3b8;
+  }
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &--primary {
+    background: #132744;
+    color: #fff;
+  }
+
+  &--ghost {
+    background: #fff;
+    color: #132744;
+    border: 1px solid #cbd5e1;
+  }
+}
