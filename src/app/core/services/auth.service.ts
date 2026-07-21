@@ -67,6 +67,22 @@ export class AuthService {
     );
   }
 
+  forgotPassword(username: string): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>(
+      `${API_BASE_URL}/auth/forgot-password`,
+      { username },
+      { withCredentials: true },
+    );
+  }
+
+  resetPassword(payload: { token: string; passwordNueva: string }): Observable<{ ok: true }> {
+    return this.http.post<{ ok: true }>(
+      `${API_BASE_URL}/auth/reset-password`,
+      payload,
+      { withCredentials: true },
+    );
+  }
+
   clearLocalSession(): void {
     this.currentUserSignal.set(null);
   }

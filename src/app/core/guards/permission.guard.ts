@@ -13,7 +13,7 @@ export const permissionGuard = (permisos: string[]): CanActivateFn => {
     }
 
     if (!auth.isAuthenticated()) {
-      return router.createUrlTree(['/login']);
+      return router.createUrlTree(['/auth/login']);
     }
 
     if (auth.hasAnyPermiso(permisos)) {

@@ -3,7 +3,7 @@
   min-height: 100vh;
 }
 
-.login {
+.auth {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,7 +12,7 @@
   background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
 }
 
-.login__card {
+.auth__card {
   width: 100%;
   max-width: 420px;
   padding: 2.5rem 2rem 2rem;
@@ -21,7 +21,7 @@
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
-.login__header {
+.auth__header {
   text-align: center;
   margin-bottom: 1.75rem;
 
@@ -39,7 +39,7 @@
   }
 }
 
-.login__shield {
+.auth__shield {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -55,7 +55,60 @@
   }
 }
 
-.login__field {
+.auth__loading {
+  text-align: center;
+  color: #475569;
+  padding: 1rem 0;
+  font-size: 0.95rem;
+}
+
+.auth__token-error {
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+
+  p {
+    margin: 0 0 0.5rem;
+    color: #b91c1c;
+    font-size: 0.9rem;
+
+    &:last-child {
+      margin: 0;
+    }
+  }
+}
+
+.auth__hint {
+  color: #64748b !important;
+  font-size: 0.85rem !important;
+}
+
+.auth__email-display {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 1.25rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+
+  label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  span {
+    font-size: 0.95rem;
+    color: #0f172a;
+    font-weight: 500;
+  }
+}
+
+.auth__field {
   display: grid;
   gap: 0.4rem;
   margin-bottom: 1rem;
@@ -83,17 +136,12 @@
   }
 }
 
-.login__success {
-  margin-bottom: 1rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 6px;
-  background-color: #dcfce7;
-  border: 1px solid #bbf7d0;
-  color: #166534;
-  font-size: 0.875rem;
+.auth__field-error {
+  font-size: 0.8rem;
+  color: #b91c1c;
 }
 
-.login__error {
+.auth__error {
   margin-bottom: 0.75rem;
   padding: 0.6rem 0.75rem;
   border-radius: 6px;
@@ -102,7 +150,7 @@
   font-size: 0.875rem;
 }
 
-.login__submit {
+.auth__submit {
   width: 100%;
   height: 2.75rem;
   border: none;
@@ -124,37 +172,18 @@
   }
 }
 
-.login__links {
-  margin-top: 0.75rem;
+.auth__footer {
+  margin-top: 1.25rem;
   text-align: center;
 }
 
-.login__link {
+.auth__link {
   font-size: 0.875rem;
   color: #132744;
   text-decoration: none;
+  font-weight: 500;
 
   &:hover {
     text-decoration: underline;
-  }
-}
-
-.login__footer {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e2e8f0;
-  text-align: center;
-
-  .login__notice {
-    margin: 0 0 0.25rem;
-    color: #b45309;
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  .login__org {
-    margin: 0;
-    color: #64748b;
-    font-size: 0.8rem;
   }
 }

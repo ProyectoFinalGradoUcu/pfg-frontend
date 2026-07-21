@@ -4,11 +4,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, forkJoin } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
+import { InvitacionesService } from '../../../../core/services/invitaciones.service';
 import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
-import { Rol, Usuario } from '../../../../core/models/auth.models';
+import { Invitacion, Rol, Usuario } from '../../../../core/models/auth.models';
 
+type Tab = 'usuarios' | 'invitaciones' | 'roles';
 type ModalKind =
   | 'nuevoUsuario'
   | 'editarUsuario'
@@ -27,23 +29,48 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly usuariosService = inject(UsuariosService);
   private readonly rolesService = inject(RolesService);
+  private readonly invitacionesService = inject(InvitacionesService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
 
+  // ── Tab ──────────────────────────────────────────────────────────────────
+  readonly tab = signal<Tab>('usuarios');
+
+  // ── Usuarios ──────────────────────────────────────────────────────────────
   readonly usuarios = signal<Usuario[]>([]);
   readonly usuariosTotal = signal(0);
+  readonly usuariosLoading = signal(false);
+  readonly usuariosPage = signal(1);
+  readonly usuariosPageSize = 10;
+
+  // ── Roles ─────────────────────────────────────────────────────────────────
   readonly roles = signal<Rol[]>([]);
   readonly loading = signal(false);
-  readonly usuariosLoading = signal(false);
-  readonly modal = signal<ModalKind>(null);
-  readonly modalError = signal<string | null>(null);
-  readonly editTarget = signal<Usuario | null>(null);
-  readonly editRolTarget = signal<Rol | null>(null);
 
   // Menú kebab de la tabla de roles
   readonly menuAbierto = signal<string | null>(null);
   readonly menuPosition = signal<{ top: number; right: number } | null>(null);
 
+  // ── Invitaciones ─────────────────────────────────────────────────────────
+  readonly invitaciones = signal<Invitacion[]>([]);
+  readonly invitacionesTodas = signal<Invitacion[]>([]);
+  readonly invitacionesLoading = signal(false);
+  readonly estadoFiltro = signal<string>('pendiente');
+
+  readonly estadosFiltro = [
+    { value: 'pendiente', label: 'Pendientes' },
+    { value: 'aceptada', label: 'Aceptadas' },
+    { value: 'expirada', label: 'Expiradas' },
+  ];
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  readonly modal = signal<ModalKind>(null);
+  readonly modalError = signal<string | null>(null);
+  readonly editTarget = signal<Usuario | null>(null);
+  readonly editRolTarget = signal<Rol | null>(null);
+  readonly revocandoId = signal<string | null>(null);
+
+  // ── Computed permisos ─────────────────────────────────────────────────────
   readonly puedeGestionarUsuarios = computed(() =>
     this.auth.hasPermiso('usuarios.gestionar'),
   );
@@ -57,12 +84,9 @@ export class UsuariosYRolesPage implements OnInit {
     { value: 'bloqueado', label: 'Bloqueado' },
   ];
 
-  readonly usuariosPage = signal(1);
-  readonly usuariosPageSize = 10;
-
+  // ── Forms ─────────────────────────────────────────────────────────────────
   readonly nuevoUsuarioForm = this.fb.group({
     username: ['', [Validators.required, Validators.email, Validators.maxLength(60)]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
     roles: [[] as string[], Validators.required],
   });
 
@@ -77,6 +101,7 @@ export class UsuariosYRolesPage implements OnInit {
     descripcion: ['', Validators.maxLength(200)],
   });
 
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.cargar();
   }
@@ -96,6 +121,7 @@ export class UsuariosYRolesPage implements OnInit {
     });
   }
 
+  // ── Usuarios ──────────────────────────────────────────────────────────────
   onUsuariosPageChange(page: number): void {
     this.usuariosPage.set(page);
     this.cargarUsuarios();
@@ -104,10 +130,7 @@ export class UsuariosYRolesPage implements OnInit {
   private cargarUsuarios(): void {
     this.usuariosLoading.set(true);
     this.usuariosService
-      .findAll({
-        page: this.usuariosPage(),
-        pageSize: this.usuariosPageSize,
-      })
+      .findAll({ page: this.usuariosPage(), pageSize: this.usuariosPageSize })
       .subscribe({
         next: ({ items, total }) => {
           this.usuarios.set(items);
@@ -121,15 +144,12 @@ export class UsuariosYRolesPage implements OnInit {
       });
   }
 
-  // ── Usuarios ────────────────────────────────────────────────────────────────
-
   abrirNuevoUsuario(): void {
-    this.nuevoUsuarioForm.reset({
-      username: '',
-      password: '',
-      roles: [],
-    });
+    this.nuevoUsuarioForm.reset({ username: '', roles: [] });
     this.modalError.set(null);
+    this.invitacionesService.findAll().subscribe({
+      next: (items) => this.invitacionesTodas.set(items),
+    });
     this.modal.set('nuevoUsuario');
   }
 
@@ -150,19 +170,34 @@ export class UsuariosYRolesPage implements OnInit {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { username, password, roles } = this.nuevoUsuarioForm.getRawValue();
+    const { username, roles } = this.nuevoUsuarioForm.getRawValue();
+    const emailNorm = username!.trim().toLowerCase();
+
+    const usuarioExistente = this.usuarios().some(
+      (u) => u.username.toLowerCase() === emailNorm,
+    );
+    if (usuarioExistente) {
+      this.modalError.set('Ya existe un usuario registrado con ese correo electrónico.');
+      return;
+    }
+
+    const invExistente = this.invitacionesTodas().some(
+      (i) => i.email.toLowerCase() === emailNorm && i.estado === 'pendiente',
+    );
+    if (invExistente) {
+      this.modalError.set('Ya existe una invitación pendiente para ese correo electrónico.');
+      return;
+    }
+
     this.modalError.set(null);
-    this.usuariosService
-      .create({
-        username: username!,
-        password: password!,
-        roles: roles && roles.length ? roles : undefined,
-      })
+    this.invitacionesService
+      .create({ email: username!, roles: roles && roles.length ? roles : undefined })
       .subscribe({
         next: () => {
           this.cerrarModal();
-          this.toast.success(`Usuario ${username} creado correctamente`);
-          this.cargar();
+          this.toast.success(
+            `Se realizó una nueva invitación a ${username}. Esto queda visible en la sección de invitaciones.`,
+          );
         },
         error: (err) => this.modalError.set(this.parseError(err)),
       });
@@ -223,7 +258,6 @@ export class UsuariosYRolesPage implements OnInit {
   }
 
   // ── Roles ─────────────────────────────────────────────────────────────────
-
   toggleMenu(id: string, event: MouseEvent): void {
     event.stopPropagation();
     if (this.menuAbierto() === id) {
@@ -312,6 +346,50 @@ export class UsuariosYRolesPage implements OnInit {
     this.router.navigate(['/usuarios-y-roles/roles', rol.id, 'permisos']);
   }
 
+  // ── Invitaciones ─────────────────────────────────────────────────────────
+  cargarInvitaciones(): void {
+    this.invitacionesLoading.set(true);
+    this.invitacionesService.findAll({ estado: this.estadoFiltro() }).subscribe({
+      next: (items) => {
+        this.invitaciones.set(items);
+        this.invitacionesLoading.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.toast.error(this.parseError(err));
+        this.invitacionesLoading.set(false);
+      },
+    });
+  }
+
+  onEstadoFiltroChange(event: Event): void {
+    this.estadoFiltro.set((event.target as HTMLSelectElement).value);
+    this.cargarInvitaciones();
+  }
+
+  cambiarTab(t: Tab): void {
+    this.tab.set(t);
+    if (t === 'invitaciones') {
+      this.cargarInvitaciones();
+    }
+  }
+
+  revocarInvitacion(inv: Invitacion): void {
+    if (!confirm(`¿Revocar la invitación enviada a ${inv.email}?`)) return;
+    this.revocandoId.set(inv.id);
+    this.invitacionesService.remove(inv.id).subscribe({
+      next: () => {
+        this.revocandoId.set(null);
+        this.toast.success(`Invitación a ${inv.email} revocada`);
+        this.cargarInvitaciones();
+      },
+      error: (err) => {
+        this.revocandoId.set(null);
+        this.toast.error(this.parseError(err));
+      },
+    });
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
   cerrarModal(): void {
     this.modal.set(null);
     this.modalError.set(null);
@@ -319,8 +397,10 @@ export class UsuariosYRolesPage implements OnInit {
     this.editRolTarget.set(null);
   }
 
+  // ── Track ─────────────────────────────────────────────────────────────────
   trackUsuario = (_: number, u: Usuario) => u.id;
   trackRol = (_: number, r: Rol) => r.id;
+  trackInvitacion = (_: number, i: Invitacion) => i.id;
 
   private parseError(err: HttpErrorResponse): string {
     return err.error?.message ?? err.message ?? 'Error inesperado';

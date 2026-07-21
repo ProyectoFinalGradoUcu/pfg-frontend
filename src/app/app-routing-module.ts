@@ -6,8 +6,9 @@ import { authGuard } from './core/guards/auth.guard';
 import { permissionGuard } from './core/guards/permission.guard';
 
 const routes: Routes = [
+  { path: 'login', redirectTo: 'auth/login', pathMatch: 'full' },
   {
-    path: 'login',
+    path: 'auth',
     loadChildren: () => import('./features/auth/auth-module').then((m) => m.AuthModule),
   },
   {

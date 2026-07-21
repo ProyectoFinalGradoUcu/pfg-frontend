@@ -131,3 +131,25 @@ export interface UpdateUsuarioPayload {
 export interface ResetPasswordPayload {
   password: string;
 }
+
+export interface Invitacion {
+  id: string;
+  email: string;
+  estado: 'pendiente' | 'aceptada' | 'expirada';
+  roles: string[];
+  personaId?: string | null;
+  creadoEn: string;
+  expiraEn: string;
+  usadoEn?: string | null;
+}
+
+export interface CreateInvitacionPayload {
+  email: string;
+  personaId?: number | null;
+  roles?: string[];
+}
+
+export interface VerificarInvitacionResponse {
+  valida: boolean;
+  email: string;
+}
