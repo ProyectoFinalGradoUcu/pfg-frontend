@@ -450,6 +450,30 @@
     <article class="pd__card" *ngIf="activeTab() === 'misiones'">
       <div class="pd__tab-header">
         <h3 class="pd__tab-title">Misiones</h3>
+
+        <div class="pd__search" *ngIf="misiones().length > 0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            [value]="busquedaMisiones()"
+            (input)="onBusquedaMisionesInput($any($event.target).value)"
+            placeholder="Buscar por misión o país..."
+            autocomplete="off"
+          />
+          <button
+            *ngIf="busquedaMisiones()"
+            type="button"
+            class="pd__search-clear"
+            (click)="onBusquedaMisionesInput('')"
+            aria-label="Limpiar búsqueda"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="pd__loading" *ngIf="loadingMisiones()">Cargando...</div>
@@ -458,10 +482,14 @@
         No hay misiones registradas.
       </p>
 
-      <div class="pd__missions-list" *ngIf="!loadingMisiones() && misiones().length > 0">
-        <div class="pd__mission-card" *ngFor="let m of misiones()">
+      <p class="pd__empty" *ngIf="!loadingMisiones() && misiones().length > 0 && misionesFiltradas().length === 0">
+        No se encontraron misiones con esa búsqueda.
+      </p>
+
+      <div class="pd__missions-list" *ngIf="!loadingMisiones() && misionesFiltradas().length > 0">
+        <div class="pd__mission-card" *ngFor="let m of misionesFiltradas()">
           <div class="pd__mission-card__top">
-            <span class="pd__mission-card__tipo">{{ m.tipo_mision }}</span>
+            <span class="pd__mission-card__tipo">{{ m.nombre_mision }}</span>
             <span class="pd__badge" [class.pd__badge--completado]="m.finalizada" [class.pd__badge--en-curso]="!m.finalizada">
               {{ m.finalizada ? 'Finalizada' : 'En curso' }}
             </span>
@@ -474,10 +502,9 @@
             {{ m.pais }}
           </div>
           <div class="pd__mission-card__meta">
-            <span>{{ formatDate(m.fecha_inicio) }} – {{ m.fecha_fin ? formatDate(m.fecha_fin) : 'Presente' }}</span>
-            <span class="pd__mission-card__orden">{{ m.numero_orden }}</span>
+            <span>{{ formatDate(m.fecha_salida) }} – {{ m.fecha_llegada ? formatDate(m.fecha_llegada) : 'Presente' }}</span>
+            <span class="pd__mission-card__orden">{{ m.numero_orden || m.boletin }}</span>
           </div>
-          <span class="pd__mission-card__comando" *ngIf="m.comando_responsable">{{ m.comando_responsable }}</span>
         </div>
       </div>
     </article>

@@ -7,7 +7,7 @@ $navy-soft: #1e3a5f;
   padding-top: 1.5rem;
 }
 
-// Header 
+// Header
 
 .detalle__header {
   display: flex;
@@ -25,14 +25,27 @@ $navy-soft: #1e3a5f;
     margin: 0;
     color: #475569;
     font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
   }
 }
 
-.detalle__back {
-  align-self: flex-start;
+.detalle__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  &--activa { background-color: #dbeafe; color: #1d4ed8; }
+  &--finalizada { background-color: #dcfce7; color: #15803d; }
 }
 
-// Cards 
+// Cards
 
 .detalle__card {
   background-color: #ffffff;
@@ -59,7 +72,7 @@ $navy-soft: #1e3a5f;
   font-size: 0.9rem;
 }
 
-// Info grid (datos de la misión) 
+// Info grid (datos de la convocatoria)
 
 .detalle__info-grid {
   display: grid;
@@ -95,7 +108,7 @@ $navy-soft: #1e3a5f;
   }
 }
 
-// Section header 
+// Section header
 
 .detalle__section-header {
   display: flex;
@@ -103,11 +116,65 @@ $navy-soft: #1e3a5f;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
 
   h3 { margin: 0; }
 }
 
-// Tabla funcionarios 
+.detalle__section-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+// Búsqueda de funcionarios
+
+.detalle__search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.detalle__search-icon {
+  position: absolute;
+  left: 0.75rem;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.detalle__search-input {
+  height: 2.4rem;
+  width: 100%;
+  max-width: 320px;
+  padding: 0 2.2rem 0 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  color: #0f172a;
+
+  &:focus { outline: none; border-color: $navy; }
+  &::placeholder { color: #94a3b8; }
+}
+
+.detalle__search-clear {
+  position: absolute;
+  right: 0.6rem;
+  display: inline-flex;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.15rem;
+
+  svg { width: 14px; height: 14px; }
+  &:hover { color: #475569; }
+}
+
+// Tabla funcionarios
 
 .detalle__table-wrapper {
   overflow-x: auto;
@@ -176,7 +243,7 @@ $navy-soft: #1e3a5f;
   &:hover:not(:disabled) { background-color: #fee2e2 !important; }
 }
 
-// Menú 
+// Menú
 
 .detalle__menu-btn {
   border-color: transparent !important;
@@ -224,7 +291,7 @@ $navy-soft: #1e3a5f;
   }
 }
 
-// Formulario asignar 
+// Formulario asignar
 
 .detalle__form-grid {
   display: grid;
@@ -250,6 +317,12 @@ $navy-soft: #1e3a5f;
 
 .detalle__field--full {
   grid-column: 1 / -1;
+}
+
+.detalle__form-note {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
 }
 
 .detalle__field {
@@ -283,7 +356,7 @@ $navy-soft: #1e3a5f;
   border-top: 1px solid #f1f5f9;
 }
 
-// Botones 
+// Botones
 
 .btn {
   display: inline-flex;
@@ -324,7 +397,7 @@ $navy-soft: #1e3a5f;
   &:hover:not(:disabled) { background-color: #f1f5f9; }
 }
 
-// Modal 
+// Modal
 
 .modal {
   position: fixed;

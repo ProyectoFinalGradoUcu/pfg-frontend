@@ -126,13 +126,14 @@ export interface CursoPersona {
 }
 
 export interface MisionPersona {
-  mision_id: number;
-  tipo_mision: string;
+  mision_id: string;
+  convocatoria_id: string;
+  nombre_mision: string;
   pais: string;
-  fecha_inicio: string;
-  fecha_fin: string | null;
+  fecha_salida: string;
+  fecha_llegada: string | null;
   numero_orden: string;
-  comando_responsable: string | null;
+  boletin: string | null;
   finalizada: boolean;
 }
 

@@ -1,13 +1,18 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { MisionesPage } from './pages/misiones-page/misiones-page';
-import { MisionDetallePage } from './pages/mision-detalle-page/mision-detalle-page';
+import { MisionConvocatoriasPage } from './pages/mision-convocatorias-page/mision-convocatorias-page';
+import { ConvocatoriaDetallePage } from './pages/convocatoria-detalle-page/convocatoria-detalle-page';
 
 const routes: Routes = [
-  { path: '', redirectTo: 'historial', pathMatch: 'full' },
-  { path: 'historial', component: MisionesPage, data: { section: 'historial' } },
-  { path: 'gestion', component: MisionesPage, data: { section: 'gestion' } },
-  { path: 'gestion/:id', component: MisionDetallePage },
+  { path: '', redirectTo: 'catalogo', pathMatch: 'full' },
+  { path: 'catalogo', component: MisionesPage, data: { section: 'catalogo' } },
+  { path: 'personal', component: MisionesPage, data: { section: 'personal-en-mision' } },
+  { path: 'catalogo/:misionId', component: MisionConvocatoriasPage },
+  {
+    path: 'catalogo/:misionId/convocatorias/:convocatoriaId',
+    component: ConvocatoriaDetallePage,
+  },
 ];
 
 @NgModule({
