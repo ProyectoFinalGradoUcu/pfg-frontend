@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import {
@@ -96,6 +96,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly estadoCivilOpciones = ['Soltero', 'Casado', 'Divorciado', 'Viudo', 'Unión libre'];
 
   readonly editForm: FormGroup = this.fb.group({
+    primer_nombre:         ['', Validators.required],
+    segundo_nombre:        [''],
+    primer_apellido:       ['', Validators.required],
+    segundo_apellido:      [''],
     fecha_nacimiento:      [''],
     genero:                [''],
     estado_civil:          [''],
@@ -106,6 +110,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     email:                 ['', Validators.email],
     telefono:              [''],
     direccion:             [''],
+    fecha_inicio:          [''],
     escalafon_id:          [null],
     grado_id:              [{ value: null, disabled: true }],
     unidad_id:             [null],
@@ -116,7 +121,35 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     prima_tecnica:         [''],
     tiene_mando:           [false],
     observaciones_laborales: [''],
-  });
+  }, { validators: (group: AbstractControl) => this.nacimientoAnteriorAInicio(group) });
+
+  /**
+   * La relación laboral no puede empezar antes de que la persona haya nacido. Acá las dos fechas son
+   * editables, así que se compara el par que va a quedar guardado.
+   */
+  private nacimientoAnteriorAInicio(group: AbstractControl): ValidationErrors | null {
+    const nacimiento: string = group.get('fecha_nacimiento')?.value;
+    const inicio: string = group.get('fecha_inicio')?.value || this.fechaInicioGuardada();
+    if (!nacimiento || !inicio) return null;
+    return nacimiento > inicio ? { fechasInconsistentes: true } : null;
+  }
+
+  /** Error de a pares: vive en el grupo, se muestra bajo las dos fechas. */
+  fechasInconsistentes(): boolean {
+    return !!this.editForm.errors?.['fechasInconsistentes'];
+  }
+
+  maxFechaNacimiento(): string | null {
+    return this.editForm.get('fecha_inicio')?.value || this.fechaInicioGuardada();
+  }
+
+  minFechaInicio(): string | null {
+    return this.editForm.get('fecha_nacimiento')?.value || null;
+  }
+
+  private fechaInicioGuardada(): string | null {
+    return this.persona()?.relacion_laboral?.fecha_inicio?.split('T')[0] ?? null;
+  }
 
   private readonly destroy$ = new Subject<void>();
 
@@ -217,6 +250,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
     // Patch sin emitir eventos para no disparar la cascada de escalafon→grado
     this.editForm.patchValue({
+      primer_nombre:         p.primer_nombre     ?? '',
+      segundo_nombre:        p.segundo_nombre    ?? '',
+      primer_apellido:       p.primer_apellido   ?? '',
+      segundo_apellido:      p.segundo_apellido  ?? '',
       fecha_nacimiento:      p.fecha_nacimiento  ? p.fecha_nacimiento.split('T')[0] : '',
       genero:                p.genero            ?? '',
       estado_civil:          p.estado_civil      ?? '',
@@ -227,6 +264,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       email:                 p.email             ?? '',
       telefono:              p.telefono          ?? '',
       direccion:             p.direccion         ?? '',
+      fecha_inicio:          rl?.fecha_inicio    ? rl.fecha_inicio.split('T')[0] : '',
       escalafon_id:          rl?.escalafon?.id   ?? null,
       grado_id:              rl?.grado?.id       ?? null,
       unidad_id:             rl?.unidad?.id      ?? null,
@@ -271,6 +309,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     }
     const raw = this.editForm.getRawValue();
     const payload: PatchPersonaPayload = {
+      ...(raw.primer_nombre         && { primer_nombre:         raw.primer_nombre }),
+      segundo_nombre:                  raw.segundo_nombre   || null,
+      ...(raw.primer_apellido       && { primer_apellido:       raw.primer_apellido }),
+      segundo_apellido:                raw.segundo_apellido || null,
       ...(raw.fecha_nacimiento      && { fecha_nacimiento:      raw.fecha_nacimiento }),
       ...(raw.genero                && { genero:                raw.genero }),
       ...(raw.estado_civil          && { estado_civil:          raw.estado_civil }),
@@ -281,6 +323,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       ...(raw.email                 && { email:                 raw.email }),
       ...(raw.telefono              && { telefono:              raw.telefono }),
       ...(raw.direccion             && { direccion:             raw.direccion }),
+      ...(raw.fecha_inicio          && { fecha_inicio:          raw.fecha_inicio }),
       ...(raw.escalafon_id          && { escalafon_id:          Number(raw.escalafon_id) }),
       ...(raw.grado_id              && { grado_id:              Number(raw.grado_id) }),
       ...(raw.unidad_id             && { unidad_id:             Number(raw.unidad_id) }),
@@ -326,6 +369,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     if (!iso) return '—';
     return new Date(iso).toLocaleDateString('es-UY', {
       day: '2-digit', month: '2-digit', year: 'numeric',
+      timeZone: 'UTC',
     });
   }
 

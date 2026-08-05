@@ -81,6 +81,12 @@
         </div>
 
         <div class="nf__field">
+          <label class="nf__label" for="etnia">Etnia</label>
+          <input id="etnia" type="text" formControlName="etnia"
+            class="nf__input" placeholder="Ej: Mestizo" />
+        </div>
+
+        <div class="nf__field">
           <label class="nf__label" for="email">Email</label>
           <input id="email" type="email" formControlName="email" class="nf__input"
             [class.nf__input--error]="hasError('email')" placeholder="correo@ejemplo.com" />
@@ -97,6 +103,18 @@
           <label class="nf__label" for="direccion">Dirección</label>
           <input id="direccion" type="text" formControlName="direccion"
             class="nf__input" placeholder="Av. 18 de Julio 1234, Montevideo" />
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="codigo_postal">Código postal</label>
+          <input id="codigo_postal" type="text" formControlName="codigo_postal"
+            class="nf__input" maxlength="10" placeholder="Ej: 11300" />
+        </div>
+
+        <div class="nf__field">
+          <label class="nf__label" for="seccional">Seccional</label>
+          <input id="seccional" type="text" formControlName="seccional"
+            class="nf__input" placeholder="Ej: Seccional 14" />
         </div>
 
         <div class="nf__field nf__field--full nf__field--toggle">
@@ -130,8 +148,12 @@
         <div class="nf__field">
           <label class="nf__label" for="fecha_inicio">Fecha de inicio <span class="nf__req">*</span></label>
           <input id="fecha_inicio" type="date" formControlName="fecha_inicio" class="nf__input"
-            [class.nf__input--error]="hasError('fecha_inicio')" />
+            [attr.min]="minFechaInicio()"
+            [class.nf__input--error]="hasError('fecha_inicio') || fechaInicioAntesDeNacimiento()" />
           <span class="nf__error" *ngIf="hasError('fecha_inicio')">{{ getError('fecha_inicio') }}</span>
+          <span class="nf__error" *ngIf="fechaInicioAntesDeNacimiento()">
+            No puede ser anterior a la fecha de nacimiento
+          </span>
         </div>
 
         <div class="nf__field">
@@ -205,7 +227,21 @@
           </select>
         </div>
 
-        <div class="nf__field nf__field--empty"></div>
+        <div class="nf__field">
+          <label class="nf__label" for="prima_tecnica">Prima técnica</label>
+          <input id="prima_tecnica" type="text" formControlName="prima_tecnica"
+            class="nf__input" maxlength="10" placeholder="Ej: A" />
+        </div>
+
+        <div class="nf__field nf__field--full nf__field--toggle">
+          <label class="nf__toggle-label">
+            <input type="checkbox" formControlName="tiene_mando" class="nf__checkbox" />
+            <span class="nf__toggle-track">
+              <span class="nf__toggle-thumb"></span>
+            </span>
+            <span>Tiene mando</span>
+          </label>
+        </div>
 
         <div class="nf__field nf__field--full">
           <label class="nf__label" for="observaciones_laboral">Observaciones</label>

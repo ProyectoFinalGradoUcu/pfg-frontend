@@ -1,11 +1,24 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { FamiliarEntry, GradoItem, OpcionSelect, PersonaListItem } from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
+
+/**
+ * La relación laboral no puede empezar antes de que la
+ * persona haya nacido. Las fechas vienen del input date como 'AAAA-MM-DD', así
+ * que se comparan como texto.
+ */
+function inicioPosteriorANacimiento(group: AbstractControl): ValidationErrors | null {
+  if (group.get('es_civil')?.value) return null;
+  const nacimiento: string = group.get('fecha_nacimiento')?.value;
+  const inicio: string = group.get('fecha_inicio')?.value;
+  if (!nacimiento || !inicio) return null;
+  return inicio < nacimiento ? { inicioAntesDeNacimiento: true } : null;
+}
 
 @Component({
   selector: 'app-nuevo-personal-page',
@@ -65,6 +78,9 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     genero:           [''],
     estado_civil:     [''],
     lugar_nacimiento: [''],
+    etnia:            [''],
+    codigo_postal:    [''],
+    seccional:        [''],
     email:            ['', Validators.email],
     telefono:         [''],
     direccion:        [''],
@@ -79,9 +95,11 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     situacion_id:     [null, Validators.required],
     sub_unidad_id:    [null],
     fecha_inicio:     ['', Validators.required],
+    prima_tecnica:    [''],
+    tiene_mando:      [false],
     // Siempre presente
     observaciones:    [''],
-  });
+  }, { validators: inicioPosteriorANacimiento });
 
   private readonly destroy$        = new Subject<void>();
   private readonly familiarSearch$ = new Subject<string>();
@@ -225,6 +243,17 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     return !!(ctrl?.invalid && ctrl.touched);
   }
 
+  /** Error de a pares: vive en el grupo, se muestra bajo la fecha de inicio. */
+  fechaInicioAntesDeNacimiento(): boolean {
+    if (!this.form.errors?.['inicioAntesDeNacimiento']) return false;
+    return !!(this.form.get('fecha_inicio')?.touched || this.form.get('fecha_nacimiento')?.touched);
+  }
+
+  /** Tope inferior del datepicker de fecha de inicio. */
+  minFechaInicio(): string | null {
+    return this.form.get('fecha_nacimiento')?.value || null;
+  }
+
   getError(name: string): string {
     const errors = this.form.get(name)?.errors;
     if (!errors) return '';
@@ -265,6 +294,9 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       ...(raw.genero           && { genero:           raw.genero }),
       ...(raw.estado_civil     && { estado_civil:     raw.estado_civil }),
       ...(raw.lugar_nacimiento && { lugar_nacimiento: raw.lugar_nacimiento }),
+      ...(raw.etnia            && { etnia:            raw.etnia }),
+      ...(raw.codigo_postal    && { codigo_postal:    raw.codigo_postal }),
+      ...(raw.seccional        && { seccional:        raw.seccional }),
       ...(raw.email            && { email:            raw.email }),
       ...(raw.telefono         && { telefono:         raw.telefono }),
       ...(raw.direccion        && { direccion:        raw.direccion }),
@@ -285,7 +317,9 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       payload['programa_id']      = Number(raw.programa_id);
       payload['situacion_id']     = Number(raw.situacion_id);
       payload['fecha_inicio']     = raw.fecha_inicio;
+      payload['tiene_mando']      = !!raw.tiene_mando;
       if (raw.sub_unidad_id) payload['sub_unidad_id'] = Number(raw.sub_unidad_id);
+      if (raw.prima_tecnica) payload['prima_tecnica'] = raw.prima_tecnica;
     }
 
     this.personalService.crear(payload as never).subscribe({

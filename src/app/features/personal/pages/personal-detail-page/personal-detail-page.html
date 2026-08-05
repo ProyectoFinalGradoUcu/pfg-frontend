@@ -81,10 +81,33 @@
             <h3 class="pd__col-title">Información Personal</h3>
             <div class="pd__field-list">
 
-              <div class="pd__field">
+              <div class="pd__field" *ngIf="!editMode()">
                 <span class="pd__label">Nombre completo</span>
                 <span class="pd__value">{{ p.nombre_completo }}</span>
               </div>
+
+              <ng-container *ngIf="editMode()">
+                <div class="pd__field">
+                  <span class="pd__label">Primer nombre</span>
+                  <input type="text" formControlName="primer_nombre" class="pd__edit-input"
+                    [class.pd__edit-input--error]="hasEditError('primer_nombre')" />
+                  <span class="pd__edit-error" *ngIf="hasEditError('primer_nombre')">Este campo es obligatorio</span>
+                </div>
+                <div class="pd__field">
+                  <span class="pd__label">Segundo nombre</span>
+                  <input type="text" formControlName="segundo_nombre" class="pd__edit-input" />
+                </div>
+                <div class="pd__field">
+                  <span class="pd__label">Primer apellido</span>
+                  <input type="text" formControlName="primer_apellido" class="pd__edit-input"
+                    [class.pd__edit-input--error]="hasEditError('primer_apellido')" />
+                  <span class="pd__edit-error" *ngIf="hasEditError('primer_apellido')">Este campo es obligatorio</span>
+                </div>
+                <div class="pd__field">
+                  <span class="pd__label">Segundo apellido</span>
+                  <input type="text" formControlName="segundo_apellido" class="pd__edit-input" />
+                </div>
+              </ng-container>
 
               <div class="pd__field">
                 <span class="pd__label">Cédula</span>
@@ -94,7 +117,14 @@
               <div class="pd__field">
                 <span class="pd__label">Fecha de nacimiento</span>
                 <span class="pd__value" *ngIf="!editMode()">{{ formatDate(p.fecha_nacimiento) }}</span>
-                <input *ngIf="editMode()" type="date" formControlName="fecha_nacimiento" class="pd__edit-input" />
+                <ng-container *ngIf="editMode()">
+                  <input type="date" formControlName="fecha_nacimiento" class="pd__edit-input"
+                    [attr.max]="maxFechaNacimiento()"
+                    [class.pd__edit-input--error]="fechasInconsistentes()" />
+                  <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
+                    No puede ser posterior a la fecha de inicio de la relación laboral
+                  </span>
+                </ng-container>
               </div>
 
               <div class="pd__field">
@@ -208,7 +238,7 @@
                 <span class="pd__value">{{ rl.programa?.denominacion ?? '—' }}</span>
               </div>
               <div class="pd__field">
-                <span class="pd__label">Fecha de ingreso</span>
+                <span class="pd__label">Fecha de inicio</span>
                 <span class="pd__value">{{ formatDate(rl.fecha_inicio) }}</span>
               </div>
               <div class="pd__field" *ngIf="rl.prima_tecnica">
@@ -231,6 +261,15 @@
 
             <!-- Edit view: solo militares -->
             <div class="pd__field-list" *ngIf="editMode() && !p.es_civil">
+              <div class="pd__field">
+                <span class="pd__label">Fecha de inicio</span>
+                <input type="date" formControlName="fecha_inicio" class="pd__edit-input"
+                  [attr.min]="minFechaInicio()"
+                  [class.pd__edit-input--error]="fechasInconsistentes()" />
+                <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
+                  No puede ser anterior a la fecha de nacimiento
+                </span>
+              </div>
               <div class="pd__field">
                 <span class="pd__label">Escalafón</span>
                 <select formControlName="escalafon_id" class="pd__edit-select">
