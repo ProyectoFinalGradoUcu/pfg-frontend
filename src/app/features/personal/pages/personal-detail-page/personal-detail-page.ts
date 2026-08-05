@@ -66,6 +66,14 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly loadingCursos    = signal(false);
   readonly misiones         = signal<MisionPersona[]>([]);
   readonly loadingMisiones  = signal(false);
+  readonly busquedaMisiones = signal('');
+  readonly misionesFiltradas = computed<MisionPersona[]>(() => {
+    const q = this.busquedaMisiones().trim().toLowerCase();
+    if (!q) return this.misiones();
+    return this.misiones().filter(
+      (m) => m.nombre_mision.toLowerCase().includes(q) || m.pais.toLowerCase().includes(q),
+    );
+  });
 
   // ─── Edit drawer ──────────────────────────────────────────────────────────────
   readonly editMode    = signal(false);
@@ -324,6 +332,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   formatGenero(g: string | null): string {
     if (!g) return '—';
     return ({ M: 'Masculino', F: 'Femenino', O: 'Otro' } as Record<string, string>)[g] ?? g;
+  }
+
+  onBusquedaMisionesInput(value: string): void {
+    this.busquedaMisiones.set(value);
   }
 
   volver(): void {

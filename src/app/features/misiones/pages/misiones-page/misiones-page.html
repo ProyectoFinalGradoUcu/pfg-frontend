@@ -1,16 +1,20 @@
 <section class="misiones" (click)="cerrarMenu()">
 
-  <!-- Header  -->
+  <nav class="breadcrumb">
+    <span class="breadcrumb__item breadcrumb__item--current">Misiones de Paz</span>
+  </nav>
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
   <header class="misiones__header">
     <div>
-      <h2>Gestión de Misiones</h2>
-      <p>Registro y seguimiento de misiones del personal</p>
+      <h2>Misiones de Paz</h2>
+      <p>Catálogo de misiones y personal designado</p>
     </div>
     <button
-      *ngIf="puedeGestionar() && tab() === 'gestion'"
+      *ngIf="tab() === 'catalogo' && puedeGestionar()"
       type="button"
       class="btn btn--primary btn--lg"
-      (click)="abrirNueva()"
+      (click)="abrirNuevaMision()"
     >
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -19,78 +23,111 @@
     </button>
   </header>
 
-  <!-- Tab: Historial -->
-  <ng-container *ngIf="tab() === 'historial'">
-    <article class="misiones__card misiones__card--placeholder">
-      <p>Próximamente: historial de misiones por funcionario.</p>
-    </article>
-  </ng-container>
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: CATÁLOGO                                                          -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="tab() === 'catalogo'">
 
-  <!-- Tab: Gestión -->
-  <ng-container *ngIf="tab() === 'gestion'">
-
-    <!-- Stats -->
     <div class="misiones__stats">
       <div class="misiones__stat misiones__stat--blue">
-        <span class="misiones__stat-label">Total</span>
-        <strong class="misiones__stat-value">{{ stats().total }}</strong>
+        <span class="misiones__stat-label">Misiones en catálogo</span>
+        <strong class="misiones__stat-value">{{ stats().total_misiones }}</strong>
       </div>
       <div class="misiones__stat misiones__stat--green">
-        <span class="misiones__stat-label">Activas</span>
-        <strong class="misiones__stat-value">{{ stats().activas }}</strong>
+        <span class="misiones__stat-label">Convocatorias activas</span>
+        <strong class="misiones__stat-value">{{ stats().convocatorias_activas }}</strong>
       </div>
       <div class="misiones__stat misiones__stat--orange">
-        <span class="misiones__stat-label">Finalizadas</span>
-        <strong class="misiones__stat-value">{{ stats().finalizadas }}</strong>
+        <span class="misiones__stat-label">Personal desplegado</span>
+        <strong class="misiones__stat-value">{{ stats().personal_desplegado }}</strong>
       </div>
     </div>
 
-    <!-- Tabla -->
     <article class="misiones__card">
-      <h3>
-        Misiones
-        <small class="misiones__table-hint">— hacé clic en una fila para ver el detalle</small>
-      </h3>
+      <div class="misiones__gestion-header">
+        <h3>Catálogo de Misiones</h3>
 
-      <div *ngIf="loading()" class="misiones__placeholder">Cargando...</div>
+        <div class="misiones__def-filters">
+          <div class="misiones__search-wrap">
+            <svg class="misiones__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="text"
+              class="misiones__search-input"
+              placeholder="Nombre de la misión..."
+              [value]="filtroNombre()"
+              (input)="onNombreInput($any($event.target).value)"
+              autocomplete="off"
+            />
+            <button *ngIf="filtroNombre()" type="button" class="misiones__search-clear" (click)="onNombreInput('')" aria-label="Limpiar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
 
-      <div *ngIf="!loading()" class="misiones__table-wrapper">
+          <div class="misiones__search-wrap">
+            <svg class="misiones__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21" />
+            </svg>
+            <input
+              type="text"
+              class="misiones__search-input"
+              placeholder="País..."
+              [value]="filtroPais()"
+              (input)="onPaisInput($any($event.target).value)"
+              autocomplete="off"
+            />
+            <button *ngIf="filtroPais()" type="button" class="misiones__search-clear" (click)="onPaisInput('')" aria-label="Limpiar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            class="btn misiones__clear-btn"
+            [disabled]="!hayFiltrosDef()"
+            (click)="limpiarFiltrosDef()"
+            aria-label="Borrar filtros"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="loadingDef()" class="misiones__placeholder">Cargando...</div>
+
+      <div *ngIf="!loadingDef()" class="misiones__table-wrapper">
         <table class="misiones__table">
           <thead>
             <tr>
+              <th>Nombre</th>
               <th>País</th>
-              <th>Tipo de Misión</th>
-              <th>Fecha Salida</th>
-              <th>Fecha Llegada</th>
-              <th>N° Orden</th>
-              <th>Boletín</th>
-              <th>Comando Responsable</th>
-              <th>Funcionarios</th>
-              <th *ngIf="puedeGestionar()" class="misiones__col-actions">Acciones</th>
+              <th>Convocatorias</th>
+              <th class="misiones__col-actions">Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr
-              *ngFor="let m of misiones(); trackBy: trackMision"
+              *ngFor="let d of definiciones(); trackBy: trackDefinicion"
               class="misiones__row--clickable"
-              (click)="verDetalle(m)"
+              (click)="verConvocatorias(d)"
             >
-              <td><strong>{{ m.pais }}</strong></td>
-              <td>{{ m.tipo_mision }}</td>
-              <td>{{ m.fecha_salida | date:'d/M/yyyy' }}</td>
-              <td>{{ m.fecha_llegada | date:'d/M/yyyy' }}</td>
-              <td>{{ m.numero_orden || '—' }}</td>
-              <td>{{ m.boletin || '—' }}</td>
-              <td>{{ m.comando_responsable || '—' }}</td>
-              <td>
-                <span class="misiones__count-badge">{{ m.total_funcionarios }}</span>
-              </td>
-              <td *ngIf="puedeGestionar()" class="misiones__col-actions" (click)="$event.stopPropagation()">
+              <td><strong>{{ d.nombre_mision }}</strong></td>
+              <td>{{ d.pais }}</td>
+              <td><span class="misiones__count-badge">{{ d.total_convocatorias }}</span></td>
+              <td class="misiones__col-actions" (click)="$event.stopPropagation()">
                 <button
                   type="button"
                   class="btn btn--ghost btn--sm misiones__menu-btn"
-                  (click)="toggleMenu(m.id, $event)"
-                  [class.misiones__menu-btn--open]="menuAbierto() === m.id"
+                  (click)="toggleMenu(d.id, $event)"
+                  [class.misiones__menu-btn--open]="openMenuId() === d.id"
                   aria-label="Acciones"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -99,9 +136,9 @@
                 </button>
               </td>
             </tr>
-            <tr *ngIf="misiones().length === 0">
-              <td [attr.colspan]="puedeGestionar() ? 9 : 8" class="misiones__empty">
-                No hay misiones registradas
+            <tr *ngIf="!loadingDef() && definiciones().length === 0">
+              <td colspan="4" class="misiones__empty">
+                {{ hayFiltrosDef() ? 'No se encontraron misiones con esos filtros' : 'No hay misiones creadas' }}
               </td>
             </tr>
           </tbody>
@@ -109,51 +146,233 @@
       </div>
 
       <app-paginator
-        *ngIf="!loading()"
-        [totalItems]="totalItems()"
-        [pageSize]="limit"
-        [currentPage]="page()"
-        (pageChange)="cargarMisiones($event)"
+        *ngIf="!loadingDef()"
+        [totalItems]="defTotal()"
+        [pageSize]="defPageSize"
+        [currentPage]="defPage()"
+        (pageChange)="onDefPageChange($event)"
       ></app-paginator>
     </article>
 
+    <!-- Dropdown: Acciones (fixed, escapa del overflow de la tabla) -->
+    <ng-container *ngFor="let d of definiciones(); trackBy: trackDefinicion">
+      <div
+        *ngIf="openMenuId() === d.id && menuPosition() as pos"
+        class="misiones__dropdown"
+        [style.top.px]="pos.top"
+        [style.right.px]="pos.right"
+        (click)="$event.stopPropagation()"
+      >
+        <button type="button" class="misiones__dropdown-item" (click)="verConvocatorias(d)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+          </svg>
+          Ver convocatorias
+        </button>
+        <button *ngIf="puedeGestionar()" type="button" class="misiones__dropdown-item" (click)="abrirEditar(d)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+          </svg>
+          Editar
+        </button>
+        <button *ngIf="puedeGestionar()" type="button" class="misiones__dropdown-item misiones__dropdown-item--danger" (click)="eliminarMision(d)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+          </svg>
+          Eliminar
+        </button>
+      </div>
+    </ng-container>
+
   </ng-container>
 
-  <!-- Dropdown: Acciones (fixed, escapa del overflow de la tabla) -->
-  <ng-container *ngFor="let m of misiones(); trackBy: trackMision">
-    <div
-      *ngIf="menuAbierto() === m.id && menuPosition() as pos"
-      class="misiones__dropdown"
-      [style.top.px]="pos.top"
-      [style.right.px]="pos.right"
-      (click)="$event.stopPropagation()"
-    >
-      <button type="button" class="misiones__dropdown-item" (click)="abrirEditar(m); cerrarMenu()">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
-        </svg>
-        Editar
-      </button>
-      <button type="button" class="misiones__dropdown-item misiones__dropdown-item--danger" (click)="eliminarMision(m); cerrarMenu()">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-        </svg>
-        Eliminar
-      </button>
-    </div>
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB: PERSONAL EN MISIÓN                                                -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="tab() === 'personal-en-mision'">
+
+    <article class="misiones__card">
+      <div class="misiones__gestion-header">
+        <h3>Personal en Misión</h3>
+
+        <div class="misiones__def-filters">
+          <div class="misiones__search-wrap">
+            <svg class="misiones__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="text"
+              class="misiones__search-input"
+              placeholder="Cédula o nombre..."
+              [value]="busquedaPersonal()"
+              (input)="onBusquedaPersonalInput($any($event.target).value)"
+              autocomplete="off"
+            />
+            <button *ngIf="busquedaPersonal()" type="button" class="misiones__search-clear" (click)="onBusquedaPersonalInput('')" aria-label="Limpiar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <app-select
+            class="misiones__filter-select"
+            [items]="misionesOpciones()"
+            bindLabel="nombre_mision"
+            bindValue="id"
+            placeholder="Seleccione una o más misiones"
+            [searchable]="true"
+            [multiple]="true"
+            [ngModel]="misionesFiltroIds()"
+            (ngModelChange)="onMisionFiltroChange($event)"
+          ></app-select>
+
+          <div class="misiones__search-wrap">
+            <svg class="misiones__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25Z" />
+            </svg>
+            <input
+              type="text"
+              class="misiones__search-input"
+              placeholder="N° orden o boletín..."
+              [value]="ordenBoletinFiltroPersonal()"
+              (input)="onOrdenBoletinPersonalInput($any($event.target).value)"
+              autocomplete="off"
+            />
+            <button *ngIf="ordenBoletinFiltroPersonal()" type="button" class="misiones__search-clear" (click)="onOrdenBoletinPersonalInput('')" aria-label="Limpiar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <select
+            class="misiones__def-tipo-select"
+            [value]="estadoFiltroPersonal()"
+            (change)="onEstadoFiltroPersonalChange($any($event.target).value)"
+          >
+            <option value="">Todos los estados</option>
+            <option value="activa">Activa</option>
+            <option value="finalizada">Finalizada</option>
+          </select>
+
+          <button
+            type="button"
+            class="btn misiones__clear-btn"
+            [disabled]="!hayFiltrosPersonal()"
+            (click)="limpiarFiltrosPersonal()"
+            aria-label="Borrar filtros"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="loadingPersonal()" class="misiones__placeholder">Cargando...</div>
+
+      <div *ngIf="!loadingPersonal()" class="misiones__table-wrapper">
+        <table class="misiones__table">
+          <thead>
+            <tr>
+              <th>Funcionario</th>
+              <th>Cédula</th>
+              <th>Misión</th>
+              <th>N° Orden</th>
+              <th>Boletín</th>
+              <th>Fecha Salida</th>
+              <th>Fecha Llegada</th>
+              <th>Estado</th>
+              <th *ngIf="puedeGestionar()" class="misiones__col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fila of filasPaginadas(); trackBy: trackFila">
+              <td>{{ fila.nombre }}</td>
+              <td class="misiones__cedula">{{ fila.cedula }}</td>
+              <td><strong>{{ fila.mision.nombre_mision }}</strong></td>
+              <td>{{ fila.mision.numero_orden || '—' }}</td>
+              <td>{{ fila.mision.boletin || '—' }}</td>
+              <td>{{ fila.mision.fecha_salida ? (fila.mision.fecha_salida | date:'d/M/yyyy':'UTC') : '—' }}</td>
+              <td>{{ fila.mision.fecha_llegada ? (fila.mision.fecha_llegada | date:'d/M/yyyy':'UTC') : '—' }}</td>
+              <td>
+                <span
+                  class="misiones__badge"
+                  [class.misiones__badge--activa]="!fila.mision.finalizada"
+                  [class.misiones__badge--finalizada]="fila.mision.finalizada"
+                >
+                  {{ fila.mision.finalizada ? 'Finalizada' : 'Activa' }}
+                </span>
+              </td>
+              <td *ngIf="puedeGestionar()" class="misiones__col-actions" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--sm misiones__menu-btn"
+                  (click)="toggleMenu(filaKey(fila), $event)"
+                  [class.misiones__menu-btn--open]="openMenuId() === filaKey(fila)"
+                  aria-label="Acciones"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="filasFlat().length === 0">
+              <td [attr.colspan]="puedeGestionar() ? 9 : 8" class="misiones__empty">
+                {{ hayFiltrosPersonal() ? 'No se encontraron resultados con esos filtros' : 'No hay personal designado a misiones' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-paginator
+        *ngIf="!loadingPersonal()"
+        [totalItems]="filasFlat().length"
+        [pageSize]="personalPageSize"
+        [currentPage]="personalPage()"
+        (pageChange)="personalPage.set($event)"
+      ></app-paginator>
+    </article>
+
+    <!-- Dropdown: Acciones por funcionario (fixed, escapa del overflow de la tabla) -->
+    <ng-container *ngFor="let fila of filasPaginadas(); trackBy: trackFila">
+      <div
+        *ngIf="openMenuId() === filaKey(fila) && menuPosition() as pos"
+        class="misiones__dropdown"
+        [style.top.px]="pos.top"
+        [style.right.px]="pos.right"
+        (click)="$event.stopPropagation()"
+      >
+        <button type="button" class="misiones__dropdown-item" (click)="abrirEditarFuncionarioPersonal(fila)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+          </svg>
+          Editar
+        </button>
+        <button type="button" class="misiones__dropdown-item misiones__dropdown-item--danger" (click)="abrirConfirmQuitarPersonal(fila)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+          </svg>
+          Eliminar
+        </button>
+      </div>
+    </ng-container>
+
   </ng-container>
 
-  <!-- Modal: Crear / Editar misión -->
-  <div
-    *ngIf="modal() === 'nuevaMision' || modal() === 'editarMision'"
-    class="modal"
-    (click)="cerrarModal()"
-  >
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Nueva / Editar misión                                          -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'nuevaMision' || modal() === 'editarMision'" class="modal" (click)="cerrarModal()">
     <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
       <header class="modal__header">
         <div>
-          <h3>{{ modal() === 'nuevaMision' ? 'Nueva Misión' : 'Editar Misión' }}</h3>
-          <p>{{ modal() === 'nuevaMision' ? 'Completá los datos de la nueva misión.' : 'Modificá los datos de la misión.' }}</p>
+          <h3>{{ modal() === 'editarMision' ? 'Editar Misión' : 'Nueva Misión' }}</h3>
+          <p>{{ modal() === 'editarMision' ? 'Modificá los datos de la misión.' : 'Agregá una nueva misión al catálogo del sistema.' }}</p>
         </div>
         <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -167,43 +386,142 @@
 
         <div class="modal__grid-2">
           <label class="modal__field">
-            <span>País</span>
-            <input type="text" formControlName="pais" placeholder="ej: Congo" autocomplete="off" />
+            <span>Nombre de la Misión <em>*</em></span>
+            <input type="text" formControlName="nombre_mision" placeholder="Ingrese nombre" autocomplete="off" />
           </label>
           <label class="modal__field">
-            <span>Tipo de Misión</span>
-            <input type="text" formControlName="tipo_mision" placeholder="ej: Misión de Paz" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>Fecha Salida</span>
-            <input type="date" formControlName="fecha_salida" />
-          </label>
-          <label class="modal__field">
-            <span>Fecha Llegada</span>
-            <input type="date" formControlName="fecha_llegada" />
-          </label>
-          <label class="modal__field">
-            <span>N° Orden <small>(opcional)</small></span>
-            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-12345" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>Boletín <small>(opcional)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-987" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>Comando Responsable <small>(opcional)</small></span>
-            <input type="text" formControlName="comando_responsable" placeholder="ej: Comando Conjunto" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>Observaciones <small>(opcional)</small></span>
-            <input type="text" formControlName="observaciones" placeholder="Observaciones" autocomplete="off" />
+            <span>País <em>*</em></span>
+            <app-select
+              formControlName="pais"
+              [items]="paises()"
+              bindLabel="label"
+              bindValue="value"
+              placeholder="Seleccione país"
+              [searchable]="true"
+            ></app-select>
           </label>
         </div>
 
         <footer class="modal__actions">
           <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
           <button type="submit" class="btn btn--primary" [disabled]="guardando()">
-            {{ guardando() ? 'Guardando...' : (modal() === 'nuevaMision' ? 'Crear Misión' : 'Guardar cambios') }}
+            {{ guardando() ? 'Guardando...' : (modal() === 'editarMision' ? 'Guardar cambios' : 'Crear Misión') }}
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Confirmar eliminar misión                                       -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'confirmarEliminar' && misionSeleccionada() as mision" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Eliminar misión</h3>
+          <p>{{ mision.nombre_mision }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <p class="modal__confirm-text">
+        ¿Estás seguro que querés eliminar la misión <strong>{{ mision.nombre_mision }}</strong>? Esta acción no se puede deshacer.
+      </p>
+
+      <div *ngIf="mision.total_convocatorias > 0" class="modal__warning" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <span>Esta misión tiene convocatorias registradas. Al eliminarla se borrarán también todas las convocatorias y asignaciones de personal asociadas.</span>
+      </div>
+
+      <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+        <button type="button" class="btn btn--danger" (click)="confirmarEliminar()">Eliminar</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Confirmar quitar funcionario de convocatoria                   -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'confirmarQuitarPersonal' && filaAQuitar() as fila" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Quitar de la convocatoria</h3>
+          <p>{{ fila.nombre }} — {{ fila.mision.nombre_mision }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <p class="modal__confirm-text">
+        ¿Estás seguro que querés quitar a <strong>{{ fila.nombre }}</strong> de esta convocatoria? Esta acción no se puede deshacer.
+      </p>
+
+      <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" (click)="cerrarModal()" [disabled]="quitando()">Cancelar</button>
+        <button type="button" class="btn btn--danger" (click)="confirmarQuitarPersonal()" [disabled]="quitando()">
+          {{ quitando() ? 'Quitando...' : 'Quitar' }}
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Editar funcionario (asignación en una convocatoria)            -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'editarFuncionarioPersonal' && filaEditando() as fila" class="modal" (click)="cerrarModal()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Editar Funcionario</h3>
+          <p>{{ fila.nombre }} — {{ fila.mision.nombre_mision }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="editarFuncionarioForm" (ngSubmit)="guardarEdicionFuncionarioPersonal()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <p class="misiones__form-note">Al menos uno entre N° Orden y Boletín es requerido.</p>
+
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>N° Orden <small>(o boletín)</small></span>
+            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542-A" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Boletín <small>(o N° orden)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: BOL-123" autocomplete="off" />
+          </label>
+        </div>
+        <label class="modal__field">
+          <span>Observaciones <small>(opcional)</small></span>
+          <input type="text" formControlName="observaciones" placeholder="Sin obs" autocomplete="off" />
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary" [disabled]="guardandoFuncionarioPersonal()">
+            {{ guardandoFuncionarioPersonal() ? 'Guardando...' : 'Guardar cambios' }}
           </button>
         </footer>
       </form>

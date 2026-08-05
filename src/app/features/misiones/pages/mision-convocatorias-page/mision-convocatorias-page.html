@@ -1,0 +1,283 @@
+<section class="convs" (click)="cerrarMenu()">
+
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" (click)="volver()">Misiones de Paz</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">{{ mision()?.nombre_mision ?? 'Misión' }}</span>
+  </nav>
+
+  <header class="convs__header">
+    <div *ngIf="mision() as m" class="convs__title-row">
+      <div>
+        <h2>{{ m.nombre_mision }}</h2>
+        <p>{{ m.pais }}</p>
+      </div>
+      <button
+        *ngIf="puedeGestionar()"
+        type="button"
+        class="btn btn--primary btn--lg"
+        (click)="abrirNuevaConvocatoria()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Nueva Convocatoria
+      </button>
+    </div>
+    <div *ngIf="loading()">
+      <h2>Cargando...</h2>
+    </div>
+  </header>
+
+  <ng-container *ngIf="mision() as m">
+    <article class="convs__card">
+      <div class="convs__header-row">
+        <h3>Convocatorias registradas</h3>
+
+        <div class="convs__filters">
+          <div class="convs__search-wrap">
+            <svg class="convs__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              type="text"
+              class="convs__search-input"
+              placeholder="N° orden o boletín..."
+              [value]="filtroOrdenBoletin()"
+              (input)="onOrdenBoletinInput($any($event.target).value)"
+              autocomplete="off"
+            />
+            <button *ngIf="filtroOrdenBoletin()" type="button" class="convs__search-clear" (click)="onOrdenBoletinInput('')" aria-label="Limpiar">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <select
+            class="convs__estado-select"
+            [value]="filtroEstado()"
+            (change)="onEstadoFiltroChange($any($event.target).value)"
+          >
+            <option value="">Todos los estados</option>
+            <option value="activa">Activa</option>
+            <option value="finalizada">Finalizada</option>
+          </select>
+
+          <button
+            type="button"
+            class="btn convs__clear-btn"
+            [disabled]="!hayFiltrosConv()"
+            (click)="limpiarFiltrosConv()"
+            aria-label="Borrar filtros"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="loadingConvocatorias()" class="convs__placeholder">Cargando...</div>
+
+      <div *ngIf="!loadingConvocatorias()" class="convs__table-wrapper">
+        <table class="convs__table">
+          <thead>
+            <tr>
+              <th>N° Orden</th>
+              <th>Boletín</th>
+              <th>Fecha Salida</th>
+              <th>Fecha Llegada</th>
+              <th>Personal</th>
+              <th>Estado</th>
+              <th class="convs__col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let c of convocatorias(); trackBy: trackConvocatoria"
+              class="convs__row--clickable"
+              (click)="verFuncionarios(c)"
+            >
+              <td>{{ c.numero_orden || '—' }}</td>
+              <td>{{ c.boletin || '—' }}</td>
+              <td>{{ c.fecha_salida ? (c.fecha_salida | date:'d/M/yyyy':'UTC') : '—' }}</td>
+              <td>{{ c.fecha_llegada ? (c.fecha_llegada | date:'d/M/yyyy':'UTC') : '—' }}</td>
+              <td><span class="convs__count-badge">{{ c.total_funcionarios }}</span></td>
+              <td>
+                <span
+                  class="convs__badge"
+                  [class.convs__badge--activa]="!c.finalizada"
+                  [class.convs__badge--finalizada]="c.finalizada"
+                >
+                  {{ c.finalizada ? 'Finalizada' : 'Activa' }}
+                </span>
+              </td>
+              <td class="convs__col-actions" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--sm convs__menu-btn"
+                  (click)="toggleMenu(c.id, $event)"
+                  [class.convs__menu-btn--open]="openMenuId() === c.id"
+                  aria-label="Acciones"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!loadingConvocatorias() && convocatorias().length === 0">
+              <td colspan="7" class="convs__empty">
+                {{ hayFiltrosConv() ? 'No se encontraron convocatorias con esos filtros' : 'Esta misión todavía no tiene convocatorias registradas' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-paginator
+        *ngIf="!loadingConvocatorias()"
+        [totalItems]="convTotal()"
+        [pageSize]="convPageSize"
+        [currentPage]="convPage()"
+        (pageChange)="onConvPageChange($event)"
+      ></app-paginator>
+    </article>
+  </ng-container>
+
+  <!-- Dropdown: Acciones -->
+  <ng-container *ngFor="let c of convocatorias(); trackBy: trackConvocatoria">
+    <div
+      *ngIf="openMenuId() === c.id && menuPosition() as pos"
+      class="convs__dropdown"
+      [style.top.px]="pos.top"
+      [style.right.px]="pos.right"
+      (click)="$event.stopPropagation()"
+    >
+      <button type="button" class="convs__dropdown-item" (click)="verFuncionarios(c)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+        </svg>
+        Ver funcionarios
+      </button>
+      <button *ngIf="puedeGestionar()" type="button" class="convs__dropdown-item" (click)="abrirEditar(c)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+        </svg>
+        Editar
+      </button>
+      <button *ngIf="puedeGestionar()" type="button" class="convs__dropdown-item convs__dropdown-item--danger" (click)="eliminarConvocatoria(c)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+        </svg>
+        Eliminar
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- Modal: Nueva / Editar convocatoria -->
+  <div *ngIf="modal() === 'nuevaConvocatoria' || modal() === 'editarConvocatoria'" class="modal" (click)="cerrarModal()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>{{ modal() === 'editarConvocatoria' ? 'Editar Convocatoria' : 'Nueva Convocatoria' }}</h3>
+          <p>{{ mision()?.nombre_mision }} — {{ modal() === 'editarConvocatoria' ? 'modificá los datos de la convocatoria.' : 'creá una nueva convocatoria con orden/boletín y personal designado.' }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="convocatoriaForm" (ngSubmit)="guardarConvocatoria()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <p class="convs__form-note">
+          Al menos uno entre N° Orden y Boletín es requerido.
+        </p>
+
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>N° Orden <small>(o boletín)</small></span>
+            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Boletín <small>(o N° orden)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha Salida</span>
+            <input type="date" formControlName="fecha_salida" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha Llegada</span>
+            <input type="date" formControlName="fecha_llegada" />
+          </label>
+        </div>
+        <label class="modal__field">
+          <span>Observaciones <small>(opcional)</small></span>
+          <input type="text" formControlName="observaciones" placeholder="Observaciones" autocomplete="off" />
+        </label>
+
+        <label class="modal__field" *ngIf="modal() === 'nuevaConvocatoria'">
+          <span>Personal a designar <small>(opcional, se puede asignar después)</small></span>
+          <app-select
+            formControlName="persona_ids"
+            [items]="personal()"
+            bindLabel="nombre"
+            bindValue="id"
+            placeholder="Seleccione una o más personas"
+            [searchable]="true"
+            [multiple]="true"
+          ></app-select>
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary" [disabled]="guardando()">
+            {{ guardando() ? 'Guardando...' : (modal() === 'editarConvocatoria' ? 'Guardar cambios' : 'Crear Convocatoria') }}
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar eliminar convocatoria -->
+  <div *ngIf="modal() === 'confirmarEliminar' && convocatoriaSeleccionada() as c" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Eliminar convocatoria</h3>
+          <p>{{ c.numero_orden || c.boletin || c.id }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <p class="modal__confirm-text">
+        ¿Estás seguro que querés eliminar esta convocatoria? Esta acción no se puede deshacer.
+      </p>
+
+      <div *ngIf="c.total_funcionarios > 0" class="modal__warning" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+        <span>Esta convocatoria tiene {{ c.total_funcionarios }} funcionario(s) asignado(s). Al eliminarla se quitará también su asignación.</span>
+      </div>
+
+      <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+        <button type="button" class="btn btn--danger" (click)="confirmarEliminar()">Eliminar</button>
+      </footer>
+    </div>
+  </div>
+
+</section>

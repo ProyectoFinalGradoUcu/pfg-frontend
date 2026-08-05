@@ -149,6 +149,10 @@ $navy-soft: #1e3a5f;
 .misiones__col-actions {
   text-align: right !important;
   white-space: nowrap;
+
+  .btn:not(:last-child) {
+    margin-right: 0.4rem;
+  }
 }
 
 .misiones__count-badge {
@@ -532,4 +536,179 @@ $navy-soft: #1e3a5f;
   margin-top: 0.5rem;
   padding-top: 1rem;
   border-top: 1px solid #f1f5f9;
+}
+
+.modal__confirm-text {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.modal__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  background-color: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  color: #92400e;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+
+  svg { width: 18px; height: 18px; flex-shrink: 0; color: #f59e0b; }
+}
+
+.btn--danger {
+  background-color: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+
+  &:hover:not(:disabled) {
+    background-color: #b91c1c;
+    border-color: #b91c1c;
+  }
+}
+
+// Encabezados con filtros / búsqueda
+
+.misiones__gestion-header,
+.misiones__historial-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+
+  h3 { margin: 0; }
+}
+
+.misiones__def-filters {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.misiones__filter-select {
+  flex: 0 0 220px;
+  width: 220px;
+}
+
+.misiones__form-note {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.misiones__def-tipo-select {
+  height: 2.5rem;
+  flex-shrink: 0;
+  padding: 0 2rem 0 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 0.875rem;
+  color: #0f172a;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 13px;
+  transition: border-color 0.15s;
+
+  &:focus { outline: none; border-color: $navy; }
+}
+
+.misiones__search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.misiones__search-icon {
+  position: absolute;
+  left: 0.75rem;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.misiones__search-input {
+  height: 2.5rem;
+  padding: 0 2.2rem 0 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  width: 190px;
+  background-color: #ffffff;
+  color: #0f172a;
+
+  &:focus { outline: none; border-color: $navy; }
+  &::placeholder { color: #94a3b8; }
+}
+
+.misiones__search-clear {
+  position: absolute;
+  right: 0.6rem;
+  display: inline-flex;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.15rem;
+
+  svg { width: 14px; height: 14px; }
+  &:hover { color: #475569; }
+}
+
+.misiones__search-spinner {
+  position: absolute;
+  right: 0.6rem;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e2e8f0;
+  border-top-color: $navy;
+  border-radius: 50%;
+  animation: misiones-spin 0.6s linear infinite;
+}
+
+@keyframes misiones-spin {
+  to { transform: rotate(360deg); }
+}
+
+.misiones__clear-btn {
+  padding: 0.5rem;
+  flex-shrink: 0;
+  border: 1.5px solid #e2e8f0;
+  color: #64748b;
+
+  &:hover:not(:disabled) { background-color: #f1f5f9; }
+}
+
+.misiones__cedula {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.misiones__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  &--activa { background-color: #dbeafe; color: #1d4ed8; }
+  &--finalizada { background-color: #dcfce7; color: #15803d; }
 }

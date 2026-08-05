@@ -1,34 +1,40 @@
 <section class="detalle" (click)="cerrarMenu()">
 
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" (click)="irAlCatalogo()">Misiones de Paz</a>
+    <span class="breadcrumb__sep">/</span>
+    <a class="breadcrumb__item breadcrumb__item--link" (click)="volver()">{{ mision()?.nombre_mision ?? 'Misión' }}</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">Convocatoria</span>
+  </nav>
+
   <header class="detalle__header">
-    <button type="button" class="btn btn--ghost btn--sm detalle__back" (click)="volver()">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-      </svg>
-      Volver a Gestión
-    </button>
     <div *ngIf="mision() as m">
-      <h2>{{ m.pais }} — {{ m.tipo_mision }}</h2>
-      <p>{{ m.fecha_salida | date:'d/M/yyyy' }} → {{ m.fecha_llegada | date:'d/M/yyyy' }}</p>
+      <h2>{{ m.nombre_mision }} — Convocatoria</h2>
+      <p *ngIf="convocatoria() as c">
+        {{ c.fecha_salida ? (c.fecha_salida | date:'d/M/yyyy') : '—' }} → {{ c.fecha_llegada ? (c.fecha_llegada | date:'d/M/yyyy') : '—' }}
+        <span *ngIf="c.finalizada" class="detalle__badge detalle__badge--finalizada">Finalizada</span>
+        <span *ngIf="!c.finalizada" class="detalle__badge detalle__badge--activa">Activa</span>
+      </p>
     </div>
     <div *ngIf="loading()">
       <h2>Cargando...</h2>
     </div>
   </header>
 
-  <div *ngIf="loading()" class="detalle__placeholder">Cargando misión...</div>
+  <div *ngIf="loading()" class="detalle__placeholder">Cargando convocatoria...</div>
 
-  <ng-container *ngIf="mision() as m">
+  <ng-container *ngIf="convocatoria() as c">
 
-    <!-- Datos de la misión (card) -->
+    <!-- Datos de la convocatoria (card) -->
     <article class="detalle__card">
       <div class="detalle__section-header">
-        <h3>Datos de la Misión</h3>
+        <h3>Datos de la Convocatoria</h3>
         <button
           *ngIf="puedeGestionar()"
           type="button"
           class="btn btn--ghost btn--sm"
-          (click)="abrirEditarMision()"
+          (click)="abrirEditarConvocatoria()"
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
@@ -38,36 +44,24 @@
       </div>
       <div class="detalle__info-grid">
         <div class="detalle__info-field">
-          <span>País</span>
-          <strong>{{ m.pais || '—' }}</strong>
-        </div>
-        <div class="detalle__info-field">
-          <span>Tipo de Misión</span>
-          <strong>{{ m.tipo_mision || '—' }}</strong>
-        </div>
-        <div class="detalle__info-field">
           <span>Fecha Salida</span>
-          <strong>{{ m.fecha_salida | date:'d/M/yyyy' }}</strong>
+          <strong>{{ c.fecha_salida ? (c.fecha_salida | date:'d/M/yyyy') : '—' }}</strong>
         </div>
         <div class="detalle__info-field">
           <span>Fecha Llegada</span>
-          <strong>{{ m.fecha_llegada | date:'d/M/yyyy' }}</strong>
+          <strong>{{ c.fecha_llegada ? (c.fecha_llegada | date:'d/M/yyyy') : '—' }}</strong>
         </div>
         <div class="detalle__info-field">
           <span>N° Orden</span>
-          <strong>{{ m.numero_orden || '—' }}</strong>
+          <strong>{{ c.numero_orden || '—' }}</strong>
         </div>
         <div class="detalle__info-field">
           <span>Boletín</span>
-          <strong>{{ m.boletin || '—' }}</strong>
-        </div>
-        <div class="detalle__info-field">
-          <span>Comando Responsable</span>
-          <strong>{{ m.comando_responsable || '—' }}</strong>
+          <strong>{{ c.boletin || '—' }}</strong>
         </div>
         <div class="detalle__info-field">
           <span>Observaciones</span>
-          <strong>{{ m.observaciones || '—' }}</strong>
+          <strong>{{ c.observaciones || '—' }}</strong>
         </div>
       </div>
     </article>
@@ -77,16 +71,48 @@
       <div class="detalle__section-header">
         <h3>
           Funcionarios asignados
-          <span class="detalle__count-badge">{{ m.total_funcionarios }}</span>
+          <span class="detalle__count-badge">{{ c.total_funcionarios }}</span>
         </h3>
-        <button
-          *ngIf="puedeGestionar() && funcionarios().length > 0"
-          type="button"
-          class="btn btn--ghost btn--sm detalle__btn-danger"
-          [disabled]="borrandoTodos()"
-          (click)="abrirConfirmEliminarTodos()"
-        >
-          Eliminar todos
+        <div class="detalle__section-actions">
+          <button
+            *ngIf="puedeGestionar() && funcionarios().length > 0"
+            type="button"
+            class="btn btn--ghost btn--sm detalle__btn-danger"
+            [disabled]="borrandoTodos()"
+            (click)="abrirConfirmEliminarTodos()"
+          >
+            Eliminar todos
+          </button>
+          <button
+            *ngIf="puedeGestionar()"
+            type="button"
+            class="btn btn--primary btn--sm"
+            (click)="abrirModalAsignar()"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Asignar Funcionario
+          </button>
+        </div>
+      </div>
+
+      <div class="detalle__search-wrap">
+        <svg class="detalle__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input
+          type="text"
+          class="detalle__search-input"
+          placeholder="Buscar por nombre o cédula..."
+          [value]="busquedaFuncionario()"
+          (input)="onBusquedaFuncionarioInput($any($event.target).value)"
+          autocomplete="off"
+        />
+        <button *ngIf="busquedaFuncionario()" type="button" class="detalle__search-clear" (click)="limpiarBusquedaFuncionario()" aria-label="Limpiar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
@@ -96,8 +122,8 @@
             <tr>
               <th>Nombre</th>
               <th>Cédula</th>
+              <th>N° Orden</th>
               <th>Boletín</th>
-              <th>N° Control Migratorio</th>
               <th>Observaciones</th>
               <th *ngIf="puedeGestionar()" class="detalle__col-actions">Acciones</th>
             </tr>
@@ -108,8 +134,8 @@
                 <strong>{{ f.primer_nombre || '—' }} {{ f.primer_apellido || '' }}</strong>
               </td>
               <td class="detalle__cedula">{{ f.cedula || '—' }}</td>
+              <td>{{ f.numero_orden || '—' }}</td>
               <td>{{ f.boletin || '—' }}</td>
-              <td>{{ f.numero_control_migratorio || '—' }}</td>
               <td>{{ f.observaciones || '—' }}</td>
               <td *ngIf="puedeGestionar()" class="detalle__col-actions" (click)="$event.stopPropagation()">
                 <button
@@ -127,7 +153,7 @@
             </tr>
             <tr *ngIf="!loadingFuncionarios() && funcionarios().length === 0">
               <td [attr.colspan]="puedeGestionar() ? 6 : 5" class="detalle__empty">
-                No hay funcionarios asignados a esta misión
+                {{ busquedaFuncionario() ? 'No se encontraron funcionarios con esa búsqueda' : 'No hay funcionarios asignados a esta convocatoria' }}
               </td>
             </tr>
           </tbody>
@@ -143,52 +169,10 @@
       ></app-paginator>
     </article>
 
-    <!-- Asignar funcionario (card) -->
-    <article *ngIf="puedeGestionar()" class="detalle__card">
-      <h3>Asignar Funcionario</h3>
-
-      <form [formGroup]="asignarForm" (ngSubmit)="asignarFuncionario()" novalidate>
-        <div class="detalle__form-grid">
-          <label class="detalle__field">
-            <span>Personal <em>*</em></span>
-            <app-select
-              formControlName="persona_id"
-              [items]="personal()"
-              bindLabel="nombre"
-              bindValue="id"
-              placeholder="Seleccione personal"
-              [searchable]="true"
-            ></app-select>
-          </label>
-          <label class="detalle__field">
-            <span>Boletín <small>(opcional)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-123" autocomplete="off" />
-          </label>
-          <label class="detalle__field">
-            <span>N° Control Migratorio <small>(opcional)</small></span>
-            <input type="text" formControlName="numero_control_migratorio" placeholder="ej: MIG-88223" autocomplete="off" />
-          </label>
-          <label class="detalle__field">
-            <span>Observaciones <small>(opcional)</small></span>
-            <input type="text" formControlName="observaciones" placeholder="Sin obs" autocomplete="off" />
-          </label>
-        </div>
-
-        <div class="detalle__form-actions">
-          <button type="submit" class="btn btn--primary" [disabled]="asignando()">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            {{ asignando() ? 'Asignando...' : 'Asignar funcionario' }}
-          </button>
-        </div>
-      </form>
-    </article>
-
   </ng-container>
 
   <!-- Dropdown: Acciones por funcionario -->
-  <ng-container *ngIf="mision() as m">
+  <ng-container *ngIf="convocatoria() as c">
     <ng-container *ngFor="let f of funcionarios(); trackBy: trackFuncionario">
       <div
         *ngIf="menuAbierto() === f.persona_id && menuPosition() as pos"
@@ -203,7 +187,7 @@
           </svg>
           Editar
         </button>
-        <button type="button" class="detalle__dropdown-item detalle__dropdown-item--danger" (click)="quitarFuncionario(f.persona_id)">
+        <button type="button" class="detalle__dropdown-item detalle__dropdown-item--danger" (click)="abrirConfirmQuitar(f)">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
           </svg>
@@ -229,14 +213,18 @@
       </header>
 
       <form [formGroup]="editarFuncionarioForm" (ngSubmit)="guardarEdicionFuncionario()" novalidate>
+        <div *ngIf="modalErrorEditarFuncionario()" class="modal__error" role="alert">{{ modalErrorEditarFuncionario() }}</div>
+
+        <p class="detalle__form-note">Al menos uno entre N° Orden y Boletín es requerido.</p>
+
         <div class="detalle__form-grid detalle__form-grid--modal">
           <label class="detalle__field">
-            <span>Boletín <small>(opcional)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-123" autocomplete="off" />
+            <span>N° Orden <small>(o boletín)</small></span>
+            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542-A" autocomplete="off" />
           </label>
           <label class="detalle__field">
-            <span>N° Control Migratorio <small>(opcional)</small></span>
-            <input type="text" formControlName="numero_control_migratorio" placeholder="ej: MIG-88223" autocomplete="off" />
+            <span>Boletín <small>(o N° orden)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: BOL-123" autocomplete="off" />
           </label>
           <label class="detalle__field detalle__field--full">
             <span>Observaciones <small>(opcional)</small></span>
@@ -254,32 +242,32 @@
     </div>
   </div>
 
-  <!-- Modal: Editar misión (mismo formulario que misiones-page) -->
-  <div *ngIf="modalEditarMision()" class="modal" (click)="cerrarModalMision()">
+  <!-- Modal: Editar convocatoria -->
+  <div *ngIf="modalEditarConvocatoria()" class="modal" (click)="cerrarModalConvocatoria()">
     <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
       <header class="modal__header">
         <div>
-          <h3>Editar Misión</h3>
-          <p>Modificá los datos de la misión.</p>
+          <h3>Editar Convocatoria</h3>
+          <p>Modificá los datos de esta convocatoria.</p>
         </div>
-        <button type="button" class="modal__close" (click)="cerrarModalMision()" aria-label="Cerrar">
+        <button type="button" class="modal__close" (click)="cerrarModalConvocatoria()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </button>
       </header>
 
-      <form [formGroup]="misionForm" (ngSubmit)="guardarMision()" novalidate>
-        <div *ngIf="modalErrorMision()" class="modal__error" role="alert">{{ modalErrorMision() }}</div>
+      <form [formGroup]="convocatoriaForm" (ngSubmit)="guardarConvocatoria()" novalidate>
+        <div *ngIf="modalErrorConvocatoria()" class="modal__error" role="alert">{{ modalErrorConvocatoria() }}</div>
 
         <div class="modal__grid-2">
           <label class="modal__field">
-            <span>País</span>
-            <input type="text" formControlName="pais" placeholder="ej: Congo" autocomplete="off" />
+            <span>N° Orden <small>(opcional)</small></span>
+            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-12345" autocomplete="off" />
           </label>
           <label class="modal__field">
-            <span>Tipo de Misión</span>
-            <input type="text" formControlName="tipo_mision" placeholder="ej: Misión de Paz" autocomplete="off" />
+            <span>Boletín <small>(opcional)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: BOL-987" autocomplete="off" />
           </label>
           <label class="modal__field">
             <span>Fecha Salida</span>
@@ -290,27 +278,15 @@
             <input type="date" formControlName="fecha_llegada" />
           </label>
           <label class="modal__field">
-            <span>N° Orden <small>(opcional)</small></span>
-            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-12345" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>Boletín <small>(opcional)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-987" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>Comando Responsable <small>(opcional)</small></span>
-            <input type="text" formControlName="comando_responsable" placeholder="ej: Comando Conjunto" autocomplete="off" />
-          </label>
-          <label class="modal__field">
             <span>Observaciones <small>(opcional)</small></span>
             <input type="text" formControlName="observaciones" placeholder="Observaciones" autocomplete="off" />
           </label>
         </div>
 
         <footer class="modal__actions">
-          <button type="button" class="btn btn--ghost" (click)="cerrarModalMision()">Cancelar</button>
-          <button type="submit" class="btn btn--primary" [disabled]="guardandoMision()">
-            {{ guardandoMision() ? 'Guardando...' : 'Guardar cambios' }}
+          <button type="button" class="btn btn--ghost" (click)="cerrarModalConvocatoria()">Cancelar</button>
+          <button type="submit" class="btn btn--primary" [disabled]="guardandoConvocatoria()">
+            {{ guardandoConvocatoria() ? 'Guardando...' : 'Guardar cambios' }}
           </button>
         </footer>
       </form>
@@ -323,7 +299,7 @@
       <header class="modal__header">
         <div>
           <h3>Eliminar todos los funcionarios</h3>
-          <p>Esta acción no se puede deshacer. Se van a quitar todos los funcionarios asignados a la misión.</p>
+          <p>Esta acción no se puede deshacer. Se van a quitar todos los funcionarios asignados a la convocatoria.</p>
         </div>
         <button type="button" class="modal__close" (click)="cerrarConfirmEliminarTodos()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -338,6 +314,91 @@
         </button>
         <button type="button" class="btn btn--primary detalle__btn-danger-solid" (click)="eliminarTodosFuncionarios()" [disabled]="borrandoTodos()">
           {{ borrandoTodos() ? 'Eliminando...' : 'Sí, eliminar todos' }}
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Modal: Asignar funcionario -->
+  <div *ngIf="modalAsignar()" class="modal" (click)="cerrarModalAsignar()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Asignar Funcionario</h3>
+          <p>Designá una persona a esta convocatoria.</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModalAsignar()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="asignarForm" (ngSubmit)="asignarFuncionario()" novalidate>
+        <div *ngIf="modalErrorAsignar()" class="modal__error" role="alert">{{ modalErrorAsignar() }}</div>
+
+        <label class="modal__field">
+          <span>Personal <em>*</em></span>
+          <app-select
+            formControlName="persona_id"
+            [items]="personal()"
+            bindLabel="nombre"
+            bindValue="id"
+            placeholder="Seleccione personal"
+            [searchable]="true"
+          ></app-select>
+        </label>
+
+        <p class="detalle__form-note">Al menos uno entre N° Orden y Boletín es requerido.</p>
+
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>N° Orden <small>(o boletín)</small></span>
+            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542-A" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Boletín <small>(o N° orden)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: BOL-123" autocomplete="off" />
+          </label>
+        </div>
+        <label class="modal__field">
+          <span>Observaciones <small>(opcional)</small></span>
+          <input type="text" formControlName="observaciones" placeholder="Sin obs" autocomplete="off" />
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModalAsignar()">Cancelar</button>
+          <button type="submit" class="btn btn--primary" [disabled]="asignando()">
+            {{ asignando() ? 'Asignando...' : 'Asignar funcionario' }}
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmar quitar funcionario -->
+  <div *ngIf="funcionarioAQuitar() as f" class="modal" (click)="cerrarConfirmQuitar()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Quitar funcionario</h3>
+          <p>{{ f.primer_nombre }} {{ f.primer_apellido }} — {{ f.cedula }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarConfirmQuitar()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <p class="modal__confirm-text">
+        ¿Estás seguro que querés quitar a <strong>{{ f.primer_nombre }} {{ f.primer_apellido }}</strong> de esta convocatoria? Esta acción no se puede deshacer.
+      </p>
+
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" (click)="cerrarConfirmQuitar()" [disabled]="quitando()">Cancelar</button>
+        <button type="button" class="btn btn--primary detalle__btn-danger-solid" (click)="confirmarQuitarFuncionario()" [disabled]="quitando()">
+          {{ quitando() ? 'Quitando...' : 'Quitar' }}
         </button>
       </footer>
     </div>
