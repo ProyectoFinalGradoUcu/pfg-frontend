@@ -7,6 +7,7 @@ import {
   AuditoriaFiltroItem,
   AuditoriaRegistro,
 } from '../../../../core/models/auditoria.models';
+import { SeccionDetalle, formatearDetalle } from '../../detalle-auditoria';
 
 @Component({
   selector: 'app-auditoria-page',
@@ -25,6 +26,8 @@ export class AuditoriaPage implements OnInit {
   readonly acciones = signal<AuditoriaFiltroItem[]>([]);
   readonly contextos = signal<AuditoriaFiltroItem[]>([]);
   readonly detalleAbierto = signal<AuditoriaRegistro | null>(null);
+  readonly detalleSecciones = signal<SeccionDetalle[]>([]);
+  readonly mostrarJson = signal(false);
 
   readonly page = signal(1);
   readonly pageSize = 20;
@@ -92,16 +95,30 @@ export class AuditoriaPage implements OnInit {
 
   verDetalle(registro: AuditoriaRegistro): void {
     this.detalleAbierto.set(registro);
+    this.detalleSecciones.set(formatearDetalle(registro.detalle));
+    this.mostrarJson.set(false);
   }
 
   cerrarDetalle(): void {
     this.detalleAbierto.set(null);
+    this.detalleSecciones.set([]);
+  }
+
+  toggleJson(): void {
+    this.mostrarJson.update((v) => !v);
+  }
+
+  soloJson(): boolean {
+    return this.detalleSecciones().length === 0;
   }
 
   detalleJson(detalle: unknown): string {
     if (detalle === null || detalle === undefined) return '—';
     return JSON.stringify(detalle, null, 2);
   }
+
+  trackSeccion = (i: number, s: SeccionDetalle) => `${i}-${s.titulo ?? ''}`;
+  trackCampo = (i: number, c: { etiqueta: string }) => `${i}-${c.etiqueta}`;
 
   trackRegistro = (_: number, r: AuditoriaRegistro) => r.id;
 

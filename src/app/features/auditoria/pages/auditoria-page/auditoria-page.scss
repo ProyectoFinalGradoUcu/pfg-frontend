@@ -236,9 +236,73 @@ $navy-soft: #1e3a5f;
   font-size: 0.85rem;
 }
 
-.aud__detalle {
+.aud__modal-body {
+  padding: 1rem 1.25rem 1.25rem;
+  overflow: auto;
+}
+
+.aud__seccion + .aud__seccion {
+  margin-top: 1.1rem;
+}
+
+.aud__seccion--anidada {
+  margin-top: 0.9rem;
+  padding-left: 0.85rem;
+  border-left: 2px solid #e2e8f0;
+}
+
+.aud__seccion-titulo {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.aud__campos {
+  display: grid;
+  grid-template-columns: minmax(9rem, 40%) 1fr;
+  gap: 0.35rem 1rem;
   margin: 0;
-  padding: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.aud__campo-etiqueta {
+  margin: 0;
+  color: #64748b;
+}
+
+.aud__campo-valor {
+  margin: 0;
+  color: #1e293b;
+  word-break: break-word;
+}
+
+.aud__tecnico {
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.aud__tecnico-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #64748b;
+  text-decoration: underline;
+
+  &:hover {
+    color: $navy;
+  }
+}
+
+.aud__detalle {
+  margin: 0.65rem 0 0;
+  padding: 0.85rem;
+  border-radius: 6px;
   overflow: auto;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 0.8rem;

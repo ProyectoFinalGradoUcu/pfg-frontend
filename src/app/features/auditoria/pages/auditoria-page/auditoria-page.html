@@ -107,6 +107,43 @@
       <span><strong>{{ reg.accion }}</strong> · {{ reg.contexto }}</span>
       <span class="aud__muted">{{ reg.fecha | date: 'dd/MM/yyyy HH:mm:ss' }} · {{ reg.usuario.username }}</span>
     </div>
-    <pre class="aud__detalle">{{ detalleJson(reg.detalle) }}</pre>
+    <div class="aud__modal-body">
+      <pre class="aud__detalle" *ngIf="soloJson()">{{ detalleJson(reg.detalle) }}</pre>
+
+      <ng-container *ngIf="!soloJson()">
+        <ng-container
+          *ngTemplateOutlet="seccionesTpl; context: { $implicit: detalleSecciones(), nivel: 0 }"
+        ></ng-container>
+
+        <div class="aud__tecnico">
+          <button type="button" class="aud__tecnico-toggle" (click)="toggleJson()">
+            {{ mostrarJson() ? 'Ocultar datos técnicos' : 'Ver datos técnicos' }}
+          </button>
+          <pre class="aud__detalle" *ngIf="mostrarJson()">{{ detalleJson(reg.detalle) }}</pre>
+        </div>
+      </ng-container>
+    </div>
   </div>
 </div>
+
+<!-- Las secciones se anidan (ej. la relación laboral dentro del registro creado). -->
+<ng-template #seccionesTpl let-secciones let-nivel="nivel">
+  <div
+    class="aud__seccion"
+    *ngFor="let s of secciones; trackBy: trackSeccion"
+    [class.aud__seccion--anidada]="nivel > 0"
+  >
+    <h4 class="aud__seccion-titulo" *ngIf="s.titulo">{{ s.titulo }}</h4>
+
+    <dl class="aud__campos" *ngIf="s.campos.length > 0">
+      <ng-container *ngFor="let c of s.campos; trackBy: trackCampo">
+        <dt class="aud__campo-etiqueta">{{ c.etiqueta }}</dt>
+        <dd class="aud__campo-valor">{{ c.valor }}</dd>
+      </ng-container>
+    </dl>
+
+    <ng-container
+      *ngTemplateOutlet="seccionesTpl; context: { $implicit: s.subsecciones, nivel: nivel + 1 }"
+    ></ng-container>
+  </div>
+</ng-template>

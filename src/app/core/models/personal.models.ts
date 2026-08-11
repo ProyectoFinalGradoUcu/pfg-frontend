@@ -138,6 +138,10 @@ export interface MisionPersona {
 }
 
 export interface PatchPersonaPayload {
+  primer_nombre?: string;
+  segundo_nombre?: string | null;
+  primer_apellido?: string;
+  segundo_apellido?: string | null;
   telefono?: string;
   email?: string;
   direccion?: string;
@@ -148,6 +152,7 @@ export interface PatchPersonaPayload {
   etnia?: string | null;
   codigo_postal?: string | null;
   seccional?: string | null;
+  fecha_inicio?: string;
   grado_id?: number;
   unidad_id?: number;
   situacion_id?: number;
