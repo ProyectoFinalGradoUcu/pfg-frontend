@@ -22,6 +22,12 @@ export interface AuthenticatedUser {
   username: string;
   roles: string[];
   permisos: string[];
+  /**
+   * Unidad derivada de la relación laboral activa del funcionario. Determina los permisos
+   * heredados y el alcance de datos. `null` si el usuario no tiene relación laboral activa.
+   */
+  unidadId: string | null;
+  unidadDenominacion: string | null;
 }
 
 export interface SignInResponse {
@@ -105,6 +111,8 @@ export interface Usuario {
   username: string;
   estado: 'activo' | 'bloqueado';
   bloqueadoHasta: string | null;
+  /** Derivada de la relación laboral activa: solo lectura desde la pantalla de usuarios. */
+  unidad: CatalogoRef | null;
   persona: UsuarioPersona | null;
   roles: UsuarioRol[];
 }

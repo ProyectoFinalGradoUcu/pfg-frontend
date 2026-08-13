@@ -63,6 +63,18 @@ export class UsuariosService {
     );
   }
 
+  /**
+   * Unidad de la CUENTA: define qué personal ve el usuario y de qué unidad hereda roles.
+   * Es independiente del destino del funcionario asociado. Cierra su sesión activa.
+   */
+  asignarUnidad(id: string, unidadId: string | null): Observable<Usuario> {
+    return this.http.patch<Usuario>(
+      `${API_BASE_URL}/usuarios/${id}/unidad`,
+      { unidadId },
+      { withCredentials: true },
+    );
+  }
+
   resetPassword(id: string, payload: ResetPasswordPayload): Observable<{ ok: true }> {
     return this.http.post<{ ok: true }>(
       `${API_BASE_URL}/usuarios/${id}/reset-password`,

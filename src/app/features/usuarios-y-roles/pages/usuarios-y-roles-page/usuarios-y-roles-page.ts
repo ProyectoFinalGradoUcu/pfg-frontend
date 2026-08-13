@@ -8,7 +8,9 @@ import { InvitacionesService } from '../../../../core/services/invitaciones.serv
 import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
+import { PersonalService } from '../../../../core/services/personal.service';
 import { Invitacion, Rol, Usuario } from '../../../../core/models/auth.models';
+import { OpcionSelect } from '../../../../core/models/personal.models';
 
 type Tab = 'usuarios' | 'invitaciones' | 'roles';
 type ModalKind =
@@ -28,6 +30,7 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly usuariosService = inject(UsuariosService);
+  private readonly personalService = inject(PersonalService);
   private readonly rolesService = inject(RolesService);
   private readonly invitacionesService = inject(InvitacionesService);
   private readonly toast = inject(ToastService);
@@ -93,8 +96,13 @@ export class UsuariosYRolesPage implements OnInit {
   readonly editForm = this.fb.group({
     roles: [[] as string[]],
     estado: ['activo' as 'activo' | 'bloqueado'],
+    // Unidad de la cuenta. '' = sin unidad (alcance general).
+    unidadId: [''],
     nuevaPassword: [''],
   });
+
+  /** Catálogo de unidades vigentes para el selector del detalle de usuario. */
+  readonly unidadesCatalogo = signal<OpcionSelect[]>([]);
 
   readonly rolForm = this.fb.group({
     nombre: ['', [Validators.required, Validators.maxLength(60)]],
@@ -104,6 +112,12 @@ export class UsuariosYRolesPage implements OnInit {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.cargar();
+
+    // El selector de unidad del detalle de usuario usa el catálogo de solo lectura,
+    // que no requiere el permiso `unidades.ver`.
+    this.personalService.getUnidades().subscribe({
+      next: (unidades) => this.unidadesCatalogo.set(unidades),
+    });
   }
 
   cargar(): void {
@@ -157,6 +171,7 @@ export class UsuariosYRolesPage implements OnInit {
     this.editForm.reset({
       roles: usuario.roles.map((r) => r.nombre),
       estado: usuario.estado,
+      unidadId: usuario.unidad?.id ?? '',
       nuevaPassword: '',
     });
     this.modalError.set(null);
@@ -207,7 +222,7 @@ export class UsuariosYRolesPage implements OnInit {
     const target = this.editTarget();
     if (!target) return;
 
-    const { roles, estado, nuevaPassword } = this.editForm.getRawValue();
+    const { roles, estado, unidadId, nuevaPassword } = this.editForm.getRawValue();
 
     if (nuevaPassword && nuevaPassword.length > 0 && nuevaPassword.length < 8) {
       this.modalError.set('La nueva contraseña debe tener al menos 8 caracteres');
@@ -233,6 +248,13 @@ export class UsuariosYRolesPage implements OnInit {
 
     if (estado && estado !== target.estado) {
       tasks.push(this.usuariosService.update(target.id, { estado }));
+    }
+
+    // Cambiar la unidad modifica los permisos efectivos del usuario y le cierra la sesión.
+    const unidadActual = target.unidad?.id ?? '';
+    if ((unidadId ?? '') !== unidadActual) {
+      const nueva = unidadId ? unidadId : null;
+      tasks.push(this.usuariosService.asignarUnidad(target.id, nueva));
     }
 
     if (nuevaPassword && nuevaPassword.length >= 8) {

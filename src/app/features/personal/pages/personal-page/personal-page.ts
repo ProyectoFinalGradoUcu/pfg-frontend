@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { Subject, switchMap, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 import { CargaMasivaResult, GradoItem, OpcionSelect, PersonaListItem } from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
+import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
   selector: 'app-personal-page',
@@ -13,6 +14,17 @@ import { PersonalService } from '../../../../core/services/personal.service';
 export class PersonalPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly personalService = inject(PersonalService);
+  private readonly auth = inject(AuthService);
+
+  /**
+   * Con alcance de unidad el backend fuerza el filtro y descarta `destino` del query. El select
+   * se muestra fijo y deshabilitado en vez de ocultarse, para que quede claro por qué el
+   * listado está acotado.
+   */
+  readonly alcanceAcotado = computed(
+    () => this.auth.alcanceDe('personas.ver') === 'unidad',
+  );
+  readonly unidadPropia = computed(() => this.auth.currentUser()?.unidadDenominacion ?? null);
 
   readonly PAGE_SIZE = 10;
 

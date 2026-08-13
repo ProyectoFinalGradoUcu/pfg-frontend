@@ -766,3 +766,14 @@ $navy-soft: #1e3a5f;
   padding-top: 1rem;
   border-top: 1px solid #f1f5f9;
 }
+
+/* La unidad de la cuenta y el destino del funcionario son datos distintos (spec 002).
+   Se marca cuando no coinciden: suele ser intencional, pero conviene que se note. */
+.ur__unidad-nota {
+  display: block;
+  font-size: 0.72rem;
+
+  &--dispar {
+    color: #b45309;
+  }
+}

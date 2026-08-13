@@ -43,9 +43,17 @@
       </div>
 
       <label class="personal-page__field">
-        <select [value]="selectedDestino()" (change)="onDestinoChange($event)">
+        <select
+          *ngIf="!alcanceAcotado()"
+          [value]="selectedDestino()"
+          (change)="onDestinoChange($event)"
+        >
           <option value="">Todos los destinos</option>
           <option *ngFor="let u of unidades()" [value]="u.id">{{ u.denominacion }}</option>
+        </select>
+
+        <select *ngIf="alcanceAcotado()" disabled title="Solo podés ver el personal de tu unidad">
+          <option selected>{{ unidadPropia() }}</option>
         </select>
       </label>
 
@@ -146,7 +154,11 @@
             </td>
           </tr>
           <tr *ngIf="!loading() && items().length === 0">
-            <td colspan="6" class="personal-page__empty">No hay personal que coincida con los filtros</td>
+            <td colspan="6" class="personal-page__empty">
+              {{ alcanceAcotado()
+                ? 'No hay personal en tu unidad que coincida con los filtros'
+                : 'No hay personal que coincida con los filtros' }}
+            </td>
           </tr>
         </tbody>
       </table>

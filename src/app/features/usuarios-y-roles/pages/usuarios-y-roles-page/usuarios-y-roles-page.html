@@ -85,10 +85,23 @@
               <small *ngIf="u.roles.length === 0" class="ur__muted">sin roles</small>
             </td>
             <td>
-              <ng-container *ngIf="u.persona?.relacionLaboral?.unidad as unidad; else sinUnidad">
+              <!--
+                Unidad derivada de la relación laboral activa: es la que determina los permisos
+                heredados y el alcance de datos. No se edita desde acá (spec 002).
+              -->
+              <ng-container *ngIf="u.unidad as unidad; else sinUnidad">
                 {{ unidad.denominacion }}
+                <small
+                  class="ur__muted ur__unidad-nota"
+                  *ngIf="u.persona?.relacionLaboral?.unidad as destino"
+                  [class.ur__unidad-nota--dispar]="destino.id !== unidad.id"
+                >
+                  destino: {{ destino.denominacion }}
+                </small>
               </ng-container>
-              <ng-template #sinUnidad><span class="ur__muted">—</span></ng-template>
+              <ng-template #sinUnidad>
+                <span class="ur__muted" title="Sin unidad: opera con alcance general">—</span>
+              </ng-template>
             </td>
             <td>
               <span class="ur__estado" [class.ur__estado--bloq]="u.estado === 'bloqueado'">
@@ -354,6 +367,26 @@
             placeholder="Seleccione un estado"
             [searchable]="true"
           ></app-select>
+        </label>
+
+        <label class="modal__field">
+          <span>Unidad</span>
+          <app-select
+            formControlName="unidadId"
+            [items]="unidadesCatalogo()"
+            bindLabel="denominacion"
+            bindValue="id"
+            placeholder="Sin unidad (ve todo el padrón)"
+            [searchable]="true"
+            [clearable]="true"
+          ></app-select>
+          <small class="modal__hint">
+            Define qué personal ve este usuario y de qué unidad hereda roles. Al cambiarla se
+            cierra su sesión activa.
+            <ng-container *ngIf="editTarget()?.persona?.relacionLaboral?.unidad as destino">
+              Su destino como funcionario es {{ destino.denominacion }}.
+            </ng-container>
+          </small>
         </label>
 
         <label class="modal__field">

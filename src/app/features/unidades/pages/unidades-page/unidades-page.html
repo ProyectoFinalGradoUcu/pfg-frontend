@@ -1,0 +1,356 @@
+<section class="un">
+  <header class="un__header">
+    <div>
+      <h2>Gestión de Unidades</h2>
+      <p>Unidades de la fuerza, roles que heredan sus usuarios y cuentas asignadas</p>
+    </div>
+    <div class="un__header-actions">
+      <button
+        *ngIf="puedeGestionar()"
+        type="button"
+        class="btn btn--primary"
+        (click)="abrirNuevaUnidad()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Nueva Unidad
+      </button>
+    </div>
+  </header>
+
+  <article class="un__card">
+    <div class="un__card-header">
+      <h3>Unidades</h3>
+      <div class="un__search">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input type="search" [formControl]="busqueda" placeholder="Buscar por código o denominación" />
+      </div>
+    </div>
+
+    <div *ngIf="loading()" class="un__placeholder">Cargando...</div>
+
+    <div *ngIf="!loading() && error()" class="un__alert">
+      {{ error() }}
+      <button type="button" class="btn btn--ghost btn--sm" (click)="cargar(pagina())">Reintentar</button>
+    </div>
+
+    <div *ngIf="!loading() && !error() && unidades().length === 0" class="un__empty">
+      No hay unidades que coincidan con la búsqueda.
+    </div>
+
+    <div *ngIf="!loading() && !error() && unidades().length > 0" class="un__table-wrapper">
+      <table class="un__table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Denominación</th>
+            <th class="un__col-center">Roles</th>
+            <th class="un__col-center">Usuarios</th>
+            <th class="un__col-center">Personal</th>
+            <th>Estado</th>
+            <th class="un__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of unidades()">
+            <td><strong>{{ u.codigo }}</strong></td>
+            <td>{{ u.denominacion }}</td>
+            <td class="un__col-center">
+              <span class="un__count-badge">{{ u.cantidadRoles }}</span>
+            </td>
+            <td class="un__col-center">
+              <span class="un__count-badge">{{ u.cantidadUsuarios }}</span>
+            </td>
+            <td class="un__col-center">
+              <span class="un__count-badge">{{ u.cantidadFuncionarios }}</span>
+            </td>
+            <td>
+              <span class="un__estado" [class.un__estado--baja]="!u.vigente">
+                {{ u.vigente ? 'Vigente' : 'No vigente' }}
+              </span>
+            </td>
+            <td class="un__col-actions">
+              <button type="button" class="btn btn--ghost btn--sm" (click)="abrirGestionar(u, 'roles')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.559.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.894.149c-.424.07-.764.383-.929.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.272-.806.108-1.204-.165-.397-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+                Gestionar
+              </button>
+              <button
+                *ngIf="puedeGestionar()"
+                type="button"
+                class="btn btn--ghost btn--sm"
+                (click)="abrirEditarUnidad(u)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                </svg>
+                Editar
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-paginator
+      *ngIf="!loading() && total() > PAGE_SIZE"
+      [totalItems]="total()"
+      [pageSize]="PAGE_SIZE"
+      [currentPage]="pagina()"
+      (pageChange)="cargar($event)"
+    ></app-paginator>
+  </article>
+</section>
+
+<!-- ── MODAL: alta / edición de unidad ──────────────────────────────────── -->
+<div class="modal" *ngIf="modal() === 'nuevaUnidad' || modal() === 'editarUnidad'" (click)="cerrarModal()">
+  <div class="modal__card" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h3>{{ modal() === 'nuevaUnidad' ? 'Nueva unidad' : 'Editar unidad' }}</h3>
+      <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">×</button>
+    </header>
+
+    <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
+
+    <form [formGroup]="unidadForm" (ngSubmit)="guardarUnidad()">
+      <label class="modal__field">
+        <span>Código</span>
+        <input type="text" formControlName="codigo" placeholder="Ej: EF" autocomplete="off" />
+        <small *ngIf="modal() === 'editarUnidad'">
+          El código no se edita: es la referencia estable de la unidad en los datos históricos.
+        </small>
+      </label>
+
+      <label class="modal__field">
+        <span>Denominación</span>
+        <input type="text" formControlName="denominacion" placeholder="Ej: Escuela de Formación" />
+      </label>
+
+      <label class="modal__toggle">
+        <input type="checkbox" formControlName="vigente" />
+        <span>
+          Vigente
+          <small>Una unidad no vigente no se puede asignar a usuarios nuevos ni recibir personal, pero conserva su historial.</small>
+        </span>
+      </label>
+
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+        <button type="submit" class="btn btn--primary">
+          {{ modal() === 'nuevaUnidad' ? 'Crear unidad' : 'Guardar cambios' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── MODAL: gestionar (roles + usuarios del sistema) ──────────────────── -->
+<div class="modal" *ngIf="modal() === 'gestionar'" (click)="cerrarModal()">
+  <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <div>
+        <h3>{{ seleccionada()?.denominacion }}</h3>
+        <p class="modal__sub" *ngIf="seleccionada() as u">
+          {{ u.codigo }} · {{ u.cantidadUsuarios }} {{ u.cantidadUsuarios === 1 ? 'usuario' : 'usuarios' }}
+          · {{ u.cantidadFuncionarios }} {{ u.cantidadFuncionarios === 1 ? 'funcionario' : 'funcionarios' }}
+        </p>
+      </div>
+      <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">×</button>
+    </header>
+
+    <nav class="un__tabs">
+      <button class="un__tab" [class.un__tab--active]="tabDetalle() === 'roles'" (click)="cambiarTabDetalle('roles')">
+        Roles y permisos
+      </button>
+      <button class="un__tab" [class.un__tab--active]="tabDetalle() === 'usuarios'" (click)="cambiarTabDetalle('usuarios')">
+        Usuarios del sistema
+      </button>
+    </nav>
+
+    <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
+    <div *ngIf="detalleLoading()" class="un__placeholder">Cargando...</div>
+
+    <!-- TAB ROLES -->
+    <div *ngIf="!detalleLoading() && tabDetalle() === 'roles'">
+      <p class="un__hint">
+        Los roles asignados acá los heredan todos los usuarios del sistema que pertenecen a esta unidad.
+      </p>
+
+      <div *ngIf="seleccionada()?.roles?.length === 0" class="un__empty">
+        Esta unidad no tiene roles asignados. Sus usuarios solo tendrán los permisos de sus roles directos.
+      </div>
+
+      <ul class="un__roles" *ngIf="seleccionada() as u">
+        <li class="un__rol" *ngFor="let rol of u.roles">
+          <div class="un__rol-info">
+            <span class="un__rol-badge">{{ rol.nombre }}</span>
+            <div class="un__permisos">
+              <code *ngFor="let p of rol.permisos">{{ p.nombre }}</code>
+            </div>
+          </div>
+          <button
+            *ngIf="puedeGestionar()"
+            type="button"
+            class="btn btn--danger btn--sm"
+            (click)="quitarRol(rol.id)"
+          >Quitar</button>
+        </li>
+      </ul>
+
+      <div class="un__agregar" *ngIf="puedeGestionar()">
+        <select [formControl]="rolAAgregar">
+          <option value="">Elegí un rol…</option>
+          <option *ngFor="let r of rolesAsignables()" [value]="r.id">{{ r.nombre }}</option>
+        </select>
+        <button type="button" class="btn btn--primary btn--sm" [disabled]="!rolAAgregar.value" (click)="agregarRol()">
+          Asignar rol
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB USUARIOS DEL SISTEMA -->
+    <div *ngIf="!detalleLoading() && tabDetalle() === 'usuarios'">
+      <p class="un__hint">
+        Cuentas de la aplicación que pertenecen a esta unidad. Heredan sus roles y ven al
+        personal destinado acá. No confundir con el personal en sí, que se gestiona desde Personal.
+      </p>
+
+      <div class="un__card-header">
+        <span class="un__muted" *ngIf="seleccionada() as u">
+          {{ u.cantidadFuncionarios }} {{ u.cantidadFuncionarios === 1 ? 'funcionario' : 'funcionarios' }}
+          destinado{{ u.cantidadFuncionarios === 1 ? '' : 's' }} en esta unidad
+        </span>
+        <button
+          *ngIf="puedeAsignarUsuarios()"
+          type="button"
+          class="btn btn--primary btn--sm"
+          (click)="abrirAgregarUsuarios()"
+        >Asignar usuarios</button>
+      </div>
+
+      <div *ngIf="usuariosLoading()" class="un__placeholder">Cargando...</div>
+
+      <div *ngIf="!usuariosLoading() && usuariosUnidad().length === 0" class="un__empty">
+        Ningún usuario del sistema pertenece a esta unidad.
+      </div>
+
+      <div *ngIf="!usuariosLoading() && usuariosUnidad().length > 0" class="un__table-wrapper">
+        <table class="un__table">
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Nombre</th>
+              <th>Roles directos</th>
+              <th class="un__col-actions"><span class="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let u of usuariosUnidad()">
+              <td>{{ u.username }}</td>
+              <td>{{ u.nombre ?? '—' }}</td>
+              <td>
+                <span class="un__rol-badge" *ngFor="let r of u.rolesDirectos">{{ r }}</span>
+                <span class="un__muted" *ngIf="u.rolesDirectos.length === 0">solo hereda de la unidad</span>
+              </td>
+              <td class="un__col-actions">
+                <button
+                  *ngIf="puedeAsignarUsuarios()"
+                  type="button"
+                  class="btn btn--danger btn--sm"
+                  (click)="quitarUsuarioDeUnidad(u)"
+                >Quitar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: asignar usuarios del sistema ──────────────────────────────── -->
+<div class="modal" *ngIf="modal() === 'agregarUsuarios'" (click)="volverAGestionar()">
+  <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <div>
+        <h3>Asignar usuarios del sistema</h3>
+        <p class="modal__sub">a {{ seleccionada()?.denominacion }}</p>
+      </div>
+      <button type="button" class="modal__close" (click)="volverAGestionar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
+
+    <p class="un__hint">
+      Los usuarios elegidos pasan a heredar los roles de esta unidad y a ver su personal.
+      Se les cierra la sesión activa. No se modifica el destino de ningún funcionario.
+    </p>
+
+    <div class="un__search un__search--full">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+      </svg>
+      <input
+        type="search"
+        [value]="filtroCandidatos()"
+        (input)="actualizarFiltroCandidatos($any($event.target).value)"
+        placeholder="Filtrar por email o nombre"
+      />
+    </div>
+
+    <div *ngIf="candidatosLoading()" class="un__placeholder">Cargando usuarios...</div>
+
+    <div *ngIf="!candidatosLoading() && candidatosFiltrados().length === 0" class="un__empty">
+      No hay usuarios disponibles para asignar.
+    </div>
+
+    <div *ngIf="!candidatosLoading() && candidatosFiltrados().length > 0" class="un__table-wrapper">
+      <table class="un__table">
+        <thead>
+          <tr>
+            <th class="un__col-check"><span class="sr-only">Seleccionar</span></th>
+            <th>Usuario</th>
+            <th>Nombre</th>
+            <th>Unidad actual</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of candidatosFiltrados()" (click)="alternarSeleccion(u.id)" class="un__fila-clickeable">
+            <td class="un__col-check">
+              <input
+                type="checkbox"
+                [checked]="estaSeleccionado(u.id)"
+                (click)="$event.stopPropagation()"
+                (change)="alternarSeleccion(u.id)"
+              />
+            </td>
+            <td>{{ u.username }}</td>
+            <td>{{ u.persona?.nombre ?? 'Sin vincular' }}</td>
+            <td>
+              <span *ngIf="u.unidad; else sinUnidadActual">{{ u.unidad.denominacion }}</span>
+              <ng-template #sinUnidadActual><span class="un__muted">Sin unidad</span></ng-template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal__actions">
+      <span class="un__seleccion-count" *ngIf="cantidadSeleccionados() > 0">
+        {{ cantidadSeleccionados() }} seleccionado{{ cantidadSeleccionados() === 1 ? '' : 's' }}
+      </span>
+      <button type="button" class="btn btn--ghost" (click)="volverAGestionar()">Cancelar</button>
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="cantidadSeleccionados() === 0"
+        (click)="confirmarAgregarUsuarios()"
+      >Asignar a esta unidad</button>
+    </div>
+  </div>
+</div>

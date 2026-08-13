@@ -52,3 +52,15 @@
     color: #ffffff;
   }
 }
+
+/* Indicador de alcance: visible siempre que el usuario vea una porción de los datos. */
+.topbar__alcance {
+  margin-left: auto;
+  margin-right: 1rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background-color: #132744;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
