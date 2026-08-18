@@ -1,0 +1,96 @@
+<section class="unidad-detalle">
+
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item" routerLink="/destinos/unidades">Unidades</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">{{ unidad()?.denominacion || 'Unidad' }}</span>
+  </nav>
+
+  <header class="unidad-detalle__header">
+    <div>
+      <h2>{{ unidad()?.denominacion || 'Unidad' }}</h2>
+      <p *ngIf="unidad() as u">
+        {{ u.codigo }}<span *ngIf="u.tipo"> · {{ u.tipo }}</span>
+        <span *ngIf="!u.vigente"> · dada de baja</span>
+      </p>
+    </div>
+  </header>
+
+  <article class="unidad-detalle__card">
+    <div class="unidad-detalle__gestion-header">
+      <div class="unidad-detalle__toggle">
+        <button type="button" [class.unidad-detalle__toggle--active]="soloVigentes()" (click)="onToggleVigentes(true)">
+          Dotación actual
+        </button>
+        <button type="button" [class.unidad-detalle__toggle--active]="!soloVigentes()" (click)="onToggleVigentes(false)">
+          Todo el historial
+        </button>
+      </div>
+
+      <div class="unidad-detalle__search-wrap">
+        <svg class="unidad-detalle__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input
+          type="text"
+          class="unidad-detalle__search-input"
+          placeholder="Cédula, nombre o apellido..."
+          [value]="filtroQuery()"
+          (input)="onQueryInput($any($event.target).value)"
+          autocomplete="off"
+        />
+        <button *ngIf="filtroQuery()" type="button" class="unidad-detalle__search-clear" (click)="onQueryInput('')" aria-label="Limpiar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="loading()" class="unidad-detalle__placeholder">Cargando...</div>
+
+    <div *ngIf="!loading()" class="unidad-detalle__table-wrapper">
+      <table class="unidad-detalle__table">
+        <thead>
+          <tr>
+            <th>Funcionario</th>
+            <th>Cédula</th>
+            <th>Cargo</th>
+            <th>Desde</th>
+            <th>Hasta</th>
+            <th>Orden / Boletín</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let d of funcionarios(); trackBy: trackDestino">
+            <td><strong>{{ nombreFuncionario(d) }}</strong></td>
+            <td>{{ d.persona?.cedula || '—' }}</td>
+            <td>{{ d.posicion_destino || '—' }}</td>
+            <td>{{ d.fecha_inicio ? (d.fecha_inicio | date:'d/M/yyyy':'UTC') : '—' }}</td>
+            <td>{{ d.fecha_fin ? (d.fecha_fin | date:'d/M/yyyy':'UTC') : '—' }}</td>
+            <td>{{ ordenOBoletin(d) }}</td>
+            <td>
+              <span class="unidad-detalle__badge" [class.unidad-detalle__badge--activo]="d.activo">
+                {{ d.activo ? 'Vigente' : 'Cerrado' }}
+              </span>
+            </td>
+          </tr>
+          <tr *ngIf="funcionarios().length === 0">
+            <td colspan="7" class="unidad-detalle__empty">
+              {{ soloVigentes() ? 'No hay funcionarios destinados hoy en esta unidad.' : 'No hay registros para esta unidad.' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-paginator
+      *ngIf="!loading() && total() > 0"
+      [totalItems]="total()"
+      [pageSize]="pageSize"
+      [currentPage]="page()"
+      (pageChange)="onPageChange($event)"
+    ></app-paginator>
+  </article>
+</section>

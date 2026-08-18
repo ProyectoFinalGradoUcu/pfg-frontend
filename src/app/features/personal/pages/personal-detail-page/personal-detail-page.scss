@@ -671,6 +671,66 @@
   color: #94a3b8;
 }
 
+// ─── Destinos ─────────────────────────────────────────────────────────────────
+
+.pd__destinos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.pd__destino-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.pd__destino-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pd__destino-card__unidad {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.pd__destino-card__cargo {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.pd__destino-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.pd__destino-card__orden {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  background: #f1f5f9;
+  color: #475569;
+  border-radius: 999px;
+}
+
+.pd__destino-card__obs {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
 // ─── Inline edit form inputs ──────────────────────────────────────────────────
 
 .pd__edit-input,

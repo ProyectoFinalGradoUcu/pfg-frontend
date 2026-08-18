@@ -1,0 +1,56 @@
+<div class="modal-overlay" (click)="cerrar()">
+  <div class="modal unidad-form" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h3>{{ editando() ? 'Editar unidad' : 'Nueva unidad' }}</h3>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body" [formGroup]="form">
+      <div class="unidad-form__field">
+        <label>Código *</label>
+        <input
+          *ngIf="!editando()"
+          type="text"
+          formControlName="codigo"
+          maxlength="30"
+          placeholder="Ej: COA"
+          autocomplete="off"
+        />
+        <div class="unidad-form__readonly" *ngIf="editando()">
+          <strong>{{ unidad!.codigo }}</strong>
+          <small>No se puede cambiar: es la clave con la que lo referencian los seeds y las migraciones.</small>
+        </div>
+      </div>
+
+      <div class="unidad-form__field">
+        <label>Denominación *</label>
+        <input
+          type="text"
+          formControlName="denominacion"
+          maxlength="150"
+          placeholder="Denominación completa"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="unidad-form__field">
+        <label>Tipo</label>
+        <app-select
+          [items]="tipoOpciones"
+          placeholder="Sin especificar"
+          [clearable]="true"
+          formControlName="tipo"
+        ></app-select>
+      </div>
+
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()" [disabled]="guardando()">Cancelar</button>
+      <button type="button" class="btn btn--primary" (click)="guardar()" [disabled]="guardando()">
+        {{ guardando() ? 'Guardando...' : (editando() ? 'Guardar cambios' : 'Crear unidad') }}
+      </button>
+    </footer>
+  </div>
+</div>
