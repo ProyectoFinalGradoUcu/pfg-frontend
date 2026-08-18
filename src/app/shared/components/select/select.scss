@@ -48,8 +48,17 @@ $accent: #4a9eff;
 
 .appsel--open .appsel__control {
   border-color: $navy;
+}
+
+// El lado por donde sale el panel pierde el redondeo para que se vean como una pieza.
+.appsel--open:not(.appsel--up) .appsel__control {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+}
+
+.appsel--open.appsel--up .appsel__control {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 .appsel__value {
@@ -116,11 +125,10 @@ $accent: #4a9eff;
   transform: rotate(180deg);
 }
 
+// `fixed` + coordenadas del control (ver `posicionarPanel`): así el panel no lo recorta
+// el `overflow` del modal o de la tabla que lo contenga.
 .appsel__dropdown {
-  position: absolute;
-  top: calc(100% - 1px);
-  left: 0;
-  right: 0;
+  position: fixed;
   background-color: #ffffff;
   border: 1px solid $navy;
   border-top: 1px solid #e2e8f0;
@@ -132,6 +140,12 @@ $accent: #4a9eff;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.appsel__dropdown--up {
+  border-top-color: $navy;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 6px 6px 0 0;
 }
 
 .appsel__search {
@@ -161,6 +175,8 @@ $accent: #4a9eff;
   padding: 0.25rem 0;
   overflow-y: auto;
   max-height: 240px;
+  // Sin esto el item flex no baja de su alto de contenido y desborda el panel recortado.
+  min-height: 0;
 }
 
 .appsel__list--top {
