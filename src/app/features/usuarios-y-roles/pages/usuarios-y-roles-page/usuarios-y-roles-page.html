@@ -89,15 +89,10 @@
                 Unidad derivada de la relación laboral activa: es la que determina los permisos
                 heredados y el alcance de datos. No se edita desde acá (spec 002).
               -->
-              <ng-container *ngIf="u.unidad as unidad; else sinUnidad">
-                {{ unidad.denominacion }}
-                <small
-                  class="ur__muted ur__unidad-nota"
-                  *ngIf="u.persona?.relacionLaboral?.unidad as destino"
-                  [class.ur__unidad-nota--dispar]="destino.id !== unidad.id"
-                >
-                  destino: {{ destino.denominacion }}
-                </small>
+              <ng-container *ngIf="u.unidades.length > 0; else sinUnidad">
+                <span *ngFor="let unidad of u.unidades; let last = last">
+                  {{ unidad.denominacion }}<ng-container *ngIf="!last">, </ng-container>
+                </span>
               </ng-container>
               <ng-template #sinUnidad>
                 <span class="ur__muted" title="Sin unidad: opera con alcance general">—</span>
@@ -372,20 +367,18 @@
         <label class="modal__field">
           <span>Unidad</span>
           <app-select
-            formControlName="unidadId"
+            formControlName="unidadIds"
             [items]="unidadesCatalogo()"
             bindLabel="denominacion"
             bindValue="id"
-            placeholder="Sin unidad (ve todo el padrón)"
+            placeholder="Sin unidades (ve todo el padrón)"
             [searchable]="true"
             [clearable]="true"
+            [multiple]="true"
           ></app-select>
           <small class="modal__hint">
-            Define qué personal ve este usuario y de qué unidad hereda roles. Al cambiarla se
+            Define qué personal ve este usuario y de qué unidades hereda roles. Al cambiarlas se
             cierra su sesión activa.
-            <ng-container *ngIf="editTarget()?.persona?.relacionLaboral?.unidad as destino">
-              Su destino como funcionario es {{ destino.denominacion }}.
-            </ng-container>
           </small>
         </label>
 
@@ -393,6 +386,50 @@
           <span>Nueva contraseña <small>(opcional)</small></span>
           <input type="text" formControlName="nuevaPassword" placeholder="Dejar vacío para no cambiar" autocomplete="off" />
         </label>
+
+        <!-- ── Permisos efectivos (read-only) ────────────────────────────────── -->
+        <div class="permisos-efectivos">
+          <h4 class="permisos-efectivos__titulo">
+            Permisos efectivos
+            <span *ngIf="!cargandoPermisos()" class="permisos-efectivos__count">({{ permisosDelTarget().length }})</span>
+          </h4>
+
+          <p *ngIf="cargandoPermisos()" class="permisos-efectivos__loading">Cargando permisos…</p>
+
+          <p *ngIf="!cargandoPermisos() && permisosDelTarget().length === 0" class="permisos-efectivos__vacio">
+            Este usuario no tiene permisos efectivos. Asignale roles directamente o una unidad con roles.
+          </p>
+
+          <table *ngIf="!cargandoPermisos() && permisosDelTarget().length > 0" class="permisos-efectivos__tabla">
+            <thead>
+              <tr>
+                <th>Permiso</th>
+                <th>Alcance</th>
+                <th>Origen</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of permisosDelTarget()">
+                <td class="permisos-efectivos__nombre">{{ p.nombre }}</td>
+                <td>
+                  <span class="badge" [class.badge--global]="p.alcance === 'global'" [class.badge--unidad]="p.alcance === 'unidad'">
+                    {{ p.alcance === 'global' ? 'Global' : 'Unidad' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge" [class.badge--directo]="p.origen === 'directo'" [class.badge--heredado]="p.origen === 'unidad'">
+                    {{ p.origen === 'directo' ? 'Directo' : 'Unidad' }}
+                  </span>
+                  <span class="permisos-efectivos__rol">{{ p.origen === 'unidad' ? p.unidad : p.rol }}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <small class="permisos-efectivos__nota">
+            Los permisos se heredan de los roles directos y de los roles asignados a su unidad.
+          </small>
+        </div>
 
         <footer class="modal__actions">
           <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>

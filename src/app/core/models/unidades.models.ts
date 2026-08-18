@@ -46,17 +46,6 @@ export interface UsuariosDeUnidadResponse {
   total: number;
 }
 
-export interface CreateUnidadPayload {
-  codigo: string;
-  denominacion: string;
-  vigente?: boolean;
-}
-
-export interface UpdateUnidadPayload {
-  denominacion?: string;
-  vigente?: boolean;
-}
-
 /** Resumen de una asignación masiva de usuarios del sistema. */
 export interface ResultadoAsignacion {
   asignados: number;

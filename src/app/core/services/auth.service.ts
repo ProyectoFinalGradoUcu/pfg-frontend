@@ -130,12 +130,13 @@ export class AuthService {
     return this.alcanceDe(permisoBase) !== null;
   }
 
-  /** Unidad que acota lo que el usuario ve, o `null` si su alcance es general. */
+  /** Unidades que acotan lo que el usuario ve, o `null` si su alcance es general. */
   readonly unidadDeAlcance = computed(() => {
     const user = this.currentUserSignal();
     if (!user) return null;
     const tieneAlcanceAcotado = user.permisos.some((p) => p.endsWith('.unidad'));
     if (!tieneAlcanceAcotado) return null;
-    return user.unidadDenominacion;
+    if (user.unidades.length === 0) return null;
+    return user.unidades.map((u) => u.denominacion).join(', ');
   });
 }

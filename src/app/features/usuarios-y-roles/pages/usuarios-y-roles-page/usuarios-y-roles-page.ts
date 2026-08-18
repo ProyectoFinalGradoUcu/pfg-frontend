@@ -9,7 +9,7 @@ import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
-import { Invitacion, Rol, Usuario } from '../../../../core/models/auth.models';
+import { Invitacion, PermisoEfectivo, Rol, Usuario } from '../../../../core/models/auth.models';
 import { OpcionSelect } from '../../../../core/models/personal.models';
 
 type Tab = 'usuarios' | 'invitaciones' | 'roles';
@@ -72,6 +72,8 @@ export class UsuariosYRolesPage implements OnInit {
   readonly editTarget = signal<Usuario | null>(null);
   readonly editRolTarget = signal<Rol | null>(null);
   readonly revocandoId = signal<string | null>(null);
+  readonly permisosDelTarget = signal<PermisoEfectivo[]>([]);
+  readonly cargandoPermisos = signal(false);
 
   // ── Computed permisos ─────────────────────────────────────────────────────
   readonly puedeGestionarUsuarios = computed(() =>
@@ -96,8 +98,8 @@ export class UsuariosYRolesPage implements OnInit {
   readonly editForm = this.fb.group({
     roles: [[] as string[]],
     estado: ['activo' as 'activo' | 'bloqueado'],
-    // Unidad de la cuenta. '' = sin unidad (alcance general).
-    unidadId: [''],
+    // Unidades de la cuenta. [] = sin unidades (alcance general).
+    unidadIds: [[] as string[]],
     nuevaPassword: [''],
   });
 
@@ -116,7 +118,9 @@ export class UsuariosYRolesPage implements OnInit {
     // El selector de unidad del detalle de usuario usa el catálogo de solo lectura,
     // que no requiere el permiso `unidades.ver`.
     this.personalService.getUnidades().subscribe({
-      next: (unidades) => this.unidadesCatalogo.set(unidades),
+      next: (unidades) => this.unidadesCatalogo.set(
+        unidades.map((u) => ({ ...u, id: String(u.id) })) as any,
+      ),
     });
   }
 
@@ -171,12 +175,23 @@ export class UsuariosYRolesPage implements OnInit {
     this.editForm.reset({
       roles: usuario.roles.map((r) => r.nombre),
       estado: usuario.estado,
-      unidadId: usuario.unidad?.id ?? '',
+      unidadIds: usuario.unidades.map((u) => u.id),
       nuevaPassword: '',
     });
     this.modalError.set(null);
     this.editTarget.set(usuario);
     this.modal.set('editarUsuario');
+
+    // Cargar permisos efectivos via findOne (el listado no los trae)
+    this.permisosDelTarget.set([]);
+    this.cargandoPermisos.set(true);
+    this.usuariosService.findOne(usuario.id).subscribe({
+      next: (detalle) => {
+        this.permisosDelTarget.set(detalle.permisosEfectivos ?? []);
+        this.cargandoPermisos.set(false);
+      },
+      error: () => this.cargandoPermisos.set(false),
+    });
   }
 
   crearUsuario(): void {
@@ -222,7 +237,7 @@ export class UsuariosYRolesPage implements OnInit {
     const target = this.editTarget();
     if (!target) return;
 
-    const { roles, estado, unidadId, nuevaPassword } = this.editForm.getRawValue();
+    const { roles, estado, unidadIds, nuevaPassword } = this.editForm.getRawValue();
 
     if (nuevaPassword && nuevaPassword.length > 0 && nuevaPassword.length < 8) {
       this.modalError.set('La nueva contraseña debe tener al menos 8 caracteres');
@@ -250,11 +265,11 @@ export class UsuariosYRolesPage implements OnInit {
       tasks.push(this.usuariosService.update(target.id, { estado }));
     }
 
-    // Cambiar la unidad modifica los permisos efectivos del usuario y le cierra la sesión.
-    const unidadActual = target.unidad?.id ?? '';
-    if ((unidadId ?? '') !== unidadActual) {
-      const nueva = unidadId ? unidadId : null;
-      tasks.push(this.usuariosService.asignarUnidad(target.id, nueva));
+    // Cambiar las unidades modifica los permisos efectivos del usuario y le cierra la sesión.
+    const unidadesActuales = target.unidades.map((u) => u.id).sort().join(',');
+    const unidadesNuevas = (unidadIds ?? []).sort().join(',');
+    if (unidadesNuevas !== unidadesActuales) {
+      tasks.push(this.usuariosService.asignarUnidades(target.id, unidadIds ?? []));
     }
 
     if (nuevaPassword && nuevaPassword.length >= 8) {

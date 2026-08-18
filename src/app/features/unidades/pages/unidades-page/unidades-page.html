@@ -5,17 +5,6 @@
       <p>Unidades de la fuerza, roles que heredan sus usuarios y cuentas asignadas</p>
     </div>
     <div class="un__header-actions">
-      <button
-        *ngIf="puedeGestionar()"
-        type="button"
-        class="btn btn--primary"
-        (click)="abrirNuevaUnidad()"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        Nueva Unidad
-      </button>
     </div>
   </header>
 
@@ -80,17 +69,7 @@
                 </svg>
                 Gestionar
               </button>
-              <button
-                *ngIf="puedeGestionar()"
-                type="button"
-                class="btn btn--ghost btn--sm"
-                (click)="abrirEditarUnidad(u)"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-                </svg>
-                Editar
-              </button>
+
             </td>
           </tr>
         </tbody>
@@ -106,48 +85,6 @@
     ></app-paginator>
   </article>
 </section>
-
-<!-- ── MODAL: alta / edición de unidad ──────────────────────────────────── -->
-<div class="modal" *ngIf="modal() === 'nuevaUnidad' || modal() === 'editarUnidad'" (click)="cerrarModal()">
-  <div class="modal__card" (click)="$event.stopPropagation()">
-    <header class="modal__header">
-      <h3>{{ modal() === 'nuevaUnidad' ? 'Nueva unidad' : 'Editar unidad' }}</h3>
-      <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">×</button>
-    </header>
-
-    <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
-
-    <form [formGroup]="unidadForm" (ngSubmit)="guardarUnidad()">
-      <label class="modal__field">
-        <span>Código</span>
-        <input type="text" formControlName="codigo" placeholder="Ej: EF" autocomplete="off" />
-        <small *ngIf="modal() === 'editarUnidad'">
-          El código no se edita: es la referencia estable de la unidad en los datos históricos.
-        </small>
-      </label>
-
-      <label class="modal__field">
-        <span>Denominación</span>
-        <input type="text" formControlName="denominacion" placeholder="Ej: Escuela de Formación" />
-      </label>
-
-      <label class="modal__toggle">
-        <input type="checkbox" formControlName="vigente" />
-        <span>
-          Vigente
-          <small>Una unidad no vigente no se puede asignar a usuarios nuevos ni recibir personal, pero conserva su historial.</small>
-        </span>
-      </label>
-
-      <div class="modal__actions">
-        <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
-        <button type="submit" class="btn btn--primary">
-          {{ modal() === 'nuevaUnidad' ? 'Crear unidad' : 'Guardar cambios' }}
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <!-- ── MODAL: gestionar (roles + usuarios del sistema) ──────────────────── -->
 <div class="modal" *ngIf="modal() === 'gestionar'" (click)="cerrarModal()">
@@ -332,7 +269,7 @@
             <td>{{ u.username }}</td>
             <td>{{ u.persona?.nombre ?? 'Sin vincular' }}</td>
             <td>
-              <span *ngIf="u.unidad; else sinUnidadActual">{{ u.unidad.denominacion }}</span>
+              <span *ngIf="u.unidades.length > 0; else sinUnidadActual">{{ u.unidades[0].denominacion }}<span *ngIf="u.unidades.length > 1"> (+{{ u.unidades.length - 1 }})</span></span>
               <ng-template #sinUnidadActual><span class="un__muted">Sin unidad</span></ng-template>
             </td>
           </tr>

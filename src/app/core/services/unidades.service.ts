@@ -3,13 +3,11 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
-  CreateUnidadPayload,
   ListUnidadesQuery,
   UsuariosDeUnidadResponse,
   PaginatedUnidadesResponse,
   ResultadoAsignacion,
   UnidadDetalle,
-  UpdateUnidadPayload,
 } from '../models/unidades.models';
 
 @Injectable({ providedIn: 'root' })
@@ -33,20 +31,6 @@ export class UnidadesService {
     return this.http.get<UnidadDetalle>(`${API_BASE_URL}/unidades/${id}`, {
       withCredentials: true,
     });
-  }
-
-  create(payload: CreateUnidadPayload): Observable<UnidadDetalle> {
-    return this.http.post<UnidadDetalle>(`${API_BASE_URL}/unidades`, payload, {
-      withCredentials: true,
-    });
-  }
-
-  update(id: string, payload: UpdateUnidadPayload): Observable<UnidadDetalle> {
-    return this.http.patch<UnidadDetalle>(
-      `${API_BASE_URL}/unidades/${id}`,
-      payload,
-      { withCredentials: true },
-    );
   }
 
   /** Usuarios del sistema asignados a la unidad (no el personal destinado acá). */

@@ -24,7 +24,11 @@ export class PersonalPage implements OnInit, OnDestroy {
   readonly alcanceAcotado = computed(
     () => this.auth.alcanceDe('personas.ver') === 'unidad',
   );
-  readonly unidadPropia = computed(() => this.auth.currentUser()?.unidadDenominacion ?? null);
+  readonly unidadPropia = computed(() => {
+    const user = this.auth.currentUser();
+    if (!user || user.unidades.length === 0) return null;
+    return user.unidades.map((u) => u.denominacion).join(', ');
+  });
 
   readonly PAGE_SIZE = 10;
 

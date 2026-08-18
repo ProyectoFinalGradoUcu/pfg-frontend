@@ -10,8 +10,7 @@ const makeUser = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser
   username: 'jperez',
   roles: [],
   permisos: [],
-  unidadId: null,
-  unidadDenominacion: null,
+  unidades: [],
   ...overrides,
 });
 
@@ -80,8 +79,7 @@ describe('AuthService — alcance por unidad', () => {
       cargarSesion(
         makeUser({
           permisos: ['personas.ver.unidad'],
-          unidadId: '7',
-          unidadDenominacion: 'Escuela de Formación',
+          unidades: [{ id: '7', denominacion: 'Escuela de Formación' }],
         }),
       );
 
@@ -92,7 +90,7 @@ describe('AuthService — alcance por unidad', () => {
       cargarSesion(
         makeUser({
           permisos: ['personas.ver', 'personas.ver.unidad'],
-          unidadId: '7',
+          unidades: [{ id: '7', denominacion: 'Escuela de Formación' }],
         }),
       );
 
@@ -114,8 +112,7 @@ describe('AuthService — alcance por unidad', () => {
       cargarSesion(
         makeUser({
           permisos: ['personas.ver.unidad'],
-          unidadId: '7',
-          unidadDenominacion: 'Escuela de Formación',
+          unidades: [{ id: '7', denominacion: 'Escuela de Formación' }],
         }),
       );
 
@@ -126,8 +123,7 @@ describe('AuthService — alcance por unidad', () => {
       cargarSesion(
         makeUser({
           permisos: ['personas.ver'],
-          unidadId: '7',
-          unidadDenominacion: 'Escuela de Formación',
+          unidades: [{ id: '7', denominacion: 'Escuela de Formación' }],
         }),
       );
 

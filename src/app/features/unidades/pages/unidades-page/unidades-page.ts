@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, FormControl, Validators } from '@angular/forms';
+import { FormControl } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
 import { UnidadesService } from '../../../../core/services/unidades.service';
@@ -14,7 +14,7 @@ import {
   UsuarioDeUnidad,
 } from '../../../../core/models/unidades.models';
 
-type Modal = null | 'nuevaUnidad' | 'editarUnidad' | 'gestionar' | 'agregarUsuarios';
+type Modal = null | 'gestionar' | 'agregarUsuarios';
 type TabDetalle = 'roles' | 'usuarios';
 
 const PAGE_SIZE = 10;
@@ -28,7 +28,6 @@ const PAGE_SIZE = 10;
 export class UnidadesPage implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
 
-  private readonly fb = inject(FormBuilder);
   private readonly unidadesService = inject(UnidadesService);
   private readonly rolesService = inject(RolesService);
   private readonly usuariosService = inject(UsuariosService);
@@ -65,12 +64,6 @@ export class UnidadesPage implements OnInit, OnDestroy {
   readonly seleccionados = signal<Set<string>>(new Set());
   readonly filtroCandidatos = signal('');
 
-  readonly unidadForm = this.fb.group({
-    codigo: ['', [Validators.required, Validators.maxLength(30)]],
-    denominacion: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(150)]],
-    vigente: [true],
-  });
-
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('unidades.gestionar'));
 
   /** Asignar usuarios modifica cuentas, así que el backend exige también `usuarios.gestionar`. */
@@ -83,7 +76,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
     const termino = this.filtroCandidatos().trim().toLowerCase();
     const unidadId = this.seleccionada()?.id;
     return this.candidatos()
-      .filter((u) => u.unidad?.id !== unidadId)
+      .filter((u) => !u.unidades.some((un) => un.id === unidadId))
       .filter(
         (u) =>
           !termino ||
@@ -164,68 +157,6 @@ export class UnidadesPage implements OnInit, OnDestroy {
           this.error.set('No se pudieron cargar las unidades.');
         },
       });
-  }
-
-  // ── Alta y edición de unidad ───────────────────────────────────────────────
-
-  abrirNuevaUnidad(): void {
-    this.unidadForm.reset({ codigo: '', denominacion: '', vigente: true });
-    this.unidadForm.controls.codigo.enable();
-    this.modalError.set(null);
-    this.modal.set('nuevaUnidad');
-  }
-
-  abrirEditarUnidad(unidad: UnidadListItem): void {
-    this.unidadForm.reset({
-      codigo: unidad.codigo,
-      denominacion: unidad.denominacion,
-      vigente: unidad.vigente,
-    });
-    // El código es la referencia estable de la unidad: se muestra pero no se edita.
-    this.unidadForm.controls.codigo.disable();
-    this.modalError.set(null);
-    this.seleccionada.set({
-      id: unidad.id,
-      codigo: unidad.codigo,
-      denominacion: unidad.denominacion,
-      vigente: unidad.vigente,
-      roles: [],
-      cantidadUsuarios: unidad.cantidadUsuarios,
-      cantidadFuncionarios: unidad.cantidadFuncionarios,
-    });
-    this.modal.set('editarUnidad');
-  }
-
-  guardarUnidad(): void {
-    if (this.unidadForm.invalid) {
-      this.unidadForm.markAllAsTouched();
-      this.modalError.set('Completá todos los campos requeridos');
-      return;
-    }
-    this.modalError.set(null);
-
-    const { codigo, denominacion, vigente } = this.unidadForm.getRawValue();
-    const esNueva = this.modal() === 'nuevaUnidad';
-
-    const peticion = esNueva
-      ? this.unidadesService.create({
-          codigo: codigo!,
-          denominacion: denominacion!,
-          vigente: vigente ?? true,
-        })
-      : this.unidadesService.update(this.seleccionada()!.id, {
-          denominacion: denominacion!,
-          vigente: vigente ?? true,
-        });
-
-    peticion.pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.cerrarModal();
-        this.toast.success(esNueva ? 'Unidad creada' : 'Unidad actualizada');
-        this.cargar(this.pagina());
-      },
-      error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
-    });
   }
 
   // ── Gestión (roles + usuarios) ─────────────────────────────────────────────
@@ -325,7 +256,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
       `Esta unidad tiene ${n} ${n === 1 ? 'usuario' : 'usuarios'}. ` +
       `Al ${accion} este rol, ${n === 1 ? 'va' : 'todos van'} a tener que volver a iniciar sesión.`;
 
-    if (this.auth.currentUser()?.unidadId === unidad.id) {
+    if (this.auth.currentUser()?.unidades.some((u) => u.id === unidad.id)) {
       mensaje += '\n\nVos pertenecés a esta unidad, así que también se va a cerrar tu sesión.';
     }
 

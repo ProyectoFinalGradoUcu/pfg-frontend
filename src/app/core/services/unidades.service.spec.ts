@@ -19,6 +19,7 @@ const detalle: UnidadDetalle = {
     },
   ],
   cantidadUsuarios: 14,
+  cantidadFuncionarios: 14,
 };
 
 describe('UnidadesService', () => {

@@ -17,17 +17,18 @@ export interface ServiceResponse<T> {
   };
 }
 
+export interface UnidadInfo {
+  id: string;
+  denominacion: string;
+}
+
 export interface AuthenticatedUser {
   id: string;
   username: string;
   roles: string[];
   permisos: string[];
-  /**
-   * Unidad derivada de la relación laboral activa del funcionario. Determina los permisos
-   * heredados y el alcance de datos. `null` si el usuario no tiene relación laboral activa.
-   */
-  unidadId: string | null;
-  unidadDenominacion: string | null;
+  /** Unidades asignadas al usuario del sistema. Determinan permisos heredados y alcance de datos. */
+  unidades: UnidadInfo[];
 }
 
 export interface SignInResponse {
@@ -106,15 +107,25 @@ export interface UsuarioPersona {
   relacionLaboral: RelacionLaboralResumen | null;
 }
 
+export interface PermisoEfectivo {
+  nombre: string;
+  alcance: 'global' | 'unidad';
+  origen: 'directo' | 'unidad';
+  rol: string;
+  unidad?: string;
+}
+
 export interface Usuario {
   id: string;
   username: string;
   estado: 'activo' | 'bloqueado';
   bloqueadoHasta: string | null;
-  /** Derivada de la relación laboral activa: solo lectura desde la pantalla de usuarios. */
-  unidad: CatalogoRef | null;
+  /** Unidades asignadas al usuario del sistema (relación N:M). */
+  unidades: CatalogoRef[];
   persona: UsuarioPersona | null;
   roles: UsuarioRol[];
+  /** Solo presente en el detalle (findOne), no en el listado paginado. */
+  permisosEfectivos?: PermisoEfectivo[];
 }
 
 export interface PaginatedUsuariosResponse {
