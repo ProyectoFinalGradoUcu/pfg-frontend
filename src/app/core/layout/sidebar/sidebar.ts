@@ -14,13 +14,13 @@ export class Sidebar {
   collapsed = false;
 
   readonly puedeVerPersonal = computed(() =>
-    this.auth.hasAnyPermiso(['personas.ver', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar']),
+    this.auth.hasAnyPermiso(['personas.ver', 'personas.ver.unidad', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar']),
   );
   readonly puedeVerAscensos = computed(() =>
     this.auth.hasAnyPermiso(['ascensos.ver', 'ascensos.registrar', 'retiros.ver', 'retiros.registrar']),
   );
   readonly puedeVerCursos = computed(() =>
-    this.auth.hasAnyPermiso(['cursos.ver', 'cursos.gestionar']),
+    this.auth.hasAnyPermiso(['cursos.ver', 'cursos.ver.unidad', 'cursos.gestionar', 'cursos.gestionar.unidad']),
   );
   readonly puedeVerMisiones = computed(() =>
     this.auth.hasAnyPermiso(['misiones.ver', 'misiones.gestionar']),
@@ -29,13 +29,13 @@ export class Sidebar {
     this.auth.hasAnyPermiso(['destinos.ver', 'destinos.gestionar']),
   );
   readonly puedeVerReportes = computed(() =>
-    this.auth.hasAnyPermiso(['auditoria.ver']),
+    this.auth.hasAnyPermiso(['reportes.ejecutar', 'reportes.ejecutar.unidad']),
   );
   readonly puedeVerAuditoria = computed(() =>
     this.auth.hasAnyPermiso(['auditoria.ver']),
   );
   readonly puedeVerUsuariosYRoles = computed(() =>
-    this.auth.hasAnyPermiso(['usuarios.ver', 'roles.ver']),
+    this.auth.hasAnyPermiso(['usuarios.ver', 'roles.ver', 'unidades.ver']),
   );
 
   toggleCollapsed(): void {

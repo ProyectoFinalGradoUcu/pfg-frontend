@@ -91,9 +91,52 @@ export class AuthService {
     return this.currentUserSignal()?.permisos.includes(permiso) ?? false;
   }
 
+  /**
+   * OR: alcanza con tener uno de los permisos.
+   *
+   * Es la semántica correcta para el acceso a una SECCIÓN ("puede entrar a Personal si puede
+   * hacer alguna de estas cosas") y para el par global / `.unidad` de un mismo permiso.
+   */
   hasAnyPermiso(permisos: string[]): boolean {
     const user = this.currentUserSignal();
     if (!user) return false;
     return permisos.some((p) => user.permisos.includes(p));
   }
+
+  /**
+   * AND: exige todos los permisos, igual que el `PermissionsGuard` del backend.
+   *
+   * Usar para habilitar una ACCIÓN puntual que en el backend está declarada con varios
+   * permisos a la vez. Para acceso a secciones va `hasAnyPermiso`.
+   */
+  hasAllPermisos(permisos: string[]): boolean {
+    const user = this.currentUserSignal();
+    if (!user) return false;
+    return permisos.every((p) => user.permisos.includes(p));
+  }
+
+  /**
+   * Resuelve el alcance de un permiso segmentable, con la misma regla que el `AlcanceGuard`
+   * del backend: el permiso global gana sobre la variante `.unidad`.
+   */
+  alcanceDe(permisoBase: string): 'global' | 'unidad' | null {
+    if (this.hasPermiso(permisoBase)) return 'global';
+    if (this.hasPermiso(`${permisoBase}.unidad`)) return 'unidad';
+    return null;
+  }
+
+  /** Acceso a una pantalla segmentable: sirve el permiso global o el `.unidad`. */
+  puedeConAlcance(permisoBase: string): boolean {
+    return this.alcanceDe(permisoBase) !== null;
+  }
+
+  /** Unidades que acotan lo que el usuario ve, o `null` si su alcance es general. */
+  readonly unidadDeAlcance = computed(() => {
+    const user = this.currentUserSignal();
+    if (!user) return null;
+    const tieneAlcanceAcotado = user.permisos.some((p) => p.endsWith('.unidad'));
+    if (!tieneAlcanceAcotado) return null;
+    if (user.unidades.length === 0) return null;
+    return user.unidades.map((u) => u.denominacion).join(', ');
+  });
 }

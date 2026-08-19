@@ -8,9 +8,11 @@ import { InvitacionesService } from '../../../../core/services/invitaciones.serv
 import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
-import { Invitacion, Rol, Usuario } from '../../../../core/models/auth.models';
+import { PersonalService } from '../../../../core/services/personal.service';
+import { Invitacion, PermisoEfectivo, Rol, Usuario } from '../../../../core/models/auth.models';
+import { OpcionSelect } from '../../../../core/models/personal.models';
 
-type Tab = 'usuarios' | 'invitaciones' | 'roles';
+type Tab = 'usuarios' | 'invitaciones' | 'roles' | 'unidades';
 type ModalKind =
   | 'nuevoUsuario'
   | 'editarUsuario'
@@ -28,6 +30,7 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly usuariosService = inject(UsuariosService);
+  private readonly personalService = inject(PersonalService);
   private readonly rolesService = inject(RolesService);
   private readonly invitacionesService = inject(InvitacionesService);
   private readonly toast = inject(ToastService);
@@ -69,6 +72,15 @@ export class UsuariosYRolesPage implements OnInit {
   readonly editTarget = signal<Usuario | null>(null);
   readonly editRolTarget = signal<Rol | null>(null);
   readonly revocandoId = signal<string | null>(null);
+  readonly permisosDelTarget = signal<PermisoEfectivo[]>([]);
+  readonly cargandoPermisos = signal(false);
+
+  readonly permisosGlobales = computed(() =>
+    this.permisosDelTarget().filter((p) => p.alcance === 'global'),
+  );
+  readonly permisosUnidad = computed(() =>
+    this.permisosDelTarget().filter((p) => p.alcance === 'unidad'),
+  );
 
   // ── Computed permisos ─────────────────────────────────────────────────────
   readonly puedeGestionarUsuarios = computed(() =>
@@ -76,6 +88,9 @@ export class UsuariosYRolesPage implements OnInit {
   );
   readonly puedeGestionarRoles = computed(() =>
     this.auth.hasPermiso('roles.gestionar'),
+  );
+  readonly puedeVerUnidades = computed(() =>
+    this.auth.hasPermiso('unidades.ver'),
   );
   readonly currentUserId = computed(() => this.auth.currentUser()?.id ?? '');
 
@@ -93,8 +108,13 @@ export class UsuariosYRolesPage implements OnInit {
   readonly editForm = this.fb.group({
     roles: [[] as string[]],
     estado: ['activo' as 'activo' | 'bloqueado'],
+    // Unidades de la cuenta. [] = sin unidades (alcance general).
+    unidadIds: [[] as string[]],
     nuevaPassword: [''],
   });
+
+  /** Catálogo de unidades vigentes para el selector del detalle de usuario. */
+  readonly unidadesCatalogo = signal<OpcionSelect[]>([]);
 
   readonly rolForm = this.fb.group({
     nombre: ['', [Validators.required, Validators.maxLength(60)]],
@@ -104,6 +124,14 @@ export class UsuariosYRolesPage implements OnInit {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.cargar();
+
+    // El selector de unidad del detalle de usuario usa el catálogo de solo lectura,
+    // que no requiere el permiso `unidades.ver`.
+    this.personalService.getUnidades().subscribe({
+      next: (unidades) => this.unidadesCatalogo.set(
+        unidades.map((u) => ({ ...u, id: String(u.id) })) as any,
+      ),
+    });
   }
 
   cargar(): void {
@@ -157,11 +185,23 @@ export class UsuariosYRolesPage implements OnInit {
     this.editForm.reset({
       roles: usuario.roles.map((r) => r.nombre),
       estado: usuario.estado,
+      unidadIds: usuario.unidades.map((u) => u.id),
       nuevaPassword: '',
     });
     this.modalError.set(null);
     this.editTarget.set(usuario);
     this.modal.set('editarUsuario');
+
+    // Cargar permisos efectivos via findOne (el listado no los trae)
+    this.permisosDelTarget.set([]);
+    this.cargandoPermisos.set(true);
+    this.usuariosService.findOne(usuario.id).subscribe({
+      next: (detalle) => {
+        this.permisosDelTarget.set(detalle.permisosEfectivos ?? []);
+        this.cargandoPermisos.set(false);
+      },
+      error: () => this.cargandoPermisos.set(false),
+    });
   }
 
   crearUsuario(): void {
@@ -207,7 +247,7 @@ export class UsuariosYRolesPage implements OnInit {
     const target = this.editTarget();
     if (!target) return;
 
-    const { roles, estado, nuevaPassword } = this.editForm.getRawValue();
+    const { roles, estado, unidadIds, nuevaPassword } = this.editForm.getRawValue();
 
     if (nuevaPassword && nuevaPassword.length > 0 && nuevaPassword.length < 8) {
       this.modalError.set('La nueva contraseña debe tener al menos 8 caracteres');
@@ -235,6 +275,13 @@ export class UsuariosYRolesPage implements OnInit {
       tasks.push(this.usuariosService.update(target.id, { estado }));
     }
 
+    // Cambiar las unidades modifica los permisos efectivos del usuario y le cierra la sesión.
+    const unidadesActuales = target.unidades.map((u) => u.id).sort().join(',');
+    const unidadesNuevas = (unidadIds ?? []).sort().join(',');
+    if (unidadesNuevas !== unidadesActuales) {
+      tasks.push(this.usuariosService.asignarUnidades(target.id, unidadIds ?? []));
+    }
+
     if (nuevaPassword && nuevaPassword.length >= 8) {
       tasks.push(
         this.usuariosService.resetPassword(target.id, { password: nuevaPassword }),
@@ -254,6 +301,36 @@ export class UsuariosYRolesPage implements OnInit {
         this.cargar();
       },
       error: (err) => this.modalError.set(this.parseError(err)),
+    });
+  }
+
+  // ── Deshabilitar / Reactivar usuario ──────────────────────────────────────
+
+  deshabilitarUsuario(usuario: Usuario): void {
+    const nombre = usuario.persona?.nombre ?? usuario.username;
+    if (!confirm(`¿Deshabilitar a ${nombre}? Ya no podrá acceder a la plataforma.`)) return;
+
+    this.usuariosService.remove(usuario.id).subscribe({
+      next: () => {
+        this.cerrarModal();
+        this.toast.success(`${nombre} deshabilitado`);
+        this.cargarUsuarios();
+      },
+      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+    });
+  }
+
+  reactivarUsuario(usuario: Usuario): void {
+    const nombre = usuario.persona?.nombre ?? usuario.username;
+    if (!confirm(`¿Reactivar a ${nombre}? Volverá a poder acceder a la plataforma.`)) return;
+
+    this.usuariosService.update(usuario.id, { estado: 'activo' }).subscribe({
+      next: () => {
+        this.cerrarModal();
+        this.toast.success(`${nombre} reactivado`);
+        this.cargarUsuarios();
+      },
+      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
     });
   }
 

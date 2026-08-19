@@ -63,6 +63,23 @@ export class UsuariosService {
     );
   }
 
+  /**
+   * Unidades de la CUENTA: define qué personal ve el usuario y de qué unidades hereda roles.
+   * Reemplaza todas las asignaciones existentes. Cierra su sesión activa.
+   */
+  asignarUnidades(id: string, unidadIds: string[]): Observable<Usuario> {
+    return this.http.patch<Usuario>(
+      `${API_BASE_URL}/usuarios/${id}/unidad`,
+      { unidadIds },
+      { withCredentials: true },
+    );
+  }
+
+  /** @deprecated Usa asignarUnidades. Mantenido por compatibilidad. */
+  asignarUnidad(id: string, unidadId: string | null): Observable<Usuario> {
+    return this.asignarUnidades(id, unidadId ? [unidadId] : []);
+  }
+
   resetPassword(id: string, payload: ResetPasswordPayload): Observable<{ ok: true }> {
     return this.http.post<{ ok: true }>(
       `${API_BASE_URL}/usuarios/${id}/reset-password`,

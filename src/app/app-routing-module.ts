@@ -48,7 +48,7 @@ const routes: Routes = [
       },
       {
         path: 'reportes',
-        canActivate: [permissionGuard(['auditoria.ver'])],
+        canActivate: [permissionGuard(['reportes.ejecutar'])],
         loadChildren: () => import('./features/reportes/reportes-module').then((m) => m.ReportesModule),
       },
       {
@@ -57,8 +57,13 @@ const routes: Routes = [
         loadChildren: () => import('./features/auditoria/auditoria-module').then((m) => m.AuditoriaModule),
       },
       {
+        path: 'unidades',
+        redirectTo: 'usuarios-y-roles',
+        pathMatch: 'full',
+      },
+      {
         path: 'usuarios-y-roles',
-        canActivate: [permissionGuard(['usuarios.ver', 'roles.ver'])],
+        canActivate: [permissionGuard(['usuarios.ver', 'roles.ver', 'unidades.ver'])],
         loadChildren: () => import('./features/usuarios-y-roles/usuarios-y-roles-module').then((m) => m.UsuariosYRolesModule),
       },
     ],
