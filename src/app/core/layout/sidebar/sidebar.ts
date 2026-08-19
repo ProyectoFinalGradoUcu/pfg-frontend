@@ -25,6 +25,9 @@ export class Sidebar {
   readonly puedeVerMisiones = computed(() =>
     this.auth.hasAnyPermiso(['misiones.ver', 'misiones.gestionar']),
   );
+  readonly puedeVerDestinos = computed(() =>
+    this.auth.hasAnyPermiso(['destinos.ver', 'destinos.gestionar']),
+  );
   readonly puedeVerReportes = computed(() =>
     this.auth.hasAnyPermiso(['reportes.ejecutar', 'reportes.ejecutar.unidad']),
   );

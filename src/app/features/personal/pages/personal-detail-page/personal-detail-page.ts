@@ -7,10 +7,11 @@ import {
   CursoPersona, FamiliarItem, GradoItem, HistorialMilitar,
   MisionPersona, OpcionSelect, PatchPersonaPayload, PersonaDetalle,
 } from '../../../../core/models/personal.models';
+import { DestinoDePersona } from '../../../../core/models/destinos.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
 
-export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'misiones' | 'documentacion';
+export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'misiones' | 'documentacion';
 
 interface TabDef { key: TabKey; label: string }
 
@@ -46,6 +47,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         ? [{ key: 'familiar' as TabKey, label: 'Información Familiar' }]
         : [{ key: 'historial' as TabKey, label: 'Historial Militar'   }]),
       { key: 'cursos',         label: 'Cursos'               },
+      { key: 'destinos',       label: 'Destinos'             },
       { key: 'misiones',       label: 'Misiones'             },
       { key: 'documentacion',  label: 'Documentación'        },
     ];
@@ -74,13 +76,24 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       (m) => m.nombre_mision.toLowerCase().includes(q) || m.pais.toLowerCase().includes(q),
     );
   });
+  readonly destinos          = signal<DestinoDePersona[]>([]);
+  readonly loadingDestinos   = signal(false);
+  readonly busquedaDestinos  = signal('');
+  readonly destinosFiltrados = computed<DestinoDePersona[]>(() => {
+    const q = this.busquedaDestinos().trim().toLowerCase();
+    if (!q) return this.destinos();
+    return this.destinos().filter(
+      (d) =>
+        (d.unidad ?? '').toLowerCase().includes(q) ||
+        (d.posicion_destino ?? '').toLowerCase().includes(q),
+    );
+  });
 
   // ─── Edit drawer ──────────────────────────────────────────────────────────────
   readonly editMode    = signal(false);
   readonly editLoading = signal(false);
 
   readonly editGrados     = signal<GradoItem[]>([]);
-  readonly editUnidades   = signal<OpcionSelect[]>([]);
   readonly editSituaciones= signal<OpcionSelect[]>([]);
   readonly editRegimenes  = signal<OpcionSelect[]>([]);
   readonly editProgramas  = signal<OpcionSelect[]>([]);
@@ -113,7 +126,6 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     fecha_inicio:          [''],
     escalafon_id:          [null],
     grado_id:              [{ value: null, disabled: true }],
-    unidad_id:             [null],
     situacion_id:          [null],
     regimen_id:            [null],
     programa_id:           [null],
@@ -232,6 +244,13 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
           error: () => this.loadingCursos.set(false),
         });
         break;
+      case 'destinos':
+        this.loadingDestinos.set(true);
+        this.svc.getDestinos(this.personaId).subscribe({
+          next: d => { this.destinos.set(d); this.loadingDestinos.set(false); },
+          error: () => this.loadingDestinos.set(false),
+        });
+        break;
       case 'misiones':
         this.loadingMisiones.set(true);
         this.svc.getMisiones(this.personaId).subscribe({
@@ -267,7 +286,6 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       fecha_inicio:          rl?.fecha_inicio    ? rl.fecha_inicio.split('T')[0] : '',
       escalafon_id:          rl?.escalafon?.id   ?? null,
       grado_id:              rl?.grado?.id       ?? null,
-      unidad_id:             rl?.unidad?.id      ?? null,
       situacion_id:          rl?.situacion?.id   ?? null,
       regimen_id:            rl?.regimen?.id     ?? null,
       programa_id:           rl?.programa?.id    ?? null,
@@ -283,7 +301,6 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
     if (!this.catalogsLoaded) {
       this.catalogsLoaded = true;
-      this.svc.getUnidades().subscribe({ next: d => this.editUnidades.set(d) });
       this.svc.getSituaciones().subscribe({ next: d => this.editSituaciones.set(d) });
       this.svc.getRegimenes().subscribe({ next: d => this.editRegimenes.set(d) });
       this.svc.getProgramas().subscribe({ next: d => this.editProgramas.set(d) });
@@ -326,7 +343,6 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       ...(raw.fecha_inicio          && { fecha_inicio:          raw.fecha_inicio }),
       ...(raw.escalafon_id          && { escalafon_id:          Number(raw.escalafon_id) }),
       ...(raw.grado_id              && { grado_id:              Number(raw.grado_id) }),
-      ...(raw.unidad_id             && { unidad_id:             Number(raw.unidad_id) }),
       ...(raw.situacion_id          && { situacion_id:          Number(raw.situacion_id) }),
       ...(raw.regimen_id            && { regimen_id:            Number(raw.regimen_id) }),
       ...(raw.programa_id           && { programa_id:           Number(raw.programa_id) }),
@@ -380,6 +396,14 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   onBusquedaMisionesInput(value: string): void {
     this.busquedaMisiones.set(value);
+  }
+
+  onBusquedaDestinosInput(value: string): void {
+    this.busquedaDestinos.set(value);
+  }
+
+  ordenOBoletin(d: DestinoDePersona): string {
+    return [d.numero_orden, d.boletin].filter(Boolean).join(' / ');
   }
 
   volver(): void {

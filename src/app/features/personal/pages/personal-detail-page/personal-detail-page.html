@@ -289,10 +289,8 @@
               </div>
               <div class="pd__field">
                 <span class="pd__label">Unidad</span>
-                <select formControlName="unidad_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let uni of editUnidades()" [ngValue]="uni.id">{{ uni.denominacion }}</option>
-                </select>
+                <span class="pd__value">{{ p.relacion_laboral.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Situación</span>
@@ -346,10 +344,8 @@
             <div class="pd__field-list" *ngIf="editMode() && p.es_civil">
               <div class="pd__field">
                 <span class="pd__label">Unidad</span>
-                <select formControlName="unidad_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let uni of editUnidades()" [ngValue]="uni.id">{{ uni.denominacion }}</option>
-                </select>
+                <span class="pd__value">{{ p.relacion_laboral.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Situación</span>
@@ -481,6 +477,64 @@
             </svg>
             Ver boletín
           </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ═══════════════════ TAB: DESTINOS ═══════════════════ -->
+    <article class="pd__card" *ngIf="activeTab() === 'destinos'">
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Destinos</h3>
+
+        <div class="pd__search" *ngIf="destinos().length > 0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            [value]="busquedaDestinos()"
+            (input)="onBusquedaDestinosInput($any($event.target).value)"
+            placeholder="Buscar por unidad o cargo..."
+            autocomplete="off"
+          />
+          <button
+            *ngIf="busquedaDestinos()"
+            type="button"
+            class="pd__search-clear"
+            (click)="onBusquedaDestinosInput('')"
+            aria-label="Limpiar búsqueda"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="pd__loading" *ngIf="loadingDestinos()">Cargando...</div>
+
+      <p class="pd__empty" *ngIf="!loadingDestinos() && destinos().length === 0">
+        No hay destinos registrados.
+      </p>
+
+      <p class="pd__empty" *ngIf="!loadingDestinos() && destinos().length > 0 && destinosFiltrados().length === 0">
+        No se encontraron destinos con esa búsqueda.
+      </p>
+
+      <div class="pd__destinos-list" *ngIf="!loadingDestinos() && destinosFiltrados().length > 0">
+        <div class="pd__destino-card" *ngFor="let d of destinosFiltrados()">
+          <div class="pd__destino-card__top">
+            <span class="pd__destino-card__unidad">{{ d.unidad || '—' }}</span>
+            <span class="pd__badge" [class.pd__badge--actual]="d.activo">
+              {{ d.activo ? 'Vigente' : 'Cerrado' }}
+            </span>
+          </div>
+          <span class="pd__destino-card__cargo" *ngIf="d.posicion_destino">{{ d.posicion_destino }}</span>
+          <div class="pd__destino-card__meta">
+            <span>{{ formatDate(d.fecha_inicio) }} – {{ d.fecha_fin ? formatDate(d.fecha_fin) : 'Presente' }}</span>
+            <span class="pd__destino-card__orden" *ngIf="d.numero_orden || d.boletin">{{ ordenOBoletin(d) }}</span>
+          </div>
+          <span class="pd__destino-card__obs" *ngIf="d.observaciones">{{ d.observaciones }}</span>
         </div>
       </div>
     </article>

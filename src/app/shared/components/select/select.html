@@ -1,5 +1,11 @@
-<div class="appsel" [class.appsel--open]="open()" [class.appsel--disabled]="disabledState()">
+<div
+  class="appsel"
+  [class.appsel--open]="open()"
+  [class.appsel--up]="flipUp()"
+  [class.appsel--disabled]="disabledState()"
+>
   <button
+    #controlRef
     type="button"
     class="appsel__control"
     (click)="toggle()"
@@ -28,7 +34,17 @@
     </span>
   </button>
 
-  <div *ngIf="open()" class="appsel__dropdown" (click)="$event.preventDefault()">
+  <div
+    *ngIf="open()"
+    class="appsel__dropdown"
+    [class.appsel__dropdown--up]="flipUp()"
+    [style.top.px]="panelPos()?.top"
+    [style.bottom.px]="panelPos()?.bottom"
+    [style.left.px]="panelPos()?.left"
+    [style.width.px]="panelPos()?.width"
+    [style.max-height.px]="panelPos()?.maxHeight"
+    (click)="$event.preventDefault()"
+  >
     <ul *ngIf="!multiple && selectedItem() as sel" class="appsel__list appsel__list--top">
       <li
         class="appsel__option appsel__option--selected"

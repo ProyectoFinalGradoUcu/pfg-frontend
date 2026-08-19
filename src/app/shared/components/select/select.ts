@@ -1,5 +1,6 @@
 import {
   Component,
+  DestroyRef,
   ElementRef,
   HostListener,
   Input,
@@ -11,6 +12,15 @@ import {
   computed,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+
+/** Coordenadas de viewport del panel: se usa `top` o `bottom` según hacia dónde abra. */
+interface PanelPos {
+  top: number | null;
+  bottom: number | null;
+  left: number;
+  width: number;
+  maxHeight: number;
+}
 
 @Component({
   selector: 'app-select',
@@ -27,6 +37,7 @@ import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 })
 export class Select implements ControlValueAccessor {
   private readonly elementRef = inject(ElementRef);
+  private readonly destroyRef = inject(DestroyRef);
 
   @Input() items: unknown[] = [];
   @Input() bindLabel = 'label';
@@ -38,8 +49,17 @@ export class Select implements ControlValueAccessor {
   @Input() multiple = false;
 
   @ViewChild('searchInputRef') searchInputRef?: ElementRef<HTMLInputElement>;
+  @ViewChild('controlRef') controlRef?: ElementRef<HTMLElement>;
 
   readonly open = signal(false);
+  /**
+   * El panel va `position: fixed` con coordenadas de viewport en vez de `absolute`:
+   * dentro de un modal (o cualquier contenedor con `overflow`) un panel absoluto
+   * queda recortado y obliga a scrollear el modal para elegir.
+   */
+  readonly panelPos = signal<PanelPos | null>(null);
+  /** Abre hacia arriba cuando abajo no hay lugar; invierte los bordes redondeados. */
+  readonly flipUp = signal(false);
   readonly searchTerm = signal('');
   // Single: valor escalar. Múltiple: array de valores.
   readonly selectedValue = signal<unknown>(null);
@@ -116,11 +136,44 @@ export class Select implements ControlValueAccessor {
   private onChange: (value: unknown) => void = () => {};
   private onTouched: () => void = () => {};
 
+  /** Aire mínimo entre el panel y el borde del viewport. */
+  private static readonly MARGEN = 8;
+  /** Debajo de esto no vale la pena abrir hacia abajo. */
+  private static readonly ALTO_MINIMO = 160;
+  private static readonly ALTO_MAXIMO = 280;
+
   constructor() {
     effect(() => {
       if (this.open() && this.searchable) {
         queueMicrotask(() => this.searchInputRef?.nativeElement.focus());
       }
+    });
+
+    // Capture: los eventos `scroll` de un contenedor interno no burbujean, y el panel
+    // tiene que seguir al control cuando se scrollea el modal o la página.
+    const reposicionar = () => {
+      if (this.open()) this.posicionarPanel();
+    };
+    window.addEventListener('scroll', reposicionar, true);
+    this.destroyRef.onDestroy(() => window.removeEventListener('scroll', reposicionar, true));
+  }
+
+  private posicionarPanel(): void {
+    const control: HTMLElement =
+      this.controlRef?.nativeElement ?? (this.elementRef.nativeElement as HTMLElement);
+    const rect = control.getBoundingClientRect();
+    const espacioAbajo = window.innerHeight - rect.bottom - Select.MARGEN;
+    const espacioArriba = rect.top - Select.MARGEN;
+    const haciaArriba = espacioAbajo < Select.ALTO_MINIMO && espacioArriba > espacioAbajo;
+
+    this.flipUp.set(haciaArriba);
+    this.panelPos.set({
+      // El -1/+1 solapa el borde del control con el del panel para que se vea una sola línea.
+      top: haciaArriba ? null : rect.bottom - 1,
+      bottom: haciaArriba ? window.innerHeight - rect.top - 1 : null,
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.min(Select.ALTO_MAXIMO, haciaArriba ? espacioArriba : espacioAbajo),
     });
   }
 
@@ -144,6 +197,7 @@ export class Select implements ControlValueAccessor {
   toggle(): void {
     if (this.disabledState()) return;
     this.searchTerm.set('');
+    if (!this.open()) this.posicionarPanel();
     this.open.update((v) => !v);
   }
 
@@ -204,6 +258,11 @@ export class Select implements ControlValueAccessor {
     if (item === null || item === undefined) return null;
     if (typeof item !== 'object') return item;
     return (item as Record<string, unknown>)[this.bindValue] ?? item;
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (this.open()) this.posicionarPanel();
   }
 
   @HostListener('document:click', ['$event'])

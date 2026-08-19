@@ -18,6 +18,7 @@ import {
   PersonaListItem,
   PersonasPaginadas,
 } from '../models/personal.models';
+import { DestinoDePersona } from '../models/destinos.models';
 
 // Re-exportado para que módulos que importaban desde el servicio no rompan.
 export type { PersonaListItem } from '../models/personal.models';
@@ -107,6 +108,11 @@ export class PersonalService {
 
   getMisiones(id: number): Observable<MisionPersona[]> {
     return this.http.get<MisionPersona[]>(`${API_BASE_URL}/personas/${id}/misiones`, { withCredentials: true });
+  }
+
+  /** Historial de destinos de la persona, del más reciente al más antiguo. Array plano, sin paginar. */
+  getDestinos(id: number): Observable<DestinoDePersona[]> {
+    return this.http.get<DestinoDePersona[]>(`${API_BASE_URL}/personas/${id}/destinos`, { withCredentials: true });
   }
 
   descargarPlantilla(): void {

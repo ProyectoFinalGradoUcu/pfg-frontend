@@ -1,0 +1,137 @@
+<div class="modal-overlay" (click)="cerrar()">
+  <div class="modal destino-form" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h3>{{ editando() ? 'Editar destino' : 'Registrar destino' }}</h3>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body" [formGroup]="form">
+      <!-- ── Persona ────────────────────────────────────────────────────── -->
+      <div class="destino-form__field" *ngIf="!editando()">
+        <label>Funcionario *</label>
+
+        <ng-container *ngIf="!personaElegida()">
+          <input
+            type="text"
+            placeholder="Buscar por cédula, nombre o apellido..."
+            [value]="terminoBusqueda()"
+            (input)="onBuscarPersona($any($event.target).value)"
+            autocomplete="off"
+          />
+          <p class="destino-form__hint" *ngIf="buscando()">Buscando...</p>
+          <ul class="destino-form__resultados" *ngIf="resultados().length > 0">
+            <li *ngFor="let p of resultados()" (click)="elegirPersona(p)">
+              <strong>{{ p.nombre }}</strong>
+              <span>{{ p.cedula }}</span>
+            </li>
+          </ul>
+        </ng-container>
+
+        <div class="destino-form__persona" *ngIf="personaElegida()">
+          <div>
+            <strong>{{ personaElegida()!.nombre }}</strong>
+            <span>{{ personaElegida()!.cedula }}</span>
+          </div>
+          <button type="button" class="btn btn--ghost btn--sm" (click)="limpiarPersona()">Cambiar</button>
+        </div>
+      </div>
+
+      <div class="destino-form__readonly" *ngIf="editando()">
+        <span class="destino-form__readonly-label">Funcionario</span>
+        <strong>{{ destino!.persona?.primer_nombre }} {{ destino!.persona?.primer_apellido }}</strong>
+      </div>
+
+      <!-- ── Preview del pase ───────────────────────────────────────────── -->
+      <div class="destino-form__pase" *ngIf="!editando() && personaElegida()">
+        <p *ngIf="buscandoDestinoActual()">Buscando su destino actual...</p>
+
+        <ng-container *ngIf="!buscandoDestinoActual()">
+          <ng-container *ngIf="destinoActual() as actual; else sinDestinoActual">
+            <p class="destino-form__pase-title">Este registro es un pase</p>
+            <p>
+              Sale de <strong>{{ actual.unidad?.denominacion || 'unidad sin dato' }}</strong>,
+              donde revista desde {{ actual.fecha_inicio || 'fecha sin dato' }}.
+            </p>
+            <p *ngIf="fechaCierreCalculada()">
+              Ese destino se cerrará el <strong>{{ fechaCierreCalculada() }}</strong>, el día previo al nuevo inicio.
+            </p>
+            <label class="destino-form__pase-fecha">
+              Cerrarlo en otra fecha (opcional)
+              <input type="date" formControlName="fecha_fin_anterior" />
+            </label>
+          </ng-container>
+
+          <ng-template #sinDestinoActual>
+            <p class="destino-form__pase-error" *ngIf="errorDestinoActual()">
+              No se pudo verificar el destino actual. Reintentá antes de guardar para saber qué se va a cerrar.
+            </p>
+            <p *ngIf="!errorDestinoActual()">
+              No tiene ningún destino activo: este es su primer destino y no hay nada que cerrar.
+            </p>
+          </ng-template>
+        </ng-container>
+      </div>
+
+      <!-- ── Campos del destino ─────────────────────────────────────────── -->
+      <div class="destino-form__grid">
+        <div class="destino-form__field">
+          <label>Unidad *</label>
+          <app-select
+            *ngIf="!editando()"
+            [items]="unidades()"
+            bindLabel="denominacion"
+            bindValue="id"
+            placeholder="Seleccionar unidad..."
+            [searchable]="true"
+            formControlName="unidad_id"
+          ></app-select>
+          <div class="destino-form__readonly" *ngIf="editando()">
+            <strong>{{ destino!.unidad?.denominacion || '—' }}</strong>
+            <small>Para corregir la unidad hay que eliminar este destino y registrarlo de nuevo.</small>
+          </div>
+        </div>
+
+        <div class="destino-form__field">
+          <label>Fecha de inicio *</label>
+          <input type="date" formControlName="fecha_inicio" />
+        </div>
+
+        <div class="destino-form__field" *ngIf="editando()">
+          <label>Fecha de fin</label>
+          <input type="date" formControlName="fecha_fin" />
+          <small>Vacía reabre el destino.</small>
+        </div>
+
+        <div class="destino-form__field">
+          <label>Cargo</label>
+          <input type="text" formControlName="posicion_destino" maxlength="200" />
+        </div>
+
+        <div class="destino-form__field">
+          <label>N° de orden</label>
+          <input type="text" formControlName="numero_orden" maxlength="50" />
+        </div>
+
+        <div class="destino-form__field">
+          <label>Boletín</label>
+          <input type="text" formControlName="boletin" maxlength="50" />
+        </div>
+
+        <div class="destino-form__field destino-form__field--full">
+          <label>Observaciones</label>
+          <textarea formControlName="observaciones" rows="2"></textarea>
+        </div>
+      </div>
+
+      <p class="destino-form__requisito">Se necesita al menos el N° de orden o el boletín.</p>
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()" [disabled]="guardando()">Cancelar</button>
+      <button type="button" class="btn btn--primary" (click)="guardar()" [disabled]="guardando()">
+        {{ guardando() ? 'Guardando...' : (editando() ? 'Guardar cambios' : 'Registrar destino') }}
+      </button>
+    </footer>
+  </div>
+</div>
