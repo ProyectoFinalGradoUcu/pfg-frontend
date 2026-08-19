@@ -12,7 +12,7 @@ import { PersonalService } from '../../../../core/services/personal.service';
 import { Invitacion, PermisoEfectivo, Rol, Usuario } from '../../../../core/models/auth.models';
 import { OpcionSelect } from '../../../../core/models/personal.models';
 
-type Tab = 'usuarios' | 'invitaciones' | 'roles';
+type Tab = 'usuarios' | 'invitaciones' | 'roles' | 'unidades';
 type ModalKind =
   | 'nuevoUsuario'
   | 'editarUsuario'
@@ -75,12 +75,22 @@ export class UsuariosYRolesPage implements OnInit {
   readonly permisosDelTarget = signal<PermisoEfectivo[]>([]);
   readonly cargandoPermisos = signal(false);
 
+  readonly permisosGlobales = computed(() =>
+    this.permisosDelTarget().filter((p) => p.alcance === 'global'),
+  );
+  readonly permisosUnidad = computed(() =>
+    this.permisosDelTarget().filter((p) => p.alcance === 'unidad'),
+  );
+
   // ── Computed permisos ─────────────────────────────────────────────────────
   readonly puedeGestionarUsuarios = computed(() =>
     this.auth.hasPermiso('usuarios.gestionar'),
   );
   readonly puedeGestionarRoles = computed(() =>
     this.auth.hasPermiso('roles.gestionar'),
+  );
+  readonly puedeVerUnidades = computed(() =>
+    this.auth.hasPermiso('unidades.ver'),
   );
   readonly currentUserId = computed(() => this.auth.currentUser()?.id ?? '');
 
@@ -291,6 +301,36 @@ export class UsuariosYRolesPage implements OnInit {
         this.cargar();
       },
       error: (err) => this.modalError.set(this.parseError(err)),
+    });
+  }
+
+  // ── Deshabilitar / Reactivar usuario ──────────────────────────────────────
+
+  deshabilitarUsuario(usuario: Usuario): void {
+    const nombre = usuario.persona?.nombre ?? usuario.username;
+    if (!confirm(`¿Deshabilitar a ${nombre}? Ya no podrá acceder a la plataforma.`)) return;
+
+    this.usuariosService.remove(usuario.id).subscribe({
+      next: () => {
+        this.cerrarModal();
+        this.toast.success(`${nombre} deshabilitado`);
+        this.cargarUsuarios();
+      },
+      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+    });
+  }
+
+  reactivarUsuario(usuario: Usuario): void {
+    const nombre = usuario.persona?.nombre ?? usuario.username;
+    if (!confirm(`¿Reactivar a ${nombre}? Volverá a poder acceder a la plataforma.`)) return;
+
+    this.usuariosService.update(usuario.id, { estado: 'activo' }).subscribe({
+      next: () => {
+        this.cerrarModal();
+        this.toast.success(`${nombre} reactivado`);
+        this.cargarUsuarios();
+      },
+      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
     });
   }
 

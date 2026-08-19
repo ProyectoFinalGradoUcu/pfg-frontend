@@ -34,11 +34,8 @@ export class Sidebar {
   readonly puedeVerAuditoria = computed(() =>
     this.auth.hasAnyPermiso(['auditoria.ver']),
   );
-  readonly puedeVerUnidades = computed(() =>
-    this.auth.hasAnyPermiso(['unidades.ver']),
-  );
   readonly puedeVerUsuariosYRoles = computed(() =>
-    this.auth.hasAnyPermiso(['usuarios.ver', 'roles.ver']),
+    this.auth.hasAnyPermiso(['usuarios.ver', 'roles.ver', 'unidades.ver']),
   );
 
   toggleCollapsed(): void {

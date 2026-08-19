@@ -58,12 +58,12 @@ const routes: Routes = [
       },
       {
         path: 'unidades',
-        canActivate: [permissionGuard(['unidades.ver'])],
-        loadChildren: () => import('./features/unidades/unidades-module').then((m) => m.UnidadesModule),
+        redirectTo: 'usuarios-y-roles',
+        pathMatch: 'full',
       },
       {
         path: 'usuarios-y-roles',
-        canActivate: [permissionGuard(['usuarios.ver', 'roles.ver'])],
+        canActivate: [permissionGuard(['usuarios.ver', 'roles.ver', 'unidades.ver'])],
         loadChildren: () => import('./features/usuarios-y-roles/usuarios-y-roles-module').then((m) => m.UsuariosYRolesModule),
       },
     ],
