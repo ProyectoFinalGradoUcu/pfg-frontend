@@ -1,0 +1,107 @@
+<div
+  class="appsel"
+  [class.appsel--open]="open()"
+  [class.appsel--up]="flipUp()"
+  [class.appsel--disabled]="disabledState()"
+>
+  <button
+    #controlRef
+    type="button"
+    class="appsel__control"
+    (click)="toggle()"
+    [disabled]="disabledState()"
+  >
+    <span *ngIf="(multiple ? multipleLabel() : selectedLabel()) as label" class="appsel__value">{{ label }}</span>
+    <span *ngIf="!(multiple ? multipleLabel() : selectedLabel())" class="appsel__placeholder">{{ placeholder }}</span>
+
+    <span class="appsel__icons">
+      <button
+        *ngIf="clearable && hasValue()"
+        type="button"
+        class="appsel__clear"
+        (click)="clear($event)"
+        aria-label="Limpiar selección"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <span class="appsel__arrow" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+        </svg>
+      </span>
+    </span>
+  </button>
+
+  <div
+    *ngIf="open()"
+    class="appsel__dropdown"
+    [class.appsel__dropdown--up]="flipUp()"
+    [style.top.px]="panelPos()?.top"
+    [style.bottom.px]="panelPos()?.bottom"
+    [style.left.px]="panelPos()?.left"
+    [style.width.px]="panelPos()?.width"
+    [style.max-height.px]="panelPos()?.maxHeight"
+    (click)="$event.preventDefault()"
+  >
+    <ul *ngIf="!multiple && selectedItem() as sel" class="appsel__list appsel__list--top">
+      <li
+        class="appsel__option appsel__option--selected"
+        role="option"
+        aria-selected="true"
+        (click)="pick(sel)"
+      >
+        <span>{{ getLabelOf(sel) }}</span>
+        <svg
+          class="appsel__check"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2.5"
+          stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+        </svg>
+      </li>
+    </ul>
+
+    <div *ngIf="searchable" class="appsel__search">
+      <input
+        #searchInputRef
+        type="text"
+        [value]="searchTerm()"
+        (input)="onSearchInput($event)"
+        placeholder="Buscar..."
+        autocomplete="off"
+      />
+    </div>
+
+    <ul class="appsel__list">
+      <li
+        *ngFor="let item of displayItems(); trackBy: trackItem"
+        class="appsel__option"
+        [class.appsel__option--selected]="multiple && isSelected(item)"
+        role="option"
+        [attr.aria-selected]="multiple ? isSelected(item) : false"
+        (click)="pick(item)"
+      >
+        <span>{{ getLabelOf(item) }}</span>
+        <svg
+          *ngIf="multiple && isSelected(item)"
+          class="appsel__check"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="2.5"
+          stroke="currentColor"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+        </svg>
+      </li>
+      <li *ngIf="displayItems().length === 0" class="appsel__empty">
+        Sin resultados
+      </li>
+    </ul>
+  </div>
+</div>

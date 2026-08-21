@@ -1,0 +1,44 @@
+<nav class="paginator" *ngIf="totalItems > 0" aria-label="Paginación">
+  <span class="paginator__range">
+    Mostrando <strong>{{ rangeStart() }}</strong>–<strong>{{ rangeEnd() }}</strong>
+    de <strong>{{ totalItems }}</strong>
+  </span>
+
+  <div class="paginator__controls">
+    <button
+      type="button"
+      class="paginator__btn"
+      (click)="prev()"
+      [disabled]="currentPage === 1"
+      aria-label="Página anterior"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+      </svg>
+    </button>
+
+    <button
+      *ngFor="let p of pages()"
+      type="button"
+      class="paginator__btn"
+      [class.paginator__btn--active]="p === currentPage"
+      [class.paginator__btn--gap]="p === 'gap'"
+      [disabled]="p === 'gap'"
+      (click)="goTo(p)"
+    >
+      {{ p === 'gap' ? '…' : p }}
+    </button>
+
+    <button
+      type="button"
+      class="paginator__btn"
+      (click)="next()"
+      [disabled]="currentPage === totalPages()"
+      aria-label="Página siguiente"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+      </svg>
+    </button>
+  </div>
+</nav>

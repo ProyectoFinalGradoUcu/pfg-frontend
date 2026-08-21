@@ -1,0 +1,290 @@
+<section class="personal-page">
+  <nav class="breadcrumb">
+    <span class="breadcrumb__item breadcrumb__item--current">Administración de Personal</span>
+  </nav>
+
+  <div class="personal-page__header-row">
+    <app-page-header
+      title="Administración de Personal"
+      subtitle="Gestión completa del personal de la FAU"
+    ></app-page-header>
+
+    <div class="personal-page__header-actions">
+      <button type="button" class="btn btn--ghost" (click)="abrirImportar()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+        </svg>
+        Importar
+      </button>
+      <button type="button" class="btn btn--primary" (click)="abrirNuevoPersonal()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+        </svg>
+        Nuevo Personal
+      </button>
+    </div>
+  </div>
+
+  <article class="personal-page__card">
+    <h2 class="personal-page__card-title">Búsqueda Avanzada</h2>
+
+    <div class="personal-page__filters-row">
+      <div class="personal-page__search">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input
+          type="text"
+          [value]="searchTerm()"
+          (input)="onSearch($event)"
+          placeholder="Buscar por nombre o cédula..."
+          autocomplete="off"
+        />
+      </div>
+
+      <label class="personal-page__field">
+        <select
+          *ngIf="!alcanceAcotado()"
+          [value]="selectedDestino()"
+          (change)="onDestinoChange($event)"
+        >
+          <option value="">Todos los destinos</option>
+          <option *ngFor="let u of unidades()" [value]="u.id">{{ u.denominacion }}</option>
+        </select>
+
+        <select *ngIf="alcanceAcotado()" disabled title="Solo podés ver el personal de tu unidad">
+          <option selected>{{ unidadPropia() }}</option>
+        </select>
+      </label>
+
+      <label class="personal-page__field">
+        <select [value]="selectedRango()" (change)="onRangoChange($event)">
+          <option value="">Todos los grados</option>
+          <option *ngFor="let g of todosGrados()" [value]="g.id">{{ g.denominacion }}</option>
+        </select>
+      </label>
+
+      <label class="personal-page__field">
+        <select [value]="selectedEstado()" (change)="onEstadoChange($event)">
+          <option value="">Todos los estados</option>
+          <option *ngFor="let s of situaciones()" [value]="s.id">{{ s.denominacion }}</option>
+        </select>
+      </label>
+
+      <button
+        type="button"
+        class="btn btn--clear personal-page__clear-btn"
+        [disabled]="!hayFiltrosActivos()"
+        (click)="limpiarFiltros()"
+        aria-label="Borrar filtros"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+        </svg>
+      </button>
+    </div>
+  </article>
+
+  <article class="personal-page__table-card">
+    <div class="personal-page__table-wrapper">
+      <table class="personal-page__table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Cédula</th>
+            <th>Grado</th>
+            <th>Destino</th>
+            <th>Estado</th>
+            <th class="personal-page__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="loading() && items().length === 0">
+            <td colspan="6" class="personal-page__empty">Cargando...</td>
+          </tr>
+          <tr *ngFor="let item of items(); trackBy: trackPersonal">
+            <td>{{ item.nombre }}</td>
+            <td>{{ item.cedula }}</td>
+            <td>{{ item.rango }}</td>
+            <td>{{ item.destino }}</td>
+            <td>
+              <span
+                class="personal-page__badge"
+                [class.personal-page__badge--licencia]="item.estado === 'Licencia'"
+                [class.personal-page__badge--activo]="item.estado === 'Activo'"
+              >
+                {{ item.estado }}
+              </span>
+            </td>
+            <td class="personal-page__col-actions">
+              <div class="personal-page__menu-wrap">
+                <button
+                  type="button"
+                  class="personal-page__dots-btn"
+                  (click)="toggleMenu(item.id, $event)"
+                  [attr.aria-expanded]="openMenuId() === item.id"
+                  aria-label="Acciones"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                  </svg>
+                </button>
+
+                <div class="personal-page__menu"
+                  *ngIf="openMenuId() === item.id && menuPosition()"
+                  [style.top.px]="menuPosition()!.top"
+                  [style.right.px]="menuPosition()!.right"
+                >
+                  <button type="button" class="personal-page__menu-item" (click)="ver(item)">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                    Ver detalle
+                  </button>
+                  <button type="button" class="personal-page__menu-item" (click)="editar(item)">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                    Editar
+                  </button>
+                </div>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="!loading() && items().length === 0">
+            <td colspan="6" class="personal-page__empty">
+              {{ alcanceAcotado()
+                ? 'No hay personal en tu unidad que coincida con los filtros'
+                : 'No hay personal que coincida con los filtros' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="personal-page__table-footer">
+      <span class="personal-page__summary">
+        Mostrando {{ total() }} registros
+      </span>
+      <app-paginator
+        [totalItems]="total()"
+        [pageSize]="PAGE_SIZE"
+        [currentPage]="currentPage()"
+        (pageChange)="onPageChange($event)"
+      ></app-paginator>
+    </div>
+  </article>
+  <!-- ── Modal importar ── -->
+  <div class="pp-modal-backdrop" *ngIf="importPanelOpen()" (click)="cerrarImportar()"></div>
+
+  <div class="pp-modal" *ngIf="importPanelOpen()" role="dialog" aria-modal="true">
+    <div class="pp-modal__header">
+      <h2 class="pp-modal__title">Importar Personal</h2>
+      <button type="button" class="pp-modal__close" (click)="cerrarImportar()" aria-label="Cerrar">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Formulario (antes de procesar) -->
+    <div class="pp-modal__body" *ngIf="!importResult()">
+      <div class="pp-import-step">
+        <div class="pp-import-step__num">1</div>
+        <div class="pp-import-step__content">
+          <p class="pp-import-step__title">Descargá la plantilla</p>
+          <p class="pp-import-step__desc">El archivo Excel incluye filas de ejemplo y una hoja de instrucciones.</p>
+          <button type="button" class="btn btn--ghost pp-import-step__btn" (click)="descargarPlantilla()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Descargar plantilla .xlsx
+          </button>
+        </div>
+      </div>
+
+      <div class="pp-import-step">
+        <div class="pp-import-step__num">2</div>
+        <div class="pp-import-step__content">
+          <p class="pp-import-step__title">Completá y subí el archivo</p>
+          <label class="pp-import-dropzone" [class.pp-import-dropzone--has-file]="importFile()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+            </svg>
+            <span *ngIf="!importFile()">Hacé clic o arrastrá el archivo .xlsx <em>(máx. 5 MB)</em></span>
+            <span *ngIf="importFile()">{{ importFile()!.name }}</span>
+            <input type="file" accept=".xlsx,.xls" (change)="onImportFileChange($event)" />
+          </label>
+          <span class="pp-import-error" *ngIf="importError()">{{ importError() }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="pp-modal__body" *ngIf="importResult()">
+      <div class="pp-import-summary">
+        <div class="pp-import-summary__item pp-import-summary__item--ok">
+          <span class="pp-import-summary__num">{{ importResult()!.exitosos }}</span>
+          <span class="pp-import-summary__label">exitosos</span>
+        </div>
+        <div class="pp-import-summary__item pp-import-summary__item--err">
+          <span class="pp-import-summary__num">{{ importResult()!.errores }}</span>
+          <span class="pp-import-summary__label">con error</span>
+        </div>
+        <div class="pp-import-summary__item">
+          <span class="pp-import-summary__num">{{ importResult()!.total }}</span>
+          <span class="pp-import-summary__label">total</span>
+        </div>
+      </div>
+
+      <div class="pp-import-results">
+        <table class="pp-import-table">
+          <thead>
+            <tr>
+              <th>Fila</th>
+              <th>Cédula</th>
+              <th>Estado</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of importResult()!.resultados"
+                [class.pp-import-table__row--err]="r.estado === 'error'">
+              <td>{{ r.fila }}</td>
+              <td>{{ r.cedula }}</td>
+              <td>
+                <span class="pp-import-badge"
+                  [class.pp-import-badge--ok]="r.estado === 'ok'"
+                  [class.pp-import-badge--err]="r.estado === 'error'">
+                  {{ r.estado === 'ok' ? 'OK' : 'Error' }}
+                </span>
+              </td>
+              <td class="pp-import-table__msg">{{ r.mensaje ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="pp-modal__footer">
+      <ng-container *ngIf="!importResult()">
+        <button type="button" class="btn" (click)="cerrarImportar()">Cancelar</button>
+        <button type="button" class="btn btn--primary"
+          [disabled]="!importFile() || importLoading()"
+          (click)="procesarImportacion()">
+          <svg *ngIf="importLoading()" class="pp-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          {{ importLoading() ? 'Procesando...' : 'Procesar archivo' }}
+        </button>
+      </ng-container>
+      <button *ngIf="importResult()" type="button" class="btn btn--primary" (click)="cerrarImportar()">
+        Listo
+      </button>
+    </div>
+  </div>
+
+</section>

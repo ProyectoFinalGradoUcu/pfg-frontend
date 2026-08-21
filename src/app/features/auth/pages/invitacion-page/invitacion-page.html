@@ -1,0 +1,79 @@
+<section class="auth">
+  <div class="auth__card">
+    <div class="auth__header">
+      <div class="auth__shield" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+        </svg>
+      </div>
+      <h1>Fuerza Aérea Uruguaya</h1>
+      <p>Completar registro</p>
+    </div>
+
+    <div *ngIf="verificando()" class="auth__loading">
+      Verificando invitación...
+    </div>
+
+    <div *ngIf="!verificando() && tokenError()" class="auth__token-error">
+      <p>{{ tokenError() }}</p>
+      <p class="auth__hint">
+        Si el link expiró, solicitá una nueva invitación al administrador del sistema.
+      </p>
+    </div>
+
+    <ng-container *ngIf="!verificando() && !tokenError()">
+      <div class="auth__email-display">
+        <label>Email</label>
+        <span>{{ emailVerificado() }}</span>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="auth__field">
+          <label for="password">Contraseña</label>
+          <input
+            id="password"
+            type="password"
+            formControlName="password"
+            placeholder="Mínimo 8 caracteres"
+            autocomplete="new-password"
+          />
+          <span
+            *ngIf="form.get('password')?.invalid && form.get('password')?.touched"
+            class="auth__field-error"
+          >
+            La contraseña debe tener al menos 8 caracteres
+          </span>
+        </div>
+
+        <div class="auth__field">
+          <label for="confirmar">Confirmar contraseña</label>
+          <input
+            id="confirmar"
+            type="password"
+            formControlName="confirmar"
+            placeholder="Repetí la contraseña"
+            autocomplete="new-password"
+          />
+          <span
+            *ngIf="form.errors?.['mismatch'] && form.get('confirmar')?.touched"
+            class="auth__field-error"
+          >
+            Las contraseñas no coinciden
+          </span>
+        </div>
+
+        <div *ngIf="errorMessage()" class="auth__error" role="alert">
+          {{ errorMessage() }}
+        </div>
+
+        <button type="submit" class="auth__submit" [disabled]="loading()">
+          {{ loading() ? 'Registrando...' : 'Completar registro' }}
+        </button>
+      </form>
+    </ng-container>
+
+    <div class="auth__footer">
+      <a routerLink="/auth/login" class="auth__link">Volver al inicio de sesión</a>
+    </div>
+  </div>
+</section>

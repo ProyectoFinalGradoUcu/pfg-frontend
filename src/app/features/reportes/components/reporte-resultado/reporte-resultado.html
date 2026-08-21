@@ -1,0 +1,44 @@
+@if (resultado.resumen?.length) {
+  <div class="resumen">
+    @for (linea of resultado.resumen ?? []; track linea.etiqueta) {
+      <div class="resumen__item">
+        <span class="resumen__valor">{{ linea.valor }}</span>
+        <span class="resumen__etiqueta">{{ linea.etiqueta }}</span>
+      </div>
+    }
+  </div>
+}
+
+@for (seccion of secciones(); track $index) {
+  <div class="tabla-bloque">
+    @if (seccion.titulo) {
+      <h3 class="tabla-bloque__titulo">{{ seccion.titulo }}</h3>
+    }
+    @if (seccion.filas.length === 0) {
+      <p class="resultado__estado">Sin datos para mostrar.</p>
+    } @else {
+      <div class="tabla-scroll">
+        <table class="tabla">
+          <thead>
+            <tr>
+              @for (col of seccion.columnas; track col.clave) {
+                <th>{{ col.etiqueta }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (fila of seccion.filas; track $index) {
+              <tr>
+                @for (col of seccion.columnas; track col.clave) {
+                  <td [class.num]="col.tipo === 'numero' || col.tipo === 'porcentaje'">
+                    {{ fila[col.clave] }}{{ col.tipo === 'porcentaje' ? '%' : '' }}
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+}

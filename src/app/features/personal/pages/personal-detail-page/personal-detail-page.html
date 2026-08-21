@@ -1,0 +1,615 @@
+<section class="pd">
+
+  <!-- ── Loading skeleton ── -->
+  <ng-container *ngIf="loadingPersona()">
+    <div class="pd__skeleton pd__skeleton--breadcrumb"></div>
+    <div class="pd__skeleton pd__skeleton--header"></div>
+    <div class="pd__skeleton pd__skeleton--tabs"></div>
+    <div class="pd__skeleton pd__skeleton--card"></div>
+  </ng-container>
+
+  <!-- ── Content ── -->
+  <ng-container *ngIf="!loadingPersona() && persona() as p">
+
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb">
+      <a class="breadcrumb__item breadcrumb__item--link" (click)="volver()">Administración de Personal</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__item breadcrumb__item--current">{{ p.nombre_completo }}</span>
+    </nav>
+
+    <!-- Header card -->
+    <article class="pd__header-card">
+      <div class="pd__identity">
+        <div class="pd__avatar">{{ initials(p) }}</div>
+        <div class="pd__identity-info">
+          <h1 class="pd__name">{{ p.nombre_completo }}</h1>
+          <p class="pd__meta">
+            {{ p.relacion_laboral?.grado?.denominacion }}
+            <span class="pd__meta-dot">·</span>
+            {{ p.cedula }}
+          </p>
+        </div>
+      </div>
+      <div class="pd__header-actions">
+        <span class="pd__status-badge"
+          [class.pd__status-badge--activo]="p.relacion_laboral?.situacion?.codigo === 'ACT'"
+          [class.pd__status-badge--licencia]="p.relacion_laboral?.situacion?.codigo === 'LIC'"
+          [class.pd__status-badge--baja]="p.relacion_laboral?.situacion?.codigo === 'BAJ'"
+        >{{ p.relacion_laboral?.situacion?.denominacion ?? 'Sin estado' }}</span>
+
+        <ng-container *ngIf="!editMode()">
+          <button type="button" class="pd__edit-btn" (click)="openEdit()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+            </svg>
+            Editar Perfil
+          </button>
+        </ng-container>
+
+        <ng-container *ngIf="editMode()">
+          <button type="button" class="pd__edit-btn pd__edit-btn--ghost" (click)="closeEdit()">Cancelar</button>
+          <button type="button" class="pd__edit-btn" (click)="saveEdit()" [disabled]="editLoading()">
+            <svg *ngIf="editLoading()" class="pd__edit-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            {{ editLoading() ? 'Guardando...' : 'Guardar cambios' }}
+          </button>
+        </ng-container>
+      </div>
+    </article>
+
+    <!-- Tab bar -->
+    <nav class="pd__tabs-bar">
+      <button
+        *ngFor="let tab of visibleTabs()"
+        type="button"
+        class="pd__tab"
+        [class.pd__tab--active]="activeTab() === tab.key"
+        (click)="switchTab(tab.key)"
+      >{{ tab.label }}</button>
+    </nav>
+
+    <!-- ═══════════════════ TAB: DATOS PERSONALES ═══════════════════ -->
+    <article class="pd__card" *ngIf="activeTab() === 'personal'">
+      <form [formGroup]="editForm" novalidate>
+        <div class="pd__two-col">
+
+          <!-- Columna izquierda: información personal + contacto -->
+          <div class="pd__col">
+            <h3 class="pd__col-title">Información Personal</h3>
+            <div class="pd__field-list">
+
+              <div class="pd__field" *ngIf="!editMode()">
+                <span class="pd__label">Nombre completo</span>
+                <span class="pd__value">{{ p.nombre_completo }}</span>
+              </div>
+
+              <ng-container *ngIf="editMode()">
+                <div class="pd__field">
+                  <span class="pd__label">Primer nombre</span>
+                  <input type="text" formControlName="primer_nombre" class="pd__edit-input"
+                    [class.pd__edit-input--error]="hasEditError('primer_nombre')" />
+                  <span class="pd__edit-error" *ngIf="hasEditError('primer_nombre')">Este campo es obligatorio</span>
+                </div>
+                <div class="pd__field">
+                  <span class="pd__label">Segundo nombre</span>
+                  <input type="text" formControlName="segundo_nombre" class="pd__edit-input" />
+                </div>
+                <div class="pd__field">
+                  <span class="pd__label">Primer apellido</span>
+                  <input type="text" formControlName="primer_apellido" class="pd__edit-input"
+                    [class.pd__edit-input--error]="hasEditError('primer_apellido')" />
+                  <span class="pd__edit-error" *ngIf="hasEditError('primer_apellido')">Este campo es obligatorio</span>
+                </div>
+                <div class="pd__field">
+                  <span class="pd__label">Segundo apellido</span>
+                  <input type="text" formControlName="segundo_apellido" class="pd__edit-input" />
+                </div>
+              </ng-container>
+
+              <div class="pd__field">
+                <span class="pd__label">Cédula</span>
+                <span class="pd__value">{{ p.cedula }}</span>
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Fecha de nacimiento</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ formatDate(p.fecha_nacimiento) }}</span>
+                <ng-container *ngIf="editMode()">
+                  <input type="date" formControlName="fecha_nacimiento" class="pd__edit-input"
+                    [attr.max]="maxFechaNacimiento()"
+                    [class.pd__edit-input--error]="fechasInconsistentes()" />
+                  <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
+                    No puede ser posterior a la fecha de inicio de la relación laboral
+                  </span>
+                </ng-container>
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Género</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ formatGenero(p.genero) }}</span>
+                <select *ngIf="editMode()" formControlName="genero" class="pd__edit-select">
+                  <option value="">Seleccionar...</option>
+                  <option *ngFor="let g of generoOpciones" [value]="g.value">{{ g.label }}</option>
+                </select>
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Estado civil</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.estado_civil ?? '—' }}</span>
+                <select *ngIf="editMode()" formControlName="estado_civil" class="pd__edit-select">
+                  <option value="">Seleccionar...</option>
+                  <option *ngFor="let ec of estadoCivilOpciones" [value]="ec">{{ ec }}</option>
+                </select>
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Lugar de nacimiento</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.lugar_nacimiento ?? '—' }}</span>
+                <input *ngIf="editMode()" type="text" formControlName="lugar_nacimiento" class="pd__edit-input" />
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Etnia</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.etnia ?? '—' }}</span>
+                <input *ngIf="editMode()" type="text" formControlName="etnia" class="pd__edit-input" />
+              </div>
+
+            </div>
+
+            <h3 class="pd__col-title pd__col-title--mt">Contacto</h3>
+            <div class="pd__field-list">
+
+              <div class="pd__field">
+                <span class="pd__label">Email</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.email ?? '—' }}</span>
+                <ng-container *ngIf="editMode()">
+                  <input type="email" formControlName="email" class="pd__edit-input"
+                    [class.pd__edit-input--error]="hasEditError('email')" />
+                  <span class="pd__edit-error" *ngIf="hasEditError('email')">Email inválido</span>
+                </ng-container>
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Teléfono</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.telefono ?? '—' }}</span>
+                <input *ngIf="editMode()" type="text" formControlName="telefono" class="pd__edit-input" />
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Dirección</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.direccion ?? '—' }}</span>
+                <input *ngIf="editMode()" type="text" formControlName="direccion" class="pd__edit-input" />
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Código postal</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.codigo_postal ?? '—' }}</span>
+                <input *ngIf="editMode()" type="text" formControlName="codigo_postal" class="pd__edit-input" />
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Seccional</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.seccional ?? '—' }}</span>
+                <input *ngIf="editMode()" type="text" formControlName="seccional" class="pd__edit-input" />
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Columna derecha: información laboral -->
+          <div class="pd__col">
+            <h3 class="pd__col-title">Información Laboral</h3>
+
+            <!-- Read view -->
+            <div class="pd__field-list" *ngIf="!editMode() && p.relacion_laboral as rl">
+              <div class="pd__field">
+                <span class="pd__label">Grado</span>
+                <span class="pd__value">{{ rl.grado?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Destino / Unidad</span>
+                <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Estado</span>
+                <span class="pd__status-badge"
+                  [class.pd__status-badge--activo]="rl.situacion?.codigo === 'ACT'"
+                  [class.pd__status-badge--licencia]="rl.situacion?.codigo === 'LIC'"
+                  [class.pd__status-badge--baja]="rl.situacion?.codigo === 'BAJ'"
+                >{{ rl.situacion?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Tipo de funcionario</span>
+                <span class="pd__value pd__value--capitalize">{{ rl.tipo_funcionario }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Escalafón</span>
+                <span class="pd__value">{{ rl.escalafon?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Régimen</span>
+                <span class="pd__value">{{ rl.regimen?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Programa</span>
+                <span class="pd__value">{{ rl.programa?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Fecha de inicio</span>
+                <span class="pd__value">{{ formatDate(rl.fecha_inicio) }}</span>
+              </div>
+              <div class="pd__field" *ngIf="rl.prima_tecnica">
+                <span class="pd__label">Prima técnica</span>
+                <span class="pd__value">{{ rl.prima_tecnica }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Tiene mando</span>
+                <span class="pd__value">{{ rl.tiene_mando ? 'Sí' : 'No' }}</span>
+              </div>
+              <div class="pd__field" *ngIf="rl.sub_unidad">
+                <span class="pd__label">Sub-unidad</span>
+                <span class="pd__value">{{ rl.sub_unidad!.denominacion }}</span>
+              </div>
+              <div class="pd__field" *ngIf="rl.observaciones">
+                <span class="pd__label">Observaciones</span>
+                <span class="pd__value">{{ rl.observaciones }}</span>
+              </div>
+            </div>
+
+            <!-- Edit view: solo militares -->
+            <div class="pd__field-list" *ngIf="editMode() && !p.es_civil">
+              <div class="pd__field">
+                <span class="pd__label">Fecha de inicio</span>
+                <input type="date" formControlName="fecha_inicio" class="pd__edit-input"
+                  [attr.min]="minFechaInicio()"
+                  [class.pd__edit-input--error]="fechasInconsistentes()" />
+                <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
+                  No puede ser anterior a la fecha de nacimiento
+                </span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Escalafón</span>
+                <select formControlName="escalafon_id" class="pd__edit-select">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option *ngFor="let esc of editEscalafones()" [ngValue]="esc.id">{{ esc.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">
+                  Grado
+                  <span class="pd__edit-hint" *ngIf="editForm.get('grado_id')?.disabled">(elegí un escalafón primero)</span>
+                </span>
+                <select formControlName="grado_id" class="pd__edit-select">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option *ngFor="let gr of editGrados()" [ngValue]="gr.id">{{ gr.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Unidad</span>
+                <span class="pd__value">{{ p.relacion_laboral.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Situación</span>
+                <select formControlName="situacion_id" class="pd__edit-select">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option *ngFor="let sit of editSituaciones()" [ngValue]="sit.id">{{ sit.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Régimen</span>
+                <select formControlName="regimen_id" class="pd__edit-select">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option *ngFor="let reg of editRegimenes()" [ngValue]="reg.id">{{ reg.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Programa</span>
+                <select formControlName="programa_id" class="pd__edit-select">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option *ngFor="let prog of editProgramas()" [ngValue]="prog.id">{{ prog.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Sub-unidad</span>
+                <select formControlName="sub_unidad_id" class="pd__edit-select">
+                  <option [ngValue]="null">Sin sub-unidad</option>
+                  <option *ngFor="let comp of editSubUnidades()" [ngValue]="comp.id">{{ comp.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Prima técnica</span>
+                <input type="text" formControlName="prima_tecnica" class="pd__edit-input" placeholder="Ej: A" />
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Tiene mando</span>
+                <label class="pd__edit-toggle-label">
+                  <input type="checkbox" formControlName="tiene_mando" class="pd__edit-checkbox" />
+                  <span class="pd__edit-toggle-track">
+                    <span class="pd__edit-toggle-thumb"></span>
+                  </span>
+                  <span>{{ editForm.get('tiene_mando')?.value ? 'Sí' : 'No' }}</span>
+                </label>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Observaciones laborales</span>
+                <textarea formControlName="observaciones_laborales" class="pd__edit-textarea" rows="3"></textarea>
+              </div>
+            </div>
+
+            <!-- Edit view: civiles -->
+            <div class="pd__field-list" *ngIf="editMode() && p.es_civil">
+              <div class="pd__field">
+                <span class="pd__label">Unidad</span>
+                <span class="pd__value">{{ p.relacion_laboral.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Situación</span>
+                <select formControlName="situacion_id" class="pd__edit-select">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option *ngFor="let sit of editSituaciones()" [ngValue]="sit.id">{{ sit.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Régimen</span>
+                <select formControlName="regimen_id" class="pd__edit-select">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option *ngFor="let reg of editRegimenes()" [ngValue]="reg.id">{{ reg.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Programa</span>
+                <select formControlName="programa_id" class="pd__edit-select">
+                  <option [ngValue]="null">Seleccionar...</option>
+                  <option *ngFor="let prog of editProgramas()" [ngValue]="prog.id">{{ prog.denominacion }}</option>
+                </select>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Observaciones laborales</span>
+                <textarea formControlName="observaciones_laborales" class="pd__edit-textarea" rows="3"></textarea>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </form>
+    </article>
+
+    <!-- ═══════════════════ TAB: INFORMACIÓN FAMILIAR ═══════════════════ -->
+    <article class="pd__card" *ngIf="activeTab() === 'familiar'">
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Información Familiar</h3>
+      </div>
+
+      <div class="pd__loading" *ngIf="loadingFamiliar()">Cargando...</div>
+
+      <p class="pd__empty" *ngIf="!loadingFamiliar() && familiares().length === 0">
+        Información familiar no disponible en este momento.
+      </p>
+
+      <div class="pd__familiar-grid" *ngIf="!loadingFamiliar() && familiares().length > 0">
+        <div class="pd__familiar-card" *ngFor="let f of familiares()">
+          <div class="pd__familiar-avatar">{{ f.nombre_completo[0] }}</div>
+          <div class="pd__familiar-info">
+            <span class="pd__familiar-nombre">{{ f.nombre_completo }}</span>
+            <span class="pd__familiar-cedula">{{ f.cedula }}</span>
+          </div>
+          <span class="pd__familiar-relacion" *ngIf="f.tipo_relacion">{{ f.tipo_relacion }}</span>
+          <div class="pd__familiar-destino" *ngIf="f.grado || f.unidad">
+            <span *ngIf="f.grado">{{ f.grado!.denominacion }}</span>
+            <span *ngIf="f.unidad" class="pd__familiar-unidad">{{ f.unidad!.denominacion }}</span>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ═══════════════════ TAB: HISTORIAL MILITAR ═══════════════════ -->
+    <article class="pd__card" *ngIf="activeTab() === 'historial'">
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Historial de Ascensos</h3>
+      </div>
+
+      <div class="pd__loading" *ngIf="loadingHistorial()">Cargando...</div>
+
+      <p class="pd__empty" *ngIf="!loadingHistorial() && sortedRangos().length === 0">
+        Sin historial registrado.
+      </p>
+
+      <div class="pd__timeline" *ngIf="!loadingHistorial() && sortedRangos().length > 0">
+        <div class="pd__timeline-item"
+          *ngFor="let h of sortedRangos(); let first = first; let last = last"
+          [class.pd__timeline-item--actual]="first">
+          <div class="pd__timeline-marker">
+            <div class="pd__timeline-dot" [class.pd__timeline-dot--actual]="first"></div>
+          </div>
+          <div class="pd__timeline-content">
+            <div class="pd__timeline-grado-row">
+              <span class="pd__timeline-grado">{{ h.grado.denominacion }}</span>
+              <span class="pd__badge pd__badge--actual" *ngIf="first">Actual</span>
+            </div>
+            <span class="pd__timeline-meta">
+              <span class="pd__timeline-fecha">{{ formatDate(h.fecha_ascenso) }}</span>
+              <span class="pd__timeline-orden">{{ h.numero_orden }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ═══════════════════ TAB: CURSOS ═══════════════════ -->
+    <article class="pd__card" *ngIf="activeTab() === 'cursos'">
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Cursos</h3>
+      </div>
+
+      <div class="pd__loading" *ngIf="loadingCursos()">Cargando...</div>
+
+      <p class="pd__empty" *ngIf="!loadingCursos() && cursos().length === 0">
+        No hay cursos registrados.
+      </p>
+
+      <div class="pd__courses-grid" *ngIf="!loadingCursos() && cursos().length > 0">
+        <div class="pd__course-card" *ngFor="let c of cursos()">
+          <div class="pd__course-card__top">
+            <span class="pd__course-card__name">{{ c.nombre_curso }}</span>
+            <div class="pd__course-card__badges">
+              <span class="pd__badge" [class.pd__badge--obligatorio]="c.es_obligatorio" [class.pd__badge--opcional]="!c.es_obligatorio">
+                {{ c.es_obligatorio ? 'Obligatorio' : 'No obligatorio' }}
+              </span>
+              <span class="pd__badge" [class.pd__badge--completado]="c.completado" [class.pd__badge--en-curso]="!c.completado">
+                {{ c.completado ? 'Completado' : 'En curso' }}
+              </span>
+            </div>
+          </div>
+          <span class="pd__course-card__inst">{{ c.institucion }}</span>
+          <div class="pd__course-card__meta">
+            <span>{{ formatDate(c.fecha_inicio) }} – {{ formatDate(c.fecha_fin) }}</span>
+            <span class="pd__course-card__orden">{{ c.numero_orden }}</span>
+          </div>
+          <a *ngIf="c.boletin" class="pd__course-card__boletin" [href]="c.boletin" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+            </svg>
+            Ver boletín
+          </a>
+        </div>
+      </div>
+    </article>
+
+    <!-- ═══════════════════ TAB: DESTINOS ═══════════════════ -->
+    <article class="pd__card" *ngIf="activeTab() === 'destinos'">
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Destinos</h3>
+
+        <div class="pd__search" *ngIf="destinos().length > 0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            [value]="busquedaDestinos()"
+            (input)="onBusquedaDestinosInput($any($event.target).value)"
+            placeholder="Buscar por unidad o cargo..."
+            autocomplete="off"
+          />
+          <button
+            *ngIf="busquedaDestinos()"
+            type="button"
+            class="pd__search-clear"
+            (click)="onBusquedaDestinosInput('')"
+            aria-label="Limpiar búsqueda"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="pd__loading" *ngIf="loadingDestinos()">Cargando...</div>
+
+      <p class="pd__empty" *ngIf="!loadingDestinos() && destinos().length === 0">
+        No hay destinos registrados.
+      </p>
+
+      <p class="pd__empty" *ngIf="!loadingDestinos() && destinos().length > 0 && destinosFiltrados().length === 0">
+        No se encontraron destinos con esa búsqueda.
+      </p>
+
+      <div class="pd__destinos-list" *ngIf="!loadingDestinos() && destinosFiltrados().length > 0">
+        <div class="pd__destino-card" *ngFor="let d of destinosFiltrados()">
+          <div class="pd__destino-card__top">
+            <span class="pd__destino-card__unidad">{{ d.unidad || '—' }}</span>
+            <span class="pd__badge" [class.pd__badge--actual]="d.activo">
+              {{ d.activo ? 'Vigente' : 'Cerrado' }}
+            </span>
+          </div>
+          <span class="pd__destino-card__cargo" *ngIf="d.posicion_destino">{{ d.posicion_destino }}</span>
+          <div class="pd__destino-card__meta">
+            <span>{{ formatDate(d.fecha_inicio) }} – {{ d.fecha_fin ? formatDate(d.fecha_fin) : 'Presente' }}</span>
+            <span class="pd__destino-card__orden" *ngIf="d.numero_orden || d.boletin">{{ ordenOBoletin(d) }}</span>
+          </div>
+          <span class="pd__destino-card__obs" *ngIf="d.observaciones">{{ d.observaciones }}</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- ═══════════════════ TAB: MISIONES ═══════════════════ -->
+    <article class="pd__card" *ngIf="activeTab() === 'misiones'">
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Misiones</h3>
+
+        <div class="pd__search" *ngIf="misiones().length > 0">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            [value]="busquedaMisiones()"
+            (input)="onBusquedaMisionesInput($any($event.target).value)"
+            placeholder="Buscar por misión o país..."
+            autocomplete="off"
+          />
+          <button
+            *ngIf="busquedaMisiones()"
+            type="button"
+            class="pd__search-clear"
+            (click)="onBusquedaMisionesInput('')"
+            aria-label="Limpiar búsqueda"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="pd__loading" *ngIf="loadingMisiones()">Cargando...</div>
+
+      <p class="pd__empty" *ngIf="!loadingMisiones() && misiones().length === 0">
+        No hay misiones registradas.
+      </p>
+
+      <p class="pd__empty" *ngIf="!loadingMisiones() && misiones().length > 0 && misionesFiltradas().length === 0">
+        No se encontraron misiones con esa búsqueda.
+      </p>
+
+      <div class="pd__missions-list" *ngIf="!loadingMisiones() && misionesFiltradas().length > 0">
+        <div class="pd__mission-card" *ngFor="let m of misionesFiltradas()">
+          <div class="pd__mission-card__top">
+            <span class="pd__mission-card__tipo">{{ m.nombre_mision }}</span>
+            <span class="pd__badge" [class.pd__badge--completado]="m.finalizada" [class.pd__badge--en-curso]="!m.finalizada">
+              {{ m.finalizada ? 'Finalizada' : 'En curso' }}
+            </span>
+          </div>
+          <div class="pd__mission-card__pais">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+            </svg>
+            {{ m.pais }}
+          </div>
+          <div class="pd__mission-card__meta">
+            <span>{{ formatDate(m.fecha_salida) }} – {{ m.fecha_llegada ? formatDate(m.fecha_llegada) : 'Presente' }}</span>
+            <span class="pd__mission-card__orden">{{ m.numero_orden || m.boletin }}</span>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <!-- ═══════════════════ TAB: DOCUMENTACIÓN ═══════════════════ -->
+    <article class="pd__card pd__card--placeholder" *ngIf="activeTab() === 'documentacion'">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.3" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+      </svg>
+      <p>Sección de documentos en desarrollo.</p>
+    </article>
+
+  </ng-container>
+
+</section>

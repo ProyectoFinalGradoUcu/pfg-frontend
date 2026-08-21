@@ -1,0 +1,313 @@
+$navy: #132744;
+$navy-soft: #1e3a5f;
+
+.aud {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: 1.5rem;
+}
+
+.aud__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.aud__filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  select,
+  input {
+    padding: 0.45rem 0.6rem;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: $navy;
+    background-color: #ffffff;
+    min-width: 160px;
+
+    &:focus {
+      outline: none;
+      border-color: $navy;
+    }
+  }
+}
+
+.aud__filtro-acciones {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.aud__card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.aud__placeholder {
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
+}
+
+.aud__table-wrapper {
+  overflow-x: auto;
+}
+
+.aud__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+
+  thead th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+    vertical-align: middle;
+  }
+
+  tbody tr:hover {
+    background-color: #f8fafc;
+  }
+}
+
+.aud__fecha {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #475569;
+}
+
+.aud__col-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.aud__muted {
+  color: #94a3b8;
+}
+
+.aud__badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background-color: #eef2f7;
+  color: $navy;
+
+  &[data-accion='CREAR'] { background-color: #dcfce7; color: #166534; }
+  &[data-accion='ACTUALIZAR'] { background-color: #dbeafe; color: #1e40af; }
+  &[data-accion='ELIMINAR'] { background-color: #fee2e2; color: #991b1b; }
+  &[data-accion='LOGIN'] { background-color: #e0e7ff; color: #3730a3; }
+  &[data-accion='LOGOUT'] { background-color: #f1f5f9; color: #475569; }
+  &[data-accion='LOGIN_FALLIDO'] { background-color: #fef3c7; color: #92400e; }
+}
+
+// ─── Botones ────────────────────────────────────────────────────────────────
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  background-color: #ffffff;
+  color: $navy;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btn--sm {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+.btn--primary {
+  background-color: $navy;
+  color: #ffffff;
+  border-color: $navy;
+
+  &:hover:not(:disabled) {
+    background-color: $navy-soft;
+    border-color: $navy-soft;
+  }
+}
+
+.btn--ghost {
+  border-color: $navy;
+  color: $navy;
+
+  &:hover:not(:disabled) {
+    background-color: #f1f5f9;
+  }
+}
+
+// ─── Modal de detalle ───────────────────────────────────────────────────────
+
+.aud__modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+}
+
+.aud__modal {
+  background-color: #ffffff;
+  border-radius: 12px;
+  width: min(640px, 100%);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+}
+
+.aud__modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: $navy;
+  }
+}
+
+.aud__modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.aud__modal-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.85rem;
+}
+
+.aud__modal-body {
+  padding: 1rem 1.25rem 1.25rem;
+  overflow: auto;
+}
+
+.aud__seccion + .aud__seccion {
+  margin-top: 1.1rem;
+}
+
+.aud__seccion--anidada {
+  margin-top: 0.9rem;
+  padding-left: 0.85rem;
+  border-left: 2px solid #e2e8f0;
+}
+
+.aud__seccion-titulo {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.aud__campos {
+  display: grid;
+  grid-template-columns: minmax(9rem, 40%) 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.aud__campo-etiqueta {
+  margin: 0;
+  color: #64748b;
+}
+
+.aud__campo-valor {
+  margin: 0;
+  color: #1e293b;
+  word-break: break-word;
+}
+
+.aud__tecnico {
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.aud__tecnico-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #64748b;
+  text-decoration: underline;
+
+  &:hover {
+    color: $navy;
+  }
+}
+
+.aud__detalle {
+  margin: 0.65rem 0 0;
+  padding: 0.85rem;
+  border-radius: 6px;
+  overflow: auto;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 0.8rem;
+  color: #1e293b;
+  background-color: #f8fafc;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -1,0 +1,224 @@
+$navy: #132744;
+$navy-soft: #1e3a5f;
+$accent: #4a9eff;
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+.appsel {
+  position: relative;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.appsel__control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.55rem;
+  padding: 0 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: #cbd5e1;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: $navy;
+  }
+
+  &:disabled {
+    background-color: #f8fafc;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+}
+
+.appsel--open .appsel__control {
+  border-color: $navy;
+}
+
+// El lado por donde sale el panel pierde el redondeo para que se vean como una pieza.
+.appsel--open:not(.appsel--up) .appsel__control {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.appsel--open.appsel--up .appsel__control {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.appsel__value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f172a;
+}
+
+.appsel__placeholder {
+  flex: 1;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appsel__icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.appsel__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 3px;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+}
+
+.appsel__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.appsel--open .appsel__arrow {
+  transform: rotate(180deg);
+}
+
+// `fixed` + coordenadas del control (ver `posicionarPanel`): así el panel no lo recorta
+// el `overflow` del modal o de la tabla que lo contenga.
+.appsel__dropdown {
+  position: fixed;
+  background-color: #ffffff;
+  border: 1px solid $navy;
+  border-top: 1px solid #e2e8f0;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  z-index: 1000;
+  max-height: 280px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.appsel__dropdown--up {
+  border-top-color: $navy;
+  border-bottom: 1px solid #e2e8f0;
+  border-radius: 6px 6px 0 0;
+}
+
+.appsel__search {
+  padding: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  background-color: #f8fafc;
+
+  input {
+    width: 100%;
+    height: 2rem;
+    padding: 0 0.65rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    background-color: #ffffff;
+
+    &:focus {
+      outline: none;
+      border-color: $navy;
+    }
+  }
+}
+
+.appsel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  overflow-y: auto;
+  max-height: 240px;
+  // Sin esto el item flex no baja de su alto de contenido y desborda el panel recortado.
+  min-height: 0;
+}
+
+.appsel__list--top {
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #f1f5f9;
+  background-color: #f8fafc;
+  max-height: none;
+}
+
+.appsel__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  color: #0f172a;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.1s ease;
+
+  &:hover {
+    background-color: #f1f5f9;
+    color: $navy;
+  }
+}
+
+.appsel__option--selected {
+  background-color: #e0f2fe;
+  color: $navy;
+  font-weight: 600;
+}
+
+.appsel__check {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: $accent;
+}
+
+.appsel__empty {
+  padding: 0.85rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}

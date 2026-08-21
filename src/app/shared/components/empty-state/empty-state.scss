@@ -1,0 +1,27 @@
+.empty-state {
+  padding: 1.25rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background-color: #ffffff;
+
+  h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+  }
+
+  p {
+    margin: 0 0 1rem;
+    color: #475569;
+  }
+
+  a {
+    display: inline-block;
+    padding: 0.5rem 0.875rem;
+    border-radius: 8px;
+    background-color: #0f172a;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+}

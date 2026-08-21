@@ -1,0 +1,83 @@
+<section class="visor">
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" (click)="volver()">Reportes</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">
+      {{ definicion()?.titulo ?? 'Reporte' }}
+    </span>
+  </nav>
+
+  @if (cargandoDef()) {
+    <p class="visor__estado">Cargando reporte…</p>
+  } @else if (definicion(); as def) {
+    <app-page-header [title]="def.titulo" [subtitle]="def.descripcion"></app-page-header>
+
+    <div class="visor__filtros">
+      @for (param of def.parametros; track trackParam($index, param)) {
+        <div class="campo">
+          <label [attr.for]="param.clave">{{ param.etiqueta }}</label>
+
+          @switch (param.tipo) {
+            @case ('select') {
+              <select
+                [id]="param.clave"
+                [value]="valores()[param.clave]"
+                (change)="setValor(param.clave, $event)"
+              >
+                <option value="">Todos</option>
+                @for (opt of param.opciones ?? []; track opt.valor) {
+                  <option [value]="opt.valor">{{ opt.etiqueta }}</option>
+                }
+              </select>
+            }
+            @case ('fecha') {
+              <input
+                type="date"
+                [id]="param.clave"
+                [value]="valores()[param.clave]"
+                (change)="setValor(param.clave, $event)"
+              />
+            }
+            @case ('numero') {
+              <input
+                type="number"
+                [id]="param.clave"
+                [value]="valores()[param.clave]"
+                (change)="setValor(param.clave, $event)"
+              />
+            }
+            @default {
+              <input
+                type="text"
+                [id]="param.clave"
+                [value]="valores()[param.clave]"
+                (change)="setValor(param.clave, $event)"
+              />
+            }
+          }
+          @if (param.ayuda) {
+            <small class="campo__ayuda">{{ param.ayuda }}</small>
+          }
+        </div>
+      }
+
+      <div class="visor__acciones">
+        <button type="button" class="btn btn--primary" [disabled]="generando()" (click)="generar()">
+          {{ generando() ? 'Generando…' : 'Generar' }}
+        </button>
+        <button
+          type="button"
+          class="btn btn--ghost"
+          [disabled]="!resultado() || exportando()"
+          (click)="exportar()"
+        >
+          {{ exportando() ? 'Exportando…' : 'Exportar a Excel' }}
+        </button>
+      </div>
+    </div>
+
+    @if (resultado(); as res) {
+      <app-reporte-resultado [resultado]="res"></app-reporte-resultado>
+    }
+  }
+</section>

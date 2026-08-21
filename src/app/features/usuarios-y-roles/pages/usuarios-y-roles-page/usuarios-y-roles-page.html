@@ -1,0 +1,519 @@
+<section class="ur" (click)="cerrarMenu()">
+  <header class="ur__header">
+    <div>
+      <h2>Gestión de Usuarios y Roles</h2>
+      <p>Administración de usuarios del sistema y asignación de permisos</p>
+    </div>
+    <div class="ur__header-actions">
+      <button
+        *ngIf="tab() === 'usuarios' && puedeGestionarUsuarios()"
+        type="button"
+        class="btn btn--ghost btn--lg"
+        (click)="abrirNuevoUsuario()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+        </svg>
+        Nuevo Usuario
+      </button>
+      <button
+        *ngIf="tab() === 'roles' && puedeGestionarRoles()"
+        type="button"
+        class="btn btn--primary"
+        (click)="abrirNuevoRol()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Crear rol
+      </button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="ur__tabs">
+    <button
+      class="ur__tab"
+      [class.ur__tab--active]="tab() === 'usuarios'"
+      (click)="cambiarTab('usuarios')"
+    >Usuarios</button>
+    <button
+      class="ur__tab"
+      [class.ur__tab--active]="tab() === 'invitaciones'"
+      (click)="cambiarTab('invitaciones')"
+    >Invitaciones</button>
+    <button
+      class="ur__tab"
+      [class.ur__tab--active]="tab() === 'roles'"
+      (click)="cambiarTab('roles')"
+    >Roles y Permisos</button>
+    <button
+      *ngIf="puedeVerUnidades()"
+      class="ur__tab"
+      [class.ur__tab--active]="tab() === 'unidades'"
+      (click)="cambiarTab('unidades')"
+    >Unidades</button>
+  </nav>
+
+  <!-- ── TAB: USUARIOS ─────────────────────────────────────────────────── -->
+  <article class="ur__card" *ngIf="tab() === 'usuarios'">
+    <h3>Usuarios del Sistema</h3>
+
+    <div *ngIf="usuariosLoading()" class="ur__placeholder">Cargando...</div>
+
+    <div *ngIf="!usuariosLoading()" class="ur__table-wrapper">
+      <table class="ur__table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Roles</th>
+            <th>Unidad</th>
+            <th>Estado</th>
+            <th *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of usuarios(); trackBy: trackUsuario">
+            <td>
+              <div class="ur__user-cell">
+                <span *ngIf="u.persona" class="ur__avatar" aria-hidden="true"></span>
+                <strong *ngIf="u.persona">{{ u.persona.nombre }}</strong>
+                <strong *ngIf="!u.persona" class="ur__muted">Sin vincular</strong>
+                <span *ngIf="u.id === currentUserId()" class="ur__badge ur__badge--self">vos</span>
+              </div>
+            </td>
+            <td><span class="ur__email">{{ u.username }}</span></td>
+            <td>
+              <span *ngFor="let r of u.roles" class="ur__rol-badge" [attr.data-rol]="r.nombre">
+                {{ r.nombre }}
+              </span>
+              <small *ngIf="u.roles.length === 0" class="ur__muted">sin roles</small>
+            </td>
+            <td>
+              <!--
+                Unidad derivada de la relación laboral activa: es la que determina los permisos
+                heredados y el alcance de datos. No se edita desde acá (spec 002).
+              -->
+              <ng-container *ngIf="u.unidades.length > 0; else sinUnidad">
+                <span *ngFor="let unidad of u.unidades; let last = last">
+                  {{ unidad.denominacion }}<ng-container *ngIf="!last">, </ng-container>
+                </span>
+              </ng-container>
+              <ng-template #sinUnidad>
+                <span class="ur__muted" title="Sin unidad: opera con alcance general">—</span>
+              </ng-template>
+            </td>
+            <td>
+              <span class="ur__estado" [class.ur__estado--bloq]="u.estado === 'bloqueado'">
+                {{ u.estado }}
+              </span>
+            </td>
+            <td *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">
+              <button type="button" class="btn btn--ghost btn--sm" (click)="abrirEditar(u)">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                </svg>
+                Editar
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="usuariosTotal() === 0">
+            <td [attr.colspan]="puedeGestionarUsuarios() ? 6 : 5" class="ur__empty">
+              No hay usuarios registrados
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-paginator
+      [totalItems]="usuariosTotal()"
+      [pageSize]="usuariosPageSize"
+      [currentPage]="usuariosPage()"
+      (pageChange)="onUsuariosPageChange($event)"
+    ></app-paginator>
+  </article>
+
+  <!-- ── TAB: INVITACIONES ─────────────────────────────────────────────── -->
+  <article class="ur__card" *ngIf="tab() === 'invitaciones'">
+    <header class="ur__card-header">
+      <h3>Invitaciones</h3>
+      <div class="ur__filter">
+        <select [value]="estadoFiltro()" (change)="onEstadoFiltroChange($event)">
+          <option *ngFor="let o of estadosFiltro" [value]="o.value">{{ o.label }}</option>
+        </select>
+      </div>
+    </header>
+
+    <div *ngIf="invitacionesLoading()" class="ur__placeholder">Cargando...</div>
+
+    <div *ngIf="!invitacionesLoading()" class="ur__table-wrapper">
+      <table class="ur__table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Roles</th>
+            <th>Estado</th>
+            <th>Creada</th>
+            <th>Expira</th>
+            <th *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let inv of invitaciones(); trackBy: trackInvitacion">
+            <td><span class="ur__email">{{ inv.email }}</span></td>
+            <td>
+              <span *ngFor="let r of inv.roles" class="ur__rol-badge" [attr.data-rol]="r">{{ r }}</span>
+              <small *ngIf="inv.roles.length === 0" class="ur__muted">—</small>
+            </td>
+            <td>
+              <span
+                class="ur__inv-estado"
+                [class.ur__inv-estado--pendiente]="inv.estado === 'pendiente'"
+                [class.ur__inv-estado--aceptada]="inv.estado === 'aceptada'"
+                [class.ur__inv-estado--expirada]="inv.estado === 'expirada'"
+              >{{ inv.estado }}</span>
+            </td>
+            <td class="ur__date">{{ inv.creadoEn | date:'dd/MM/yyyy' }}</td>
+            <td class="ur__date">{{ inv.expiraEn | date:'dd/MM/yyyy HH:mm' }}</td>
+            <td *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">
+              <button
+                *ngIf="inv.estado === 'pendiente'"
+                type="button"
+                class="btn btn--danger btn--sm"
+                [disabled]="revocandoId() === inv.id"
+                (click)="revocarInvitacion(inv)"
+              >
+                Revocar
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="invitaciones().length === 0">
+            <td [attr.colspan]="puedeGestionarUsuarios() ? 6 : 5" class="ur__empty">
+              No hay invitaciones con ese estado
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <!-- ── TAB: ROLES Y PERMISOS ─────────────────────────────────────────── -->
+  <article class="ur__card" *ngIf="tab() === 'roles' && !loading()">
+    <header class="ur__card-header">
+      <h3>Roles del Sistema</h3>
+    </header>
+
+    <div class="ur__table-wrapper">
+      <table class="ur__table">
+        <thead>
+          <tr>
+            <th>Rol</th>
+            <th>Descripción</th>
+            <th>Permisos</th>
+            <th>Usuarios</th>
+            <th *ngIf="puedeGestionarRoles()" class="ur__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of roles(); trackBy: trackRol">
+            <td>
+              <span class="ur__rol-badge" [attr.data-rol]="r.nombre">{{ r.nombre }}</span>
+            </td>
+            <td>
+              <span *ngIf="r.descripcion; else sinDesc">{{ r.descripcion }}</span>
+              <ng-template #sinDesc><span class="ur__muted">—</span></ng-template>
+            </td>
+            <td><span class="ur__count-badge">{{ r.permisos.length }}</span></td>
+            <td><span class="ur__count-badge">{{ r.cantidadUsuarios }}</span></td>
+            <td *ngIf="puedeGestionarRoles()" class="ur__col-actions" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="btn btn--ghost btn--sm ur__menu-btn"
+                (click)="toggleMenu(r.id, $event)"
+                [class.ur__menu-btn--open]="menuAbierto() === r.id"
+                aria-label="Acciones"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                </svg>
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="roles().length === 0">
+            <td [attr.colspan]="puedeGestionarRoles() ? 5 : 4" class="ur__empty">
+              No hay roles registrados
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <!-- Dropdown kebab de roles (fixed, escapa del overflow de la tabla) -->
+  <ng-container *ngIf="tab() === 'roles'">
+    <ng-container *ngFor="let r of roles(); trackBy: trackRol">
+      <div
+        *ngIf="menuAbierto() === r.id && menuPosition() as pos"
+        class="ur__dropdown"
+        [style.top.px]="pos.top"
+        [style.right.px]="pos.right"
+        (click)="$event.stopPropagation()"
+      >
+        <button type="button" class="ur__dropdown-item" (click)="abrirEditarRol(r)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+          </svg>
+          Editar
+        </button>
+        <button type="button" class="ur__dropdown-item" (click)="irAEditarPermisos(r)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          Editar permisos
+        </button>
+        <button type="button" class="ur__dropdown-item ur__dropdown-item--danger" (click)="eliminarRol(r)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+          </svg>
+          Eliminar
+        </button>
+      </div>
+    </ng-container>
+  </ng-container>
+
+  <!-- ── TAB: UNIDADES ─────────────────────────────────────────────────── -->
+  <app-unidades-page *ngIf="tab() === 'unidades'"></app-unidades-page>
+
+  <!-- ── MODAL: NUEVO USUARIO ──────────────────────────────────────────── -->
+  <div *ngIf="modal() === 'nuevoUsuario'" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Nuevo Usuario</h3>
+          <p>Se enviará un correo de invitación para que el usuario establezca su contraseña.</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="nuevoUsuarioForm" (ngSubmit)="crearUsuario()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <label class="modal__field">
+          <span>Email <em>*</em></span>
+          <input type="email" formControlName="username" placeholder="ej: juan.perez@fau.mil.uy" autocomplete="off" />
+        </label>
+
+        <label class="modal__field">
+          <span>Roles <em>*</em></span>
+          <app-select
+            formControlName="roles"
+            [items]="roles()"
+            bindLabel="nombre"
+            bindValue="nombre"
+            placeholder="Seleccione uno o más roles"
+            [searchable]="true"
+            [multiple]="true"
+          ></app-select>
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Enviar invitación</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL: EDITAR USUARIO ─────────────────────────────────────────── -->
+  <div *ngIf="modal() === 'editarUsuario' && editTarget() as t" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>Editar Usuario</h3>
+          <p>{{ t.persona?.nombre ?? t.username }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="editForm" (ngSubmit)="guardarEdicion()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <label class="modal__field">
+          <span>Roles</span>
+          <app-select
+            formControlName="roles"
+            [items]="roles()"
+            bindLabel="nombre"
+            bindValue="nombre"
+            placeholder="Seleccione uno o más roles"
+            [searchable]="true"
+            [multiple]="true"
+          ></app-select>
+        </label>
+
+        <label class="modal__field">
+          <span>Estado</span>
+          <app-select
+            formControlName="estado"
+            [items]="estadosOpciones"
+            bindLabel="label"
+            bindValue="value"
+            placeholder="Seleccione un estado"
+            [searchable]="true"
+          ></app-select>
+        </label>
+
+        <label class="modal__field">
+          <span>Unidad</span>
+          <app-select
+            formControlName="unidadIds"
+            [items]="unidadesCatalogo()"
+            bindLabel="denominacion"
+            bindValue="id"
+            placeholder="Sin unidades (ve todo el padrón)"
+            [searchable]="true"
+            [clearable]="true"
+            [multiple]="true"
+          ></app-select>
+          <small class="modal__hint">
+            Define qué personal ve este usuario y de qué unidades hereda roles. Al cambiarlas se
+            cierra su sesión activa.
+          </small>
+        </label>
+
+        <label class="modal__field">
+          <span>Nueva contraseña <small>(opcional)</small></span>
+          <input type="text" formControlName="nuevaPassword" placeholder="Dejar vacío para no cambiar" autocomplete="off" />
+        </label>
+
+        <!-- ── Permisos efectivos (read-only) ────────────────────────────────── -->
+        <div class="permisos-efectivos">
+          <h4 class="permisos-efectivos__titulo">
+            Permisos efectivos
+            <span *ngIf="!cargandoPermisos()" class="permisos-efectivos__count">({{ permisosDelTarget().length }})</span>
+          </h4>
+
+          <p *ngIf="cargandoPermisos()" class="permisos-efectivos__loading">Cargando permisos…</p>
+
+          <p *ngIf="!cargandoPermisos() && permisosDelTarget().length === 0" class="permisos-efectivos__vacio">
+            Este usuario no tiene permisos efectivos. Asignale roles directamente o una unidad con roles.
+          </p>
+
+          <div *ngIf="!cargandoPermisos() && permisosDelTarget().length > 0" class="permisos-efectivos__grupos">
+            <!-- Grupo: Alcance Global -->
+            <div class="permisos-efectivos__grupo" *ngIf="permisosGlobales().length > 0">
+              <div class="permisos-efectivos__grupo-header">
+                <span class="badge badge--global">Global</span>
+                <span class="permisos-efectivos__grupo-count">{{ permisosGlobales().length }}</span>
+              </div>
+              <div class="permisos-efectivos__lista">
+                <div class="permisos-efectivos__item" *ngFor="let p of permisosGlobales()">
+                  <code class="permisos-efectivos__nombre">{{ p.nombre }}</code>
+                  <span class="permisos-efectivos__origen">
+                    <span class="badge" [class.badge--directo]="p.origen === 'directo'" [class.badge--heredado]="p.origen === 'unidad'">
+                      {{ p.origen === 'directo' ? 'Directo' : 'Unidad' }}
+                    </span>
+                    {{ p.origen === 'unidad' ? p.unidad : p.rol }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Grupo: Alcance Unidad -->
+            <div class="permisos-efectivos__grupo" *ngIf="permisosUnidad().length > 0">
+              <div class="permisos-efectivos__grupo-header">
+                <span class="badge badge--unidad">Unidad</span>
+                <span class="permisos-efectivos__grupo-count">{{ permisosUnidad().length }}</span>
+              </div>
+              <div class="permisos-efectivos__lista">
+                <div class="permisos-efectivos__item" *ngFor="let p of permisosUnidad()">
+                  <code class="permisos-efectivos__nombre">{{ p.nombre }}</code>
+                  <span class="permisos-efectivos__origen">
+                    <span class="badge" [class.badge--directo]="p.origen === 'directo'" [class.badge--heredado]="p.origen === 'unidad'">
+                      {{ p.origen === 'directo' ? 'Directo' : 'Unidad' }}
+                    </span>
+                    {{ p.origen === 'unidad' ? p.unidad : p.rol }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <small class="permisos-efectivos__nota">
+            Los permisos se heredan de los roles directos y de los roles asignados a su unidad.
+          </small>
+        </div>
+
+        <footer class="modal__actions">
+          <button
+            *ngIf="editTarget()!.estado === 'activo' && editTarget()!.id !== currentUserId()"
+            type="button"
+            class="btn btn--danger"
+            (click)="deshabilitarUsuario(editTarget()!)"
+          >Deshabilitar usuario</button>
+          <button
+            *ngIf="editTarget()!.estado === 'bloqueado'"
+            type="button"
+            class="btn btn--ghost"
+            (click)="reactivarUsuario(editTarget()!)"
+          >Reactivar usuario</button>
+          <span class="modal__spacer"></span>
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">Guardar cambios</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── MODAL: CREAR / EDITAR ROL ───────────────────────────────────────── -->
+  <div *ngIf="modal() === 'nuevoRol' || modal() === 'editarRol'" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <div>
+          <h3>{{ modal() === 'nuevoRol' ? 'Crear rol' : 'Editar rol' }}</h3>
+          <p>
+            {{ modal() === 'nuevoRol'
+              ? 'Definí un nuevo rol. Luego podrás asignarle permisos.'
+              : 'Modificá el nombre o la descripción del rol.' }}
+          </p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="rolForm" (ngSubmit)="guardarRol()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <label class="modal__field">
+          <span>Nombre <em>*</em></span>
+          <input type="text" formControlName="nombre" placeholder="ej: Encargado de Misiones" autocomplete="off" />
+        </label>
+
+        <label class="modal__field">
+          <span>Descripción <small>(opcional)</small></span>
+          <input type="text" formControlName="descripcion" placeholder="Breve descripción del rol" autocomplete="off" />
+        </label>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary">
+            {{ modal() === 'nuevoRol' ? 'Crear rol' : 'Guardar cambios' }}
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+</section>

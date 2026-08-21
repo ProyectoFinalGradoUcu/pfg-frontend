@@ -1,0 +1,106 @@
+<section class="custom">
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" (click)="volver()">Reportes</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">Reporte personalizado</span>
+  </nav>
+
+  <app-page-header
+    title="Reporte personalizado"
+    subtitle="Elegí una fuente de datos, las columnas y los filtros; después generá y exportá."
+  ></app-page-header>
+
+  @if (cargando()) {
+    <p class="custom__estado">Cargando…</p>
+  } @else {
+    <div class="config">
+      <div class="campo">
+        <label for="fuente">Fuente de datos</label>
+        <select id="fuente" [value]="fuenteClave()" (change)="onFuenteChange($event)">
+          @for (f of fuentes(); track f.clave) {
+            <option [value]="f.clave">{{ f.titulo }}</option>
+          }
+        </select>
+      </div>
+
+      @if (fuenteActual(); as fuente) {
+        <div class="bloque">
+          <h3 class="bloque__titulo">Columnas</h3>
+          <div class="columnas">
+            @for (col of fuente.columnas; track col.clave) {
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [checked]="columnaActiva(col.clave)"
+                  (change)="toggleColumna(col.clave)"
+                />
+                {{ col.etiqueta }}
+              </label>
+            }
+          </div>
+        </div>
+
+        @if (fuente.filtros.length) {
+          <div class="bloque">
+            <h3 class="bloque__titulo">Filtros</h3>
+            <div class="filtros">
+              @for (param of fuente.filtros; track trackParam($index, param)) {
+                <div class="campo">
+                  <label [attr.for]="param.clave">{{ param.etiqueta }}</label>
+                  @switch (param.tipo) {
+                    @case ('select') {
+                      <select
+                        [id]="param.clave"
+                        [value]="valores()[param.clave]"
+                        (change)="setValor(param.clave, $event)"
+                      >
+                        <option value="">Todos</option>
+                        @for (opt of param.opciones ?? []; track opt.valor) {
+                          <option [value]="opt.valor">{{ opt.etiqueta }}</option>
+                        }
+                      </select>
+                    }
+                    @case ('fecha') {
+                      <input
+                        type="date"
+                        [id]="param.clave"
+                        [value]="valores()[param.clave]"
+                        (change)="setValor(param.clave, $event)"
+                      />
+                    }
+                    @default {
+                      <input
+                        type="text"
+                        [id]="param.clave"
+                        [value]="valores()[param.clave]"
+                        (change)="setValor(param.clave, $event)"
+                      />
+                    }
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="acciones">
+          <button type="button" class="btn btn--primary" [disabled]="generando()" (click)="generar()">
+            {{ generando() ? 'Generando…' : 'Generar' }}
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            [disabled]="!resultado() || exportando()"
+            (click)="exportar()"
+          >
+            {{ exportando() ? 'Exportando…' : 'Exportar a Excel' }}
+          </button>
+        </div>
+      }
+    </div>
+
+    @if (resultado(); as res) {
+      <app-reporte-resultado [resultado]="res"></app-reporte-resultado>
+    }
+  }
+</section>

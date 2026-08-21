@@ -1,0 +1,66 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 64px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.topbar__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.topbar__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.topbar__subtitle {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.topbar__logout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  border: 1.5px solid #132744;
+  border-radius: 6px;
+  background: transparent;
+  color: #132744;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    background-color: #132744;
+    color: #ffffff;
+  }
+}
+
+/* Indicador de alcance: visible siempre que el usuario vea una porción de los datos. */
+.topbar__alcance {
+  margin-left: auto;
+  margin-right: 1rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background-color: #132744;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
