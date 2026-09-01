@@ -107,6 +107,11 @@
     color: #132744;
     &:hover { background: #f0f4f8; }
   }
+
+  &--sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
 }
 
 .pd__edit-spinner {
@@ -320,6 +325,30 @@
 
 // ─── Familiares ────────────────────────────────────────────────────────────────
 
+.pd__familiar-alert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: #fef2f2;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+.pd__familiar-retry-btn {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: transparent;
+  color: #991b1b;
+  border: 1.5px solid #991b1b;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .pd__familiar-grid {
   display: flex;
   flex-direction: column;
@@ -334,6 +363,14 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #f8fafc;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover, &:focus-visible {
+    border-color: #132744;
+    background: #f1f5f9;
+    outline: none;
+  }
 }
 
 .pd__familiar-avatar {
@@ -392,6 +429,99 @@
 .pd__familiar-unidad {
   font-size: 0.73rem;
   color: #94a3b8;
+}
+
+.pd__familiar-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 6px;
+
+  svg { width: 16px; height: 16px; }
+  &:hover { background: #fee2e2; color: #b91c1c; }
+}
+
+.pd__familiar-add {
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.pd__familiar-add-search {
+  position: relative;
+}
+
+.pd__familiar-add-dropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.pd__familiar-add-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.85rem;
+  color: #0f172a;
+  cursor: pointer;
+
+  &:hover { background: #f1f5f9; }
+}
+
+.pd__familiar-add-item-cedula {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.pd__familiar-add-empty {
+  padding: 0.6rem 0.85rem;
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+}
+
+.pd__familiar-add-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pd__familiar-add-confirm-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-right: 0.5rem;
+
+  strong { font-size: 0.9rem; color: #0f172a; }
+  span { font-size: 0.78rem; color: #64748b; }
+}
+
+.pd__familiar-add-confirm .pd__edit-select {
+  width: auto;
+  min-width: 180px;
 }
 
 // ─── Historial timeline ───────────────────────────────────────────────────────

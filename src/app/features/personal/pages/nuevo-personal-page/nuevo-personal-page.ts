@@ -152,8 +152,6 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       .subscribe((esCivil: boolean) => {
         this.toggleCivilMode(esCivil);
         if (!esCivil) {
-          // Al volver a no-civil, limpiar familiares
-          this.familiares.set([]);
           this.familiaresError.set(false);
         }
       });
@@ -227,6 +225,10 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
 
   removeFamiliar(index: number): void {
     this.familiares.update(list => list.filter((_, i) => i !== index));
+  }
+
+  trackByFamiliarCedula(_index: number, f: FamiliarEntry): string {
+    return f.persona.cedula;
   }
 
   updateTipoRelacion(index: number, event: Event): void {
@@ -303,12 +305,14 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       ...(raw.observaciones    && { observaciones:    raw.observaciones }),
     };
 
-    if (esCivil) {
+    if (this.familiares().length > 0) {
       payload['familiares'] = this.familiares().map(f => ({
         cedula: f.persona.cedula,
         ...(f.tipo_relacion && { tipo_relacion: f.tipo_relacion }),
       }));
-    } else {
+    }
+
+    if (!esCivil) {
       payload['tipo_funcionario'] = raw.tipo_funcionario;
       payload['regimen_id']       = Number(raw.regimen_id);
       payload['escalafon_id']     = Number(raw.escalafon_id);

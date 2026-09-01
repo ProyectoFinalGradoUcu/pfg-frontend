@@ -344,7 +344,7 @@
             <div class="pd__field-list" *ngIf="editMode() && p.es_civil">
               <div class="pd__field">
                 <span class="pd__label">Unidad</span>
-                <span class="pd__value">{{ p.relacion_laboral.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__value">{{ p.relacion_laboral?.unidad?.denominacion ?? '—' }}</span>
                 <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
@@ -388,12 +388,67 @@
 
       <div class="pd__loading" *ngIf="loadingFamiliar()">Cargando...</div>
 
-      <p class="pd__empty" *ngIf="!loadingFamiliar() && familiares().length === 0">
-        Información familiar no disponible en este momento.
+      <div class="pd__familiar-alert" *ngIf="!loadingFamiliar() && familiarError()">
+        {{ familiarError() }}
+        <button type="button" class="pd__familiar-retry-btn" (click)="retryFamiliares()">Reintentar</button>
+      </div>
+
+      <div class="pd__familiar-add" *ngIf="!loadingFamiliar() && !familiarError() && editMode()">
+        <div class="pd__familiar-add-search" *ngIf="!familiarAddElegido()">
+          <input
+            type="text"
+            class="pd__edit-input"
+            placeholder="Buscar familiar por cédula o nombre (debe ser oficial o subalterno)..."
+            [value]="familiarAddSearch()"
+            (input)="onFamiliarAddSearch($event)"
+            (blur)="onFamiliarAddBlur()"
+            (focus)="familiarAddDropdownOpen.set(familiarAddResults().length > 0)"
+            autocomplete="off"
+          />
+          <div class="pd__familiar-add-dropdown" *ngIf="familiarAddDropdownOpen()">
+            <button
+              type="button"
+              class="pd__familiar-add-item"
+              *ngFor="let p of familiarAddResults()"
+              (click)="elegirFamiliarAAgregar(p)"
+            >
+              <span>{{ p.nombre }}</span>
+              <span class="pd__familiar-add-item-cedula">{{ p.cedula }}</span>
+            </button>
+            <p class="pd__familiar-add-empty"
+              *ngIf="familiarAddResults().length === 0 && familiarAddSearch().length >= 2">
+              Sin resultados
+            </p>
+          </div>
+        </div>
+
+        <div class="pd__familiar-add-confirm" *ngIf="familiarAddElegido() as elegido">
+          <div class="pd__familiar-add-confirm-info">
+            <strong>{{ elegido.nombre }}</strong>
+            <span>{{ elegido.cedula }}</span>
+          </div>
+          <select class="pd__edit-select" [value]="familiarAddTipoRelacion()"
+            (change)="familiarAddTipoRelacion.set($any($event.target).value)">
+            <option value="">Tipo de relación (opcional)</option>
+            <option *ngFor="let t of tipoRelacionOpciones" [value]="t">{{ t }}</option>
+          </select>
+          <button type="button" class="pd__edit-btn pd__edit-btn--sm" [disabled]="guardandoFamiliar()"
+            (click)="confirmarAgregarFamiliar()">
+            {{ guardandoFamiliar() ? 'Agregando...' : 'Agregar' }}
+          </button>
+          <button type="button" class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm"
+            (click)="cancelarAgregarFamiliar()">Cancelar</button>
+        </div>
+      </div>
+
+      <p class="pd__empty" *ngIf="!loadingFamiliar() && !familiarError() && familiares().length === 0">
+        Este funcionario no tiene familiares registrados.
       </p>
 
-      <div class="pd__familiar-grid" *ngIf="!loadingFamiliar() && familiares().length > 0">
-        <div class="pd__familiar-card" *ngFor="let f of familiares()">
+      <div class="pd__familiar-grid" *ngIf="!loadingFamiliar() && !familiarError() && familiares().length > 0">
+        <div class="pd__familiar-card" *ngFor="let f of familiares()"
+          (click)="abrirFamiliarDetalle(f)" (keydown.enter)="abrirFamiliarDetalle(f)"
+          role="button" tabindex="0">
           <div class="pd__familiar-avatar">{{ f.nombre_completo[0] }}</div>
           <div class="pd__familiar-info">
             <span class="pd__familiar-nombre">{{ f.nombre_completo }}</span>
@@ -401,9 +456,15 @@
           </div>
           <span class="pd__familiar-relacion" *ngIf="f.tipo_relacion">{{ f.tipo_relacion }}</span>
           <div class="pd__familiar-destino" *ngIf="f.grado || f.unidad">
-            <span *ngIf="f.grado">{{ f.grado!.denominacion }}</span>
-            <span *ngIf="f.unidad" class="pd__familiar-unidad">{{ f.unidad!.denominacion }}</span>
+            <span *ngIf="f.grado">{{ f.grado }}</span>
+            <span *ngIf="f.unidad" class="pd__familiar-unidad">{{ f.unidad }}</span>
           </div>
+          <button type="button" class="pd__familiar-remove" *ngIf="editMode()"
+            (click)="$event.stopPropagation(); quitarFamiliar(f)" aria-label="Quitar familiar">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
     </article>
@@ -609,6 +670,12 @@
       </svg>
       <p>Sección de documentos en desarrollo.</p>
     </article>
+
+    <app-familiar-detalle-modal
+      *ngIf="familiarSeleccionado() as f"
+      [familiar]="f"
+      (cerrado)="cerrarFamiliarDetalle()"
+    ></app-familiar-detalle-modal>
 
   </ng-container>
 
