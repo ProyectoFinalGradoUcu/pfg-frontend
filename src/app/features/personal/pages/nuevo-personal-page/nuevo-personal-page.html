@@ -252,15 +252,15 @@
       </div>
     </article>
 
-    <!-- ── Sección 2b: Datos civil (solo cuando es civil) ── -->
-    <article class="nf__card" *ngIf="form.get('es_civil')?.value">
-      <h2 class="nf__section-title">Datos adicionales</h2>
+    <!-- ── Sección 3: Familiares (siempre visible; obligatorio solo para civiles) ── -->
+    <article class="nf__card">
+      <h2 class="nf__section-title">Familiares</h2>
       <div class="nf__grid">
 
         <!-- Familiares -->
         <div class="nf__field nf__field--full">
           <label class="nf__label">
-            Familiares militares <span class="nf__req">*</span>
+            Familiares militares <span class="nf__req" *ngIf="form.get('es_civil')?.value">*</span>
           </label>
           <p class="nf__field-hint">Buscá al personal militar (oficial o subalterno) y agregalo. Podés agregar más de uno.</p>
 
@@ -304,7 +304,7 @@
 
           <!-- Lista de familiares agregados -->
           <div class="nf__familiar-list" *ngIf="familiares().length > 0">
-            <div class="nf__familiar-row" *ngFor="let f of familiares(); let i = index">
+            <div class="nf__familiar-row" *ngFor="let f of familiares(); let i = index; trackBy: trackByFamiliarCedula">
               <div class="nf__familiar-row__info">
                 <span class="nf__familiar-row__nombre">{{ f.persona.nombre }}</span>
                 <span class="nf__familiar-row__cedula">{{ f.persona.cedula }}</span>
@@ -326,8 +326,8 @@
           </div>
         </div>
 
-        <!-- Observaciones -->
-        <div class="nf__field nf__field--full">
+        <!-- Observaciones (para militares ya está en la sección de Datos laborales) -->
+        <div class="nf__field nf__field--full" *ngIf="form.get('es_civil')?.value">
           <label class="nf__label" for="observaciones_civil">Observaciones</label>
           <textarea id="observaciones_civil" formControlName="observaciones"
             class="nf__textarea" rows="3" placeholder="Observaciones adicionales..."></textarea>

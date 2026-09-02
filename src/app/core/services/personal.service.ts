@@ -8,6 +8,7 @@ import {
   CrearPersonaResponse,
   CursoPersona,
   FamiliarItem,
+  FamiliarPayload,
   FindPersonasParams,
   GradoItem,
   HistorialMilitar,
@@ -96,6 +97,14 @@ export class PersonalService {
 
   getFamiliares(id: number): Observable<FamiliarItem[]> {
     return this.http.get<FamiliarItem[]>(`${API_BASE_URL}/personas/${id}/familiares`, { withCredentials: true });
+  }
+
+  agregarFamiliar(id: number, payload: FamiliarPayload): Observable<FamiliarItem> {
+    return this.http.post<FamiliarItem>(`${API_BASE_URL}/personas/${id}/familiares`, payload, { withCredentials: true });
+  }
+
+  quitarFamiliar(id: number, familiarId: number): Observable<void> {
+    return this.http.delete<void>(`${API_BASE_URL}/personas/${id}/familiares/${familiarId}`, { withCredentials: true });
   }
 
   getHistorialMilitar(id: number): Observable<HistorialMilitar> {

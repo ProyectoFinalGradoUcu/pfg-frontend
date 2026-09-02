@@ -2,10 +2,10 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import {
   CursoPersona, FamiliarItem, GradoItem, HistorialMilitar,
-  MisionPersona, OpcionSelect, PatchPersonaPayload, PersonaDetalle,
+  MisionPersona, OpcionSelect, PatchPersonaPayload, PersonaDetalle, PersonaListItem,
 } from '../../../../core/models/personal.models';
 import { DestinoDePersona } from '../../../../core/models/destinos.models';
 import { PersonalService } from '../../../../core/services/personal.service';
@@ -43,8 +43,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     if (!p) return [];
     return [
       { key: 'personal',       label: 'Datos Personales'     },
+      { key: 'familiar',       label: 'Información Familiar' },
       ...(p.es_civil
-        ? [{ key: 'familiar' as TabKey, label: 'Información Familiar' }]
+        ? []
         : [{ key: 'historial' as TabKey, label: 'Historial Militar'   }]),
       { key: 'cursos',         label: 'Cursos'               },
       { key: 'destinos',       label: 'Destinos'             },
@@ -56,6 +57,18 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   // ─── Tab data ─────────────────────────────────────────────────────────────────
   readonly familiares       = signal<FamiliarItem[]>([]);
   readonly loadingFamiliar  = signal(false);
+  readonly familiarError    = signal<string | null>(null);
+  readonly familiarSeleccionado = signal<FamiliarItem | null>(null);
+
+  // ─── Agregar familiar (modo edición) ───────────────────────────────────────────
+  readonly tipoRelacionOpciones = ['Cónyuge', 'Padre', 'Madre', 'Hijo/a', 'Hermano/a', 'Otro'];
+  readonly familiarAddSearch    = signal('');
+  readonly familiarAddResults   = signal<PersonaListItem[]>([]);
+  readonly familiarAddDropdownOpen = signal(false);
+  readonly familiarAddElegido   = signal<PersonaListItem | null>(null);
+  readonly familiarAddTipoRelacion = signal('');
+  readonly guardandoFamiliar    = signal(false);
+  private readonly familiarAddSearch$ = new Subject<string>();
   readonly historial        = signal<HistorialMilitar | null>(null);
   readonly loadingHistorial = signal(false);
   readonly sortedRangos     = computed(() => {
@@ -174,6 +187,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     this.personaId = Number(raw);
     this.loadPersona();
     this.setupEscalafonCascade();
+    this.setupFamiliarAddSearch();
   }
 
   ngOnDestroy(): void {
@@ -224,11 +238,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     this.loadedTabs.add(key);
     switch (key) {
       case 'familiar':
-        this.loadingFamiliar.set(true);
-        this.svc.getFamiliares(this.personaId).subscribe({
-          next: d => { this.familiares.set(d); this.loadingFamiliar.set(false); },
-          error: () => this.loadingFamiliar.set(false),
-        });
+        this.loadFamiliares();
         break;
       case 'historial':
         this.loadingHistorial.set(true);
@@ -259,6 +269,109 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         });
         break;
     }
+  }
+
+  private loadFamiliares(): void {
+    this.loadingFamiliar.set(true);
+    this.familiarError.set(null);
+    this.svc.getFamiliares(this.personaId).subscribe({
+      next: d => { this.familiares.set(d); this.loadingFamiliar.set(false); },
+      error: () => {
+        this.loadingFamiliar.set(false);
+        this.familiarError.set('No se pudo cargar la información familiar. Intentá de nuevo.');
+      },
+    });
+  }
+
+  retryFamiliares(): void {
+    this.loadFamiliares();
+  }
+
+  abrirFamiliarDetalle(f: FamiliarItem): void {
+    this.familiarSeleccionado.set(f);
+  }
+
+  cerrarFamiliarDetalle(): void {
+    this.familiarSeleccionado.set(null);
+  }
+
+  private setupFamiliarAddSearch(): void {
+    this.familiarAddSearch$
+      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(term => {
+        if (!term || term.length < 2) {
+          this.familiarAddResults.set([]);
+          return;
+        }
+        this.svc.findPaginado({ search: term, pageSize: 8 }).subscribe({
+          next: res => {
+            const cedulasActuales = new Set(this.familiares().map(f => f.cedula));
+            this.familiarAddResults.set(
+              res.items.filter(p => p.id !== String(this.personaId) && !cedulasActuales.has(p.cedula)),
+            );
+          },
+        });
+      });
+  }
+
+  onFamiliarAddSearch(event: Event): void {
+    const val = (event.target as HTMLInputElement).value;
+    this.familiarAddSearch.set(val);
+    this.familiarAddDropdownOpen.set(true);
+    this.familiarAddSearch$.next(val);
+  }
+
+  onFamiliarAddBlur(): void {
+    setTimeout(() => this.familiarAddDropdownOpen.set(false), 200);
+  }
+
+  elegirFamiliarAAgregar(persona: PersonaListItem): void {
+    this.familiarAddElegido.set(persona);
+    this.familiarAddSearch.set('');
+    this.familiarAddResults.set([]);
+    this.familiarAddDropdownOpen.set(false);
+  }
+
+  cancelarAgregarFamiliar(): void {
+    this.familiarAddElegido.set(null);
+    this.familiarAddTipoRelacion.set('');
+  }
+
+  confirmarAgregarFamiliar(): void {
+    const persona = this.familiarAddElegido();
+    if (!persona) return;
+
+    this.guardandoFamiliar.set(true);
+    this.svc.agregarFamiliar(this.personaId, {
+      cedula: persona.cedula,
+      ...(this.familiarAddTipoRelacion() && { tipo_relacion: this.familiarAddTipoRelacion() }),
+    }).subscribe({
+      next: nuevo => {
+        this.familiares.update(list => [...list, nuevo]);
+        this.guardandoFamiliar.set(false);
+        this.cancelarAgregarFamiliar();
+        this.toast.success('Familiar agregado correctamente');
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoFamiliar.set(false);
+        const msg = (err.status === 400 || err.status === 409) && err.error?.message
+          ? err.error.message
+          : 'No se pudo agregar el familiar. Intentá de nuevo.';
+        this.toast.error(msg);
+      },
+    });
+  }
+
+  quitarFamiliar(f: FamiliarItem): void {
+    if (!confirm(`¿Quitar a ${f.nombre_completo} de los familiares?`)) return;
+
+    this.svc.quitarFamiliar(this.personaId, f.id).subscribe({
+      next: () => {
+        this.familiares.update(list => list.filter(x => x.id !== f.id));
+        this.toast.success('Familiar quitado correctamente');
+      },
+      error: () => this.toast.error('No se pudo quitar el familiar. Intentá de nuevo.'),
+    });
   }
 
   // ─── Edit ─────────────────────────────────────────────────────────────────────
@@ -317,6 +430,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   closeEdit(): void {
     this.editMode.set(false);
+    this.cancelarAgregarFamiliar();
   }
 
   saveEdit(): void {
@@ -358,6 +472,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         this.persona.set(updated);
         this.editLoading.set(false);
         this.editMode.set(false);
+        this.cancelarAgregarFamiliar();
         this.toast.success('Perfil actualizado correctamente');
       },
       error: (err: HttpErrorResponse) => {

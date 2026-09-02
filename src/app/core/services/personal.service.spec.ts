@@ -53,4 +53,23 @@ describe('PersonalService', () => {
       expect(result![0].activo).toBe(true);
     });
   });
+
+  describe('agregarFamiliar', () => {
+    it('pide POST /personas/:id/familiares con el body', () => {
+      service.agregarFamiliar(31, { cedula: '60000016', tipo_relacion: 'Madre' }).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/personas/31/familiares`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ cedula: '60000016', tipo_relacion: 'Madre' });
+      req.flush({ id: 16, cedula: '60000016', nombre_completo: 'Laura Acosta', tipo_relacion: 'Madre', grado: null, unidad: null });
+    });
+  });
+
+  describe('quitarFamiliar', () => {
+    it('pide DELETE /personas/:id/familiares/:familiarId', () => {
+      service.quitarFamiliar(31, 16).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/personas/31/familiares/16`);
+      expect(req.request.method).toBe('DELETE');
+      req.flush(null);
+    });
+  });
 });

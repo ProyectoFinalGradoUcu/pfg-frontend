@@ -1,0 +1,152 @@
+<div class="modal-overlay" (click)="cerrar()">
+  <div class="modal familiar-detalle" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <div>
+        <h3>{{ familiar.nombre_completo }}</h3>
+        <span class="familiar-detalle__relacion" *ngIf="familiar.tipo_relacion">{{ familiar.tipo_relacion }}</span>
+      </div>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body">
+
+      <div class="familiar-detalle__loading" *ngIf="loading()">Cargando...</div>
+
+      <div class="familiar-detalle__alert" *ngIf="!loading() && error()">
+        {{ error() }}
+        <button type="button" class="familiar-detalle__retry-btn" (click)="cargar()">Reintentar</button>
+      </div>
+
+      <ng-container *ngIf="!loading() && !error() && detalle() as p">
+        <div class="familiar-detalle__identity">
+          <div class="familiar-detalle__avatar">{{ initials(p) }}</div>
+          <div>
+            <strong>{{ p.nombre_completo }}</strong>
+            <span class="familiar-detalle__badge">{{ p.es_civil ? 'Civil' : 'Militar' }}</span>
+          </div>
+        </div>
+
+        <div class="familiar-detalle__two-col">
+
+          <div class="familiar-detalle__col">
+            <h4 class="familiar-detalle__col-title">Información Personal</h4>
+            <div class="familiar-detalle__field-list">
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Cédula</span>
+                <span class="familiar-detalle__value">{{ p.cedula }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Fecha de nacimiento</span>
+                <span class="familiar-detalle__value">{{ formatDate(p.fecha_nacimiento) }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Género</span>
+                <span class="familiar-detalle__value">{{ formatGenero(p.genero) }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Estado civil</span>
+                <span class="familiar-detalle__value">{{ p.estado_civil ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Lugar de nacimiento</span>
+                <span class="familiar-detalle__value">{{ p.lugar_nacimiento ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Etnia</span>
+                <span class="familiar-detalle__value">{{ p.etnia ?? '—' }}</span>
+              </div>
+            </div>
+
+            <h4 class="familiar-detalle__col-title familiar-detalle__col-title--mt">Contacto</h4>
+            <div class="familiar-detalle__field-list">
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Email</span>
+                <span class="familiar-detalle__value">{{ p.email ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Teléfono</span>
+                <span class="familiar-detalle__value">{{ p.telefono ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Dirección</span>
+                <span class="familiar-detalle__value">{{ p.direccion ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Código postal</span>
+                <span class="familiar-detalle__value">{{ p.codigo_postal ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Seccional</span>
+                <span class="familiar-detalle__value">{{ p.seccional ?? '—' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="familiar-detalle__col">
+            <h4 class="familiar-detalle__col-title">Información Laboral</h4>
+
+            <div class="familiar-detalle__field-list" *ngIf="p.relacion_laboral as rl; else sinRelacion">
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Grado</span>
+                <span class="familiar-detalle__value">{{ rl.grado?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Destino / Unidad</span>
+                <span class="familiar-detalle__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Estado</span>
+                <span class="familiar-detalle__value">{{ rl.situacion?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Tipo de funcionario</span>
+                <span class="familiar-detalle__value familiar-detalle__value--capitalize">{{ rl.tipo_funcionario }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Escalafón</span>
+                <span class="familiar-detalle__value">{{ rl.escalafon?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Régimen</span>
+                <span class="familiar-detalle__value">{{ rl.regimen?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Programa</span>
+                <span class="familiar-detalle__value">{{ rl.programa?.denominacion ?? '—' }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Fecha de inicio</span>
+                <span class="familiar-detalle__value">{{ formatDate(rl.fecha_inicio) }}</span>
+              </div>
+              <div class="familiar-detalle__field" *ngIf="rl.prima_tecnica">
+                <span class="familiar-detalle__label">Prima técnica</span>
+                <span class="familiar-detalle__value">{{ rl.prima_tecnica }}</span>
+              </div>
+              <div class="familiar-detalle__field">
+                <span class="familiar-detalle__label">Tiene mando</span>
+                <span class="familiar-detalle__value">{{ rl.tiene_mando ? 'Sí' : 'No' }}</span>
+              </div>
+              <div class="familiar-detalle__field" *ngIf="rl.sub_unidad">
+                <span class="familiar-detalle__label">Sub-unidad</span>
+                <span class="familiar-detalle__value">{{ rl.sub_unidad!.denominacion }}</span>
+              </div>
+              <div class="familiar-detalle__field" *ngIf="rl.observaciones">
+                <span class="familiar-detalle__label">Observaciones</span>
+                <span class="familiar-detalle__value">{{ rl.observaciones }}</span>
+              </div>
+            </div>
+
+            <ng-template #sinRelacion>
+              <p class="familiar-detalle__empty">Sin relación laboral activa registrada.</p>
+            </ng-template>
+          </div>
+
+        </div>
+      </ng-container>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="familiar-detalle__close-btn" (click)="cerrar()">Cerrar</button>
+    </footer>
+  </div>
+</div>

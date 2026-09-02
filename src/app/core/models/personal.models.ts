@@ -97,8 +97,8 @@ export interface FamiliarItem {
   cedula: string;
   nombre_completo: string;
   tipo_relacion: string;
-  grado: GradoRef | null;
-  unidad: UnidadRef | null;
+  grado: string | null;
+  unidad: string | null;
 }
 
 export interface HistorialRango {
