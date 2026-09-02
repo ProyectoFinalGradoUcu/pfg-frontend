@@ -44,7 +44,9 @@ function makeCursoFuncionario(overrides: Partial<CursoFuncionarioItem> = {}): Cu
     tipo: 'optativo',
     fechaInicio: '2025-01-01',
     fechaFin: '2025-06-01',
+    aprobado: null,
     calificacion: null,
+    observacion: null,
     ...overrides,
   };
 }
@@ -82,7 +84,7 @@ describe('CursosPage', () => {
       createModulo: vi.fn().mockReturnValue(of(makeModulo())),
       deleteModulo: vi.fn().mockReturnValue(of(undefined)),
       crearDesignacion: vi.fn().mockReturnValue(of({ personas_designadas: 1 })),
-      registrarCalificacion: vi.fn().mockReturnValue(of({ id: 'x', curso_id: 'c1', persona_id: 'f1', calificacion: 8, estado: 'completado' })),
+      registrarCalificacion: vi.fn().mockReturnValue(of({ id: 'x', curso_id: 'c1', persona_id: 'f1', aprobado: true, calificacion: 8, observacion: null })),
     };
   }
 
@@ -733,16 +735,16 @@ describe('CursosPage', () => {
       expect(cursosService.findFuncionariosConCursos).toHaveBeenCalled();
     });
 
-    it('completados cuenta filas con calificacion != null', () => {
+    it('completados cuenta filas con resultado cargado', () => {
       component.funcionarios.set([
-        makeFuncionario({ cursos: [makeCursoFuncionario({ calificacion: 8 }), makeCursoFuncionario({ id: 'c2', designacionId: 'd2', calificacion: null })] }),
+        makeFuncionario({ cursos: [makeCursoFuncionario({ aprobado: true, calificacion: 8 }), makeCursoFuncionario({ id: 'c2', designacionId: 'd2', aprobado: null })] }),
       ]);
       expect(component.completados()).toBe(1);
     });
 
-    it('enCurso cuenta filas con calificacion === null', () => {
+    it('enCurso cuenta filas sin resultado', () => {
       component.funcionarios.set([
-        makeFuncionario({ cursos: [makeCursoFuncionario({ calificacion: null }), makeCursoFuncionario({ id: 'c2', designacionId: 'd2', calificacion: 7 })] }),
+        makeFuncionario({ cursos: [makeCursoFuncionario({ aprobado: null }), makeCursoFuncionario({ id: 'c2', designacionId: 'd2', aprobado: false, calificacion: 3 })] }),
       ]);
       expect(component.enCurso()).toBe(1);
     });
@@ -798,47 +800,98 @@ describe('CursosPage', () => {
       expect(component.cursoTerminado(curso)).toBe(false);
     });
 
-    it('iniciarCalificacion setea calificandoId y valor inicial 10', () => {
+    it('iniciarCalificacion abre el modal sin resultado ni nota precargados', () => {
       const fila = { funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() };
       component.iniciarCalificacion(fila);
-      expect(component.calificandoId()).toBe('f1-c1-d1');
-      expect(component.calificacionValor()).toBe(10);
+      expect(component.modal()).toBe('calificar');
+      expect(component.filaCalificando()).toEqual(fila);
+      expect(component.aprobadoValor()).toBeNull();
+      expect(component.calificacionValor()).toBeNull();
+      expect(component.observacionValor()).toBe('');
     });
 
-    it('cancelarCalificacion limpia calificandoId', () => {
-      component.calificandoId.set('x');
-      component.cancelarCalificacion();
-      expect(component.calificandoId()).toBeNull();
-    });
-
-    it('guardarCalificacion envía la nota y actualiza la celda', () => {
-      component.funcionarios.set([makeFuncionario({ cursos: [makeCursoFuncionario()] })]);
+    it('cerrarModal limpia la fila que se estaba calificando', () => {
       const fila = { funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() };
+      component.iniciarCalificacion(fila);
+      component.cerrarModal();
+      expect(component.modal()).toBeNull();
+      expect(component.filaCalificando()).toBeNull();
+    });
+
+    it('guardarCalificacion envía el resultado con la nota y actualiza la celda', () => {
+      component.funcionarios.set([makeFuncionario({ cursos: [makeCursoFuncionario()] })]);
+      component.iniciarCalificacion({ funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() });
+      component.aprobadoValor.set(true);
       component.calificacionValor.set(8);
-      component.guardarCalificacion(fila);
-      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('c1', 'd1', 8);
+      component.guardarCalificacion();
+      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('c1', 'd1', { aprobado: true, calificacion: 8 });
+      expect(component.funcionarios()[0].cursos[0].aprobado).toBe(true);
     });
 
-    it('guardarCalificacion con valor 0 no llama al service', () => {
-      const fila = { funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() };
-      component.calificacionValor.set(0);
-      component.guardarCalificacion(fila);
-      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
-    });
-
-    it('guardarCalificacion con valor 11 no llama al service', () => {
-      const fila = { funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() };
-      component.calificacionValor.set(11);
-      component.guardarCalificacion(fila);
-      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
-    });
-
-    it('guardarCalificacion limpia calificandoId tras éxito', () => {
+    it('guardarCalificacion envía el resultado sin nota — la calificación es opcional', () => {
       component.funcionarios.set([makeFuncionario({ cursos: [makeCursoFuncionario()] })]);
-      const fila = { funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() };
+      component.iniciarCalificacion({ funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() });
+      component.aprobadoValor.set(false);
+      component.guardarCalificacion();
+      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('c1', 'd1', { aprobado: false });
+    });
+
+    it('guardarCalificacion incluye la observación cuando se cargó', () => {
+      component.funcionarios.set([makeFuncionario({ cursos: [makeCursoFuncionario()] })]);
+      component.iniciarCalificacion({ funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() });
+      component.aprobadoValor.set(false);
+      component.observacionValor.set('No alcanzó la asistencia');
+      component.guardarCalificacion();
+      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('c1', 'd1', {
+        aprobado: false,
+        observacion: 'No alcanzó la asistencia',
+      });
+    });
+
+    it('guardarCalificacion sin resultado no llama al service y muestra el error en el modal', () => {
+      component.iniciarCalificacion({ funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() });
+      component.calificacionValor.set(8);
+      component.guardarCalificacion();
+      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(component.modalError()).toBeTruthy();
+      expect(component.modal()).toBe('calificar');
+    });
+
+    it('guardarCalificacion con nota 0 no llama al service', () => {
+      component.iniciarCalificacion({ funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() });
+      component.aprobadoValor.set(true);
+      component.calificacionValor.set(0);
+      component.guardarCalificacion();
+      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(component.modalError()).toBeTruthy();
+    });
+
+    it('guardarCalificacion con nota 11 no llama al service', () => {
+      component.iniciarCalificacion({ funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() });
+      component.aprobadoValor.set(true);
+      component.calificacionValor.set(11);
+      component.guardarCalificacion();
+      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+    });
+
+    it('guardarCalificacion cierra el modal tras éxito', () => {
+      component.funcionarios.set([makeFuncionario({ cursos: [makeCursoFuncionario()] })]);
+      component.iniciarCalificacion({ funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() });
+      component.aprobadoValor.set(true);
       component.calificacionValor.set(9);
-      component.guardarCalificacion(fila);
-      expect(component.calificandoId()).toBeNull();
+      component.guardarCalificacion();
+      expect(component.modal()).toBeNull();
+      expect(component.filaCalificando()).toBeNull();
+    });
+
+    it('guardarCalificacion deja el modal abierto con el error si el backend falla', () => {
+      cursosService.registrarCalificacion.mockReturnValue(throwError(() => makeHttpError('fallo')));
+      component.funcionarios.set([makeFuncionario({ cursos: [makeCursoFuncionario()] })]);
+      component.iniciarCalificacion({ funcionarioId: 'f1', cedula: '123', nombre: 'Juan', curso: makeCursoFuncionario() });
+      component.aprobadoValor.set(true);
+      component.guardarCalificacion();
+      expect(component.modal()).toBe('calificar');
+      expect(component.modalError()).toBeTruthy();
     });
   });
 
@@ -847,10 +900,10 @@ describe('CursosPage', () => {
   describe('CalificacionMasivaModal', () => {
     beforeEach(async () => {
       await setup();
-      // Cargar funcionarios con cursos terminados y sin calificacion
+      // Cargar funcionarios con cursos terminados y sin resultado
       const hoy = new Date();
       const pasado = new Date(hoy.getFullYear() - 1, 0, 1).toISOString().split('T')[0];
-      const cursoTerminado = makeCursoFuncionario({ id: 'ct1', designacionId: 'dt1', fechaFin: pasado, calificacion: null });
+      const cursoTerminado = makeCursoFuncionario({ id: 'ct1', designacionId: 'dt1', fechaFin: pasado, aprobado: null });
       component.funcionarios.set([makeFuncionario({ cursos: [cursoTerminado] })]);
       component.abrirCalificacionMasiva();
     });
@@ -861,7 +914,7 @@ describe('CursosPage', () => {
       expect(component.calificacionesMasivas()).toEqual({});
     });
 
-    it('cursosAptos lista solo cursos terminados sin calificación', () => {
+    it('cursosAptos lista solo cursos terminados sin resultado', () => {
       expect(component.cursosAptos().length).toBeGreaterThanOrEqual(1);
       expect(component.cursosAptos()[0].id).toBe('ct1');
     });
@@ -872,35 +925,70 @@ describe('CursosPage', () => {
       expect(component.filasCursoMasivo()).toHaveLength(1);
     });
 
-    it('onCursoMasivoChange inicializa las calificaciones a 10', () => {
+    it('onCursoMasivoChange inicializa cada fila sin resultado ni nota', () => {
       component.onCursoMasivoChange('ct1');
-      expect(component.calificacionesMasivas()['dt1']).toBe(10);
+      expect(component.calificacionesMasivas()['dt1']).toEqual({ aprobado: null, calificacion: null });
+    });
+
+    it('setAprobadoMasivo actualiza el resultado de una designación específica', () => {
+      component.onCursoMasivoChange('ct1');
+      component.setAprobadoMasivo('dt1', false);
+      expect(component.calificacionesMasivas()['dt1'].aprobado).toBe(false);
+    });
+
+    it('setAprobadoMasivoTodos aplica el mismo resultado a todas las filas', () => {
+      component.onCursoMasivoChange('ct1');
+      component.setAprobadoMasivoTodos(true);
+      expect(component.filasMasivasConResultado()).toHaveLength(1);
     });
 
     it('setCalificacionMasiva actualiza la nota de una designación específica', () => {
       component.onCursoMasivoChange('ct1');
-      component.setCalificacionMasiva('dt1', 7);
-      expect(component.calificacionesMasivas()['dt1']).toBe(7);
+      component.setCalificacionMasiva('dt1', '7');
+      expect(component.calificacionesMasivas()['dt1'].calificacion).toBe(7);
+    });
+
+    it('setCalificacionMasiva con string vacío deja la nota en null', () => {
+      component.onCursoMasivoChange('ct1');
+      component.setCalificacionMasiva('dt1', '');
+      expect(component.calificacionesMasivas()['dt1'].calificacion).toBeNull();
+    });
+
+    it('guardarCalificacionMasiva no llama al service si ninguna fila tiene resultado', () => {
+      component.onCursoMasivoChange('ct1');
+      component.setCalificacionMasiva('dt1', '8');
+      component.guardarCalificacionMasiva();
+      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
     });
 
     it('guardarCalificacionMasiva setea error si una nota está fuera del rango', () => {
       component.onCursoMasivoChange('ct1');
-      component.setCalificacionMasiva('dt1', 0);
+      component.setAprobadoMasivo('dt1', true);
+      component.setCalificacionMasiva('dt1', '0');
       component.guardarCalificacionMasiva();
       expect(component.modalError()).toBeTruthy();
       expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
     });
 
-    it('guardarCalificacionMasiva llama al service con el array completo', () => {
+    it('guardarCalificacionMasiva llama al service con el resultado y la nota', () => {
       component.onCursoMasivoChange('ct1');
-      component.setCalificacionMasiva('dt1', 8);
+      component.setAprobadoMasivo('dt1', true);
+      component.setCalificacionMasiva('dt1', '8');
       component.guardarCalificacionMasiva();
-      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('ct1', 'dt1', 8);
+      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('ct1', 'dt1', { aprobado: true, calificacion: 8 });
+    });
+
+    it('guardarCalificacionMasiva omite la nota cuando no se cargó', () => {
+      component.onCursoMasivoChange('ct1');
+      component.setAprobadoMasivo('dt1', false);
+      component.guardarCalificacionMasiva();
+      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('ct1', 'dt1', { aprobado: false });
     });
 
     it('guardarCalificacionMasiva cierra el modal tras éxito', () => {
       component.onCursoMasivoChange('ct1');
-      component.setCalificacionMasiva('dt1', 9);
+      component.setAprobadoMasivo('dt1', true);
+      component.setCalificacionMasiva('dt1', '9');
       component.guardarCalificacionMasiva();
       expect(component.modal()).toBeNull();
     });
@@ -908,7 +996,8 @@ describe('CursosPage', () => {
     it('guardarCalificacionMasiva muestra error si el backend falla', () => {
       cursosService.registrarCalificacion.mockReturnValue(throwError(() => makeHttpError('fallo')));
       component.onCursoMasivoChange('ct1');
-      component.setCalificacionMasiva('dt1', 9);
+      component.setAprobadoMasivo('dt1', true);
+      component.setCalificacionMasiva('dt1', '9');
       component.guardarCalificacionMasiva();
       expect(component.modalError()).toBeTruthy();
       expect(component.modal()).toBe('calificacionMasiva');
@@ -929,22 +1018,22 @@ describe('CursosPage', () => {
 
     it('excluye cursos con fechaFin futura', () => {
       component.funcionarios.set([
-        makeFuncionario({ cursos: [makeCursoFuncionario({ fechaFin: '2099-01-01', calificacion: null })] }),
+        makeFuncionario({ cursos: [makeCursoFuncionario({ fechaFin: '2099-01-01', aprobado: null })] }),
       ]);
       expect(component.cursosAptos()).toHaveLength(0);
     });
 
     it('excluye cursos que ya tienen calificación', () => {
       component.funcionarios.set([
-        makeFuncionario({ cursos: [makeCursoFuncionario({ fechaFin: '2020-01-01', calificacion: 8 })] }),
+        makeFuncionario({ cursos: [makeCursoFuncionario({ fechaFin: '2020-01-01', aprobado: true, calificacion: 8 })] }),
       ]);
       expect(component.cursosAptos()).toHaveLength(0);
     });
 
     it('deduplica el mismo curso entre varios funcionarios', () => {
       component.funcionarios.set([
-        makeFuncionario({ id: 'f1', cursos: [makeCursoFuncionario({ fechaFin: '2020-01-01', calificacion: null })] }),
-        makeFuncionario({ id: 'f2', cedula: '99', nombre: 'Ana', cursos: [makeCursoFuncionario({ fechaFin: '2020-01-01', calificacion: null })] }),
+        makeFuncionario({ id: 'f1', cursos: [makeCursoFuncionario({ fechaFin: '2020-01-01', aprobado: null })] }),
+        makeFuncionario({ id: 'f2', cedula: '99', nombre: 'Ana', cursos: [makeCursoFuncionario({ fechaFin: '2020-01-01', aprobado: null })] }),
       ]);
       expect(component.cursosAptos()).toHaveLength(1);
     });
@@ -1025,6 +1114,46 @@ describe('CursosPage', () => {
       await setup();
       component.puedeGestionar();
       expect(authService.hasPermiso).toHaveBeenCalledWith('cursos.gestionar');
+    });
+
+    function celdaResultado(): HTMLElement {
+      return fixture.nativeElement.querySelector('.cursos__cal-cell');
+    }
+
+    async function conCursoTerminadoSinResultado(hasPermiso: boolean) {
+      await setup('inscripciones', hasPermiso);
+      component.funcionarios.set([
+        makeFuncionario({
+          cursos: [makeCursoFuncionario({ fechaFin: '2020-01-01', aprobado: null })],
+        }),
+      ]);
+      fixture.detectChanges();
+    }
+
+    it('con permiso muestra el botón de cargar resultado', async () => {
+      await conCursoTerminadoSinResultado(true);
+      expect(celdaResultado().textContent).toContain('Cargar resultado');
+    });
+
+    it('sin permiso no muestra el botón de cargar resultado', async () => {
+      await conCursoTerminadoSinResultado(false);
+      expect(celdaResultado().textContent).not.toContain('Cargar resultado');
+    });
+
+    it('sin permiso la celda muestra el guion y no queda vacía', async () => {
+      await conCursoTerminadoSinResultado(false);
+      expect(celdaResultado().querySelector('.cursos__sin-nota')).not.toBeNull();
+    });
+
+    it('sin permiso el resultado ya cargado se sigue viendo', async () => {
+      await setup('inscripciones', false);
+      component.funcionarios.set([
+        makeFuncionario({
+          cursos: [makeCursoFuncionario({ fechaFin: '2020-01-01', aprobado: true, calificacion: 8 })],
+        }),
+      ]);
+      fixture.detectChanges();
+      expect(celdaResultado().textContent).toContain('Aprobado');
     });
   });
 });

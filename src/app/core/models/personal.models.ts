@@ -121,7 +121,9 @@ export interface CursoPersona {
   numero_orden: string;
   fecha_inicio: string;
   fecha_fin: string;
-  calificacion: string;
+  aprobado: boolean | null;
+  calificacion: string | null;
+  observacion: string | null;
   completado: boolean;
 }
 

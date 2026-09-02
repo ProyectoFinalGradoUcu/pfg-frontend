@@ -525,6 +525,15 @@
               <span class="pd__badge" [class.pd__badge--completado]="c.completado" [class.pd__badge--en-curso]="!c.completado">
                 {{ c.completado ? 'Completado' : 'En curso' }}
               </span>
+              <span
+                *ngIf="c.aprobado !== null"
+                class="pd__badge"
+                [class.pd__badge--aprobado]="c.aprobado"
+                [class.pd__badge--desaprobado]="!c.aprobado"
+                [title]="c.observacion || ''"
+              >
+                {{ c.aprobado ? 'Aprobado' : 'Desaprobado' }}<ng-container *ngIf="c.calificacion"> · {{ c.calificacion }}</ng-container>
+              </span>
             </div>
           </div>
           <span class="pd__course-card__inst">{{ c.institucion }}</span>

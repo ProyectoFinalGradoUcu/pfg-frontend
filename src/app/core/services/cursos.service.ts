@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../api.config';
 import { PaginatedResponse } from '../models/auth.models';
 import {
   CalificacionResponse,
+  RegistrarCalificacionPayload,
   CursoDefinicion,
   CursoFuncionarioItem,
   CreateCursoDefinicionPayload,
@@ -144,11 +145,11 @@ export class CursosService {
   registrarCalificacion(
     cursoId: string,
     designacionId: string,
-    calificacion: number,
+    payload: RegistrarCalificacionPayload,
   ): Observable<CalificacionResponse> {
     return this.http.patch<CalificacionResponse>(
       `${API_BASE_URL}/cursos/${cursoId}/designaciones/${designacionId}`,
-      { calificacion },
+      payload,
       { withCredentials: true },
     );
   }
@@ -193,7 +194,9 @@ export class CursosService {
       tipo:          cursoObj?.es_obligatorio ? 'obligatorio' : 'optativo',
       fechaInicio:   raw.fecha_inicio ?? raw.fechaInicio ?? '',
       fechaFin:      raw.fecha_fin    ?? raw.fechaFin    ?? '',
+      aprobado:      raw.aprobado ?? null,
       calificacion:  raw.calificacion != null ? Number(raw.calificacion) : null,
+      observacion:   raw.observacion ?? null,
       numero_orden:  raw.numero_orden ?? null,
       boletin:       raw.boletin      ?? null,
       documentoUrl:  raw.documentoUrl ?? raw.documento_url ?? null,

@@ -33,7 +33,9 @@ export interface CursoFuncionarioItem {
   tipo: TipoCurso;
   fechaInicio: string;
   fechaFin: string;
+  aprobado: boolean | null;
   calificacion: number | null;
+  observacion?: string | null;
   numero_orden?: string | null;
   boletin?: string | null;
   documentoUrl?: string | null;
@@ -95,12 +97,19 @@ export interface UpdateCursoPayload {
   es_obligatorio?: boolean;
 }
 
+export interface RegistrarCalificacionPayload {
+  aprobado: boolean;
+  calificacion?: number;
+  observacion?: string;
+}
+
 export interface CalificacionResponse {
   id: string;
   curso_id: string;
   persona_id: string;
-  calificacion: number;
-  estado: EstadoCurso;
+  aprobado: boolean;
+  calificacion: number | null;
+  observacion: string | null;
 }
 
 // ── Designaciones / Instancias ───────────────────────────────────────────────
