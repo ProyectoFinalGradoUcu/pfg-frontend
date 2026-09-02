@@ -107,7 +107,7 @@
               <th>Fecha Inicio</th>
               <th>Fecha Fin</th>
               <th>Tipo</th>
-              <th>Calificación</th>
+              <th>Resultado</th>
               <th *ngIf="puedeGestionar()" class="cursos__col-actions">Acciones</th>
             </tr>
           </thead>
@@ -148,71 +148,35 @@
               <!-- ── Calificación ─────────────────────────────────────── -->
               <td class="cursos__cal-cell">
 
-                <!-- Modo edición: ingresando nota -->
-                <ng-container *ngIf="calificandoId() === fila.funcionarioId + '-' + fila.curso.id + '-' + fila.curso.designacionId">
-                  <div class="cursos__cal-row">
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      step="1"
-                      class="cursos__cal-input"
-                      [value]="calificacionValor()"
-                      (input)="calificacionValor.set(+$any($event.target).value)"
-                      aria-label="Calificación (1-10)"
-                    />
-                    <button
-                      type="button"
-                      class="btn btn--primary btn--sm"
-                      [disabled]="guardandoCalificacion()"
-                      (click)="guardarCalificacion(fila)"
-                    >
-                      <svg *ngIf="guardandoCalificacion()" class="cursos__cal-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
-                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                      </svg>
-                      {{ guardandoCalificacion() ? '' : 'Guardar' }}
-                    </button>
-                    <button
-                      type="button"
-                      class="btn btn--ghost btn--sm"
-                      (click)="cancelarCalificacion()"
-                    >Cancelar</button>
-                  </div>
-                </ng-container>
+                <span
+                  *ngIf="fila.curso.aprobado !== null"
+                  class="cursos__calificacion-badge"
+                  [class.cursos__calificacion-badge--aprobado]="fila.curso.aprobado === true"
+                  [class.cursos__calificacion-badge--desaprobado]="fila.curso.aprobado === false"
+                  [title]="fila.curso.observacion || ''"
+                >
+                  {{ fila.curso.aprobado ? 'Aprobado' : 'Desaprobado' }}<ng-container *ngIf="fila.curso.calificacion !== null"> · {{ fila.curso.calificacion }}</ng-container>
+                </span>
 
-                <!-- Calificación ya registrada -->
-                <ng-container *ngIf="calificandoId() !== fila.funcionarioId + '-' + fila.curso.id + '-' + fila.curso.designacionId">
-                  <span
-                    *ngIf="fila.curso.calificacion !== null"
-                    class="cursos__calificacion-badge"
-                    [class.cursos__calificacion-badge--alta]="fila.curso.calificacion! >= 9"
-                    [class.cursos__calificacion-badge--media]="fila.curso.calificacion! >= 6 && fila.curso.calificacion! < 9"
-                    [class.cursos__calificacion-badge--baja]="fila.curso.calificacion! < 6"
-                  >
-                    {{ fila.curso.calificacion }}/10
-                  </span>
+                <!-- Sin resultado: curso ya terminó → botón cargar -->
+                <button
+                  *ngIf="fila.curso.aprobado === null && cursoTerminado(fila.curso) && puedeGestionar()"
+                  type="button"
+                  class="btn btn--ghost btn--sm cursos__cal-btn"
+                  (click)="iniciarCalificacion(fila)"
+                  title="El curso finalizó — cargá el resultado"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                  </svg>
+                  Cargar resultado
+                </button>
 
-                  <!-- Sin nota: curso ya terminó → botón cargar -->
-                  <button
-                    *ngIf="fila.curso.calificacion === null && cursoTerminado(fila.curso)"
-                    type="button"
-                    class="btn btn--ghost btn--sm cursos__cal-btn"
-                    (click)="iniciarCalificacion(fila)"
-                    title="El curso finalizó — cargá la nota"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-                    </svg>
-                    Cargar nota
-                  </button>
-
-                  <!-- Sin nota: curso todavía activo -->
-                  <span
-                    *ngIf="fila.curso.calificacion === null && !cursoTerminado(fila.curso)"
-                    class="cursos__sin-nota"
-                  >—</span>
-                </ng-container>
+                <!-- Sin resultado: curso activo, o sin permiso para cargarlo -->
+                <span
+                  *ngIf="fila.curso.aprobado === null && (!cursoTerminado(fila.curso) || !puedeGestionar())"
+                  class="cursos__sin-nota"
+                >—</span>
 
               </td>
 
@@ -892,6 +856,102 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Cargar resultado del curso                                       -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'calificar' && filaCalificando() as fila" class="modal" (click)="cerrarModal()">
+    <div class="modal__card" (click)="$event.stopPropagation()">
+
+      <header class="modal__header">
+        <div>
+          <h3>Cargar resultado</h3>
+          <p>{{ fila.nombre }} — {{ fila.curso.nombre_curso }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+      <div class="modal__field">
+        <span>Resultado <em>*</em></span>
+        <div class="cursos__resultado-toggle" role="group" aria-label="Resultado del curso">
+          <button
+            type="button"
+            class="cursos__resultado-opt cursos__resultado-opt--aprobado"
+            [class.is-active]="aprobadoValor() === true"
+            [attr.aria-pressed]="aprobadoValor() === true"
+            (click)="aprobadoValor.set(true)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            </svg>
+            Aprobado
+          </button>
+          <button
+            type="button"
+            class="cursos__resultado-opt cursos__resultado-opt--desaprobado"
+            [class.is-active]="aprobadoValor() === false"
+            [attr.aria-pressed]="aprobadoValor() === false"
+            (click)="aprobadoValor.set(false)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+            Desaprobado
+          </button>
+        </div>
+      </div>
+
+      <label class="modal__field">
+        <span>Calificación <small>(opcional)</small></span>
+        <input
+          type="number"
+          min="1"
+          max="10"
+          step="1"
+          placeholder="Entre 1 y 10"
+          [value]="calificacionValor() ?? ''"
+          (input)="setCalificacionValor($any($event.target).value)"
+        />
+        <small class="modal__hint">
+          Cada curso tiene su propia escala, así que la nota no determina el resultado. Se puede dejar vacía.
+        </small>
+      </label>
+
+      <label class="modal__field">
+        <span>Observación <small>(opcional)</small></span>
+        <textarea
+          rows="3"
+          maxlength="500"
+          placeholder="Ej: no alcanzó el mínimo de asistencia"
+          [value]="observacionValor()"
+          (input)="observacionValor.set($any($event.target).value)"
+        ></textarea>
+      </label>
+
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="guardandoCalificacion() || aprobadoValor() === null"
+          (click)="guardarCalificacion()"
+        >
+          <svg *ngIf="guardandoCalificacion()" class="cursos__cal-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          {{ guardandoCalificacion() ? 'Guardando...' : 'Guardar resultado' }}
+        </button>
+      </footer>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: Calificación masiva                                             -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <div *ngIf="modal() === 'calificacionMasiva'" class="modal" (click)="cerrarModal()">
@@ -900,7 +960,7 @@
       <header class="modal__header">
         <div>
           <h3>Calificación masiva</h3>
-          <p>Seleccioná un curso finalizado y cargá las notas de todos sus alumnos.</p>
+          <p>Seleccioná un curso finalizado y cargá el resultado de todos sus alumnos. La nota es opcional.</p>
         </div>
         <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -913,7 +973,7 @@
 
       <!-- Selector de curso -->
       <label class="modal__field">
-        <span>Curso finalizado pendiente de calificación <em>*</em></span>
+        <span>Curso finalizado pendiente de resultado <em>*</em></span>
         <select
           class="cursos__cal-masiva-select"
           [value]="cursoMasivoId() ?? ''"
@@ -929,7 +989,7 @@
       <!-- Tabla de alumnos -->
       <ng-container *ngIf="cursoMasivoId()">
         <p *ngIf="filasCursoMasivo().length === 0" class="cursos__empty-sm">
-          No hay alumnos pendientes de calificación en este curso.
+          No hay alumnos pendientes de resultado en este curso.
         </p>
 
         <div *ngIf="filasCursoMasivo().length > 0" class="cursos__cal-masiva-wrap">
@@ -938,13 +998,38 @@
               <tr>
                 <th>Funcionario</th>
                 <th>Cédula</th>
-                <th class="cursos__cal-masiva-th-nota">Nota (1–10)</th>
+                <th class="cursos__cal-masiva-th-resultado">
+                  Resultado
+                  <span class="cursos__cal-masiva-todos">
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="setAprobadoMasivoTodos(true)">Aprobar todos</button>
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="setAprobadoMasivoTodos(false)">Desaprobar todos</button>
+                  </span>
+                </th>
+                <th class="cursos__cal-masiva-th-nota">Nota (opcional)</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let fila of filasCursoMasivo(); trackBy: trackFila">
                 <td>{{ fila.nombre }}</td>
                 <td class="cursos__cedula">{{ fila.cedula }}</td>
+                <td>
+                  <div class="cursos__resultado-toggle" role="group" attr.aria-label="Resultado de {{ fila.nombre }}">
+                    <button
+                      type="button"
+                      class="cursos__resultado-opt cursos__resultado-opt--aprobado"
+                      [class.is-active]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === true"
+                      [attr.aria-pressed]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === true"
+                      (click)="setAprobadoMasivo(fila.curso.designacionId, true)"
+                    >Aprobado</button>
+                    <button
+                      type="button"
+                      class="cursos__resultado-opt cursos__resultado-opt--desaprobado"
+                      [class.is-active]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === false"
+                      [attr.aria-pressed]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === false"
+                      (click)="setAprobadoMasivo(fila.curso.designacionId, false)"
+                    >Desaprobado</button>
+                  </div>
+                </td>
                 <td class="cursos__cal-masiva-td-nota">
                   <input
                     type="number"
@@ -952,8 +1037,8 @@
                     max="10"
                     step="1"
                     class="cursos__cal-input"
-                    [value]="calificacionesMasivas()[fila.curso.designacionId] ?? 10"
-                    (input)="setCalificacionMasiva(fila.curso.designacionId, +$any($event.target).value)"
+                    [value]="calificacionesMasivas()[fila.curso.designacionId]?.calificacion ?? ''"
+                    (input)="setCalificacionMasiva(fila.curso.designacionId, $any($event.target).value)"
                     aria-label="Nota de {{ fila.nombre }}"
                   />
                 </td>
@@ -969,14 +1054,14 @@
           *ngIf="filasCursoMasivo().length > 0"
           type="button"
           class="btn btn--primary"
-          [disabled]="guardandoMasivo()"
+          [disabled]="guardandoMasivo() || filasMasivasConResultado().length === 0"
           (click)="guardarCalificacionMasiva()"
         >
           <svg *ngIf="guardandoMasivo()" class="cursos__cal-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
             <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
           </svg>
-          {{ guardandoMasivo() ? 'Guardando...' : 'Guardar ' + filasCursoMasivo().length + ' calificación(es)' }}
+          {{ guardandoMasivo() ? 'Guardando...' : 'Guardar ' + filasMasivasConResultado().length + ' resultado(s)' }}
         </button>
       </footer>
 
