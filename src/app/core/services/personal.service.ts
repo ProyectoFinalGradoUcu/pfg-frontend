@@ -12,6 +12,8 @@ import {
   FindPersonasParams,
   GradoItem,
   HistorialMilitar,
+  LegajoMilitar,
+  LegajoMilitarPayload,
   MisionPersona,
   OpcionSelect,
   PatchPersonaPayload,
@@ -109,6 +111,15 @@ export class PersonalService {
 
   getHistorialMilitar(id: number): Observable<HistorialMilitar> {
     return this.http.get<HistorialMilitar>(`${API_BASE_URL}/personas/${id}/historial-militar`, { withCredentials: true });
+  }
+
+  /** Nivel educativo, egreso de la ETA y mutación de escalafón. */
+  getLegajoMilitar(id: number): Observable<LegajoMilitar> {
+    return this.http.get<LegajoMilitar>(`${API_BASE_URL}/personas/${id}/legajo-militar`, { withCredentials: true });
+  }
+
+  guardarLegajoMilitar(id: number, payload: LegajoMilitarPayload): Observable<LegajoMilitar> {
+    return this.http.put<LegajoMilitar>(`${API_BASE_URL}/personas/${id}/legajo-militar`, payload, { withCredentials: true });
   }
 
   getCursos(id: number): Observable<CursoPersona[]> {

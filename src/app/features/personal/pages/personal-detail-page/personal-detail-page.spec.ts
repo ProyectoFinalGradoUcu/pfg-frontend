@@ -32,6 +32,16 @@ function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDet
     seccional: null,
     es_civil: true,
     relacion_laboral: null as unknown as PersonaDetalle['relacion_laboral'],
+    legajo_militar: {
+      nivel_educativo: null,
+      nivel_educativo_label: null,
+      fecha_ingreso_eta: null,
+      fecha_egreso_eta: null,
+      numero_orden_egreso_eta: null,
+      egresado_eta: false,
+      mutaciones: null,
+      es_mutado: false,
+    },
     ...overrides,
   };
 }

@@ -1,0 +1,260 @@
+<section class="pasibles">
+
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" routerLink="/ascensos-y-retiros">Ascensos y Retiros</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">Pasibles de ascenso</span>
+  </nav>
+
+  <header class="pasibles__header">
+    <div>
+      <h2>Pasibles de ascenso</h2>
+      <p>
+        Quién puede ascender hoy, a quién le falta solo tiempo y quién está frenado, con el motivo
+        a la vista. El listado va por apellido, sin orden de precedencia.
+      </p>
+    </div>
+    <div class="pasibles__acciones">
+      <button
+        *ngIf="puedeRegistrar()"
+        type="button"
+        class="btn btn--primary btn--lg"
+        [disabled]="marcados().size === 0"
+        (click)="registrarOrdenConSeleccionados()">
+        Registrar orden ({{ marcados().size }})
+      </button>
+    </div>
+  </header>
+
+  <div class="pasibles__stats" *ngIf="stats() as s">
+    <article class="tile tile--ok">
+      <span class="tile__value">{{ s.PASIBLE }}</span>
+      <span class="tile__label">pasibles</span>
+    </article>
+    <article class="tile tile--info">
+      <span class="tile__value">{{ s.PROXIMO }}</span>
+      <span class="tile__label">próximos</span>
+    </article>
+    <article class="tile tile--warn">
+      <span class="tile__value">{{ s.BLOQUEADO }}</span>
+      <span class="tile__label">bloqueados</span>
+    </article>
+    <article class="tile tile--bad">
+      <span class="tile__value">{{ s.FUERA_DE_EDAD }}</span>
+      <span class="tile__label">fuera de edad</span>
+    </article>
+    <article class="tile">
+      <span class="tile__value">{{ s.SIN_REGLA }}</span>
+      <span class="tile__label">sin regla cargada</span>
+    </article>
+  </div>
+
+  <!-- ─── Filtros ──────────────────────────────────────────────────────── -->
+
+  <article class="card">
+    <div class="filtros">
+      <input
+        type="text"
+        class="input filtros__buscar"
+        placeholder="Cédula, nombre o apellido..."
+        (input)="onBusqueda($any($event.target).value)"
+        autocomplete="off"
+      />
+
+      <label class="filtros__campo">
+        <span>Escalafón</span>
+        <select class="input" (change)="onEscalafon($any($event.target).value)">
+          <option value="">Todos</option>
+          <option *ngFor="let e of escalafones()" [value]="e.id">{{ e.denominacion }}</option>
+        </select>
+      </label>
+
+      <label class="filtros__campo">
+        <span>Unidad</span>
+        <select class="input" (change)="onUnidad($any($event.target).value)">
+          <option value="">Todas</option>
+          <option *ngFor="let u of unidades()" [value]="u.id">{{ u.denominacion }}</option>
+        </select>
+      </label>
+
+      <label class="filtros__campo">
+        <span>Evaluar al</span>
+        <input type="date" class="input" [value]="fechaReferencia()"
+          (change)="onFecha($any($event.target).value)" />
+      </label>
+
+      <button type="button" class="btn btn--sm btn--ghost" (click)="alPrimeroDeFebrero()">
+        Al 1.º de febrero
+      </button>
+
+      <label class="filtros__campo">
+        <span>Próximos en (meses)</span>
+        <input type="number" min="1" max="120" class="input input--num" [value]="horizonteMeses()"
+          (change)="onHorizonte($any($event.target).value)" />
+      </label>
+
+      <button type="button" class="btn btn--sm btn--ghost" (click)="limpiarFiltros()">Limpiar</button>
+    </div>
+
+    <div class="filtros__estados">
+      <button *ngFor="let e of estadosDisponibles" type="button" class="chip chip--filtro"
+        [class.chip--on]="estadoElegido(e.value)"
+        [attr.title]="e.ayuda"
+        (click)="alternarEstado(e.value)">
+        {{ e.label }}
+      </button>
+      <button type="button" class="link" (click)="verTodos()">Ver todos los estados</button>
+    </div>
+
+    <p class="pasibles__loading" *ngIf="loading()">Evaluando...</p>
+
+    <div class="pasibles__alert" *ngIf="error()">
+      {{ error() }}
+      <button type="button" class="btn btn--sm btn--ghost" (click)="cargar()">Reintentar</button>
+    </div>
+
+    <p class="pasibles__empty" *ngIf="!loading() && !error() && items().length === 0">
+      No hay funcionarios con estos filtros. Probá sumar estados o ampliar el horizonte.
+    </p>
+
+    <!-- ─── Tabla ──────────────────────────────────────────────────────── -->
+
+    <div class="tabla-wrap" *ngIf="!loading() && !error() && items().length > 0">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th *ngIf="puedeRegistrar()">
+              <input type="checkbox" [checked]="todosDeLaPaginaMarcados()"
+                (change)="marcarTodosDeLaPagina($any($event.target).checked)"
+                aria-label="Seleccionar todos los de la página" />
+            </th>
+            <th>Funcionario</th>
+            <th>Unidad</th>
+            <th>Grado</th>
+            <th>Antigüedad</th>
+            <th>Edad</th>
+            <th>Requisitos</th>
+            <th>Estado</th>
+            <th>Cumpliría el</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let f of items()" class="tabla__fila" (click)="abrirDetalle(f)">
+            <td *ngIf="puedeRegistrar()" (click)="$event.stopPropagation()">
+              <input type="checkbox" [checked]="estaMarcado(f.persona.id)"
+                (change)="alternarMarca(f.persona.id)"
+                [attr.aria-label]="'Seleccionar a ' + f.persona.nombre_completo" />
+            </td>
+            <td>
+              <span class="tabla__nombre">{{ f.persona.nombre_completo }}</span>
+              <small class="tabla__cedula">{{ f.persona.cedula }}</small>
+            </td>
+            <td>{{ f.persona.unidad?.denominacion ?? '—' }}</td>
+            <td>
+              {{ f.grado_actual.denominacion }}
+              <span class="tabla__flecha" *ngIf="f.grado_destino">→ {{ f.grado_destino.denominacion }}</span>
+            </td>
+            <td>{{ antiguedadLegible(f.antiguedad_dias) }}</td>
+            <td>{{ f.edad ?? '—' }}</td>
+            <td>
+              <span class="chip" *ngFor="let r of f.requisitos" [ngClass]="claseRequisito(r)"
+                [attr.title]="r.descripcion + ' — ' + r.detalle">
+                {{ simboloRequisito(r) }} {{ r.descripcion }}
+              </span>
+              <span class="tabla__sinreq" *ngIf="f.requisitos.length === 0">—</span>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="'badge--' + f.estado.toLowerCase()">
+                {{ etiquetaEstado(f.estado) }}
+              </span>
+            </td>
+            <td>{{ f.fecha_cumpliria ? (f.fecha_cumpliria | date:'d/M/yyyy':'UTC') : '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="seleccion" *ngIf="marcados().size > 0">
+      {{ marcados().size }} seleccionados.
+      <button type="button" class="link" (click)="limpiarSeleccion()">Limpiar selección</button>
+    </p>
+
+    <div class="paginador" *ngIf="totalPaginas() > 1">
+      <button type="button" class="btn btn--sm btn--ghost" [disabled]="page() === 1"
+        (click)="irAPagina(page() - 1)">Anterior</button>
+      <span>Página {{ page() }} de {{ totalPaginas() }} · {{ total() }} funcionarios</span>
+      <button type="button" class="btn btn--sm btn--ghost" [disabled]="page() === totalPaginas()"
+        (click)="irAPagina(page() + 1)">Siguiente</button>
+    </div>
+  </article>
+</section>
+
+<!-- ─── Panel de detalle de elegibilidad ─────────────────────────────────── -->
+
+<div class="panel-overlay" *ngIf="seleccionado() as sel" (click)="cerrarDetalle()">
+  <aside class="panel" (click)="$event.stopPropagation()">
+    <header class="panel__header">
+      <div>
+        <h3>{{ sel.persona.nombre_completo }}</h3>
+        <p class="panel__sub">
+          {{ sel.grado_actual.denominacion }}
+          <span *ngIf="sel.grado_destino">→ {{ sel.grado_destino.denominacion }}</span>
+        </p>
+      </div>
+      <button type="button" class="panel__cerrar" (click)="cerrarDetalle()" aria-label="Cerrar">✕</button>
+    </header>
+
+    <div class="panel__body">
+      <div class="panel__resumen">
+        <span class="badge" [ngClass]="'badge--' + sel.estado.toLowerCase()">
+          {{ etiquetaEstado(sel.estado) }}
+        </span>
+        <span class="panel__regla" *ngIf="sel.regla">Regla: {{ sel.regla.nombre }}</span>
+      </div>
+
+      <p class="panel__motivo" *ngIf="sel.motivo">{{ sel.motivo }}</p>
+
+      <dl class="panel__datos">
+        <dt>Unidad</dt><dd>{{ sel.persona.unidad?.denominacion ?? '—' }}</dd>
+        <dt>Escalafón</dt><dd>{{ sel.persona.escalafon?.denominacion ?? '—' }}</dd>
+        <dt>Situación</dt><dd>{{ sel.persona.situacion?.denominacion ?? '—' }}</dd>
+        <dt>Antigüedad en el grado</dt><dd>{{ antiguedadLegible(sel.antiguedad_dias) }}</dd>
+        <dt>Edad</dt><dd>{{ sel.edad ?? 'sin fecha de nacimiento cargada' }}</dd>
+      </dl>
+
+      <h4 class="panel__titulo">Requisitos</h4>
+      <p class="panel__vacio" *ngIf="sel.requisitos.length === 0">
+        No se evaluó ningún requisito: {{ sel.motivo }}
+      </p>
+
+      <article class="requisito" *ngFor="let r of sel.requisitos">
+        <header>
+          <span class="requisito__simbolo" [ngClass]="claseRequisito(r)">{{ simboloRequisito(r) }}</span>
+          <span class="requisito__nombre">{{ r.descripcion }}</span>
+        </header>
+        <p class="requisito__detalle">{{ r.detalle }}</p>
+        <p class="requisito__proyeccion" *ngIf="r.fecha_cumpliria">
+          Cumple el tiempo el {{ r.fecha_cumpliria | date:'d/M/yyyy':'UTC' }}.
+        </p>
+        <ul class="requisito__cursos" *ngIf="r.cursos?.length">
+          <li *ngFor="let c of r.cursos">
+            <a [routerLink]="['/personal', sel.persona.id]" [queryParams]="{ tab: 'cursos' }">{{ c.nombre }}</a>
+            <span class="curso-estado" [ngClass]="'curso-estado--' + c.estado.toLowerCase()">
+              {{ etiquetaCurso(c.estado) }}
+            </span>
+          </li>
+        </ul>
+      </article>
+
+      <p class="panel__proyeccion" *ngIf="sel.fecha_cumpliria">
+        Cumple el tiempo el {{ sel.fecha_cumpliria | date:'d/M/yyyy':'UTC' }}. Si además aprueba lo que le falte antes de esa
+        fecha, es pasible desde ese día.
+      </p>
+    </div>
+
+    <footer class="panel__footer">
+      <a class="btn btn--ghost" [routerLink]="['/personal', sel.persona.id]">Ver ficha</a>
+      <button type="button" class="btn btn--primary" (click)="cerrarDetalle()">Cerrar</button>
+    </footer>
+  </aside>
+</div>

@@ -1,0 +1,191 @@
+<section class="orden">
+
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" routerLink="/ascensos-y-retiros/ordenes">Ascensos registrados</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">Nueva orden</span>
+  </nav>
+
+  <header class="orden__header">
+    <div>
+      <h2>Registrar orden de ascenso</h2>
+      <p>Primero los datos de la orden, después los funcionarios que alcanza.</p>
+    </div>
+  </header>
+
+  <ol class="pasos">
+    <li [class.pasos__actual]="paso() === 1" [class.pasos__hecho]="paso() > 1">1. La orden</li>
+    <li [class.pasos__actual]="paso() === 2" [class.pasos__hecho]="paso() > 2">2. Los funcionarios</li>
+    <li [class.pasos__actual]="paso() === 3">3. Confirmación</li>
+  </ol>
+
+  <!-- ─── Paso 1 ───────────────────────────────────────────────────────── -->
+
+  <article class="card" *ngIf="paso() === 1">
+    <form [formGroup]="ordenForm" (ngSubmit)="irAFuncionarios()" novalidate>
+      <div class="grid2">
+        <div class="field">
+          <label for="numero">N.º de orden</label>
+          <input id="numero" type="text" class="input" formControlName="numero_orden"
+            placeholder="O.C.G.F.A. N.º 12.345" [class.input--error]="faltaOrdenYBoletin()" />
+        </div>
+
+        <div class="field">
+          <label for="fecha">Fecha de la orden</label>
+          <input id="fecha" type="date" class="input" formControlName="fecha_orden"
+            [class.input--error]="hayError('fecha_orden')" />
+          <span class="field__error" *ngIf="hayError('fecha_orden')">Poné la fecha de la orden</span>
+          <span class="field__hint">Es la fecha por defecto de cada ascenso; se puede cambiar por funcionario.</span>
+        </div>
+
+        <div class="field">
+          <label for="boletin">Boletín</label>
+          <input id="boletin" type="text" class="input" formControlName="boletin"
+            placeholder="BOL-2027-02" [class.input--error]="faltaOrdenYBoletin()" />
+          <span class="field__hint" *ngIf="!faltaOrdenYBoletin()">
+            El N.º de orden o el boletín: alcanza con uno de los dos.
+          </span>
+          <span class="field__error" *ngIf="faltaOrdenYBoletin()">
+            Poné al menos el N.º de orden o el boletín
+          </span>
+        </div>
+
+        <div class="field field--ancho">
+          <label for="obs">Observaciones</label>
+          <textarea id="obs" class="input" rows="2" formControlName="observaciones"></textarea>
+        </div>
+      </div>
+
+      <footer class="card__footer">
+        <button type="button" class="btn btn--ghost" (click)="cancelar()">Cancelar</button>
+        <button type="submit" class="btn btn--primary">Siguiente</button>
+      </footer>
+    </form>
+  </article>
+
+  <!-- ─── Paso 2 ───────────────────────────────────────────────────────── -->
+
+  <article class="card" *ngIf="paso() === 2">
+    <div class="buscador">
+      <input type="text" class="input" placeholder="Buscar funcionario por cédula, nombre o apellido..."
+        (input)="onBusqueda($any($event.target).value)" autocomplete="off" />
+      <span class="buscador__estado" *ngIf="buscando()">Buscando...</span>
+    </div>
+
+    <ul class="resultados" *ngIf="resultados().length > 0">
+      <li *ngFor="let r of resultados()">
+        <button type="button" class="resultados__item" (click)="agregar(r)">
+          <span>
+            <b>{{ r.persona.nombre_completo }}</b>
+            <small>{{ r.persona.cedula }} · {{ r.grado_actual.denominacion }}</small>
+          </span>
+          <span class="badge" [ngClass]="'badge--' + r.estado.toLowerCase()">
+            {{ etiquetaEstado(r.estado) }}
+          </span>
+        </button>
+      </li>
+    </ul>
+
+    <p class="vacio" *ngIf="filas().length === 0">
+      Todavía no agregaste ningún funcionario a la orden.
+    </p>
+
+    <div class="tabla-wrap" *ngIf="filas().length > 0">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th>Funcionario</th>
+            <th>Grado actual</th>
+            <th>Grado destino</th>
+            <th>Fecha del ascenso</th>
+            <th>Evaluación</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let f of filas()">
+            <tr>
+              <td>
+                <b>{{ f.evaluacion.persona.nombre_completo }}</b>
+                <small class="tabla__cedula">{{ f.evaluacion.persona.cedula }}</small>
+              </td>
+              <td>{{ f.evaluacion.grado_actual.denominacion }}</td>
+              <td>{{ f.evaluacion.grado_destino?.denominacion ?? '—' }}</td>
+              <td>
+                <input type="date" class="input input--sm" [value]="f.fecha_ascenso"
+                  (change)="onFechaAscenso(f.evaluacion.persona.id, $any($event.target).value)" />
+              </td>
+              <td>
+                <span class="badge" [ngClass]="'badge--' + f.evaluacion.estado.toLowerCase()">
+                  {{ etiquetaEstado(f.evaluacion.estado) }}
+                </span>
+              </td>
+              <td>
+                <button type="button" class="btn btn--sm btn--danger-ghost"
+                  (click)="quitar(f.evaluacion.persona.id)">Quitar</button>
+              </td>
+            </tr>
+            <tr *ngIf="esExcepcion(f)" class="tabla__excepcion">
+              <td colspan="6">
+                <p class="aviso">
+                  No cumple los requisitos: {{ f.evaluacion.motivo }}. Para ascenderlo igual hay que
+                  escribir un motivo, y queda registrado como ascenso por excepción.
+                </p>
+                <input type="text" class="input" placeholder="Motivo de la excepción"
+                  [value]="f.motivo_excepcion"
+                  (input)="onMotivo(f.evaluacion.persona.id, $any($event.target).value)" />
+                <p class="aviso aviso--bloqueo" *ngIf="!puedeExcepcion()">
+                  No tenés el permiso para registrar ascensos por excepción: sacalo de la orden o
+                  pedile a alguien con ese permiso que la registre.
+                </p>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <footer class="card__footer">
+      <button type="button" class="btn btn--ghost" (click)="volverAOrden()">Atrás</button>
+      <button type="button" class="btn btn--primary" [disabled]="!puedeConfirmar()"
+        (click)="irAConfirmar()">
+        Revisar y confirmar
+      </button>
+    </footer>
+  </article>
+
+  <!-- ─── Paso 3 ───────────────────────────────────────────────────────── -->
+
+  <article class="card" *ngIf="paso() === 3">
+    <h3 class="card__titulo">Confirmar la orden</h3>
+
+    <dl class="resumen">
+      <dt>N.º de orden</dt><dd>{{ ordenForm.get('numero_orden')?.value || '—' }}</dd>
+      <dt>Fecha</dt><dd>{{ ordenForm.get('fecha_orden')?.value | date:'d/M/yyyy':'UTC' }}</dd>
+      <dt>Boletín</dt><dd>{{ ordenForm.get('boletin')?.value || '—' }}</dd>
+      <dt>Funcionarios</dt><dd>{{ filas().length }}</dd>
+      <dt>Por excepción</dt><dd>{{ porExcepcion() }}</dd>
+    </dl>
+
+    <ul class="confirmacion">
+      <li *ngFor="let f of filas()">
+        {{ f.evaluacion.persona.nombre_completo }}:
+        {{ f.evaluacion.grado_actual.denominacion }} → {{ f.evaluacion.grado_destino?.denominacion }}
+        <em *ngIf="esExcepcion(f)">(por excepción: {{ f.motivo_excepcion }})</em>
+      </li>
+    </ul>
+
+    <p class="advertencia">
+      Al guardar, a cada funcionario se le cierra la relación laboral vigente y se le abre una nueva
+      con el grado nuevo, que es lo que lee el sistema de liquidación. Se registran además los dos
+      movimientos laborales de siempre. Si algo sale mal, no se guarda nada.
+    </p>
+
+    <footer class="card__footer">
+      <button type="button" class="btn btn--ghost" (click)="volverAFuncionarios()">Atrás</button>
+      <button type="button" class="btn btn--primary" [disabled]="guardando()" (click)="confirmar()">
+        {{ guardando() ? 'Registrando...' : 'Registrar la orden' }}
+      </button>
+    </footer>
+  </article>
+</section>
