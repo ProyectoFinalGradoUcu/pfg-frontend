@@ -1,0 +1,255 @@
+$navy: #132744;
+$navy-soft: #1e3a5f;
+
+.ordenes {
+  display: grid;
+  gap: 1.5rem;
+  padding-top: 1.5rem;
+}
+
+.ordenes__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  h2 {
+    margin: 0 0 0.25rem;
+    color: $navy;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    color: #475569;
+  }
+}
+
+.ordenes__acciones {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.ordenes__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.tile {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.tile__value {
+  color: $navy;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.tile__label {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.filtros__buscar {
+  flex: 1 1 14rem;
+}
+
+.filtros__campo {
+  display: grid;
+  gap: 0.2rem;
+
+  span {
+    color: #475569;
+    font-size: 0.76rem;
+    font-weight: 600;
+  }
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #334155;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.input {
+  padding: 0.45rem 0.65rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: #0f172a;
+  background-color: #ffffff;
+
+  &:focus { outline: none; border-color: $navy; }
+}
+
+.tabla-wrap { overflow-x: auto; }
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+
+  th {
+    text-align: left;
+    color: #64748b;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.6rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+  }
+}
+
+.tabla__anulada {
+  opacity: 0.65;
+}
+
+.tabla__detalle td {
+  background-color: #f8fafc;
+}
+
+.subtabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+
+  th {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.72rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  td {
+    border-bottom: 1px solid #eef2f7;
+    padding: 0.4rem 0.6rem;
+  }
+}
+
+.excepcion {
+  color: #92400e;
+  font-weight: 600;
+}
+
+.desplegar {
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  border-radius: 5px;
+  width: 1.5rem;
+  height: 1.5rem;
+  cursor: pointer;
+  color: $navy;
+  line-height: 1;
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.73rem;
+  font-weight: 600;
+
+  &--vigente { background-color: #dcfce7; color: #166534; }
+  &--anulada { background-color: #fee2e2; color: #991b1b; }
+}
+
+.paginador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.ordenes__loading,
+.ordenes__empty {
+  color: #64748b;
+  margin: 0;
+}
+
+.ordenes__alert {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  background-color: #ffffff;
+  color: $navy;
+  text-decoration: none;
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btn--sm { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+.btn--lg { padding: 0.6rem 1.1rem; font-size: 0.9rem; }
+
+.btn--ghost {
+  border-color: $navy;
+
+  &:hover:not(:disabled) { background-color: #f1f5f9; }
+}
+
+.btn--primary {
+  background-color: $navy;
+  color: #ffffff;
+  border-color: $navy;
+
+  &:hover:not(:disabled) {
+    background-color: $navy-soft;
+    border-color: $navy-soft;
+  }
+}

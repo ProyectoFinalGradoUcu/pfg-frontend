@@ -1,0 +1,317 @@
+$navy: #132744;
+$navy-soft: #1e3a5f;
+
+.orden {
+  display: grid;
+  gap: 1.25rem;
+  padding-top: 1.5rem;
+}
+
+.orden__header {
+  h2 {
+    margin: 0 0 0.25rem;
+    color: $navy;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0;
+    color: #475569;
+  }
+}
+
+.pasos {
+  list-style: none;
+  display: flex;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+
+  li {
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 0.3rem 0.9rem;
+    color: #94a3b8;
+    font-size: 0.82rem;
+    background-color: #ffffff;
+  }
+}
+
+.pasos__actual {
+  border-color: $navy;
+  color: $navy;
+  font-weight: 600;
+}
+
+.pasos__hecho {
+  border-color: #bbf7d0;
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem 1.4rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.card__titulo {
+  margin: 0;
+  color: $navy;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.card__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+
+  label {
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  &--ancho { grid-column: 1 / -1; }
+}
+
+.field__error {
+  color: #b91c1c;
+  font-size: 0.78rem;
+}
+
+.field__hint {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.input {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #0f172a;
+  background-color: #ffffff;
+
+  &:focus { outline: none; border-color: $navy; }
+  &--error { border-color: #dc2626; }
+  &--sm { padding: 0.3rem 0.5rem; font-size: 0.8rem; width: auto; }
+}
+
+// ─── Buscador de funcionarios ────────────────────────────────────────────
+
+.buscador {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.buscador__estado {
+  color: #64748b;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.resultados {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.resultados__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.8rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.85rem;
+  color: #0f172a;
+
+  small {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.76rem;
+  }
+
+  &:hover { background-color: #f1f5f9; }
+}
+
+.vacio {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+// ─── Tabla de la orden ───────────────────────────────────────────────────
+
+.tabla-wrap { overflow-x: auto; }
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+
+  th {
+    text-align: left;
+    color: #64748b;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.6rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
+  }
+}
+
+.tabla__cedula {
+  display: block;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.tabla__excepcion td {
+  background-color: #fffbeb;
+
+  .input { max-width: 30rem; margin-top: 0.4rem; }
+  .aviso--bloqueo { margin-top: 0.4rem; }
+}
+
+.aviso {
+  margin: 0;
+  color: #92400e;
+  font-size: 0.8rem;
+
+  &--bloqueo { color: #991b1b; }
+}
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background-color: #e2e8f0;
+  color: #475569;
+  white-space: nowrap;
+
+  &--pasible        { background-color: #dcfce7; color: #166534; }
+  &--proximo        { background-color: #e0f2fe; color: #075985; }
+  &--bloqueado      { background-color: #fef3c7; color: #92400e; }
+  &--fuera_de_edad  { background-color: #fee2e2; color: #991b1b; }
+  &--sin_regla      { background-color: #e2e8f0; color: #475569; }
+  &--tope_de_escala { background-color: #ede9fe; color: #5b21b6; }
+}
+
+// ─── Confirmación ────────────────────────────────────────────────────────
+
+.resumen {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1.25rem;
+  margin: 0;
+  font-size: 0.88rem;
+
+  dt { color: #64748b; }
+  dd { margin: 0; color: #0f172a; font-weight: 500; }
+}
+
+.confirmacion {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #334155;
+  font-size: 0.86rem;
+
+  em { color: #92400e; font-style: normal; }
+}
+
+.advertencia {
+  margin: 0;
+  background-color: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  padding: 0.7rem 0.9rem;
+  color: #1e3a8a;
+  font-size: 0.84rem;
+}
+
+// ─── Botones ─────────────────────────────────────────────────────────────
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  background-color: #ffffff;
+  color: $navy;
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btn--sm { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+
+.btn--ghost {
+  border-color: $navy;
+
+  &:hover:not(:disabled) { background-color: #f1f5f9; }
+}
+
+.btn--danger-ghost {
+  border-color: #fca5a5;
+  color: #b91c1c;
+
+  &:hover:not(:disabled) { background-color: #fef2f2; }
+}
+
+.btn--primary {
+  background-color: $navy;
+  color: #ffffff;
+  border-color: $navy;
+
+  &:hover:not(:disabled) {
+    background-color: $navy-soft;
+    border-color: $navy-soft;
+  }
+}
