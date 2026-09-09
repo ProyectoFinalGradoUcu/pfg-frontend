@@ -28,7 +28,7 @@ const routes: Routes = [
       },
       {
         path: 'ascensos-y-retiros',
-        canActivate: [permissionGuard(['ascensos.ver', 'ascensos.registrar', 'retiros.ver', 'retiros.registrar'])],
+        canActivate: [permissionGuard(['ascensos.ver', 'ascensos.registrar', 'ascensos.anular', 'reglas_ascenso.ver', 'reglas_ascenso.gestionar', 'retiros.ver', 'retiros.registrar'])],
         loadChildren: () => import('./features/ascensos-y-retiros/ascensos-y-retiros-module').then((m) => m.AscensosYRetirosModule),
       },
       {
