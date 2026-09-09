@@ -1,0 +1,176 @@
+<div class="modal-overlay" (click)="cerrar.emit()">
+  <div class="modal modal--wide" (click)="$event.stopPropagation()">
+
+    <header class="modal__header">
+      <h3>{{ esAlta() ? 'Nueva regla' : 'Editar regla' }}</h3>
+      <p class="modal__subtitle">
+        {{ escalon.grado_origen.denominacion }} → {{ escalon.grado_destino?.denominacion ?? 'sin destino' }}
+      </p>
+      <p class="modal__hint" *ngIf="!escalon.grado_destino">
+        Este tramo no tiene grado destino, así que no se puede guardar una regla.
+      </p>
+      <p class="modal__hint" *ngIf="!esAlta()">
+        Guardar no pisa la regla actual: cierra esta versión y abre una nueva. La anterior queda
+        en el historial del tramo.
+      </p>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <div class="modal__body">
+
+        <fieldset class="field-row">
+          <legend>Tiempo mínimo en el grado</legend>
+          <div class="field field--inline">
+            <label for="regla-anios">Años</label>
+            <input id="regla-anios" type="number" min="0" max="40" formControlName="anios" class="input input--num" />
+          </div>
+          <div class="field field--inline">
+            <label for="regla-meses">Meses</label>
+            <input id="regla-meses" type="number" min="0" max="11" formControlName="meses" class="input input--num" />
+          </div>
+          <span class="field__hint">
+            Es el tiempo en el grado que la persona <b>ya tiene</b>
+            ({{ escalon.grado_origen.denominacion }}), contado desde su último ascenso;
+            no es tiempo en el grado al que va a ascender.
+            Se guarda en días, a 365 por año.
+          </span>
+        </fieldset>
+
+        <fieldset class="field-row">
+          <legend>Edad máxima</legend>
+          <label class="check">
+            <input type="checkbox" formControlName="sin_tope_de_edad" />
+            Sin tope de edad (oficiales)
+          </label>
+          <div class="field field--inline" *ngIf="!form.get('sin_tope_de_edad')?.value">
+            <label for="regla-edad">Menor a</label>
+            <input id="regla-edad" type="number" min="18" max="80" formControlName="edad_maxima" class="input input--num" />
+          </div>
+        </fieldset>
+
+        <label class="check">
+          <input type="checkbox" formControlName="activo" />
+          Regla activa (si se desactiva, el motor deja de evaluarla)
+        </label>
+
+        <!-- ─── Requisitos ─────────────────────────────────────────────── -->
+
+        <section class="requisitos" formArrayName="requisitos">
+          <div class="requisitos__header">
+            <h4>Requisitos</h4>
+            <button type="button" class="btn btn--sm btn--ghost" (click)="agregarRequisito()">
+              Agregar requisito
+            </button>
+          </div>
+
+          <p class="requisitos__empty" *ngIf="requisitos.length === 0">
+            Sin requisitos: alcanza con el tiempo en el grado y la edad. Es lo que corresponde a los
+            ascensos automáticos de Alférez y Teniente 2.º.
+          </p>
+
+          <article class="requisito" *ngFor="let req of requisitos.controls; let i = index" [formGroupName]="i">
+            <div class="requisito__top">
+              <select formControlName="tipo" class="input input--sm">
+                <option *ngFor="let t of tipos" [value]="t.value">{{ t.label }}</option>
+              </select>
+              <input type="text" formControlName="descripcion" class="input input--sm"
+                placeholder="Descripción, como se muestra en pantalla" />
+              <button type="button" class="btn btn--sm btn--danger-ghost" (click)="quitarRequisito(i)">
+                Quitar
+              </button>
+            </div>
+
+            <div class="requisito__condiciones">
+              <span class="requisito__label">Aplica</span>
+              <button *ngFor="let c of condiciones" type="button" class="chip"
+                [class.chip--on]="condicionElegida(i, c.value)"
+                (click)="alternarCondicion(i, c.value)">
+                {{ c.label }}
+              </button>
+            </div>
+
+            <div class="requisito__cursos" *ngIf="req.get('tipo')?.value === 'CURSO_APROBADO'">
+              <div class="requisito__cursos-head">
+                <span class="requisito__label">Cursos que lo cumplen</span>
+                <select formControlName="modo" class="input input--sm input--modo">
+                  <option value="TODOS">Se exigen todos</option>
+                  <option value="ALGUNO">Alcanza con uno</option>
+                </select>
+              </div>
+
+              <div class="requisito__elegidos">
+                <span class="chip chip--on" *ngFor="let cid of req.get('cursos_ids')?.value"
+                  (click)="alternarCurso(i, cid)">
+                  {{ nombreDeCurso(cid) }} ✕
+                </span>
+                <span class="requisito__warn" *ngIf="requisitoSinCurso(i)">
+                  Sin curso vinculado este requisito no se puede evaluar.
+                </span>
+              </div>
+
+              <input type="text" class="input input--sm" placeholder="Buscar curso del catálogo..."
+                [value]="cursoBuscado()" (input)="cursoBuscado.set($any($event.target).value)" />
+
+              <ul class="requisito__catalogo">
+                <li *ngFor="let c of cursosFiltrados()">
+                  <button type="button" class="requisito__curso"
+                    [class.requisito__curso--on]="cursoElegido(i, c.id)"
+                    (click)="alternarCurso(i, c.id)">
+                    {{ c.nombre_curso }}
+                    <small *ngIf="c.institucion">{{ c.institucion }}</small>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </article>
+        </section>
+      </div>
+
+      <!-- ─── Impacto del cambio ─────────────────────────── -->
+      <section class="impacto" *ngIf="!esAlta()">
+        <div class="impacto__head">
+          <h4>Impacto del cambio</h4>
+          <button type="button" class="btn btn--sm btn--ghost" [disabled]="calculandoImpacto"
+            (click)="onVerImpacto()">
+            {{ calculandoImpacto ? 'Calculando...' : 'Ver impacto' }}
+          </button>
+        </div>
+
+        <p class="impacto__ayuda" *ngIf="!impacto && !calculandoImpacto">
+          Simula el cambio sobre los funcionarios que hoy están en ese grado, sin guardarlo.
+        </p>
+
+        <ng-container *ngIf="impacto as imp">
+          <p class="impacto__resumen">
+            Sobre {{ imp.evaluados }} funcionarios en el grado:
+            <b>{{ imp.pasan_a_pasibles }}</b> pasan a pasibles,
+            <b>{{ imp.dejan_de_ser_pasibles }}</b> dejan de serlo,
+            {{ imp.sin_cambio }} quedan igual.
+          </p>
+          <div class="impacto__listas">
+            <div *ngIf="imp.ganan.length">
+              <span class="impacto__label">Pasan a pasibles</span>
+              <ul>
+                <li *ngFor="let p of imp.ganan">{{ p.persona.nombre_completo }}</li>
+              </ul>
+            </div>
+            <div *ngIf="imp.pierden.length">
+              <span class="impacto__label">Dejan de serlo</span>
+              <ul>
+                <li *ngFor="let p of imp.pierden">{{ p.persona.nombre_completo }}</li>
+              </ul>
+            </div>
+          </div>
+        </ng-container>
+      </section>
+
+      <footer class="modal__footer">
+        <button type="button" class="btn btn--ghost" (click)="cerrar.emit()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="guardando || !escalon.grado_destino">
+          {{ guardando ? 'Guardando...' : (esAlta() ? 'Crear regla' : 'Guardar versión nueva') }}
+        </button>
+      </footer>
+    </form>
+
+  </div>
+</div>
