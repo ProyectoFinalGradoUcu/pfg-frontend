@@ -47,6 +47,12 @@ export class Select implements ControlValueAccessor {
   @Input() clearable = false;
   /** Selección múltiple: el valor del control pasa a ser un array y el panel no se cierra al elegir. */
   @Input() multiple = false;
+  /**
+   * Múltiple: hasta esta cantidad de ítems se muestran individualmente como chips
+   * (con opción de quitarlos uno a uno). Al superarla, el control resume la
+   * selección en un único chip tipo "+50" para que no se vuelva inmanejable.
+   */
+  @Input() maxChips = 3;
 
   @ViewChild('searchInputRef') searchInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('controlRef') controlRef?: ElementRef<HTMLElement>;
@@ -110,6 +116,19 @@ export class Select implements ControlValueAccessor {
     }
     return `${items.length} seleccionados`;
   });
+
+  /**
+   * Múltiple: `true` cuando hay que resumir la selección en un solo chip en vez
+   * de listar cada ítem. El umbral es {@link maxChips}.
+   */
+  readonly summarizeMulti = computed<boolean>(
+    () => this.selectedItemsMulti().length > this.maxChips,
+  );
+
+  /** Texto del chip resumen, p. ej. "+50". */
+  readonly summaryChipLabel = computed<string>(
+    () => `+${this.selectedItemsMulti().length}`,
+  );
 
   readonly filteredItems = computed<unknown[]>(() => {
     const term = this.searchTerm().toLowerCase().trim();
@@ -227,6 +246,17 @@ export class Select implements ControlValueAccessor {
     this.onTouched();
     this.searchTerm.set('');
     this.open.set(false);
+  }
+
+  /** Múltiple: quita un ítem desde su chip sin abrir/cerrar el panel. */
+  removeItem(item: unknown, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.disabledState()) return;
+    const value = this.getValue(item);
+    const next = this.selectedValuesArr().filter((v) => v !== value);
+    this.selectedValue.set(next);
+    this.onChange(next);
+    this.onTouched();
   }
 
   clear(event: MouseEvent): void {

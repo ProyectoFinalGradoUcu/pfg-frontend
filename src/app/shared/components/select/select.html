@@ -8,11 +8,46 @@
     #controlRef
     type="button"
     class="appsel__control"
+    [class.appsel__control--chips]="multiple && selectedItemsMulti().length && !summarizeMulti()"
     (click)="toggle()"
     [disabled]="disabledState()"
   >
-    <span *ngIf="(multiple ? multipleLabel() : selectedLabel()) as label" class="appsel__value">{{ label }}</span>
-    <span *ngIf="!(multiple ? multipleLabel() : selectedLabel())" class="appsel__placeholder">{{ placeholder }}</span>
+    <ng-container *ngIf="multiple; else singleValue">
+      <span *ngIf="!selectedItemsMulti().length" class="appsel__placeholder">{{ placeholder }}</span>
+
+      <!-- Pocos ítems: se listan individualmente y se pueden quitar uno a uno. -->
+      <span *ngIf="selectedItemsMulti().length && !summarizeMulti()" class="appsel__chips">
+        <span
+          *ngFor="let item of selectedItemsMulti(); trackBy: trackItem"
+          class="appsel__chip"
+        >
+          <span class="appsel__chip-label">{{ getLabelOf(item) }}</span>
+          <button
+            *ngIf="!disabledState()"
+            type="button"
+            class="appsel__chip-x"
+            (click)="removeItem(item, $event)"
+            [attr.aria-label]="'Quitar ' + getLabelOf(item)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </span>
+      </span>
+
+      <!-- Muchos ítems: se resume en un solo chip "+N" para no volverse inmanejable. -->
+      <span
+        *ngIf="summarizeMulti()"
+        class="appsel__chip appsel__chip--summary"
+        [attr.title]="multipleLabel()"
+      >{{ summaryChipLabel() }}</span>
+    </ng-container>
+
+    <ng-template #singleValue>
+      <span *ngIf="selectedLabel() as label" class="appsel__value">{{ label }}</span>
+      <span *ngIf="!selectedLabel()" class="appsel__placeholder">{{ placeholder }}</span>
+    </ng-template>
 
     <span class="appsel__icons">
       <button

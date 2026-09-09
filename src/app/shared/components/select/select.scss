@@ -50,6 +50,71 @@ $accent: #4a9eff;
   border-color: $navy;
 }
 
+// Múltiple con pocos ítems: los chips pueden ocupar más de una línea.
+.appsel__control--chips {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  height: auto;
+}
+
+.appsel__chips {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.appsel__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  padding: 0.15rem 0.2rem 0.15rem 0.5rem;
+  border-radius: 999px;
+  background-color: #e0f2fe;
+  color: $navy;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.appsel__chip--summary {
+  padding: 0.15rem 0.55rem;
+  font-weight: 600;
+}
+
+.appsel__chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appsel__chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #1d4ed8;
+  cursor: pointer;
+
+  svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  &:hover {
+    background-color: rgba(19, 39, 68, 0.12);
+    color: $navy;
+  }
+}
+
 // El lado por donde sale el panel pierde el redondeo para que se vean como una pieza.
 .appsel--open:not(.appsel--up) .appsel__control {
   border-bottom-left-radius: 0;
