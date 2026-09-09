@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import { CrearUnidadPayload, EditarUnidadPayload, Unidad } from '../models/destinos.models';
+import { MotivoBajaCatalogo } from '../models/retiros.models';
 
 /** Valores crudos del formulario de edición de unidad. Un string vacío significa "sin valor". */
 export interface CamposEditablesUnidad {
@@ -38,10 +39,14 @@ export function payloadEdicionUnidad(original: Unidad, valores: CamposEditablesU
 @Injectable({ providedIn: 'root' })
 export class CatalogosService {
   private readonly http = inject(HttpClient);
-  private readonly base = `${API_BASE_URL}/catalogos/unidades`;
+  private readonly base = `${API_BASE_URL}/catalogos`;
+
+  getMotivosBaja(): Observable<MotivoBajaCatalogo[]> {
+    return this.http.get<MotivoBajaCatalogo[]>(`${this.base}/motivos-baja`, { withCredentials: true });
+  }
 
   crearUnidad(payload: CrearUnidadPayload): Observable<Unidad> {
-    return this.http.post<Unidad>(this.base, { service_request: payload }, { withCredentials: true });
+    return this.http.post<Unidad>(`${this.base}/unidades`, { service_request: payload }, { withCredentials: true });
   }
 
   /**
@@ -55,11 +60,11 @@ export class CatalogosService {
     if (payload.denominacion !== undefined) body.denominacion = payload.denominacion;
     if (payload.tipo !== undefined) body.tipo = payload.tipo;
     if (payload.vigente !== undefined) body.vigente = payload.vigente;
-    return this.http.patch<Unidad>(`${this.base}/${unidadId}`, { service_request: body }, { withCredentials: true });
+    return this.http.patch<Unidad>(`${this.base}/unidades/${unidadId}`, { service_request: body }, { withCredentials: true });
   }
 
   /** Baja lógica: el backend pone `vigente = false` y devuelve la unidad actualizada. */
   darDeBajaUnidad(unidadId: string): Observable<Unidad> {
-    return this.http.delete<Unidad>(`${this.base}/${unidadId}`, { withCredentials: true });
+    return this.http.delete<Unidad>(`${this.base}/unidades/${unidadId}`, { withCredentials: true });
   }
 }

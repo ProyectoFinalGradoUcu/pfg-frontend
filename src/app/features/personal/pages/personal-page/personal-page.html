@@ -71,6 +71,16 @@
         </select>
       </label>
 
+      <!-- Sin esto los retirados no aparecen. -->
+      <label class="personal-page__check">
+        <input
+          type="checkbox"
+          [checked]="incluirRetirados()"
+          (change)="setIncluirRetirados($any($event.target).checked)"
+        />
+        Incluir retirados
+      </label>
+
       <button
         type="button"
         class="btn btn--clear personal-page__clear-btn"
@@ -109,12 +119,19 @@
             <td>{{ item.rango }}</td>
             <td>{{ item.destino }}</td>
             <td>
+              <!-- `estado` es la situación: el chip sale de `relacion_estado`. -->
               <span
                 class="personal-page__badge"
                 [class.personal-page__badge--licencia]="item.estado === 'Licencia'"
                 [class.personal-page__badge--activo]="item.estado === 'Activo'"
               >
                 {{ item.estado }}
+              </span>
+              <span
+                class="personal-page__badge personal-page__badge--retirado"
+                *ngIf="item.relacion_estado === 'inactivo'"
+              >
+                Retirado
               </span>
             </td>
             <td class="personal-page__col-actions">

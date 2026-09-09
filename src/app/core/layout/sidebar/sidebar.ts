@@ -20,8 +20,10 @@ export class Sidebar {
     this.auth.hasAnyPermiso([
       'ascensos.ver', 'ascensos.ver.unidad', 'ascensos.registrar', 'ascensos.anular',
       'reglas_ascenso.ver', 'reglas_ascenso.gestionar',
-      'retiros.ver', 'retiros.registrar',
     ]),
+  );
+  readonly puedeVerRetiros = computed(() =>
+    this.auth.hasAnyPermiso(['retiros.ver', 'retiros.registrar']),
   );
 
   readonly itemsAscensos = computed(() => {

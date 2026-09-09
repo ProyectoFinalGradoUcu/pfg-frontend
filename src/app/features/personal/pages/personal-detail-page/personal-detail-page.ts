@@ -44,6 +44,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly persona        = signal<PersonaDetalle | null>(null);
   readonly loadingPersona = signal(true);
 
+  /** `false` para un retirado: su relación cerrada no viene en la respuesta. */
+  readonly tieneRelacionLaboral = computed(() => !!this.persona()?.relacion_laboral);
+
   // ─── Tabs ────────────────────────────────────────────────────────────────
   readonly activeTab   = signal<TabKey>('personal');
   private readonly loadedTabs = new Set<TabKey>(['personal']);

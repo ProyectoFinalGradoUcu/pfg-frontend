@@ -11,7 +11,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 
 function makePersona(overrides: Partial<PersonaListItem> = {}): PersonaListItem {
-  return { id: '16', nombre: 'Laura Acosta', cedula: '60000016', rango: 'Cabo Segundo', destino: 'Base Aérea Nº 1', estado: 'Activo', ...overrides };
+  return { id: '16', nombre: 'Laura Acosta', cedula: '60000016', rango: 'Cabo Segundo', destino: 'Base Aérea Nº 1', estado: 'Activo', relacion_estado: 'activo', ...overrides };
 }
 
 describe('NuevoPersonalPage', () => {

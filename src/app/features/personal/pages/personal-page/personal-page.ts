@@ -36,6 +36,11 @@ export class PersonalPage implements OnInit, OnDestroy {
   readonly selectedDestino = signal<number | null>(null);
   readonly selectedRango   = signal<number | null>(null);
   readonly selectedEstado  = signal<number | null>(null);
+  /**
+   * `GET /personas` excluye a los retirados por defecto: exige una relación con
+   * `fecha_fin: null`. Sin este toggle, un retirado simplemente no está en la grilla.
+   */
+  readonly incluirRetirados = signal(false);
   readonly currentPage     = signal(1);
 
   readonly items   = signal<PersonaListItem[]>([]);
@@ -47,7 +52,7 @@ export class PersonalPage implements OnInit, OnDestroy {
   readonly situaciones = signal<OpcionSelect[]>([]);
 
   readonly hayFiltrosActivos = computed(() =>
-    !!this.searchTerm() || !!this.selectedDestino() || !!this.selectedRango() || !!this.selectedEstado()
+    !!this.searchTerm() || !!this.selectedDestino() || !!this.selectedRango() || !!this.selectedEstado() || this.incluirRetirados()
   );
 
   readonly openMenuId    = signal<string | null>(null);
@@ -78,6 +83,7 @@ export class PersonalPage implements OnInit, OnDestroy {
             destino:  this.selectedDestino() ?? undefined,
             rango:    this.selectedRango()   ?? undefined,
             estado:   this.selectedEstado()  ?? undefined,
+            incluir_inactivos: this.incluirRetirados() || undefined,
           });
         }),
         takeUntil(this.destroy$),
@@ -140,6 +146,12 @@ export class PersonalPage implements OnInit, OnDestroy {
     this.triggerLoad$.next();
   }
 
+  setIncluirRetirados(valor: boolean): void {
+    this.incluirRetirados.set(valor);
+    this.currentPage.set(1);
+    this.triggerLoad$.next();
+  }
+
   onPageChange(page: number): void {
     this.currentPage.set(page);
     this.triggerLoad$.next();
@@ -150,6 +162,7 @@ export class PersonalPage implements OnInit, OnDestroy {
     this.selectedDestino.set(null);
     this.selectedRango.set(null);
     this.selectedEstado.set(null);
+    this.incluirRetirados.set(false);
     this.currentPage.set(1);
     this.triggerLoad$.next();
   }

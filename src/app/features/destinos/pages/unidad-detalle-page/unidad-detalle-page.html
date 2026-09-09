@@ -64,7 +64,12 @@
         </thead>
         <tbody>
           <tr *ngFor="let d of funcionarios(); trackBy: trackDestino">
-            <td><strong>{{ nombreFuncionario(d) }}</strong></td>
+            <td>
+              <strong>{{ nombreFuncionario(d) }}</strong>
+              <span class="unidad-detalle__badge unidad-detalle__badge--retirado" *ngIf="esFantasma(d)">
+                Retirado
+              </span>
+            </td>
             <td>{{ d.persona?.cedula || '—' }}</td>
             <td>{{ d.posicion_destino || '—' }}</td>
             <td>{{ d.fecha_inicio ? (d.fecha_inicio | date:'d/M/yyyy':'UTC') : '—' }}</td>

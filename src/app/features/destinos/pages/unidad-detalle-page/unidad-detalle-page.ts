@@ -7,6 +7,7 @@ import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import {
   Destino,
+  FuncionarioUnidad,
   ListarFuncionariosUnidadQuery,
   UnidadConDestinados,
 } from '../../../../core/models/destinos.models';
@@ -34,7 +35,7 @@ export class UnidadDetallePage implements OnInit, OnDestroy {
 
   readonly loading = signal(false);
   readonly unidad = signal<UnidadConDestinados | null>(null);
-  readonly funcionarios = signal<Destino[]>([]);
+  readonly funcionarios = signal<FuncionarioUnidad[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
   readonly pageSize = 10;
@@ -112,6 +113,11 @@ export class UnidadDetallePage implements OnInit, OnDestroy {
   onPageChange(page: number): void {
     this.page.set(page);
     this.cargar();
+  }
+
+  /** Retirado que conserva la plaza: destino activo con relación inactiva. */
+  esFantasma(f: FuncionarioUnidad): boolean {
+    return f.activo && f.relacion_estado === 'inactivo';
   }
 
   nombreFuncionario(d: Destino): string {
