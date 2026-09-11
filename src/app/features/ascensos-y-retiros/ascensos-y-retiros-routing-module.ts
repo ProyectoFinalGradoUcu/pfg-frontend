@@ -1,6 +1,5 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { AscensosYRetirosPage } from './pages/ascensos-y-retiros-page/ascensos-y-retiros-page';
 import { ReglasPage } from './pages/reglas-page/reglas-page';
 import { PasiblesPage } from './pages/pasibles-page/pasibles-page';
 import { NuevaOrdenPage } from './pages/nueva-orden-page/nueva-orden-page';
@@ -9,7 +8,7 @@ import { OrdenDetallePage } from './pages/orden-detalle-page/orden-detalle-page'
 import { permissionGuard } from '../../core/guards/permission.guard';
 
 const routes: Routes = [
-  { path: '', component: AscensosYRetirosPage },
+  { path: '', redirectTo: 'pasibles', pathMatch: 'full' },
   {
     path: 'pasibles',
     canActivate: [permissionGuard(['ascensos.ver'])],
