@@ -2,7 +2,6 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { AscensosYRetirosRoutingModule } from './ascensos-y-retiros-routing-module';
-import { AscensosYRetirosPage } from './pages/ascensos-y-retiros-page/ascensos-y-retiros-page';
 import { ReglasPage } from './pages/reglas-page/reglas-page';
 import { PasiblesPage } from './pages/pasibles-page/pasibles-page';
 import { NuevaOrdenPage } from './pages/nueva-orden-page/nueva-orden-page';
@@ -13,7 +12,6 @@ import { SharedModule } from '../../shared/shared-module';
 
 @NgModule({
   declarations: [
-    AscensosYRetirosPage,
     ReglasPage,
     PasiblesPage,
     NuevaOrdenPage,
