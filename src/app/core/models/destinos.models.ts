@@ -160,6 +160,11 @@ export interface ListarUnidadesQuery {
   vigente?: boolean;
 }
 
+/** `activo` es del destino; `relacion_estado`, de la relación laboral. */
+export interface FuncionarioUnidad extends Destino {
+  relacion_estado: 'activo' | 'inactivo' | null;
+}
+
 export interface ListarFuncionariosUnidadQuery {
   page?: number;
   pageSize?: number;

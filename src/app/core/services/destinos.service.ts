@@ -6,6 +6,7 @@ import {
   CrearDestinoPayload,
   Destino,
   DestinoEliminado,
+  FuncionarioUnidad,
   EditarDestinoPayload,
   ListaDestinos,
   ListarDestinosQuery,
@@ -103,8 +104,8 @@ export class DestinosService {
   listarFuncionariosUnidad(
     unidadId: string,
     query: ListarFuncionariosUnidadQuery = {},
-  ): Observable<Paginado<Destino>> {
-    return this.http.get<Paginado<Destino>>(
+  ): Observable<Paginado<FuncionarioUnidad>> {
+    return this.http.get<Paginado<FuncionarioUnidad>>(
       `${this.base}/unidades/${unidadId}/funcionarios${this.qs(query)}`,
       { withCredentials: true },
     );

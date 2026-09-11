@@ -259,8 +259,18 @@
               </div>
             </div>
 
+            <p class="pd__empty" *ngIf="!editMode() && !p.relacion_laboral">
+              Sin relación laboral vigente. Si el funcionario está retirado, el detalle está en
+              Historial Militar.
+            </p>
+
+            <p class="pd__empty" *ngIf="editMode() && !p.relacion_laboral">
+              Este funcionario no tiene relación laboral vigente, así que no hay datos laborales
+              que editar.
+            </p>
+
             <!-- Edit view: solo militares -->
-            <div class="pd__field-list" *ngIf="editMode() && !p.es_civil">
+            <div class="pd__field-list" *ngIf="editMode() && !p.es_civil && p.relacion_laboral as rl">
               <div class="pd__field">
                 <span class="pd__label">Fecha de inicio</span>
                 <input type="date" formControlName="fecha_inicio" class="pd__edit-input"
@@ -289,7 +299,7 @@
               </div>
               <div class="pd__field">
                 <span class="pd__label">Unidad</span>
-                <span class="pd__value">{{ p.relacion_laboral.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
                 <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
@@ -369,10 +379,10 @@
             </div>
 
             <!-- Edit view: civiles -->
-            <div class="pd__field-list" *ngIf="editMode() && p.es_civil">
+            <div class="pd__field-list" *ngIf="editMode() && p.es_civil && p.relacion_laboral as rl">
               <div class="pd__field">
                 <span class="pd__label">Unidad</span>
-                <span class="pd__value">{{ p.relacion_laboral?.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
                 <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
@@ -565,14 +575,16 @@
           <span class="pd__label">Ingreso a la ETA</span>
           <span class="pd__value">{{ formatDate(lm.fecha_ingreso_eta) }}</span>
         </div>
-        <div class="pd__field" *ngIf="p.relacion_laboral.fecha_ultimo_ascenso">
-          <span class="pd__label">Último ascenso</span>
-          <span class="pd__value">{{ formatDate(p.relacion_laboral.fecha_ultimo_ascenso) }}</span>
-        </div>
-        <div class="pd__field" *ngIf="p.relacion_laboral.fecha_ascenso_oficial">
-          <span class="pd__label">Ascenso a oficial</span>
-          <span class="pd__value">{{ formatDate(p.relacion_laboral.fecha_ascenso_oficial) }}</span>
-        </div>
+        <ng-container *ngIf="p.relacion_laboral as rl">
+          <div class="pd__field" *ngIf="rl.fecha_ultimo_ascenso">
+            <span class="pd__label">Último ascenso</span>
+            <span class="pd__value">{{ formatDate(rl.fecha_ultimo_ascenso) }}</span>
+          </div>
+          <div class="pd__field" *ngIf="rl.fecha_ascenso_oficial">
+            <span class="pd__label">Ascenso a oficial</span>
+            <span class="pd__value">{{ formatDate(rl.fecha_ascenso_oficial) }}</span>
+          </div>
+        </ng-container>
       </div>
 
       <div class="pd__tab-header">
@@ -614,6 +626,7 @@
           </div>
         </div>
       </div>
+
     </article>
 
     <!-- ═══════════════════ TAB: CURSOS ═══════════════════ -->

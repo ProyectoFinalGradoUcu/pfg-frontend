@@ -1,0 +1,73 @@
+<!-- Sin cierre al click afuera: un resbalón perdía todo lo cargado. -->
+<div class="modal-overlay">
+  <div class="modal">
+    <header class="modal__header">
+      <h3>Corregir retiro</h3>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body" [formGroup]="form">
+      <p class="aviso aviso--info">
+        Se corrigen los datos del retiro. El retiro sigue existiendo y el funcionario sigue
+        retirado.
+      </p>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="fecha-retiro">Fecha de retiro *</label>
+          <input id="fecha-retiro" type="date" formControlName="fecha_retiro" [max]="hoy" />
+        </div>
+
+        <div class="field">
+          <label for="hora-retiro">Hora</label>
+          <input id="hora-retiro" type="time" step="1" formControlName="hora_retiro" />
+        </div>
+      </div>
+
+      <p class="aviso" *ngIf="form.controls.fecha_retiro.dirty">
+        <strong>Cambiar la fecha no reajusta la cascada.</strong> El cierre del destino y las bajas
+        de curso que aplicó este retiro quedan donde estaban. Si el cambio es grande, revisalos a
+        mano.
+      </p>
+
+      <div class="field">
+        <label for="motivo-baja">Motivo *</label>
+        <select id="motivo-baja" formControlName="motivo_baja_id">
+          <option [ngValue]="null">Seleccionar...</option>
+          <option *ngFor="let m of motivos()" [ngValue]="m.id">{{ m.denominacion }}</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="motivo-libre">Detalle del motivo</label>
+        <input id="motivo-libre" type="text" formControlName="motivo" />
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="numero-orden">Número de orden</label>
+          <input id="numero-orden" type="text" formControlName="numero_orden" placeholder="O.D. 12455" />
+        </div>
+
+        <div class="field">
+          <label for="boletin">Boletín</label>
+          <input id="boletin" type="text" formControlName="boletin" placeholder="B.P. 8891" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="observaciones">Observaciones</label>
+        <textarea id="observaciones" formControlName="observaciones" rows="3"></textarea>
+      </div>
+
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()">Cancelar</button>
+      <button type="button" class="btn btn--primary" [disabled]="enviando()" (click)="confirmar()">
+        {{ enviando() ? 'Guardando...' : 'Guardar cambios' }}
+      </button>
+    </footer>
+  </div>
+</div>

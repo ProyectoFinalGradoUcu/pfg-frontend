@@ -1,10 +1,15 @@
+import { RetiroHistorial } from './retiros.models';
+
 export interface PersonaListItem {
   id: string;
   nombre: string;
   cedula: string;
-  rango: string;
-  destino: string;
-  estado: string;
+  rango: string | null;
+  destino: string | null;
+  /** La **situación**, no el estado de la relación: un retirado la conserva. */
+  estado: string | null;
+  /** Lo que hay que mirar para saber si está retirado. */
+  relacion_estado: 'activo' | 'inactivo' | null;
 }
 
 export interface PersonasPaginadas {
@@ -21,6 +26,8 @@ export interface FindPersonasParams {
   destino?: number;
   rango?: number;
   estado?: number;
+  /** Sin esto los retirados no aparecen: el backend exige relación abierta. */
+  incluir_inactivos?: boolean;
 }
 
 export interface OpcionSelect {
@@ -126,7 +133,8 @@ export interface PersonaDetalle {
   codigo_postal: string | null;
   seccional: string | null;
   es_civil: boolean;
-  relacion_laboral: RelacionLaboral;
+  /** `null` si no hay relación **abierta**: un retirado cae acá. */
+  relacion_laboral: RelacionLaboral | null;
   legajo_militar: LegajoMilitar;
 }
 
@@ -158,6 +166,8 @@ export interface HistorialRango {
 
 export interface HistorialMilitar {
   historial_rangos: HistorialRango[];
+  /** Sin anulados, del más reciente al más antiguo. Ninguna UI lo consume hoy. */
+  retiros: RetiroHistorial[];
 }
 
 export interface CursoPersona {

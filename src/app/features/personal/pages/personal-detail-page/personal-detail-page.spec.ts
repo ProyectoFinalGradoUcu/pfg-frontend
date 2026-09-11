@@ -31,7 +31,7 @@ function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDet
     codigo_postal: null,
     seccional: null,
     es_civil: true,
-    relacion_laboral: null as unknown as PersonaDetalle['relacion_laboral'],
+    relacion_laboral: null,
     legajo_militar: {
       nivel_educativo: null,
       nivel_educativo_label: null,
@@ -51,7 +51,7 @@ function makeFamiliarItem(overrides: Partial<FamiliarItem> = {}): FamiliarItem {
 }
 
 function makePersonaListItem(overrides: Partial<PersonaListItem> = {}): PersonaListItem {
-  return { id: '33', nombre: 'Nuevo Subalterno', cedula: '88888801', rango: 'Soldado', destino: 'Cuartel General', estado: 'Activo', ...overrides };
+  return { id: '33', nombre: 'Nuevo Subalterno', cedula: '88888801', rango: 'Soldado', destino: 'Cuartel General', estado: 'Activo', relacion_estado: 'activo', ...overrides };
 }
 
 describe('PersonalDetailPage', () => {
@@ -275,6 +275,34 @@ describe('PersonalDetailPage', () => {
       component.quitarFamiliar(makeFamiliarItem());
       expect(component.familiares()).toEqual([makeFamiliarItem()]);
       expect(toastService.error).toHaveBeenCalledWith('No se pudo quitar el familiar. Intentá de nuevo.');
+    });
+  });
+
+  // `GET /personas/:id` selecciona la relación con `fecha_fin: null`, así que para un
+  // retirado devuelve `relacion_laboral: null`. El factory de arriba ya usa ese caso.
+  describe('funcionario sin relación laboral abierta (retirado)', () => {
+    it('muestra un estado explícito en vez de un bloque vacío', () => {
+      const texto: string = fixture.nativeElement.textContent ?? '';
+      expect(texto).toContain('Sin relación laboral vigente');
+    });
+
+    it('abrir el drawer de edición no rompe', () => {
+      expect(() => {
+        component.openEdit();
+        fixture.detectChanges();
+      }).not.toThrow();
+      expect(component.editMode()).toBe(true);
+    });
+
+    it('no ofrece los campos laborales en el drawer', () => {
+      component.openEdit();
+      fixture.detectChanges();
+      const texto: string = fixture.nativeElement.textContent ?? '';
+      expect(texto).not.toContain('La unidad se cambia registrando un destino');
+    });
+
+    it('tieneRelacionLaboral es false', () => {
+      expect(component.tieneRelacionLaboral()).toBe(false);
     });
   });
 });

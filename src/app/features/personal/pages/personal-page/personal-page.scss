@@ -630,3 +630,22 @@
   height: 15px;
   animation: nf-spin 0.75s linear infinite;
 }
+
+// El badge de situación sigue diciendo "en actividad": este chip es el real.
+.personal-page__badge--retirado {
+  margin-left: 0.35rem;
+  background-color: #132744;
+  color: #ffffff;
+}
+
+.personal-page__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #475569;
+  white-space: nowrap;
+  cursor: pointer;
+
+  input { accent-color: #132744; }
+}

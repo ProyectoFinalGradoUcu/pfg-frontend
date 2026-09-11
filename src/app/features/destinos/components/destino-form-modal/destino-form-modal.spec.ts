@@ -29,7 +29,7 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
 }
 
 function makePersona(overrides: Partial<PersonaListItem> = {}): PersonaListItem {
-  return { id: '42', nombre: 'José Pérez', cedula: '50000001', rango: 'Cnel.', destino: 'E.M.G.F.A.', estado: 'Activo', ...overrides };
+  return { id: '42', nombre: 'José Pérez', cedula: '50000001', rango: 'Cnel.', destino: 'E.M.G.F.A.', estado: 'Activo', relacion_estado: 'activo', ...overrides };
 }
 
 function makeLista(items: Destino[] = []) {

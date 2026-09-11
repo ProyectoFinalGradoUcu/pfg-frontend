@@ -64,6 +64,22 @@ describe('PersonalService', () => {
     });
   });
 
+  describe('findPaginado e incluir_inactivos', () => {
+    it('manda incluir_inactivos cuando se pide: sin esto los retirados no aparecen', () => {
+      service.findPaginado({ incluir_inactivos: true }).subscribe();
+      const req = http.expectOne((r) => r.url.includes('/personas'));
+      expect(req.request.params.get('incluir_inactivos')).toBe('true');
+      req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+    });
+
+    it('no lo manda cuando está en false: el default del backend ya es ese', () => {
+      service.findPaginado({ incluir_inactivos: false }).subscribe();
+      const req = http.expectOne((r) => r.url.includes('/personas'));
+      expect(req.request.params.has('incluir_inactivos')).toBe(false);
+      req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+    });
+  });
+
   describe('quitarFamiliar', () => {
     it('pide DELETE /personas/:id/familiares/:familiarId', () => {
       service.quitarFamiliar(31, 16).subscribe();

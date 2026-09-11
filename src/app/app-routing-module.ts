@@ -28,8 +28,13 @@ const routes: Routes = [
       },
       {
         path: 'ascensos-y-retiros',
-        canActivate: [permissionGuard(['ascensos.ver', 'ascensos.registrar', 'ascensos.anular', 'reglas_ascenso.ver', 'reglas_ascenso.gestionar', 'retiros.ver', 'retiros.registrar'])],
+        canActivate: [permissionGuard(['ascensos.ver', 'ascensos.registrar', 'ascensos.anular', 'reglas_ascenso.ver', 'reglas_ascenso.gestionar'])],
         loadChildren: () => import('./features/ascensos-y-retiros/ascensos-y-retiros-module').then((m) => m.AscensosYRetirosModule),
+      },
+      {
+        path: 'retiros',
+        canActivate: [permissionGuard(['retiros.ver', 'retiros.registrar'])],
+        loadChildren: () => import('./features/retiros/retiros-module').then((m) => m.RetirosModule),
       },
       {
         path: 'cursos',
