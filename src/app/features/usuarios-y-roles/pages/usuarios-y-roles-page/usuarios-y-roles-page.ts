@@ -7,10 +7,12 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { InvitacionesService } from '../../../../core/services/invitaciones.service';
 import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { Invitacion, PermisoEfectivo, Rol, Usuario } from '../../../../core/models/auth.models';
 import { OpcionSelect } from '../../../../core/models/personal.models';
+import { parseError } from '../../../../shared/utils/parse-error';
 
 type Tab = 'usuarios' | 'invitaciones' | 'roles' | 'unidades';
 type ModalKind =
@@ -34,6 +36,7 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly rolesService = inject(RolesService);
   private readonly invitacionesService = inject(InvitacionesService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
   private readonly router = inject(Router);
 
   // ── Tab ──────────────────────────────────────────────────────────────────
@@ -143,7 +146,7 @@ export class UsuariosYRolesPage implements OnInit {
         this.cargarUsuarios();
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.loading.set(false);
       },
     });
@@ -166,7 +169,7 @@ export class UsuariosYRolesPage implements OnInit {
           this.usuariosLoading.set(false);
         },
         error: (err: HttpErrorResponse) => {
-          this.toast.error(this.parseError(err));
+          this.reportarError(err);
           this.usuariosLoading.set(false);
         },
       });
@@ -239,7 +242,7 @@ export class UsuariosYRolesPage implements OnInit {
             `Se realizó una nueva invitación a ${username}. Esto queda visible en la sección de invitaciones.`,
           );
         },
-        error: (err) => this.modalError.set(this.parseError(err)),
+        error: (err) => this.modalError.set(parseError(err)),
       });
   }
 
@@ -300,7 +303,7 @@ export class UsuariosYRolesPage implements OnInit {
         this.toast.success(`Cambios guardados para ${nombre}`);
         this.cargar();
       },
-      error: (err) => this.modalError.set(this.parseError(err)),
+      error: (err) => this.modalError.set(parseError(err)),
     });
   }
 
@@ -316,7 +319,7 @@ export class UsuariosYRolesPage implements OnInit {
         this.toast.success(`${nombre} deshabilitado`);
         this.cargarUsuarios();
       },
-      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+      error: (err: HttpErrorResponse) => this.reportarError(err),
     });
   }
 
@@ -330,7 +333,7 @@ export class UsuariosYRolesPage implements OnInit {
         this.toast.success(`${nombre} reactivado`);
         this.cargarUsuarios();
       },
-      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+      error: (err: HttpErrorResponse) => this.reportarError(err),
     });
   }
 
@@ -396,7 +399,7 @@ export class UsuariosYRolesPage implements OnInit {
         );
         this.cargar();
       },
-      error: (err) => this.modalError.set(this.parseError(err)),
+      error: (err) => this.modalError.set(parseError(err)),
     });
   }
 
@@ -414,7 +417,7 @@ export class UsuariosYRolesPage implements OnInit {
         this.toast.success('Rol eliminado');
         this.cargar();
       },
-      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+      error: (err: HttpErrorResponse) => this.reportarError(err),
     });
   }
 
@@ -432,7 +435,7 @@ export class UsuariosYRolesPage implements OnInit {
         this.invitacionesLoading.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.invitacionesLoading.set(false);
       },
     });
@@ -461,7 +464,7 @@ export class UsuariosYRolesPage implements OnInit {
       },
       error: (err) => {
         this.revocandoId.set(null);
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
       },
     });
   }
@@ -479,7 +482,10 @@ export class UsuariosYRolesPage implements OnInit {
   trackRol = (_: number, r: Rol) => r.id;
   trackInvitacion = (_: number, i: Invitacion) => i.id;
 
-  private parseError(err: HttpErrorResponse): string {
-    return err.error?.message ?? err.message ?? 'Error inesperado';
+  /** 403 es bloqueante: se muestra en el modal informativo en vez de un toast que desaparece solo. */
+  private reportarError(err: HttpErrorResponse): void {
+    const msg = parseError(err);
+    if (err.status === 403) this.errorModal.show(msg);
+    else this.toast.error(msg);
   }
 }

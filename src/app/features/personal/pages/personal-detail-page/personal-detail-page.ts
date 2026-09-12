@@ -13,6 +13,8 @@ import { PersonalService } from '../../../../core/services/personal.service';
 import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { parseError } from '../../../../shared/utils/parse-error';
 import {
   ESTADOS_ELEGIBILIDAD,
   Elegibilidad,
@@ -36,6 +38,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private readonly ascensos = inject(AscensosService);
   private readonly auth     = inject(AuthService);
   private readonly toast    = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
   private readonly fb       = inject(FormBuilder);
 
   private personaId!: number;
@@ -232,6 +235,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         if (err.status === 404) {
           this.toast.error('Personal no encontrado');
           this.router.navigate(['/personal']);
+        } else if (err.status === 403) {
+          this.errorModal.show(parseError(err));
+          this.router.navigate(['/personal']);
         } else {
           this.toast.error('Error al cargar el perfil');
         }
@@ -417,6 +423,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoFamiliar.set(false);
+        if (err.status === 403) {
+          this.errorModal.show(parseError(err));
+          return;
+        }
         const msg = (err.status === 400 || err.status === 409) && err.error?.message
           ? err.error.message
           : 'No se pudo agregar el familiar. Intentá de nuevo.';
@@ -433,7 +443,13 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         this.familiares.update(list => list.filter(x => x.id !== f.id));
         this.toast.success('Familiar quitado correctamente');
       },
-      error: () => this.toast.error('No se pudo quitar el familiar. Intentá de nuevo.'),
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 403) {
+          this.errorModal.show(parseError(err));
+        } else {
+          this.toast.error('No se pudo quitar el familiar. Intentá de nuevo.');
+        }
+      },
     });
   }
 
@@ -552,10 +568,13 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.editLoading.set(false);
-        const msg = err.status === 400 && err.error?.message
-          ? err.error.message
-          : 'Error al guardar los cambios. Intentá de nuevo.';
-        this.toast.error(msg);
+        if (err.status === 403 || err.status === 400) {
+          // 400 acá incluye reglas de negocio como "no podés cambiar el destino de un
+          // funcionario a otra unidad", no solo validación de formulario.
+          this.errorModal.show(parseError(err));
+          return;
+        }
+        this.toast.error('Error al guardar los cambios. Intentá de nuevo.');
       },
     });
   }

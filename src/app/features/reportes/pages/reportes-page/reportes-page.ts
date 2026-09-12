@@ -3,7 +3,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { ReportesService } from '../../../../core/services/reportes.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { ReporteCatalogo } from '../../../../core/models/reportes.models';
+import { parseError } from '../../../../shared/utils/parse-error';
 
 @Component({
   selector: 'app-reportes-page',
@@ -14,6 +16,7 @@ import { ReporteCatalogo } from '../../../../core/models/reportes.models';
 export class ReportesPage implements OnInit {
   private readonly reportesService = inject(ReportesService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
   private readonly router = inject(Router);
 
   readonly loading = signal(false);
@@ -31,7 +34,7 @@ export class ReportesPage implements OnInit {
         this.loading.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.loading.set(false);
       },
     });
@@ -41,7 +44,10 @@ export class ReportesPage implements OnInit {
     this.router.navigate(['/reportes', reporte.clave]);
   }
 
-  private parseError(err: HttpErrorResponse): string {
-    return err.error?.message ?? err.message ?? 'Ocurrió un error al cargar los reportes';
+  /** 403 es bloqueante: se muestra en el modal informativo en vez de un toast que desaparece solo. */
+  private reportarError(err: HttpErrorResponse): void {
+    const msg = parseError(err);
+    if (err.status === 403) this.errorModal.show(msg);
+    else this.toast.error(msg);
   }
 }

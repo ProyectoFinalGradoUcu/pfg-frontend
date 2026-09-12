@@ -45,7 +45,7 @@
       <label class="personal-page__field">
         <select
           *ngIf="!alcanceAcotado()"
-          [value]="selectedDestino()"
+          [value]="selectedDestino() ?? ''"
           (change)="onDestinoChange($event)"
         >
           <option value="">Todos los destinos</option>
@@ -58,21 +58,21 @@
       </label>
 
       <label class="personal-page__field">
-        <select [value]="selectedRango()" (change)="onRangoChange($event)">
+        <select [value]="selectedRango() ?? ''" (change)="onRangoChange($event)">
           <option value="">Todos los grados</option>
           <option *ngFor="let g of todosGrados()" [value]="g.id">{{ g.denominacion }}</option>
         </select>
       </label>
 
       <label class="personal-page__field">
-        <select [value]="selectedEstado()" (change)="onEstadoChange($event)">
+        <select [value]="selectedEstado() ?? ''" (change)="onEstadoChange($event)">
           <option value="">Todos los estados</option>
           <option *ngFor="let s of situaciones()" [value]="s.id">{{ s.denominacion }}</option>
         </select>
       </label>
 
       <!-- Sin esto los retirados no aparecen. -->
-      <label class="personal-page__check">
+      <label class="personal-page__check" [class.personal-page__check--activo]="incluirRetirados()">
         <input
           type="checkbox"
           [checked]="incluirRetirados()"
