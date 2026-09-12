@@ -6,6 +6,8 @@ import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { FamiliarEntry, GradoItem, OpcionSelect, PersonaListItem } from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { parseError } from '../../../../shared/utils/parse-error';
 
 /**
  * La relación laboral no puede empezar antes de que la
@@ -31,6 +33,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
 
   // ─── Estado general ──────────────────────────────────────────────────────────
   readonly loading = signal(false);
@@ -336,10 +339,12 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
         if (err.status === 409) {
           this.form.get('cedula')!.setErrors({ cedulaDuplicada: true });
           this.form.get('cedula')!.markAsTouched();
-        } else if (err.status === 400) {
-          this.toast.error('Error de validación. Revisá los datos ingresados.');
+        } else if (err.status === 400 || err.status === 403) {
+          // 400 acá no es solo validación de formulario: incluye reglas de negocio como
+          // "solo podés dar de alta personal en tus propias unidades".
+          this.errorModal.show(parseError(err));
         } else {
-          this.toast.error('Ocurrió un error inesperado. Intentá de nuevo.');
+          this.toast.error(parseError(err));
         }
       },
     });

@@ -6,6 +6,7 @@ import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { CursosService } from '../../../../core/services/cursos.service';
 import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
 import {
@@ -55,6 +56,7 @@ export class CursosPage implements OnInit, OnDestroy {
   private readonly cursosService = inject(CursosService);
   private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
   private readonly route = inject(ActivatedRoute);
 
   // ── Estado general ─────────────────────────────────────────────────────────
@@ -289,7 +291,7 @@ export class CursosPage implements OnInit, OnDestroy {
         this.loading.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.loading.set(false);
       },
     });
@@ -704,7 +706,7 @@ export class CursosPage implements OnInit, OnDestroy {
           lista.map((d) => (d.id === curso.id ? actualizado : d)),
         );
       },
-      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+      error: (err: HttpErrorResponse) => this.reportarError(err),
     });
   }
 
@@ -762,7 +764,7 @@ export class CursosPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.reactivandoId.set(null);
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
       },
     });
   }
@@ -961,6 +963,9 @@ export class CursosPage implements OnInit, OnDestroy {
     if (typeof body === 'string' && body.trim()) return body.trim();
     if (Array.isArray(body?.message) && body.message.length) return body.message[0];
     if (typeof body?.message === 'string' && body.message.trim()) return body.message.trim();
+    // El backend manda el motivo puntual (p. ej. de un 403 por permiso o alcance) acá adentro.
+    const envelope = body?.service_response?.service_status?.http_message;
+    if (typeof envelope === 'string' && envelope.trim()) return envelope.trim();
     if (typeof body?.error === 'string' && body.error.trim() && body.error !== 'Conflict' && body.error !== 'Bad Request') return body.error.trim();
     switch (err.status) {
       case 409: return 'Ya existe un curso con ese nombre.';
@@ -970,5 +975,12 @@ export class CursosPage implements OnInit, OnDestroy {
       case 0:   return 'No se pudo conectar con el servidor.';
       default:  return 'Ocurrió un error inesperado. Intentá de nuevo.';
     }
+  }
+
+  /** 403 es bloqueante: se muestra en el modal informativo en vez de un toast que desaparece solo. */
+  private reportarError(err: HttpErrorResponse): void {
+    const msg = this.parseError(err);
+    if (err.status === 403) this.errorModal.show(msg);
+    else this.toast.error(msg);
   }
 }
