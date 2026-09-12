@@ -7,6 +7,8 @@ import { RolesService } from '../../../../core/services/roles.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { parseError } from '../../../../shared/utils/parse-error';
 import { Rol, Usuario } from '../../../../core/models/auth.models';
 import {
   UnidadDetalle,
@@ -33,6 +35,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
   private readonly usuariosService = inject(UsuariosService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
 
   readonly PAGE_SIZE = PAGE_SIZE;
 
@@ -197,7 +200,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (roles) => this.roles.set(roles),
-        error: () => this.toast.error('No se pudieron cargar los roles.'),
+        error: (err: HttpErrorResponse) => this.reportarError(err, 'No se pudieron cargar los roles.'),
       });
   }
 
@@ -218,7 +221,8 @@ export class UnidadesPage implements OnInit, OnDestroy {
           this.cargar(this.pagina());
         },
         error: (err: HttpErrorResponse) =>
-          this.toast.error(
+          this.reportarError(
+            err,
             err.status === 409
               ? 'El rol ya está asignado a esta unidad.'
               : 'No se pudo asignar el rol.',
@@ -240,7 +244,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
           this.toast.success('Rol quitado');
           this.cargar(this.pagina());
         },
-        error: () => this.toast.error('No se pudo quitar el rol.'),
+        error: (err: HttpErrorResponse) => this.reportarError(err, 'No se pudo quitar el rol.'),
       });
   }
 
@@ -278,9 +282,9 @@ export class UnidadesPage implements OnInit, OnDestroy {
           this.usuariosUnidad.set(res.items);
           this.usuariosLoading.set(false);
         },
-        error: () => {
+        error: (err: HttpErrorResponse) => {
           this.usuariosLoading.set(false);
-          this.toast.error('No se pudieron cargar los usuarios de la unidad.');
+          this.reportarError(err, 'No se pudieron cargar los usuarios de la unidad.');
         },
       });
   }
@@ -300,9 +304,9 @@ export class UnidadesPage implements OnInit, OnDestroy {
           this.candidatos.set(res.items);
           this.candidatosLoading.set(false);
         },
-        error: () => {
+        error: (err: HttpErrorResponse) => {
           this.candidatosLoading.set(false);
-          this.toast.error('No se pudieron cargar los usuarios del sistema.');
+          this.reportarError(err, 'No se pudieron cargar los usuarios del sistema.');
         },
       });
   }
@@ -349,7 +353,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
           this.recargarDetalle();
           this.cargar(this.pagina());
         },
-        error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
+        error: (err: HttpErrorResponse) => this.modalError.set(parseError(err)),
       });
   }
 
@@ -374,7 +378,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
           this.recargarDetalle();
           this.cargar(this.pagina());
         },
-        error: () => this.toast.error('No se pudo quitar el usuario.'),
+        error: (err: HttpErrorResponse) => this.reportarError(err, 'No se pudo quitar el usuario.'),
       });
   }
 
@@ -402,11 +406,13 @@ export class UnidadesPage implements OnInit, OnDestroy {
     this.modalError.set(null);
   }
 
-  private parseError(err: HttpErrorResponse): string {
-    const detalle = err.error as { message?: string | string[] } | undefined;
-    const mensaje = detalle?.message;
-    if (Array.isArray(mensaje)) return mensaje.join('. ');
-    if (typeof mensaje === 'string') return mensaje;
-    return 'Ocurrió un error. Intentá de nuevo.';
+  /**
+   * 403 es bloqueante y merece el modal informativo: el toast desaparece antes de que el
+   * usuario entienda por qué no pudo. Para otros statuses se mantiene el toast con el
+   * mensaje puntual de cada acción.
+   */
+  private reportarError(err: HttpErrorResponse, fallback: string): void {
+    if (err.status === 403) this.errorModal.show(parseError(err));
+    else this.toast.error(fallback);
   }
 }

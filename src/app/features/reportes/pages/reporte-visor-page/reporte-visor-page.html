@@ -24,9 +24,11 @@
                 [value]="valores()[param.clave]"
                 (change)="setValor(param.clave, $event)"
               >
-                <option value="">Todos</option>
+                <option value="" [selected]="!valores()[param.clave]">Todos</option>
                 @for (opt of param.opciones ?? []; track opt.valor) {
-                  <option [value]="opt.valor">{{ opt.etiqueta }}</option>
+                  <option [value]="opt.valor" [selected]="opt.valor === valores()[param.clave]">
+                    {{ opt.etiqueta }}
+                  </option>
                 }
               </select>
             }

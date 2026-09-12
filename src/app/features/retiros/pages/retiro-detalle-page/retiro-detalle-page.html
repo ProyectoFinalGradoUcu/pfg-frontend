@@ -1,0 +1,139 @@
+<section class="retiro-detalle">
+  <button type="button" class="retiro-detalle__volver" (click)="volver()">← Retiros</button>
+
+  <div class="retiro-detalle__loading" *ngIf="loading()">Cargando...</div>
+
+  <p class="retiro-detalle__error" *ngIf="error()">{{ error() }}</p>
+
+  <ng-container *ngIf="!loading() && retiro() as r">
+    <header class="retiro-detalle__header">
+      <div>
+        <h1 class="retiro-detalle__titulo">{{ nombreFuncionario(r) }}</h1>
+        <p class="retiro-detalle__cedula">
+          <span *ngIf="r.grado">{{ r.grado.denominacion }} · </span>C.I. {{ r.persona.cedula }}
+        </p>
+      </div>
+      <span class="retiro-detalle__chip" [class]="'retiro-detalle__chip retiro-detalle__chip--' + estado()">
+        {{ etiquetaEstado[estado()!] }}
+      </span>
+    </header>
+
+    <div class="retiro-detalle__acciones">
+      <button type="button" *ngIf="puedeCorregir()" class="btn" (click)="abrir('corregir')">
+        Corregir
+      </button>
+      <button type="button" *ngIf="puedeAnular()" class="btn btn--danger" (click)="abrir('anular')">
+        Anular
+      </button>
+    </div>
+
+    <!-- Primero: si el retiro no cuenta, cambia cómo se lee todo lo de abajo. -->
+    <article class="retiro-detalle__card retiro-detalle__card--anulado" *ngIf="r.anulacion as an">
+      <h2>Este retiro fue anulado</h2>
+      <p class="retiro-detalle__nota">
+        Se cargó por error y se revirtió: el funcionario volvió a estar activo.
+      </p>
+      <dl class="retiro-detalle__campos">
+        <div><dt>Motivo de la anulación</dt><dd>{{ an.motivo ?? '—' }}</dd></div>
+        <div><dt>Fecha</dt><dd>{{ an.fecha ? (an.fecha | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd></div>
+        <div><dt>Anulado por</dt><dd>{{ an.por?.username ?? 'No registrado' }}</dd></div>
+      </dl>
+    </article>
+
+    <article class="retiro-detalle__card">
+      <h2>Datos del retiro</h2>
+      <dl class="retiro-detalle__campos">
+        <div>
+          <dt>Fecha de retiro</dt>
+          <dd class="retiro-detalle__fuerte">{{ r.fecha_retiro | date: 'd/M/yyyy' : 'UTC' }}</dd>
+        </div>
+        <div><dt>Hora</dt><dd>{{ r.hora_retiro ?? '—' }}</dd></div>
+        <div>
+          <dt>Motivo</dt>
+          <dd class="retiro-detalle__fuerte">{{ r.motivo_baja.denominacion }}</dd>
+        </div>
+        <!-- Dice "Retiro" o "Baja" según el motivo: se muestra sin normalizar. -->
+        <div><dt>Movimiento laboral</dt><dd>{{ r.movimiento?.tipo ?? '—' }}</dd></div>
+      </dl>
+
+      <dl class="retiro-detalle__campos retiro-detalle__campos--sub" *ngIf="r.motivo">
+        <div><dt>Detalle del motivo</dt><dd>{{ r.motivo }}</dd></div>
+      </dl>
+
+      <div class="retiro-detalle__respaldo">
+        <h3>Respaldo documental</h3>
+        <dl class="retiro-detalle__campos" *ngIf="tieneRespaldo(); else sinRespaldo">
+          <div *ngIf="r.numero_orden"><dt>Número de orden</dt><dd>{{ r.numero_orden }}</dd></div>
+          <div *ngIf="r.boletin"><dt>Boletín</dt><dd>{{ r.boletin }}</dd></div>
+          <div *ngIf="r.observaciones"><dt>Observaciones</dt><dd>{{ r.observaciones }}</dd></div>
+        </dl>
+        <ng-template #sinRespaldo>
+          <p class="retiro-detalle__vacio">
+            No se cargó número de orden, boletín ni observaciones.
+          </p>
+        </ng-template>
+      </div>
+    </article>
+
+    <article class="retiro-detalle__card">
+      <h2>Qué cerró este retiro</h2>
+      <ul class="retiro-detalle__cierres">
+        <li *ngIf="cierres().destino">
+          Destino cerrado ·
+          <a routerLink="/destinos/asignaciones">ver asignaciones</a>
+        </li>
+        <li *ngIf="cierres().inscripciones.length">
+          {{ cierres().inscripciones.length }} inscripción(es) dada(s) de baja ·
+          <a routerLink="/cursos/inscripciones">ver inscripciones</a>
+        </li>
+        <li *ngIf="cierres().usuario">Cuenta de sistema bloqueada</li>
+        <li *ngIf="cierres().ninguno">No arrastró ningún cierre.</li>
+      </ul>
+    </article>
+
+    <article class="retiro-detalle__card" *ngIf="r.relacion_laboral_cerrada as rl">
+      <h2>Relación laboral cerrada</h2>
+      <p class="retiro-detalle__nota">
+        Grado y unidad <strong>al momento del retiro</strong>, no los actuales.
+      </p>
+      <dl class="retiro-detalle__campos">
+        <div><dt>Grado</dt><dd>{{ rl.grado?.denominacion ?? '—' }}</dd></div>
+        <div><dt>Unidad</dt><dd>{{ rl.unidad?.denominacion ?? '—' }}</dd></div>
+        <div>
+          <dt>Inicio</dt>
+          <dd>{{ rl.fecha_inicio ? (rl.fecha_inicio | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Fin</dt>
+          <dd>{{ rl.fecha_fin ? (rl.fecha_fin | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd>
+        </div>
+      </dl>
+    </article>
+
+    <!-- `registrado_por` viene null en los retiros no cargados desde la app. -->
+    <footer class="retiro-detalle__pie">
+      <span *ngIf="r.registrado_por as por">
+        Registrado por <strong>{{ por.username }}</strong>
+      </span>
+      <span *ngIf="!r.registrado_por">Sin autor registrado (carga externa a la aplicación)</span>
+      <span *ngIf="r.registrado_en">
+        · {{ r.registrado_en | date: 'd/M/yyyy HH:mm' : 'UTC' }}
+      </span>
+    </footer>
+
+  </ng-container>
+
+  <app-corregir-retiro-modal
+    *ngIf="modalAbierto() === 'corregir' && retiro() as r"
+    [retiro]="r"
+    (corregido)="onCorregido()"
+    (cerrado)="cerrarModal()"
+  ></app-corregir-retiro-modal>
+
+  <app-anular-retiro-modal
+    *ngIf="modalAbierto() === 'anular' && retiro() as r"
+    [retiroId]="r.id"
+    (anulado)="onAnulado($event)"
+    (cerrado)="cerrarModal()"
+  ></app-anular-retiro-modal>
+</section>

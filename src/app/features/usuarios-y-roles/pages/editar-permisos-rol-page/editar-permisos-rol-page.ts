@@ -5,7 +5,9 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { PermisosService } from '../../../../core/services/permisos.service';
 import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { Permiso, Rol } from '../../../../core/models/auth.models';
+import { parseError } from '../../../../shared/utils/parse-error';
 
 @Component({
   selector: 'app-editar-permisos-rol-page',
@@ -20,6 +22,7 @@ export class EditarPermisosRolPage implements OnInit {
   private readonly permisosService = inject(PermisosService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
 
   private rolId = '';
 
@@ -59,7 +62,7 @@ export class EditarPermisosRolPage implements OnInit {
         this.loading.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.loading.set(false);
         this.router.navigate(['/usuarios-y-roles']);
       },
@@ -81,7 +84,7 @@ export class EditarPermisosRolPage implements OnInit {
           this.permisosLoading.set(false);
         },
         error: (err: HttpErrorResponse) => {
-          this.toast.error(this.parseError(err));
+          this.reportarError(err);
           this.permisosLoading.set(false);
         },
       });
@@ -111,7 +114,7 @@ export class EditarPermisosRolPage implements OnInit {
         this.rol.set(actualizado);
         this.toast.success(`Permiso ${activar ? 'activado' : 'desactivado'}`);
       },
-      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+      error: (err: HttpErrorResponse) => this.reportarError(err),
     });
   }
 
@@ -121,7 +124,10 @@ export class EditarPermisosRolPage implements OnInit {
 
   trackPermiso = (_: number, p: Permiso) => p.id;
 
-  private parseError(err: HttpErrorResponse): string {
-    return err.error?.message ?? err.message ?? 'Error inesperado';
+  /** 403 es bloqueante: se muestra en el modal informativo en vez de un toast que desaparece solo. */
+  private reportarError(err: HttpErrorResponse): void {
+    const msg = parseError(err);
+    if (err.status === 403) this.errorModal.show(msg);
+    else this.toast.error(msg);
   }
 }

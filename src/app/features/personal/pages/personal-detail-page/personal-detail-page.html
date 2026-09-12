@@ -33,8 +33,8 @@
       </div>
       <div class="pd__header-actions">
         <span class="pd__status-badge"
-          [class.pd__status-badge--activo]="p.relacion_laboral?.situacion?.codigo === 'ACT'"
-          [class.pd__status-badge--licencia]="p.relacion_laboral?.situacion?.codigo === 'LIC'"
+          [class.pd__status-badge--activo]="['SIT01','SIT07'].includes(p.relacion_laboral?.situacion?.codigo ?? '')"
+          [class.pd__status-badge--licencia]="['SIT03','SIT09'].includes(p.relacion_laboral?.situacion?.codigo ?? '')"
           [class.pd__status-badge--baja]="p.relacion_laboral?.situacion?.codigo === 'BAJ'"
         >{{ p.relacion_laboral?.situacion?.denominacion ?? 'Sin estado' }}</span>
 
@@ -216,8 +216,8 @@
               <div class="pd__field">
                 <span class="pd__label">Estado</span>
                 <span class="pd__status-badge"
-                  [class.pd__status-badge--activo]="rl.situacion?.codigo === 'ACT'"
-                  [class.pd__status-badge--licencia]="rl.situacion?.codigo === 'LIC'"
+                  [class.pd__status-badge--activo]="['SIT01','SIT07'].includes(rl.situacion?.codigo ?? '')"
+                  [class.pd__status-badge--licencia]="['SIT03','SIT09'].includes(rl.situacion?.codigo ?? '')"
                   [class.pd__status-badge--baja]="rl.situacion?.codigo === 'BAJ'"
                 >{{ rl.situacion?.denominacion ?? '—' }}</span>
               </div>
@@ -259,8 +259,18 @@
               </div>
             </div>
 
+            <p class="pd__empty" *ngIf="!editMode() && !p.relacion_laboral">
+              Sin relación laboral vigente. Si el funcionario está retirado, el detalle está en
+              Historial Militar.
+            </p>
+
+            <p class="pd__empty" *ngIf="editMode() && !p.relacion_laboral">
+              Este funcionario no tiene relación laboral vigente, así que no hay datos laborales
+              que editar.
+            </p>
+
             <!-- Edit view: solo militares -->
-            <div class="pd__field-list" *ngIf="editMode() && !p.es_civil">
+            <div class="pd__field-list" *ngIf="editMode() && !p.es_civil && p.relacion_laboral as rl">
               <div class="pd__field">
                 <span class="pd__label">Fecha de inicio</span>
                 <input type="date" formControlName="fecha_inicio" class="pd__edit-input"
@@ -289,7 +299,7 @@
               </div>
               <div class="pd__field">
                 <span class="pd__label">Unidad</span>
-                <span class="pd__value">{{ p.relacion_laboral.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
                 <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
@@ -338,13 +348,41 @@
                 <span class="pd__label">Observaciones laborales</span>
                 <textarea formControlName="observaciones_laborales" class="pd__edit-textarea" rows="3"></textarea>
               </div>
+
+              <!-- Datos militares que consultan las reglas de ascenso -->
+              <div class="pd__field">
+                <span class="pd__label">Nivel educativo</span>
+                <select formControlName="nivel_educativo" class="pd__edit-select">
+                  <option value="">Sin dato</option>
+                  <option *ngFor="let n of nivelEducativoOpciones" [value]="n.value">{{ n.label }}</option>
+                </select>
+                <span class="pd__edit-hint">Habilita el pasaje de Cbo. 2.ª a Cbo. 1.ª sin curso desde ciclo básico completo.</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Ingreso a la ETA</span>
+                <input type="date" formControlName="fecha_ingreso_eta" class="pd__edit-input" />
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Egreso de la ETA</span>
+                <input type="date" formControlName="fecha_egreso_eta" class="pd__edit-input" />
+                <span class="pd__edit-hint">Distingue al egresado del mutado en AT 2.ª a AT 1.ª.</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">N.º de orden de egreso</span>
+                <input type="text" formControlName="numero_orden_egreso_eta" class="pd__edit-input" />
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Mutación de escalafón</span>
+                <textarea formControlName="mutaciones" class="pd__edit-textarea" rows="2"></textarea>
+                <span class="pd__edit-hint">Cambio de escalafón conservando el grado. Con que tenga texto, el funcionario cuenta como mutado.</span>
+              </div>
             </div>
 
             <!-- Edit view: civiles -->
-            <div class="pd__field-list" *ngIf="editMode() && p.es_civil">
+            <div class="pd__field-list" *ngIf="editMode() && p.es_civil && p.relacion_laboral as rl">
               <div class="pd__field">
                 <span class="pd__label">Unidad</span>
-                <span class="pd__value">{{ p.relacion_laboral.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
                 <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
@@ -388,12 +426,67 @@
 
       <div class="pd__loading" *ngIf="loadingFamiliar()">Cargando...</div>
 
-      <p class="pd__empty" *ngIf="!loadingFamiliar() && familiares().length === 0">
-        Información familiar no disponible en este momento.
+      <div class="pd__familiar-alert" *ngIf="!loadingFamiliar() && familiarError()">
+        {{ familiarError() }}
+        <button type="button" class="pd__familiar-retry-btn" (click)="retryFamiliares()">Reintentar</button>
+      </div>
+
+      <div class="pd__familiar-add" *ngIf="!loadingFamiliar() && !familiarError() && editMode()">
+        <div class="pd__familiar-add-search" *ngIf="!familiarAddElegido()">
+          <input
+            type="text"
+            class="pd__edit-input"
+            placeholder="Buscar familiar por cédula o nombre (debe ser oficial o subalterno)..."
+            [value]="familiarAddSearch()"
+            (input)="onFamiliarAddSearch($event)"
+            (blur)="onFamiliarAddBlur()"
+            (focus)="familiarAddDropdownOpen.set(familiarAddResults().length > 0)"
+            autocomplete="off"
+          />
+          <div class="pd__familiar-add-dropdown" *ngIf="familiarAddDropdownOpen()">
+            <button
+              type="button"
+              class="pd__familiar-add-item"
+              *ngFor="let p of familiarAddResults()"
+              (click)="elegirFamiliarAAgregar(p)"
+            >
+              <span>{{ p.nombre }}</span>
+              <span class="pd__familiar-add-item-cedula">{{ p.cedula }}</span>
+            </button>
+            <p class="pd__familiar-add-empty"
+              *ngIf="familiarAddResults().length === 0 && familiarAddSearch().length >= 2">
+              Sin resultados
+            </p>
+          </div>
+        </div>
+
+        <div class="pd__familiar-add-confirm" *ngIf="familiarAddElegido() as elegido">
+          <div class="pd__familiar-add-confirm-info">
+            <strong>{{ elegido.nombre }}</strong>
+            <span>{{ elegido.cedula }}</span>
+          </div>
+          <select class="pd__edit-select" [value]="familiarAddTipoRelacion()"
+            (change)="familiarAddTipoRelacion.set($any($event.target).value)">
+            <option value="">Tipo de relación (opcional)</option>
+            <option *ngFor="let t of tipoRelacionOpciones" [value]="t">{{ t }}</option>
+          </select>
+          <button type="button" class="pd__edit-btn pd__edit-btn--sm" [disabled]="guardandoFamiliar()"
+            (click)="confirmarAgregarFamiliar()">
+            {{ guardandoFamiliar() ? 'Agregando...' : 'Agregar' }}
+          </button>
+          <button type="button" class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm"
+            (click)="cancelarAgregarFamiliar()">Cancelar</button>
+        </div>
+      </div>
+
+      <p class="pd__empty" *ngIf="!loadingFamiliar() && !familiarError() && familiares().length === 0">
+        Este funcionario no tiene familiares registrados.
       </p>
 
-      <div class="pd__familiar-grid" *ngIf="!loadingFamiliar() && familiares().length > 0">
-        <div class="pd__familiar-card" *ngFor="let f of familiares()">
+      <div class="pd__familiar-grid" *ngIf="!loadingFamiliar() && !familiarError() && familiares().length > 0">
+        <div class="pd__familiar-card" *ngFor="let f of familiares()"
+          (click)="abrirFamiliarDetalle(f)" (keydown.enter)="abrirFamiliarDetalle(f)"
+          role="button" tabindex="0">
           <div class="pd__familiar-avatar">{{ f.nombre_completo[0] }}</div>
           <div class="pd__familiar-info">
             <span class="pd__familiar-nombre">{{ f.nombre_completo }}</span>
@@ -401,15 +494,99 @@
           </div>
           <span class="pd__familiar-relacion" *ngIf="f.tipo_relacion">{{ f.tipo_relacion }}</span>
           <div class="pd__familiar-destino" *ngIf="f.grado || f.unidad">
-            <span *ngIf="f.grado">{{ f.grado!.denominacion }}</span>
-            <span *ngIf="f.unidad" class="pd__familiar-unidad">{{ f.unidad!.denominacion }}</span>
+            <span *ngIf="f.grado">{{ f.grado }}</span>
+            <span *ngIf="f.unidad" class="pd__familiar-unidad">{{ f.unidad }}</span>
           </div>
+          <button type="button" class="pd__familiar-remove" *ngIf="editMode()"
+            (click)="$event.stopPropagation(); quitarFamiliar(f)" aria-label="Quitar familiar">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
     </article>
 
     <!-- ═══════════════════ TAB: HISTORIAL MILITAR ═══════════════════ -->
     <article class="pd__card" *ngIf="activeTab() === 'historial'">
+      <!-- ─── Situación de ascenso ─────────────────────── -->
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Situación de ascenso</h3>
+      </div>
+
+      <div class="pd__loading" *ngIf="loadingElegibilidad()">Evaluando...</div>
+
+      <p class="pd__empty" *ngIf="elegibilidadError()">{{ elegibilidadError() }}</p>
+
+      <div class="pd__ascenso" *ngIf="!loadingElegibilidad() && elegibilidad() as el">
+        <div class="pd__ascenso-head">
+          <span class="pd__badge pd__ascenso-estado" [ngClass]="'pd__ascenso-estado--' + el.estado.toLowerCase()">
+            {{ etiquetaEstadoAscenso(el.estado) }}
+          </span>
+          <span class="pd__ascenso-tramo">
+            {{ el.grado_actual.denominacion }}
+            <ng-container *ngIf="el.grado_destino">→ {{ el.grado_destino.denominacion }}</ng-container>
+          </span>
+          <button
+            *ngIf="puedeRegistrarAscenso() && el.grado_destino"
+            type="button"
+            class="pd__edit-btn"
+            [routerLink]="['/ascensos-y-retiros/ordenes/nueva']"
+            [queryParams]="{ persona: el.persona.id }">
+            Ascender
+          </button>
+        </div>
+
+        <p class="pd__ascenso-motivo" *ngIf="el.motivo">{{ el.motivo }}</p>
+
+        <div class="pd__ascenso-reqs" *ngIf="el.requisitos.length > 0">
+          <span class="pd__badge pd__req" *ngFor="let r of el.requisitos" [ngClass]="claseRequisito(r)"
+            [attr.title]="r.detalle">
+            {{ simboloRequisito(r) }} {{ r.descripcion }}
+          </span>
+        </div>
+
+        <p class="pd__ascenso-proyeccion" *ngIf="el.fecha_cumpliria">
+          Cumple el tiempo en el grado el {{ formatDate(el.fecha_cumpliria) }}.
+        </p>
+      </div>
+
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Datos militares</h3>
+      </div>
+
+      <div class="pd__field-list" *ngIf="p.legajo_militar as lm">
+        <div class="pd__field">
+          <span class="pd__label">Nivel educativo</span>
+          <span class="pd__value">{{ lm.nivel_educativo_label ?? '—' }}</span>
+        </div>
+        <div class="pd__field">
+          <span class="pd__label">Mutación de escalafón</span>
+          <span class="pd__value">{{ lm.mutaciones ?? 'Sin mutación registrada' }}</span>
+        </div>
+        <div class="pd__field">
+          <span class="pd__label">Egreso de la ETA</span>
+          <span class="pd__value">
+            {{ lm.egresado_eta ? formatDate(lm.fecha_egreso_eta) : '—' }}
+            <ng-container *ngIf="lm.numero_orden_egreso_eta"> · {{ lm.numero_orden_egreso_eta }}</ng-container>
+          </span>
+        </div>
+        <div class="pd__field" *ngIf="lm.fecha_ingreso_eta">
+          <span class="pd__label">Ingreso a la ETA</span>
+          <span class="pd__value">{{ formatDate(lm.fecha_ingreso_eta) }}</span>
+        </div>
+        <ng-container *ngIf="p.relacion_laboral as rl">
+          <div class="pd__field" *ngIf="rl.fecha_ultimo_ascenso">
+            <span class="pd__label">Último ascenso</span>
+            <span class="pd__value">{{ formatDate(rl.fecha_ultimo_ascenso) }}</span>
+          </div>
+          <div class="pd__field" *ngIf="rl.fecha_ascenso_oficial">
+            <span class="pd__label">Ascenso a oficial</span>
+            <span class="pd__value">{{ formatDate(rl.fecha_ascenso_oficial) }}</span>
+          </div>
+        </ng-container>
+      </div>
+
       <div class="pd__tab-header">
         <h3 class="pd__tab-title">Historial de Ascensos</h3>
       </div>
@@ -423,22 +600,33 @@
       <div class="pd__timeline" *ngIf="!loadingHistorial() && sortedRangos().length > 0">
         <div class="pd__timeline-item"
           *ngFor="let h of sortedRangos(); let first = first; let last = last"
-          [class.pd__timeline-item--actual]="first">
+          [class.pd__timeline-item--actual]="h.es_rango_actual"
+          [class.pd__timeline-item--anulado]="h.anulado">
           <div class="pd__timeline-marker">
-            <div class="pd__timeline-dot" [class.pd__timeline-dot--actual]="first"></div>
+            <div class="pd__timeline-dot" [class.pd__timeline-dot--actual]="h.es_rango_actual"></div>
           </div>
           <div class="pd__timeline-content">
             <div class="pd__timeline-grado-row">
-              <span class="pd__timeline-grado">{{ h.grado.denominacion }}</span>
-              <span class="pd__badge pd__badge--actual" *ngIf="first">Actual</span>
+              <span class="pd__timeline-grado">
+                <ng-container *ngIf="h.grado_anterior">{{ h.grado_anterior.denominacion }} → </ng-container>
+                {{ h.grado.denominacion }}
+              </span>
+              <span class="pd__badge pd__badge--actual" *ngIf="h.es_rango_actual">Actual</span>
+              <span class="pd__badge pd__badge--excepcion" *ngIf="h.por_excepcion"
+                [attr.title]="h.motivo_excepcion">Por excepción</span>
+              <span class="pd__badge pd__badge--anulado" *ngIf="h.anulado"
+                [attr.title]="h.motivo_anulacion">Anulado</span>
             </div>
             <span class="pd__timeline-meta">
               <span class="pd__timeline-fecha">{{ formatDate(h.fecha_ascenso) }}</span>
-              <span class="pd__timeline-orden">{{ h.numero_orden }}</span>
+              <span class="pd__timeline-orden" *ngIf="h.numero_orden">{{ h.numero_orden }}</span>
+              <a class="pd__timeline-link" *ngIf="h.orden_ascenso_id"
+                [routerLink]="['/ascensos-y-retiros/ordenes', h.orden_ascenso_id]">Ver la orden</a>
             </span>
           </div>
         </div>
       </div>
+
     </article>
 
     <!-- ═══════════════════ TAB: CURSOS ═══════════════════ -->
@@ -463,6 +651,15 @@
               </span>
               <span class="pd__badge" [class.pd__badge--completado]="c.completado" [class.pd__badge--en-curso]="!c.completado">
                 {{ c.completado ? 'Completado' : 'En curso' }}
+              </span>
+              <span
+                *ngIf="c.aprobado !== null"
+                class="pd__badge"
+                [class.pd__badge--aprobado]="c.aprobado"
+                [class.pd__badge--desaprobado]="!c.aprobado"
+                [title]="c.observacion || ''"
+              >
+                {{ c.aprobado ? 'Aprobado' : 'Desaprobado' }}<ng-container *ngIf="c.calificacion"> · {{ c.calificacion }}</ng-container>
               </span>
             </div>
           </div>
@@ -609,6 +806,12 @@
       </svg>
       <p>Sección de documentos en desarrollo.</p>
     </article>
+
+    <app-familiar-detalle-modal
+      *ngIf="familiarSeleccionado() as f"
+      [familiar]="f"
+      (cerrado)="cerrarFamiliarDetalle()"
+    ></app-familiar-detalle-modal>
 
   </ng-container>
 

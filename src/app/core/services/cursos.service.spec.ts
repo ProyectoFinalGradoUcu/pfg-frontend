@@ -217,24 +217,32 @@ describe('CursosService', () => {
   // ── registrarCalificacion ─────────────────────────────────────────────────
 
   describe('registrarCalificacion', () => {
-    it('hace PATCH a /cursos/:cursoId/designaciones/:designacionId con la calificacion', () => {
-      service.registrarCalificacion('c1', 'd1', 9).subscribe();
+    it('hace PATCH a /cursos/:cursoId/designaciones/:designacionId con el resultado', () => {
+      service.registrarCalificacion('c1', 'd1', { aprobado: true, calificacion: 9 }).subscribe();
       const req = http.expectOne(`${API_BASE_URL}/cursos/c1/designaciones/d1`);
       expect(req.request.method).toBe('PATCH');
-      expect(req.request.body).toEqual({ calificacion: 9 });
-      req.flush({ id: 'x', curso_id: 'c1', persona_id: 'p1', calificacion: 9, estado: 'completado' });
+      expect(req.request.body).toEqual({ aprobado: true, calificacion: 9 });
+      req.flush({ id: 'x', curso_id: 'c1', persona_id: 'p1', aprobado: true, calificacion: 9, observacion: null });
+    });
+
+    it('envía el resultado sin nota cuando la calificación es opcional', () => {
+      service.registrarCalificacion('c1', 'd1', { aprobado: false, observacion: 'Sin asistencia' }).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/cursos/c1/designaciones/d1`);
+      expect(req.request.body).toEqual({ aprobado: false, observacion: 'Sin asistencia' });
+      req.flush({ id: 'x', curso_id: 'c1', persona_id: 'p1', aprobado: false, calificacion: null, observacion: 'Sin asistencia' });
     });
 
     it('mapea la respuesta correctamente', () => {
       let result: any;
-      service.registrarCalificacion('c1', 'd1', 7).subscribe((r) => (result = r));
-      http.expectOne(`${API_BASE_URL}/cursos/c1/designaciones/d1`).flush({ id: 'r1', curso_id: 'c1', persona_id: 'p1', calificacion: 7, estado: 'completado' });
+      service.registrarCalificacion('c1', 'd1', { aprobado: true, calificacion: 7 }).subscribe((r) => (result = r));
+      http.expectOne(`${API_BASE_URL}/cursos/c1/designaciones/d1`).flush({ id: 'r1', curso_id: 'c1', persona_id: 'p1', aprobado: true, calificacion: 7, observacion: null });
+      expect(result.aprobado).toBe(true);
       expect(result.calificacion).toBe(7);
     });
 
     it('propaga error HTTP 400', () => {
       let err: any;
-      service.registrarCalificacion('c1', 'd1', 11).subscribe({ error: (e) => (err = e) });
+      service.registrarCalificacion('c1', 'd1', { aprobado: true, calificacion: 11 }).subscribe({ error: (e) => (err = e) });
       http.expectOne(`${API_BASE_URL}/cursos/c1/designaciones/d1`).flush({}, { status: 400, statusText: 'Bad Request' });
       expect(err.status).toBe(400);
     });
@@ -307,13 +315,46 @@ describe('CursosService', () => {
           id: 'des2',
           persona: { id: 1, primer_nombre: 'Juan', primer_apellido: 'Pérez', cedula: '111' },
           curso: { id: 'c2', nombre_curso: 'React', institucion: 'UCU', es_obligatorio: true },
-          fecha_inicio: '2025-02-01', fecha_fin: '2025-07-01', calificacion: 8,
+          fecha_inicio: '2025-02-01', fecha_fin: '2025-07-01', aprobado: true, calificacion: 8,
         },
       ];
       http.expectOne(matchFuncionarios).flush({ items: rawItems, total: 2 });
       expect(result).toHaveLength(1);
       expect(result[0].nombre).toBe('Juan Pérez');
       expect(result[0].cursos).toHaveLength(2);
+    });
+
+    it('mapea el resultado y la observación de la calificación', () => {
+      let result: any;
+      service.findFuncionariosConCursos().subscribe((r) => (result = r));
+      const rawItems = [
+        {
+          id: 'des1',
+          persona: { id: 1, primer_nombre: 'Juan', primer_apellido: 'Pérez', cedula: '111' },
+          curso: { id: 'c1', nombre_curso: 'Angular', institucion: 'UCU', es_obligatorio: false },
+          fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01',
+          aprobado: false, calificacion: null, observacion: 'No alcanzó la asistencia',
+        },
+      ];
+      http.expectOne(matchFuncionarios).flush({ items: rawItems, total: 1 });
+      expect(result[0].cursos[0].aprobado).toBe(false);
+      expect(result[0].cursos[0].calificacion).toBeNull();
+      expect(result[0].cursos[0].observacion).toBe('No alcanzó la asistencia');
+    });
+
+    it('deja aprobado en null cuando el curso todavía no fue calificado', () => {
+      let result: any;
+      service.findFuncionariosConCursos().subscribe((r) => (result = r));
+      const rawItems = [
+        {
+          id: 'des1',
+          persona: { id: 1, primer_nombre: 'Juan', primer_apellido: 'Pérez', cedula: '111' },
+          curso: { id: 'c1', nombre_curso: 'Angular', institucion: 'UCU', es_obligatorio: false },
+          fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01', calificacion: null,
+        },
+      ];
+      http.expectOne(matchFuncionarios).flush({ items: rawItems, total: 1 });
+      expect(result[0].cursos[0].aprobado).toBeNull();
     });
 
     it('mapea es_obligatorio a tipo "obligatorio" / "optativo"', () => {

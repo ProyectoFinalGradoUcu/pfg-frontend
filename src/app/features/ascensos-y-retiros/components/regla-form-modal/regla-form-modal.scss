@@ -1,0 +1,364 @@
+$navy: #132744;
+$navy-soft: #1e3a5f;
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 3rem 1rem;
+  z-index: 50;
+  overflow-y: auto;
+}
+
+.modal {
+  background-color: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+
+  &--wide { max-width: 720px; }
+}
+
+.modal__header {
+  padding: 1.5rem 1.75rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+
+  h3 {
+    margin: 0;
+    color: $navy;
+    font-size: 1.15rem;
+    font-weight: 700;
+  }
+}
+
+.modal__subtitle {
+  margin: 0.25rem 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.modal__hint {
+  margin: 0.5rem 0 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.modal__body {
+  padding: 1.25rem 1.75rem;
+  display: grid;
+  gap: 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.modal__footer {
+  padding: 1rem 1.75rem 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+// Campos
+
+.field {
+  display: grid;
+  gap: 0.3rem;
+
+  label {
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  &--inline {
+    grid-template-columns: max-content 1fr;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+.field__error {
+  color: #b91c1c;
+  font-size: 0.78rem;
+}
+
+.field__hint {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.field-row {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem 1rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0;
+
+  legend {
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 0 0.35rem;
+  }
+}
+
+.input {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #0f172a;
+
+  &:focus {
+    outline: none;
+    border-color: $navy;
+  }
+
+  &--error { border-color: #dc2626; }
+  &--num { width: 5.5rem; }
+  &--sm { padding: 0.4rem 0.6rem; font-size: 0.82rem; }
+  &--modo { width: auto; }
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #334155;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+// Requisitos
+
+.requisitos {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.requisitos__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h4 {
+    margin: 0;
+    color: $navy;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+}
+
+.requisitos__empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.requisito {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.65rem;
+  background-color: #f8fafc;
+}
+
+.requisito__top {
+  display: grid;
+  grid-template-columns: 11rem 1fr max-content;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.requisito__label {
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.requisito__condiciones {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.requisito__cursos {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.requisito__cursos-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.requisito__elegidos {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.requisito__warn {
+  color: #b45309;
+  font-size: 0.78rem;
+}
+
+.requisito__catalogo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 9rem;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+}
+
+.requisito__curso {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: #0f172a;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+
+  small { color: #94a3b8; }
+
+  &:hover { background-color: #f1f5f9; }
+  &--on { background-color: #e0f2fe; font-weight: 600; }
+}
+
+.chip {
+  border: 1.5px solid #cbd5e1;
+  border-radius: 999px;
+  background-color: #ffffff;
+  color: #475569;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+
+  &--on {
+    background-color: $navy;
+    border-color: $navy;
+    color: #ffffff;
+  }
+}
+
+// Botones
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  background-color: #ffffff;
+  color: $navy;
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btn--sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+.btn--ghost {
+  border-color: $navy;
+
+  &:hover:not(:disabled) { background-color: #f1f5f9; }
+}
+
+.btn--danger-ghost {
+  border-color: #fca5a5;
+  color: #b91c1c;
+
+  &:hover:not(:disabled) { background-color: #fef2f2; }
+}
+
+.btn--primary {
+  background-color: $navy;
+  color: #ffffff;
+  border-color: $navy;
+
+  &:hover:not(:disabled) {
+    background-color: $navy-soft;
+    border-color: $navy-soft;
+  }
+}
+
+// ─── Impacto del cambio ────────────────────────────────────────────────────
+
+.impacto {
+  border-top: 1px solid #e2e8f0;
+  padding: 0.9rem 1.75rem;
+  display: grid;
+  gap: 0.5rem;
+  background-color: #f8fafc;
+}
+
+.impacto__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h4 {
+    margin: 0;
+    color: $navy;
+    font-size: 0.92rem;
+    font-weight: 700;
+  }
+}
+
+.impacto__ayuda {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.impacto__resumen {
+  margin: 0;
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.impacto__listas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+
+  ul {
+    margin: 0.2rem 0 0;
+    padding-left: 1.1rem;
+    color: #475569;
+    font-size: 0.8rem;
+  }
+}
+
+.impacto__label {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 600;
+}

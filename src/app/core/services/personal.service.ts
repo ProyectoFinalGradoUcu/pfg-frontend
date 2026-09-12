@@ -8,9 +8,12 @@ import {
   CrearPersonaResponse,
   CursoPersona,
   FamiliarItem,
+  FamiliarPayload,
   FindPersonasParams,
   GradoItem,
   HistorialMilitar,
+  LegajoMilitar,
+  LegajoMilitarPayload,
   MisionPersona,
   OpcionSelect,
   PatchPersonaPayload,
@@ -41,6 +44,7 @@ export class PersonalService {
     if (params.destino)  query['destino']  = String(params.destino);
     if (params.rango)    query['rango']    = String(params.rango);
     if (params.estado)   query['estado']   = String(params.estado);
+    if (params.incluir_inactivos) query['incluir_inactivos'] = 'true';
     return this.http.get<PersonasPaginadas>(`${API_BASE_URL}/personas`, {
       params: query,
       withCredentials: true,
@@ -98,8 +102,25 @@ export class PersonalService {
     return this.http.get<FamiliarItem[]>(`${API_BASE_URL}/personas/${id}/familiares`, { withCredentials: true });
   }
 
+  agregarFamiliar(id: number, payload: FamiliarPayload): Observable<FamiliarItem> {
+    return this.http.post<FamiliarItem>(`${API_BASE_URL}/personas/${id}/familiares`, payload, { withCredentials: true });
+  }
+
+  quitarFamiliar(id: number, familiarId: number): Observable<void> {
+    return this.http.delete<void>(`${API_BASE_URL}/personas/${id}/familiares/${familiarId}`, { withCredentials: true });
+  }
+
   getHistorialMilitar(id: number): Observable<HistorialMilitar> {
     return this.http.get<HistorialMilitar>(`${API_BASE_URL}/personas/${id}/historial-militar`, { withCredentials: true });
+  }
+
+  /** Nivel educativo, egreso de la ETA y mutación de escalafón. */
+  getLegajoMilitar(id: number): Observable<LegajoMilitar> {
+    return this.http.get<LegajoMilitar>(`${API_BASE_URL}/personas/${id}/legajo-militar`, { withCredentials: true });
+  }
+
+  guardarLegajoMilitar(id: number, payload: LegajoMilitarPayload): Observable<LegajoMilitar> {
+    return this.http.put<LegajoMilitar>(`${API_BASE_URL}/personas/${id}/legajo-militar`, payload, { withCredentials: true });
   }
 
   getCursos(id: number): Observable<CursoPersona[]> {

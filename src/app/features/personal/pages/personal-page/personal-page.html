@@ -45,7 +45,7 @@
       <label class="personal-page__field">
         <select
           *ngIf="!alcanceAcotado()"
-          [value]="selectedDestino()"
+          [value]="selectedDestino() ?? ''"
           (change)="onDestinoChange($event)"
         >
           <option value="">Todos los destinos</option>
@@ -58,17 +58,27 @@
       </label>
 
       <label class="personal-page__field">
-        <select [value]="selectedRango()" (change)="onRangoChange($event)">
+        <select [value]="selectedRango() ?? ''" (change)="onRangoChange($event)">
           <option value="">Todos los grados</option>
           <option *ngFor="let g of todosGrados()" [value]="g.id">{{ g.denominacion }}</option>
         </select>
       </label>
 
       <label class="personal-page__field">
-        <select [value]="selectedEstado()" (change)="onEstadoChange($event)">
+        <select [value]="selectedEstado() ?? ''" (change)="onEstadoChange($event)">
           <option value="">Todos los estados</option>
           <option *ngFor="let s of situaciones()" [value]="s.id">{{ s.denominacion }}</option>
         </select>
+      </label>
+
+      <!-- Sin esto los retirados no aparecen. -->
+      <label class="personal-page__check" [class.personal-page__check--activo]="incluirRetirados()">
+        <input
+          type="checkbox"
+          [checked]="incluirRetirados()"
+          (change)="setIncluirRetirados($any($event.target).checked)"
+        />
+        Incluir retirados
       </label>
 
       <button
@@ -109,12 +119,19 @@
             <td>{{ item.rango }}</td>
             <td>{{ item.destino }}</td>
             <td>
+              <!-- `estado` es la situación: el chip sale de `relacion_estado`. -->
               <span
                 class="personal-page__badge"
                 [class.personal-page__badge--licencia]="item.estado === 'Licencia'"
                 [class.personal-page__badge--activo]="item.estado === 'Activo'"
               >
                 {{ item.estado }}
+              </span>
+              <span
+                class="personal-page__badge personal-page__badge--retirado"
+                *ngIf="item.relacion_estado === 'inactivo'"
+              >
+                Retirado
               </span>
             </td>
             <td class="personal-page__col-actions">

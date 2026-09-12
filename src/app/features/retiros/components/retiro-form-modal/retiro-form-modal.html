@@ -1,0 +1,187 @@
+<!-- Sin cierre al click afuera: un resbalón perdía todo lo cargado. -->
+<div class="modal-overlay">
+  <div class="modal modal--ancho">
+    <header class="modal__header">
+      <h3>Registrar retiro</h3>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <!-- Paso 0: elegir persona (entrada desde el listado) -->
+    <div class="modal__body" *ngIf="paso() === 'persona'">
+      <div class="field">
+        <label>Funcionario *</label>
+        <app-select
+          [items]="personal()"
+          bindLabel="nombre"
+          bindValue="id"
+          placeholder="Seleccione personal"
+          [searchable]="true"
+          [clearable]="true"
+          [ngModel]="personaElegida()?.id ?? null"
+          (ngModelChange)="elegirPersona($event)"
+        ></app-select>
+        <p class="field__hint" *ngIf="cargandoPersonal()">Cargando personal...</p>
+      </div>
+    </div>
+
+    <!-- Paso 1: datos + impacto -->
+    <div class="modal__body" *ngIf="paso() === 'datos'" [formGroup]="form">
+      <div class="rf__persona" *ngIf="personaElegida() as p">
+        <span><strong>{{ p.nombre }}</strong> · C.I. {{ p.cedula }}</span>
+        <button type="button" class="rf__cambiar" *ngIf="eligePersona" (click)="cambiarPersona()">
+          Cambiar
+        </button>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="fecha">Fecha de retiro *</label>
+          <input id="fecha" type="date" formControlName="fecha_retiro" [max]="hoy" />
+          <p class="field__hint">No puede ser futura.</p>
+        </div>
+
+        <div class="field">
+          <label for="hora">Hora</label>
+          <input id="hora" type="time" step="1" formControlName="hora_retiro" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="motivo-baja">Motivo *</label>
+        <select id="motivo-baja" formControlName="motivo_baja_id">
+          <option [ngValue]="null">Seleccionar...</option>
+          <option *ngFor="let m of motivos()" [ngValue]="m.id">{{ m.denominacion }}</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="motivo-libre">Detalle del motivo</label>
+        <input id="motivo-libre" type="text" formControlName="motivo" />
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="orden">Número de orden</label>
+          <input id="orden" type="text" formControlName="numero_orden" placeholder="O.D. 12455" />
+        </div>
+        <div class="field">
+          <label for="bol">Boletín</label>
+          <input id="bol" type="text" formControlName="boletin" placeholder="B.P. 8891" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="obs">Observaciones</label>
+        <textarea id="obs" formControlName="observaciones" rows="2"></textarea>
+      </div>
+
+      <!-- Impacto -->
+      <p class="field__hint" *ngIf="previaCargando()">Calculando impacto...</p>
+
+      <p class="field__hint" *ngIf="!previaCargando() && !previa() && !form.controls.fecha_retiro.value">
+        Elegí una fecha para ver qué se cerraría.
+      </p>
+
+      <ng-container *ngIf="previa() as p">
+        <!-- Con bloqueos el POST daría 422. -->
+        <div class="aviso aviso--peligro" *ngIf="p.bloqueos.length > 0">
+          <strong>No se puede registrar este retiro:</strong>
+          <ul>
+            <li *ngFor="let b of p.bloqueos">{{ b }}</li>
+          </ul>
+        </div>
+
+        <section class="rf__impacto" *ngIf="p.bloqueos.length === 0">
+          <h4>Qué se cierra con este retiro</h4>
+          <p class="field__hint">Destildá lo que no corresponda.</p>
+
+          <label class="rf__check" *ngIf="p.destino_vigente as d">
+            <input
+              type="checkbox"
+              [checked]="cerrarDestino()"
+              (change)="cerrarDestino.set($any($event.target).checked)"
+            />
+            <span>
+              Cerrar destino en <strong>{{ d.unidad?.denominacion ?? 'unidad sin nombre' }}</strong>
+            </span>
+          </label>
+
+          <label class="rf__check" *ngFor="let i of p.inscripciones_activas">
+            <input
+              type="checkbox"
+              [checked]="inscripcionesElegidas().includes(i.id)"
+              (change)="toggleInscripcion(i.id)"
+            />
+            <span>Dar de baja en <strong>{{ i.curso.nombre_curso }}</strong></span>
+          </label>
+
+          <label class="rf__check" *ngIf="p.usuario as u">
+            <input
+              type="checkbox"
+              [checked]="cerrarUsuario()"
+              (change)="cerrarUsuario.set($any($event.target).checked)"
+            />
+            <span>Bloquear la cuenta <strong>{{ u.username }}</strong></span>
+          </label>
+
+          <p class="rf__nada" *ngIf="!p.destino_vigente && !p.inscripciones_activas.length && !p.usuario">
+            Este retiro no arrastra ningún cierre.
+          </p>
+
+          <!-- Informativa: no hay módulo que cierre ocupaciones. Sin checkbox. -->
+          <p class="aviso aviso--info" *ngIf="p.vivienda">
+            El funcionario tiene una <strong>vivienda asignada</strong>. El sistema no la cierra:
+            hay que resolverla por fuera.
+          </p>
+        </section>
+      </ng-container>
+
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+    </div>
+
+    <!-- Paso 2: confirmación explícita -->
+    <div class="modal__body" *ngIf="paso() === 'confirmar'">
+      <div class="aviso aviso--peligro">
+        <strong>Esto cierra una carrera.</strong> Se cierra la relación laboral con fecha
+        {{ form.controls.fecha_retiro.value }}, se registra el movimiento laboral y se aplican los
+        cierres que dejaste tildados.
+      </div>
+
+      <p class="aviso">
+        Una baja a mitad de mes <strong>no se prorratea</strong>: el funcionario desaparece entero
+        del período de liquidación en vez de cobrar la parte trabajada. El aguinaldo del mes de
+        salida sí lo cubre un proceso aparte.
+      </p>
+    </div>
+
+    <footer class="modal__footer">
+      <ng-container *ngIf="paso() === 'datos'">
+        <button type="button" class="btn" (click)="cerrar()">Cancelar</button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="!puedeConfirmar()"
+          (click)="irAConfirmar()"
+        >
+          Continuar
+        </button>
+      </ng-container>
+
+      <ng-container *ngIf="paso() === 'confirmar'">
+        <button type="button" class="btn" (click)="volverADatos()">Volver</button>
+        <button
+          type="button"
+          class="btn btn--danger"
+          [disabled]="enviando()"
+          (click)="confirmar()"
+        >
+          {{ enviando() ? 'Registrando...' : 'Confirmar retiro' }}
+        </button>
+      </ng-container>
+
+      <button type="button" class="btn" *ngIf="paso() === 'persona'" (click)="cerrar()">
+        Cancelar
+      </button>
+    </footer>
+  </div>
+</div>

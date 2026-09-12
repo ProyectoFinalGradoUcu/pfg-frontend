@@ -1,0 +1,159 @@
+<section class="ordenes">
+
+  <nav class="breadcrumb">
+    <span class="breadcrumb__item breadcrumb__item--current">Ascensos registrados</span>
+  </nav>
+
+  <header class="ordenes__header">
+    <div>
+      <h2>Ascensos registrados</h2>
+      <p>Las órdenes del período y los funcionarios que alcanzó cada una.</p>
+    </div>
+    <div class="ordenes__acciones">
+      <a *ngIf="puedeRegistrar()" class="btn btn--primary btn--lg"
+        routerLink="/ascensos-y-retiros/ordenes/nueva">Registrar orden</a>
+    </div>
+  </header>
+
+  <div class="ordenes__stats" *ngIf="stats() as s">
+    <article class="tile">
+      <span class="tile__value">{{ s.ordenes }}</span>
+      <span class="tile__label">órdenes en {{ anio() }}</span>
+    </article>
+    <article class="tile">
+      <span class="tile__value">{{ s.ascensos }}</span>
+      <span class="tile__label">ascensos vigentes</span>
+    </article>
+    <article class="tile">
+      <span class="tile__value">{{ s.por_excepcion }}</span>
+      <span class="tile__label">por excepción</span>
+    </article>
+    <article class="tile">
+      <span class="tile__value">{{ s.ascensos_anulados }}</span>
+      <span class="tile__label">ascensos anulados</span>
+    </article>
+  </div>
+
+  <article class="card">
+    <div class="filtros">
+      <input type="text" class="input filtros__buscar" placeholder="N.º de orden..."
+        (input)="onBusqueda($any($event.target).value)" autocomplete="off" />
+
+      <label class="filtros__campo">
+        <span>Período</span>
+        <select class="input" (change)="onAnio($any($event.target).value)">
+          <option *ngFor="let a of anios()" [value]="a" [selected]="a === anio()">{{ a }}</option>
+        </select>
+      </label>
+
+      <label class="filtros__campo">
+        <span>Estado</span>
+        <select class="input" (change)="onAnuladas($any($event.target).value)">
+          <option value="">Todas</option>
+          <option value="false">Vigentes</option>
+          <option value="true">Anuladas</option>
+        </select>
+      </label>
+
+      <label class="check">
+        <input type="checkbox" [checked]="filtroExcepciones()"
+          (change)="onExcepciones($any($event.target).checked)" />
+        Solo con excepciones
+      </label>
+    </div>
+
+    <p class="ordenes__loading" *ngIf="loading()">Cargando...</p>
+
+    <div class="ordenes__alert" *ngIf="error()">
+      {{ error() }}
+      <button type="button" class="btn btn--sm btn--ghost" (click)="cargar()">Reintentar</button>
+    </div>
+
+    <p class="ordenes__empty" *ngIf="!loading() && !error() && items().length === 0">
+      No hay órdenes registradas con estos filtros.
+    </p>
+
+    <div class="tabla-wrap" *ngIf="!loading() && !error() && items().length > 0">
+      <table class="tabla">
+        <thead>
+          <tr>
+            <th></th>
+            <th>N.º de orden</th>
+            <th>Fecha</th>
+            <th>Funcionarios</th>
+            <th>Por excepción</th>
+            <th>Estado</th>
+            <th>Registrada por</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let o of items()">
+            <tr [class.tabla__anulada]="o.anulada">
+              <td>
+                <button type="button" class="desplegar" (click)="alternarDespliegue(o)"
+                  [attr.aria-label]="estaDesplegada(o.id) ? 'Ocultar funcionarios' : 'Ver funcionarios'">
+                  {{ estaDesplegada(o.id) ? '−' : '+' }}
+                </button>
+              </td>
+              <td><b>{{ o.numero_orden || o.boletin }}</b></td>
+              <td>{{ o.fecha_orden | date:'d/M/yyyy':'UTC' }}</td>
+              <td>{{ o.cantidad_vigentes }} de {{ o.cantidad_funcionarios }}</td>
+              <td>{{ o.cantidad_por_excepcion || '—' }}</td>
+              <td>
+                <span class="badge" [class.badge--anulada]="o.anulada" [class.badge--vigente]="!o.anulada">
+                  {{ o.anulada ? 'Anulada' : 'Vigente' }}
+                </span>
+              </td>
+              <td>{{ o.creada_por?.username ?? '—' }}</td>
+              <td>
+                <a class="btn btn--sm btn--ghost" [routerLink]="['/ascensos-y-retiros/ordenes', o.id]">
+                  Ver detalle
+                </a>
+              </td>
+            </tr>
+            <tr *ngIf="estaDesplegada(o.id)" class="tabla__detalle">
+              <td colspan="8">
+                <table class="subtabla">
+                  <thead>
+                    <tr>
+                      <th>Funcionario</th>
+                      <th>Grado anterior → nuevo</th>
+                      <th>Fecha</th>
+                      <th>Cumplía</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let a of o.ascensos">
+                      <td>{{ a.persona?.nombre_completo ?? '—' }}</td>
+                      <td>
+                        {{ a.grado_anterior?.denominacion ?? '—' }} → {{ a.grado_nuevo?.denominacion ?? '—' }}
+                      </td>
+                      <td>{{ a.fecha_ascenso | date:'d/M/yyyy':'UTC' }}</td>
+                      <td>
+                        <span *ngIf="a.cumplia_requisitos === true">Sí</span>
+                        <span class="excepcion" *ngIf="a.por_excepcion"
+                          [attr.title]="a.motivo_excepcion">Por excepción</span>
+                        <span *ngIf="a.cumplia_requisitos === null">Sin regla</span>
+                      </td>
+                      <td>{{ a.anulado ? 'Anulado' : 'Vigente' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="paginador" *ngIf="totalPaginas() > 1">
+      <button type="button" class="btn btn--sm btn--ghost" [disabled]="page() === 1"
+        (click)="irAPagina(page() - 1)">Anterior</button>
+      <span>Página {{ page() }} de {{ totalPaginas() }} · {{ total() }} órdenes</span>
+      <button type="button" class="btn btn--sm btn--ghost" [disabled]="page() === totalPaginas()"
+        (click)="irAPagina(page() + 1)">Siguiente</button>
+    </div>
+  </article>
+</section>

@@ -1,10 +1,15 @@
+import { RetiroHistorial } from './retiros.models';
+
 export interface PersonaListItem {
   id: string;
   nombre: string;
   cedula: string;
-  rango: string;
-  destino: string;
-  estado: string;
+  rango: string | null;
+  destino: string | null;
+  /** La **situación**, no el estado de la relación: un retirado la conserva. */
+  estado: string | null;
+  /** Lo que hay que mirar para saber si está retirado. */
+  relacion_estado: 'activo' | 'inactivo' | null;
 }
 
 export interface PersonasPaginadas {
@@ -21,6 +26,8 @@ export interface FindPersonasParams {
   destino?: number;
   rango?: number;
   estado?: number;
+  /** Sin esto los retirados no aparecen: el backend exige relación abierta. */
+  incluir_inactivos?: boolean;
 }
 
 export interface OpcionSelect {
@@ -58,6 +65,10 @@ export interface RelacionLaboral {
   estado: string;
   tipo_funcionario: string;
   fecha_inicio: string;
+  fecha_ultimo_ascenso: string | null;
+  fecha_ascenso_oficial: string | null;
+  /** Texto libre. El motor de ascensos lo lee como booleano. */
+  mutaciones: string | null;
   tiene_mando: boolean;
   prima_tecnica: string | null;
   observaciones: string | null;
@@ -68,6 +79,39 @@ export interface RelacionLaboral {
   programa: SimpleRef;
   escalafon: SimpleRef;
   sub_unidad: SimpleRef | null;
+}
+
+/** Niveles educativos que admite el legajo militar. */
+export const NIVELES_EDUCATIVOS = [
+  { value: 'PRIMARIA',                 label: 'Primaria' },
+  { value: 'CICLO_BASICO_INCOMPLETO',  label: 'Ciclo básico incompleto' },
+  { value: 'CICLO_BASICO',             label: 'Ciclo básico' },
+  { value: 'BACHILLERATO_INCOMPLETO',  label: 'Bachillerato incompleto' },
+  { value: 'BACHILLERATO',             label: 'Bachillerato' },
+  { value: 'BACHILLERATO_TECNOLOGICO', label: 'Bachillerato tecnológico (UTU)' },
+  { value: 'TERCIARIO',                label: 'Terciario' },
+] as const;
+
+/** Nivel educativo y egreso de la ETA; la mutación vive en la relación laboral. */
+export interface LegajoMilitar {
+  persona_id?: number;
+  nivel_educativo: string | null;
+  nivel_educativo_label: string | null;
+  fecha_ingreso_eta: string | null;
+  fecha_egreso_eta: string | null;
+  numero_orden_egreso_eta: string | null;
+  egresado_eta: boolean;
+  mutaciones: string | null;
+  es_mutado: boolean;
+  actualizado_en?: string | null;
+}
+
+export interface LegajoMilitarPayload {
+  nivel_educativo?: string | null;
+  fecha_ingreso_eta?: string | null;
+  fecha_egreso_eta?: string | null;
+  numero_orden_egreso_eta?: string | null;
+  mutaciones?: string | null;
 }
 
 export interface PersonaDetalle {
@@ -89,7 +133,9 @@ export interface PersonaDetalle {
   codigo_postal: string | null;
   seccional: string | null;
   es_civil: boolean;
-  relacion_laboral: RelacionLaboral;
+  /** `null` si no hay relación **abierta**: un retirado cae acá. */
+  relacion_laboral: RelacionLaboral | null;
+  legajo_militar: LegajoMilitar;
 }
 
 export interface FamiliarItem {
@@ -97,19 +143,31 @@ export interface FamiliarItem {
   cedula: string;
   nombre_completo: string;
   tipo_relacion: string;
-  grado: GradoRef | null;
-  unidad: UnidadRef | null;
+  grado: string | null;
+  unidad: string | null;
 }
 
 export interface HistorialRango {
-  id: number;
+  id: number | null;
   fecha_ascenso: string;
-  numero_orden: string;
+  numero_orden: string | null;
+  observaciones?: string | null;
+  orden_ascenso_id?: number | null;
+  es_rango_inicial?: boolean;
+  es_rango_actual?: boolean;
+  cumplia_requisitos?: boolean | null;
+  por_excepcion?: boolean;
+  motivo_excepcion?: string | null;
+  anulado?: boolean;
+  motivo_anulacion?: string | null;
   grado: GradoRef;
+  grado_anterior?: GradoRef | null;
 }
 
 export interface HistorialMilitar {
   historial_rangos: HistorialRango[];
+  /** Sin anulados, del más reciente al más antiguo. Ninguna UI lo consume hoy. */
+  retiros: RetiroHistorial[];
 }
 
 export interface CursoPersona {
@@ -121,7 +179,9 @@ export interface CursoPersona {
   numero_orden: string;
   fecha_inicio: string;
   fecha_fin: string;
-  calificacion: string;
+  aprobado: boolean | null;
+  calificacion: string | null;
+  observacion: string | null;
   completado: boolean;
 }
 
@@ -163,6 +223,12 @@ export interface PatchPersonaPayload {
   prima_tecnica?: string | null;
   tiene_mando?: boolean;
   observaciones_laborales?: string | null;
+  // Legajo militar
+  nivel_educativo?: string | null;
+  fecha_ingreso_eta?: string | null;
+  fecha_egreso_eta?: string | null;
+  numero_orden_egreso_eta?: string | null;
+  mutaciones?: string | null;
 }
 
 export interface CrearPersonaPayload {
@@ -190,6 +256,12 @@ export interface CrearPersonaPayload {
   fecha_inicio: string;
   sub_unidad_id?: number;
   observaciones?: string;
+  // Legajo militar (opcional en el alta)
+  nivel_educativo?: string;
+  fecha_ingreso_eta?: string;
+  fecha_egreso_eta?: string;
+  numero_orden_egreso_eta?: string;
+  mutaciones?: string;
 }
 
 export interface CargaMasivaResultadoItem {

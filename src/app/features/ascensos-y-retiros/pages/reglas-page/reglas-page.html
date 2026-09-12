@@ -1,0 +1,173 @@
+<section class="reglas">
+
+  <nav class="breadcrumb">
+    <span class="breadcrumb__item breadcrumb__item--current">Reglas de ascenso</span>
+  </nav>
+
+  <header class="reglas__header">
+    <div>
+      <h2>Reglas de ascenso</h2>
+      <p>
+        La escala de la fuerza, tramo por tramo: cuánto tiempo hay que estar en el grado, hasta qué
+        edad se puede ascender y qué cursos hacen falta.
+      </p>
+    </div>
+  </header>
+
+  <div class="reglas__stats" *ngIf="stats() as s">
+    <article class="tile">
+      <span class="tile__value">{{ s.tramos_con_regla }}</span>
+      <span class="tile__label">tramos con regla</span>
+    </article>
+    <article class="tile">
+      <span class="tile__value">{{ s.tramos_activos }}</span>
+      <span class="tile__label">activas</span>
+    </article>
+    <article class="tile">
+      <span class="tile__value">{{ s.reglas_modificadas }}</span>
+      <span class="tile__label">distintas de las de la FAU</span>
+    </article>
+  </div>
+
+  <p class="reglas__loading" *ngIf="loading()">Cargando la escala...</p>
+
+  <div class="reglas__alert" *ngIf="error()">
+    {{ error() }}
+    <button type="button" class="btn btn--sm btn--ghost" (click)="cargar()">Reintentar</button>
+  </div>
+
+  <!-- ─── La escalera ──────────────────────────────────────────────────── -->
+
+  <div class="escalera" *ngIf="!loading() && !error() && escalera() as esc">
+    <section class="columna" *ngFor="let grupo of esc.grupos">
+      <h3 class="columna__titulo">{{ grupo.nombre }}</h3>
+
+      <article class="escalon" *ngFor="let e of grupo.escalones"
+        [class.escalon--vacio]="!e.regla"
+        [class.escalon--inactiva]="e.regla && !e.regla.activo">
+
+        <header class="escalon__head">
+          <span class="escalon__tramo">
+            {{ e.grado_origen.denominacion }}
+            <span class="escalon__flecha">→</span>
+            {{ e.grado_destino?.denominacion ?? 'sin destino' }}
+          </span>
+          <span class="escalon__dotacion">{{ e.funcionarios_en_grado }} en el grado</span>
+        </header>
+
+        <ng-container *ngIf="e.regla as r; else sinRegla">
+          <p class="escalon__resumen">
+            {{ tiempoLegible(r) }} · {{ edadLegible(r) }}
+          </p>
+
+          <ul class="escalon__requisitos">
+            <li class="chip" *ngFor="let req of r.requisitos">
+              {{ req.descripcion }}
+              <em *ngIf="condicionLegible(req.aplica_si) as cond"> ({{ cond }})</em>
+              <em *ngIf="req.modo === 'ALGUNO' && req.cursos.length > 1"> (alcanza con uno)</em>
+            </li>
+          </ul>
+
+          <footer class="escalon__foot">
+            <span class="badge" [class.badge--defecto]="r.es_por_defecto" [class.badge--editada]="!r.es_por_defecto">
+              {{ etiquetaOrigen(r) }}
+            </span>
+            <span class="badge badge--inactiva" *ngIf="!r.activo">Inactiva</span>
+            <span class="escalon__vigencia">Vigente desde {{ r.vigente_desde | date:'d/M/yyyy':'UTC' }}</span>
+
+            <button type="button" class="link" *ngIf="r.versiones_anteriores?.length"
+              (click)="verVersiones(r)">
+              Ver {{ r.versiones_anteriores!.length }}
+              {{ r.versiones_anteriores!.length === 1 ? 'versión anterior' : 'versiones anteriores' }}
+            </button>
+
+            <span class="escalon__acciones" *ngIf="puedeGestionar()">
+              <button type="button" class="btn btn--sm btn--ghost" (click)="abrirEditor(e)">Editar</button>
+              <button type="button" class="btn btn--sm btn--ghost" *ngIf="r.activo" (click)="pedirDesactivar(r)">Desactivar</button>
+              <button type="button" class="btn btn--sm btn--ghost" *ngIf="!r.activo" (click)="activar(r)">Activar</button>
+            </span>
+          </footer>
+        </ng-container>
+
+        <ng-template #sinRegla>
+          <p class="escalon__resumen escalon__resumen--vacio">Sin regla cargada</p>
+          <button *ngIf="puedeGestionar()" type="button" class="btn btn--sm btn--primary"
+            (click)="abrirEditor(e)">
+            Cargar regla
+          </button>
+        </ng-template>
+      </article>
+    </section>
+  </div>
+</section>
+
+<!-- ─── Editor ─────────────────────────────────────────────────────────── -->
+
+<app-regla-form-modal
+  *ngIf="modal() === 'editor' && escalonEnEdicion() as escalon"
+  [escalon]="escalon"
+  [cursos]="cursos()"
+  [guardando]="procesando()"
+  [impacto]="impacto()"
+  [calculandoImpacto]="calculandoImpacto()"
+  (cerrar)="cerrarModal()"
+  (verImpacto)="verImpacto($event)"
+  (guardar)="guardarRegla($event)">
+</app-regla-form-modal>
+
+<!-- ─── Confirmar desactivación ────────────────────────────────────────── -->
+
+<div class="modal-overlay" *ngIf="modal() === 'desactivar'" (click)="cerrarModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h3>Desactivar la regla</h3>
+    </header>
+    <div class="modal__body">
+      <p>
+        «{{ reglaSeleccionada()?.nombre }}» deja de evaluarse: nadie va a aparecer como pasible por
+        ese tramo hasta que se vuelva a activar. El tramo sigue visible en la escala.
+      </p>
+    </div>
+    <footer class="modal__footer">
+      <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+      <button type="button" class="btn btn--primary" [disabled]="procesando()" (click)="confirmarDesactivar()">
+        {{ procesando() ? 'Desactivando...' : 'Desactivar' }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+<!-- ─── Versiones anteriores ───────────────────────────────────────────── -->
+
+<div class="modal-overlay" *ngIf="modal() === 'versiones'" (click)="cerrarModal()">
+  <div class="modal modal--wide" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h3>Versiones anteriores</h3>
+      <p class="modal__subtitle">{{ reglaSeleccionada()?.nombre }}</p>
+    </header>
+    <div class="modal__body">
+      <article class="version" *ngFor="let v of reglaSeleccionada()?.versiones_anteriores">
+        <header class="version__head">
+          <span>{{ v.vigente_desde | date:'d/M/yyyy':'UTC' }} → {{ v.vigente_hasta | date:'d/M/yyyy':'UTC' }}</span>
+          <span class="badge" [class.badge--defecto]="v.es_por_defecto">
+            {{ v.es_por_defecto ? 'Regla FAU' : 'Modificada' }}
+          </span>
+        </header>
+        <p class="version__resumen">
+          {{ v.dias_minimos }} días ·
+          {{ v.edad_maxima == null ? 'sin tope de edad' : 'menor de ' + v.edad_maxima }}
+          <ng-container *ngIf="!v.activo"> · inactiva</ng-container>
+        </p>
+        <ul class="version__requisitos">
+          <li *ngFor="let req of v.requisitos">{{ req.descripcion }}</li>
+        </ul>
+        <p class="version__autor" *ngIf="v.actualizado_por">
+          Cerrada por {{ v.actualizado_por.username }}
+        </p>
+      </article>
+    </div>
+    <footer class="modal__footer">
+      <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cerrar</button>
+    </footer>
+  </div>
+</div>

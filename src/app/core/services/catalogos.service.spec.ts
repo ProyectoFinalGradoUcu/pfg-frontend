@@ -4,6 +4,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { CatalogosService, payloadEdicionUnidad } from './catalogos.service';
 import { API_BASE_URL } from '../api.config';
 import { Unidad } from '../models/destinos.models';
+import { MotivoBajaCatalogo } from '../models/retiros.models';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -148,6 +149,24 @@ describe('CatalogosService', () => {
 
     it('recorta espacios antes de comparar la denominación', () => {
       expect(payloadEdicionUnidad(original, { ...sinCambios, denominacion: '  Comando Aéreo de Operaciones (C.O.A.)  ' })).toEqual({});
+    });
+  });
+
+  describe('getMotivosBaja', () => {
+    it('pide GET /catalogos/motivos-baja y devuelve el catálogo', () => {
+      const motivos: MotivoBajaCatalogo[] = [
+        { id: 2, codigo: 'RETIRO_VOL', denominacion: 'Baja por retiro voluntario.' },
+        { id: 5, codigo: 'RETIRO_OBL', denominacion: 'Baja por retiro obligatorio.' },
+      ];
+
+      let recibido: MotivoBajaCatalogo[] | null = null;
+      service.getMotivosBaja().subscribe((r) => (recibido = r));
+
+      const req = http.expectOne(`${API_BASE_URL}/catalogos/motivos-baja`);
+      expect(req.request.method).toBe('GET');
+      req.flush(motivos);
+
+      expect(recibido).toEqual(motivos);
     });
   });
 });

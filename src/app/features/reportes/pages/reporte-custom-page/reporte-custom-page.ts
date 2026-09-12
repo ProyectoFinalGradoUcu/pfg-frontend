@@ -3,11 +3,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { ReportesService } from '../../../../core/services/reportes.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import {
   FuenteCatalogo,
   ParametroReporte,
   ResultadoReporte,
 } from '../../../../core/models/reportes.models';
+import { parseError } from '../../../../shared/utils/parse-error';
 
 @Component({
   selector: 'app-reporte-custom-page',
@@ -18,6 +20,7 @@ import {
 export class ReporteCustomPage implements OnInit {
   private readonly reportesService = inject(ReportesService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
   private readonly router = inject(Router);
 
   readonly cargando = signal(false);
@@ -46,7 +49,7 @@ export class ReporteCustomPage implements OnInit {
         if (data.length) this.seleccionarFuente(data[0].clave);
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.cargando.set(false);
       },
     });
@@ -94,7 +97,7 @@ export class ReporteCustomPage implements OnInit {
         this.generando.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.generando.set(false);
       },
     });
@@ -108,7 +111,7 @@ export class ReporteCustomPage implements OnInit {
         this.exportando.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.exportando.set(false);
       },
     });
@@ -138,7 +141,10 @@ export class ReporteCustomPage implements OnInit {
     URL.revokeObjectURL(url);
   }
 
-  private parseError(err: HttpErrorResponse): string {
-    return err.error?.message ?? err.message ?? 'Ocurrió un error al generar el reporte';
+  /** 403 es bloqueante: se muestra en el modal informativo en vez de un toast que desaparece solo. */
+  private reportarError(err: HttpErrorResponse): void {
+    const msg = parseError(err);
+    if (err.status === 403) this.errorModal.show(msg);
+    else this.toast.error(msg);
   }
 }

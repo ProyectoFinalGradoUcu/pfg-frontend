@@ -17,8 +17,26 @@ export class Sidebar {
     this.auth.hasAnyPermiso(['personas.ver', 'personas.ver.unidad', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar']),
   );
   readonly puedeVerAscensos = computed(() =>
-    this.auth.hasAnyPermiso(['ascensos.ver', 'ascensos.registrar', 'retiros.ver', 'retiros.registrar']),
+    this.auth.hasAnyPermiso([
+      'ascensos.ver', 'ascensos.ver.unidad', 'ascensos.registrar', 'ascensos.anular',
+      'reglas_ascenso.ver', 'reglas_ascenso.gestionar',
+    ]),
   );
+  readonly puedeVerRetiros = computed(() =>
+    this.auth.hasAnyPermiso(['retiros.ver', 'retiros.registrar']),
+  );
+
+  readonly itemsAscensos = computed(() => {
+    const items: { label: string; route: string }[] = [];
+    if (this.auth.hasAnyPermiso(['ascensos.ver', 'ascensos.ver.unidad'])) {
+      items.push({ label: 'Pasibles de ascenso', route: '/ascensos-y-retiros/pasibles' });
+      items.push({ label: 'Ascensos registrados', route: '/ascensos-y-retiros/ordenes' });
+    }
+    if (this.auth.hasAnyPermiso(['reglas_ascenso.ver', 'reglas_ascenso.gestionar'])) {
+      items.push({ label: 'Reglas de ascenso', route: '/ascensos-y-retiros/reglas' });
+    }
+    return items;
+  });
   readonly puedeVerCursos = computed(() =>
     this.auth.hasAnyPermiso(['cursos.ver', 'cursos.ver.unidad', 'cursos.gestionar', 'cursos.gestionar.unidad']),
   );

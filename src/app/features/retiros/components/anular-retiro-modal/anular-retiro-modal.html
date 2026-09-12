@@ -1,0 +1,48 @@
+<!-- Sin cierre al click afuera: un resbalón perdía todo lo cargado. -->
+<div class="modal-overlay">
+  <div class="modal">
+    <header class="modal__header">
+      <h3>Anular retiro</h3>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body" [formGroup]="form">
+      <p class="aviso aviso--peligro">
+        <strong>Se revierte el retiro completo:</strong> el funcionario vuelve a estar activo, se
+        reabre lo que este retiro cerró y el movimiento laboral se borra.
+        <strong>Usalo solo si el retiro se cargó por error.</strong> Si el funcionario volvió al
+        servicio, esta no es la acción: anular borra el retiro del historial.
+      </p>
+
+      <div class="field">
+        <label for="motivo-anulacion">Motivo de la anulación *</label>
+        <textarea
+          id="motivo-anulacion"
+          formControlName="motivo_anulacion"
+          rows="3"
+          placeholder="Ej: cargado sobre la persona equivocada"
+        ></textarea>
+        <p
+          class="field__error"
+          *ngIf="form.controls.motivo_anulacion.touched && form.controls.motivo_anulacion.invalid"
+        >
+          Escribí al menos 5 caracteres.
+        </p>
+      </div>
+
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()">Cancelar</button>
+      <button
+        type="button"
+        class="btn btn--danger"
+        [disabled]="enviando()"
+        (click)="confirmar()"
+      >
+        {{ enviando() ? 'Anulando...' : 'Anular retiro' }}
+      </button>
+    </footer>
+  </div>
+</div>

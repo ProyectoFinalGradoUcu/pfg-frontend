@@ -6,6 +6,7 @@ import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { CursosService } from '../../../../core/services/cursos.service';
 import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
 import {
@@ -25,10 +26,16 @@ type ModalKind =
   | 'modulos'
   | 'designar'
   | 'editar'
+  | 'calificar'
   | 'calificacionMasiva'
   | 'confirmarEliminar'
   | 'baja'
   | null;
+
+interface ResultadoMasivo {
+  aprobado: boolean | null;
+  calificacion: number | null;
+}
 
 interface FilaHistorial {
   funcionarioId: string;
@@ -49,6 +56,7 @@ export class CursosPage implements OnInit, OnDestroy {
   private readonly cursosService = inject(CursosService);
   private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
   private readonly route = inject(ActivatedRoute);
 
   // ── Estado general ─────────────────────────────────────────────────────────
@@ -98,14 +106,20 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly menuPosition = signal<{ top: number; right: number } | null>(null);
 
   // ── Calificaciones (individual) ───────────────────────────────────────────
-  readonly calificandoId         = signal<string | null>(null);
-  readonly calificacionValor     = signal<number>(10);
+  readonly filaCalificando       = signal<FilaHistorial | null>(null);
+  readonly aprobadoValor         = signal<boolean | null>(null);
+  readonly calificacionValor     = signal<number | null>(null);
+  readonly observacionValor      = signal<string>('');
   readonly guardandoCalificacion = signal(false);
 
   // ── Calificación masiva ────────────────────────────────────────────────────
   readonly cursoMasivoId        = signal<string | null>(null);
-  readonly calificacionesMasivas = signal<Record<string, number>>({});
+  readonly calificacionesMasivas = signal<Record<string, ResultadoMasivo>>({});
   readonly guardandoMasivo       = signal(false);
+
+  readonly filasMasivasConResultado = computed(
+    () => this.filasCursoMasivo().filter((f) => this.calificacionesMasivas()[f.curso.designacionId]?.aprobado != null),
+  );
 
   readonly cursosAptos = computed(() => {
     const hoy = new Date();
@@ -115,7 +129,7 @@ export class CursosPage implements OnInit, OnDestroy {
     for (const fila of this.filasFlat()) {
       if (!fila.curso.fechaFin) continue;
       if (new Date(fila.curso.fechaFin) >= hoy) continue;
-      if (fila.curso.calificacion !== null) continue;
+      if (fila.curso.aprobado !== null) continue;
       if (vistos.has(fila.curso.id)) continue;
       vistos.add(fila.curso.id);
       result.push({ id: fila.curso.id, nombre: fila.curso.nombre_curso, institucion: fila.curso.institucion });
@@ -126,7 +140,7 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly filasCursoMasivo = computed<FilaHistorial[]>(() => {
     const id = this.cursoMasivoId();
     if (!id) return [];
-    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.calificacion === null);
+    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.aprobado === null);
   });
 
   // ── Designar ────────────────────────────────────────────────────────────────
@@ -154,10 +168,10 @@ export class CursosPage implements OnInit, OnDestroy {
   );
 
   readonly completados = computed(
-    () => this.filasFlat().filter((f) => f.curso.calificacion !== null).length,
+    () => this.filasFlat().filter((f) => f.curso.aprobado !== null).length,
   );
   readonly enCurso = computed(
-    () => this.filasFlat().filter((f) => f.curso.calificacion === null).length,
+    () => this.filasFlat().filter((f) => f.curso.aprobado === null).length,
   );
   readonly obligatorios = computed(
     () => this.filasFlat().filter((f) => f.curso.tipo === 'obligatorio').length,
@@ -277,7 +291,7 @@ export class CursosPage implements OnInit, OnDestroy {
         this.loading.set(false);
       },
       error: (err: HttpErrorResponse) => {
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
         this.loading.set(false);
       },
     });
@@ -377,6 +391,7 @@ export class CursosPage implements OnInit, OnDestroy {
     this.archivoCertificado.set(null);
     this.cursoSeleccionado.set(null);
     this.bajaFila.set(null);
+    this.filaCalificando.set(null);
   }
 
   // ── Menú de acciones (kebab) ────────────────────────────────────────────────
@@ -691,7 +706,7 @@ export class CursosPage implements OnInit, OnDestroy {
           lista.map((d) => (d.id === curso.id ? actualizado : d)),
         );
       },
-      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+      error: (err: HttpErrorResponse) => this.reportarError(err),
     });
   }
 
@@ -749,7 +764,7 @@ export class CursosPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.reactivandoId.set(null);
-        this.toast.error(this.parseError(err));
+        this.reportarError(err);
       },
     });
   }
@@ -779,26 +794,47 @@ export class CursosPage implements OnInit, OnDestroy {
 
   onCursoMasivoChange(cursoId: string): void {
     this.cursoMasivoId.set(cursoId);
-    const inicial: Record<string, number> = {};
+    const inicial: Record<string, ResultadoMasivo> = {};
     for (const fila of this.filasCursoMasivo()) {
-      inicial[fila.curso.designacionId] = 10;
+      inicial[fila.curso.designacionId] = { aprobado: null, calificacion: null };
     }
     this.calificacionesMasivas.set(inicial);
   }
 
-  setCalificacionMasiva(designacionId: string, valor: number): void {
-    this.calificacionesMasivas.update((prev) => ({ ...prev, [designacionId]: valor }));
+  setAprobadoMasivo(designacionId: string, aprobado: boolean): void {
+    this.calificacionesMasivas.update((prev) => ({
+      ...prev,
+      [designacionId]: { ...prev[designacionId], aprobado },
+    }));
+  }
+
+  setAprobadoMasivoTodos(aprobado: boolean): void {
+    this.calificacionesMasivas.update((prev) => {
+      const next = { ...prev };
+      for (const fila of this.filasCursoMasivo()) {
+        next[fila.curso.designacionId] = { ...next[fila.curso.designacionId], aprobado };
+      }
+      return next;
+    });
+  }
+
+  setCalificacionMasiva(designacionId: string, valor: string): void {
+    const nota = valor.trim() === '' ? null : Math.round(Number(valor));
+    this.calificacionesMasivas.update((prev) => ({
+      ...prev,
+      [designacionId]: { ...prev[designacionId], calificacion: nota },
+    }));
   }
 
   guardarCalificacionMasiva(): void {
-    const filas = this.filasCursoMasivo();
-    const notas = this.calificacionesMasivas();
+    const filas = this.filasMasivasConResultado();
+    const resultados = this.calificacionesMasivas();
     if (filas.length === 0) return;
 
     for (const fila of filas) {
-      const val = notas[fila.curso.designacionId];
-      if (!val || isNaN(val) || val < 1 || val > 10 || !Number.isInteger(Math.round(val))) {
-        this.modalError.set(`Nota inválida para ${fila.nombre} (debe ser entre 1 y 10)`);
+      const nota = resultados[fila.curso.designacionId].calificacion;
+      if (nota !== null && !this.notaValida(nota)) {
+        this.modalError.set(`Nota inválida para ${fila.nombre} (debe ser un entero entre 1 y 10)`);
         return;
       }
     }
@@ -806,13 +842,13 @@ export class CursosPage implements OnInit, OnDestroy {
     this.modalError.set(null);
     this.guardandoMasivo.set(true);
 
-    const requests = filas.map((fila) =>
-      this.cursosService.registrarCalificacion(
-        fila.curso.id,
-        fila.curso.designacionId,
-        Math.round(notas[fila.curso.designacionId]),
-      ),
-    );
+    const requests = filas.map((fila) => {
+      const resultado = resultados[fila.curso.designacionId];
+      return this.cursosService.registrarCalificacion(fila.curso.id, fila.curso.designacionId, {
+        aprobado: resultado.aprobado!,
+        ...(resultado.calificacion !== null ? { calificacion: resultado.calificacion } : {}),
+      });
+    });
 
     forkJoin(requests).subscribe({
       next: (results) => {
@@ -822,17 +858,19 @@ export class CursosPage implements OnInit, OnDestroy {
             ...f,
             cursos: f.cursos.map((c) => {
               const res = porDesignacion.get(c.designacionId);
-              return res ? { ...c, calificacion: res.calificacion } : c;
+              return res
+                ? { ...c, aprobado: res.aprobado, calificacion: res.calificacion, observacion: res.observacion }
+                : c;
             }),
           })),
         );
         this.guardandoMasivo.set(false);
         this.cerrarModal();
-        this.toast.success(`${filas.length} calificación(es) registrada(s) correctamente`);
+        this.toast.success(`${filas.length} resultado(s) registrado(s) correctamente`);
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoMasivo.set(false);
-        this.modalError.set('Error al registrar calificaciones: ' + this.parseError(err));
+        this.modalError.set('Error al registrar los resultados: ' + this.parseError(err));
       },
     });
   }
@@ -845,46 +883,74 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   iniciarCalificacion(fila: FilaHistorial): void {
-    this.calificandoId.set(`${fila.funcionarioId}-${fila.curso.id}-${fila.curso.designacionId}`);
-    this.calificacionValor.set(10);
+    this.aprobadoValor.set(null);
+    this.calificacionValor.set(null);
+    this.observacionValor.set('');
+    this.modalError.set(null);
+    this.filaCalificando.set(fila);
+    this.modal.set('calificar');
   }
 
-  cancelarCalificacion(): void {
-    this.calificandoId.set(null);
+  setCalificacionValor(valor: string): void {
+    this.calificacionValor.set(valor.trim() === '' ? null : Math.round(Number(valor)));
   }
 
-  guardarCalificacion(fila: FilaHistorial): void {
-    const val = Math.round(this.calificacionValor());
-    if (isNaN(val) || val < 1 || val > 10) {
-      this.toast.error('La calificación debe ser un número entero entre 1 y 10');
+  guardarCalificacion(): void {
+    const fila = this.filaCalificando();
+    if (!fila) return;
+
+    const aprobado = this.aprobadoValor();
+    if (aprobado === null) {
+      this.modalError.set('Indicá si la persona aprobó o desaprobó el curso');
       return;
     }
+
+    const nota = this.calificacionValor();
+    if (nota !== null && !this.notaValida(nota)) {
+      this.modalError.set('La calificación debe ser un número entero entre 1 y 10');
+      return;
+    }
+
+    this.modalError.set(null);
+
+    const observacion = this.observacionValor().trim();
+
     this.guardandoCalificacion.set(true);
-    this.cursosService.registrarCalificacion(fila.curso.id, fila.curso.designacionId, val).subscribe({
-      next: (res) => {
-        this.funcionarios.update((lista) =>
-          lista.map((f) =>
-            f.id !== fila.funcionarioId
-              ? f
-              : {
-                  ...f,
-                  cursos: f.cursos.map((c) =>
-                    c.designacionId === fila.curso.designacionId
-                      ? { ...c, calificacion: res.calificacion }
-                      : c,
-                  ),
-                },
-          ),
-        );
-        this.calificandoId.set(null);
-        this.guardandoCalificacion.set(false);
-        this.toast.success('Calificación registrada correctamente');
-      },
-      error: (err: HttpErrorResponse) => {
-        this.guardandoCalificacion.set(false);
-        this.toast.error(this.parseError(err));
-      },
-    });
+    this.cursosService
+      .registrarCalificacion(fila.curso.id, fila.curso.designacionId, {
+        aprobado,
+        ...(nota !== null ? { calificacion: nota } : {}),
+        ...(observacion !== '' ? { observacion } : {}),
+      })
+      .subscribe({
+        next: (res) => {
+          this.funcionarios.update((lista) =>
+            lista.map((f) =>
+              f.id !== fila.funcionarioId
+                ? f
+                : {
+                    ...f,
+                    cursos: f.cursos.map((c) =>
+                      c.designacionId === fila.curso.designacionId
+                        ? { ...c, aprobado: res.aprobado, calificacion: res.calificacion, observacion: res.observacion }
+                        : c,
+                    ),
+                  },
+            ),
+          );
+          this.guardandoCalificacion.set(false);
+          this.cerrarModal();
+          this.toast.success('Resultado registrado correctamente');
+        },
+        error: (err: HttpErrorResponse) => {
+          this.guardandoCalificacion.set(false);
+          this.modalError.set(this.parseError(err));
+        },
+      });
+  }
+
+  private notaValida(nota: number): boolean {
+    return Number.isInteger(nota) && nota >= 1 && nota <= 10;
   }
 
   // ── Tracks ─────────────────────────────────────────────────────────────────
@@ -897,6 +963,9 @@ export class CursosPage implements OnInit, OnDestroy {
     if (typeof body === 'string' && body.trim()) return body.trim();
     if (Array.isArray(body?.message) && body.message.length) return body.message[0];
     if (typeof body?.message === 'string' && body.message.trim()) return body.message.trim();
+    // El backend manda el motivo puntual (p. ej. de un 403 por permiso o alcance) acá adentro.
+    const envelope = body?.service_response?.service_status?.http_message;
+    if (typeof envelope === 'string' && envelope.trim()) return envelope.trim();
     if (typeof body?.error === 'string' && body.error.trim() && body.error !== 'Conflict' && body.error !== 'Bad Request') return body.error.trim();
     switch (err.status) {
       case 409: return 'Ya existe un curso con ese nombre.';
@@ -906,5 +975,12 @@ export class CursosPage implements OnInit, OnDestroy {
       case 0:   return 'No se pudo conectar con el servidor.';
       default:  return 'Ocurrió un error inesperado. Intentá de nuevo.';
     }
+  }
+
+  /** 403 es bloqueante: se muestra en el modal informativo en vez de un toast que desaparece solo. */
+  private reportarError(err: HttpErrorResponse): void {
+    const msg = this.parseError(err);
+    if (err.status === 403) this.errorModal.show(msg);
+    else this.toast.error(msg);
   }
 }

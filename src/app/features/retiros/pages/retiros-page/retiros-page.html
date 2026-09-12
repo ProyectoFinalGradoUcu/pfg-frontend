@@ -1,0 +1,154 @@
+<section class="retiros">
+  <header class="retiros__header">
+    <div>
+      <h2>Retiros</h2>
+      <p>Padrón institucional de retiros y bajas</p>
+    </div>
+    <button
+      *ngIf="puedeRegistrar"
+      type="button"
+      class="btn btn--primary btn--lg"
+      (click)="abrirRegistro()"
+    >
+      Registrar retiro
+    </button>
+  </header>
+
+  <div class="retiros__card">
+    <div class="retiros__card-head">
+      <div class="retiros__card-title">
+        <h3>Funcionarios retirados</h3>
+        <p>Quiénes están fuera de actividad hoy.</p>
+      </div>
+    </div>
+
+    <div class="retiros__filters">
+      <input
+        type="search"
+        class="retiros__search-input"
+        placeholder="Cédula, nombre o apellido"
+        [value]="busqueda()"
+        (input)="onBuscar($any($event.target).value)"
+      />
+
+      <app-select
+        class="retiros__filter-select"
+        [items]="unidades()"
+        bindLabel="denominacion"
+        bindValue="id"
+        placeholder="Todas las unidades"
+        [ngModel]="unidadId()"
+        (ngModelChange)="setUnidad($event)"
+      ></app-select>
+
+      <app-select
+        class="retiros__filter-select"
+        [items]="motivos()"
+        bindLabel="denominacion"
+        bindValue="id"
+        placeholder="Todos los motivos"
+        [ngModel]="motivoBajaId()"
+        (ngModelChange)="setMotivo($event)"
+      ></app-select>
+
+      <!-- Un solo control: dos inputs sueltos se leen como filtros distintos. -->
+      <div class="retiros__daterange">
+        <label>
+          <span>Desde</span>
+          <input
+            type="date"
+            [value]="desde()"
+            (change)="setRango($any($event.target).value, hasta())"
+          />
+        </label>
+        <span class="retiros__daterange-sep" aria-hidden="true"></span>
+        <label>
+          <span>Hasta</span>
+          <input
+            type="date"
+            [value]="hasta()"
+            (change)="setRango(desde(), $any($event.target).value)"
+          />
+        </label>
+      </div>
+
+      <label class="retiros__check" [class.retiros__check--activo]="incluirAnulados()">
+        <input
+          type="checkbox"
+          [checked]="incluirAnulados()"
+          (change)="setIncluirAnulados($any($event.target).checked)"
+        />
+        Incluir anulados
+      </label>
+
+      <button
+        type="button"
+        class="retiros__clear-btn"
+        [disabled]="!hayFiltrosActivos()"
+        (click)="limpiarFiltros()"
+      >
+        Limpiar
+      </button>
+    </div>
+
+    <p class="retiros__empty" *ngIf="loading()">Cargando...</p>
+
+    <p class="retiros__empty" *ngIf="!loading() && items().length === 0">
+      No hay retiros que coincidan con los filtros.
+    </p>
+
+    <div class="retiros__table-wrapper" *ngIf="!loading() && items().length > 0">
+      <table class="retiros__table">
+        <thead>
+          <tr>
+            <th>Funcionario</th>
+            <th>Grado</th>
+            <th>Cédula</th>
+            <th>Unidad</th>
+            <th>Fecha</th>
+            <th>Motivo</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let r of items()"
+            class="retiros__row"
+            [class.retiros__row--anulada]="estadoRetiro(r) === 'anulado'"
+            (click)="abrirDetalle(r)"
+            tabindex="0"
+            (keydown.enter)="abrirDetalle(r)"
+          >
+            <td class="retiros__nombre">{{ nombreFuncionario(r) }}</td>
+            <!-- El grado al momento del retiro, no el actual. -->
+            <td>{{ r.grado?.denominacion ?? '—' }}</td>
+            <td>{{ r.persona.cedula }}</td>
+            <td>{{ r.unidad?.denominacion ?? '—' }}</td>
+            <td>{{ r.fecha_retiro }}</td>
+            <td>{{ r.motivo_baja.denominacion }}</td>
+            <td>
+              <span class="retiros__badge" [class]="'retiros__badge retiros__badge--' + estadoRetiro(r)">
+                {{ etiquetaEstado[estadoRetiro(r)] }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-paginator
+      *ngIf="!loading() && total() > pageSize"
+      [totalItems]="total()"
+      [pageSize]="pageSize"
+      [currentPage]="currentPage()"
+      (pageChange)="onPageChange($event)"
+    ></app-paginator>
+  </div>
+
+  <app-retiro-form-modal
+    *ngIf="registroAbierto()"
+    [personaId]="null"
+    (registrado)="onRegistrado($event)"
+    (cerrado)="cerrarRegistro()"
+  ></app-retiro-form-modal>
+</section>

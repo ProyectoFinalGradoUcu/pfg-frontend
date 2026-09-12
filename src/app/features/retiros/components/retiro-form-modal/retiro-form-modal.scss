@@ -1,0 +1,68 @@
+@use '../../modal-base' as *;
+
+.rf__persona {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  background-color: #f8fafc;
+  font-size: 0.875rem;
+  color: #334155;
+}
+
+.rf__cambiar {
+  flex-shrink: 0;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: $navy;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover { background-color: #f1f5f9; }
+}
+
+.rf__impacto {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+
+  h4 {
+    margin: 0 0 0.25rem;
+    font-size: 0.95rem;
+    color: $navy;
+    font-weight: 600;
+  }
+}
+
+.rf__check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #334155;
+  cursor: pointer;
+
+  input { accent-color: $navy; width: 16px; height: 16px; }
+}
+
+.rf__nada,
+.rf__resumen {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.rf__resumen {
+  margin: 0.75rem 0 0;
+  padding-left: 1.15rem;
+  color: #334155;
+
+  li + li { margin-top: 0.3rem; }
+}

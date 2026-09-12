@@ -9,7 +9,7 @@ import { vi } from 'vitest';
 import { UnidadDetallePage } from './unidad-detalle-page';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { Destino, UnidadConDestinados } from '../../../../core/models/destinos.models';
+import { Destino, FuncionarioUnidad, UnidadConDestinados } from '../../../../core/models/destinos.models';
 
 function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
@@ -25,6 +25,10 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
     activo: true,
     ...overrides,
   };
+}
+
+function makeFuncionario(overrides: Partial<FuncionarioUnidad> = {}): FuncionarioUnidad {
+  return { ...makeDestino(), relacion_estado: 'activo', ...overrides };
 }
 
 function makeUnidad(): UnidadConDestinados {
@@ -119,6 +123,42 @@ describe('UnidadDetallePage', () => {
       pageSize: 10,
       activo: true,
       query: 'Pérez',
+    });
+  });
+
+  describe('retirado fantasma', () => {
+    it('marca al que conserva la plaza con la relación inactiva', () => {
+      destinosService.listarFuncionariosUnidad.mockReturnValue(
+        of({
+          items: [makeFuncionario({ activo: true, relacion_estado: 'inactivo' })],
+          total: 1,
+          page: 1,
+          pageSize: 10,
+        }),
+      );
+      fixture = TestBed.createComponent(UnidadDetallePage);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Retirado');
+    });
+
+    it('no lo marca cuando la relación está activa', () => {
+      destinosService.listarFuncionariosUnidad.mockReturnValue(
+        of({
+          items: [makeFuncionario({ activo: true, relacion_estado: 'activo' })],
+          total: 1,
+          page: 1,
+          pageSize: 10,
+        }),
+      );
+      fixture = TestBed.createComponent(UnidadDetallePage);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).not.toContain('Retirado');
+    });
+
+    it('el fantasma es la combinación: un destino ya cerrado no lo es', () => {
+      const comp = fixture.componentInstance;
+      expect(comp.esFantasma(makeFuncionario({ activo: false, relacion_estado: 'inactivo' }))).toBe(false);
+      expect(comp.esFantasma(makeFuncionario({ activo: true, relacion_estado: 'inactivo' }))).toBe(true);
     });
   });
 });

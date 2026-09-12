@@ -181,3 +181,10 @@ $navy-soft: #1e3a5f;
   svg { width: 14px; height: 14px; }
   &:hover { color: #475569; }
 }
+
+// Habla de la relación laboral, no del destino.
+.unidad-detalle__badge--retirado {
+  margin-left: 0.4rem;
+  background-color: #132744;
+  color: #ffffff;
+}

@@ -2,14 +2,24 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import {
   CursoPersona, FamiliarItem, GradoItem, HistorialMilitar,
-  MisionPersona, OpcionSelect, PatchPersonaPayload, PersonaDetalle,
+  MisionPersona, NIVELES_EDUCATIVOS, OpcionSelect, PatchPersonaPayload,
+  PersonaDetalle, PersonaListItem,
 } from '../../../../core/models/personal.models';
 import { DestinoDePersona } from '../../../../core/models/destinos.models';
 import { PersonalService } from '../../../../core/services/personal.service';
+import { AscensosService } from '../../../../core/services/ascensos.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { parseError } from '../../../../shared/utils/parse-error';
+import {
+  ESTADOS_ELEGIBILIDAD,
+  Elegibilidad,
+  EstadoElegibilidad,
+} from '../../../../core/models/ascensos.models';
 
 export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'misiones' | 'documentacion';
 
@@ -25,16 +35,22 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private readonly route    = inject(ActivatedRoute);
   private readonly router   = inject(Router);
   private readonly svc      = inject(PersonalService);
+  private readonly ascensos = inject(AscensosService);
+  private readonly auth     = inject(AuthService);
   private readonly toast    = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
   private readonly fb       = inject(FormBuilder);
 
   private personaId!: number;
 
-  // ─── Page state ───────────────────────────────────────────────────────────────
+  // ─── Page state ──────────────────────────────────────────────────────────
   readonly persona        = signal<PersonaDetalle | null>(null);
   readonly loadingPersona = signal(true);
 
-  // ─── Tabs ─────────────────────────────────────────────────────────────────────
+  /** `false` para un retirado: su relación cerrada no viene en la respuesta. */
+  readonly tieneRelacionLaboral = computed(() => !!this.persona()?.relacion_laboral);
+
+  // ─── Tabs ────────────────────────────────────────────────────────────────
   readonly activeTab   = signal<TabKey>('personal');
   private readonly loadedTabs = new Set<TabKey>(['personal']);
 
@@ -43,8 +59,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     if (!p) return [];
     return [
       { key: 'personal',       label: 'Datos Personales'     },
+      { key: 'familiar',       label: 'Información Familiar' },
       ...(p.es_civil
-        ? [{ key: 'familiar' as TabKey, label: 'Información Familiar' }]
+        ? []
         : [{ key: 'historial' as TabKey, label: 'Historial Militar'   }]),
       { key: 'cursos',         label: 'Cursos'               },
       { key: 'destinos',       label: 'Destinos'             },
@@ -53,11 +70,29 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     ];
   });
 
-  // ─── Tab data ─────────────────────────────────────────────────────────────────
+  // ─── Tab data ────────────────────────────────────────────────────────────
   readonly familiares       = signal<FamiliarItem[]>([]);
   readonly loadingFamiliar  = signal(false);
+  readonly familiarError    = signal<string | null>(null);
+  readonly familiarSeleccionado = signal<FamiliarItem | null>(null);
+
+  // ─── Agregar familiar (modo edición) ─────────────────────────────────────
+  readonly tipoRelacionOpciones = ['Cónyuge', 'Padre', 'Madre', 'Hijo/a', 'Hermano/a', 'Otro'];
+  readonly familiarAddSearch    = signal('');
+  readonly familiarAddResults   = signal<PersonaListItem[]>([]);
+  readonly familiarAddDropdownOpen = signal(false);
+  readonly familiarAddElegido   = signal<PersonaListItem | null>(null);
+  readonly familiarAddTipoRelacion = signal('');
+  readonly guardandoFamiliar    = signal(false);
+  private readonly familiarAddSearch$ = new Subject<string>();
   readonly historial        = signal<HistorialMilitar | null>(null);
   readonly loadingHistorial = signal(false);
+
+  // ─── Situación de ascenso ────────────────────────────────────────────────
+  readonly elegibilidad        = signal<Elegibilidad | null>(null);
+  readonly loadingElegibilidad = signal(false);
+  readonly elegibilidadError   = signal<string | null>(null);
+  readonly puedeRegistrarAscenso = computed(() => this.auth.hasPermiso('ascensos.registrar'));
   readonly sortedRangos     = computed(() => {
     const rangos = this.historial()?.historial_rangos ?? [];
     return [...rangos].sort((a, b) =>
@@ -89,7 +124,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     );
   });
 
-  // ─── Edit drawer ──────────────────────────────────────────────────────────────
+  // ─── Edit drawer ─────────────────────────────────────────────────────────
   readonly editMode    = signal(false);
   readonly editLoading = signal(false);
 
@@ -107,6 +142,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     { value: 'O', label: 'Otro'      },
   ];
   readonly estadoCivilOpciones = ['Soltero', 'Casado', 'Divorciado', 'Viudo', 'Unión libre'];
+
+  /** Datos militares del legajo: los consultan las reglas de ascenso. */
+  readonly nivelEducativoOpciones = NIVELES_EDUCATIVOS;
 
   readonly editForm: FormGroup = this.fb.group({
     primer_nombre:         ['', Validators.required],
@@ -133,6 +171,12 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     prima_tecnica:         [''],
     tiene_mando:           [false],
     observaciones_laborales: [''],
+    // Legajo militar
+    nivel_educativo:         [''],
+    fecha_ingreso_eta:       [''],
+    fecha_egreso_eta:        [''],
+    numero_orden_egreso_eta: [''],
+    mutaciones:              [''],
   }, { validators: (group: AbstractControl) => this.nacimientoAnteriorAInicio(group) });
 
   /**
@@ -174,6 +218,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     this.personaId = Number(raw);
     this.loadPersona();
     this.setupEscalafonCascade();
+    this.setupFamiliarAddSearch();
   }
 
   ngOnDestroy(): void {
@@ -189,6 +234,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         this.loadingPersona.set(false);
         if (err.status === 404) {
           this.toast.error('Personal no encontrado');
+          this.router.navigate(['/personal']);
+        } else if (err.status === 403) {
+          this.errorModal.show(parseError(err));
           this.router.navigate(['/personal']);
         } else {
           this.toast.error('Error al cargar el perfil');
@@ -216,7 +264,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       });
   }
 
-  // ─── Tabs ─────────────────────────────────────────────────────────────────────
+  // ─── Tabs ────────────────────────────────────────────────────────────────
 
   switchTab(key: TabKey): void {
     this.activeTab.set(key);
@@ -224,11 +272,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     this.loadedTabs.add(key);
     switch (key) {
       case 'familiar':
-        this.loadingFamiliar.set(true);
-        this.svc.getFamiliares(this.personaId).subscribe({
-          next: d => { this.familiares.set(d); this.loadingFamiliar.set(false); },
-          error: () => this.loadingFamiliar.set(false),
-        });
+        this.loadFamiliares();
         break;
       case 'historial':
         this.loadingHistorial.set(true);
@@ -236,6 +280,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
           next: d => { this.historial.set(d); this.loadingHistorial.set(false); },
           error: () => this.loadingHistorial.set(false),
         });
+        this.cargarElegibilidad();
         break;
       case 'cursos':
         this.loadingCursos.set(true);
@@ -261,11 +306,159 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     }
   }
 
-  // ─── Edit ─────────────────────────────────────────────────────────────────────
+  /** La misma evaluación que alimenta el listado de pasibles, para uno solo. */
+  private cargarElegibilidad(): void {
+    this.loadingElegibilidad.set(true);
+    this.elegibilidadError.set(null);
+    this.ascensos.getElegibilidad(this.personaId).subscribe({
+      next: (e) => {
+        this.elegibilidad.set(e);
+        this.loadingElegibilidad.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        this.loadingElegibilidad.set(false);
+        // Un 403 es esperable: no todo usuario del perfil ve ascensos.
+        this.elegibilidadError.set(
+          err.status === 403 ? null : 'No se pudo evaluar la situación de ascenso.',
+        );
+      },
+    });
+  }
+
+  etiquetaEstadoAscenso(estado: EstadoElegibilidad): string {
+    return ESTADOS_ELEGIBILIDAD.find((e) => e.value === estado)?.label ?? estado;
+  }
+
+  /** ✓ cumple · ✗ no cumple · ○ no aplica */
+  simboloRequisito(req: { aplica: boolean; cumple: boolean }): string {
+    if (!req.aplica) return '○';
+    return req.cumple ? '✓' : '✗';
+  }
+
+  claseRequisito(req: { aplica: boolean; cumple: boolean }): string {
+    if (!req.aplica) return '';
+    return req.cumple ? 'pd__req--ok' : 'pd__req--falta';
+  }
+
+  private loadFamiliares(): void {
+    this.loadingFamiliar.set(true);
+    this.familiarError.set(null);
+    this.svc.getFamiliares(this.personaId).subscribe({
+      next: d => { this.familiares.set(d); this.loadingFamiliar.set(false); },
+      error: () => {
+        this.loadingFamiliar.set(false);
+        this.familiarError.set('No se pudo cargar la información familiar. Intentá de nuevo.');
+      },
+    });
+  }
+
+  retryFamiliares(): void {
+    this.loadFamiliares();
+  }
+
+  abrirFamiliarDetalle(f: FamiliarItem): void {
+    this.familiarSeleccionado.set(f);
+  }
+
+  cerrarFamiliarDetalle(): void {
+    this.familiarSeleccionado.set(null);
+  }
+
+  private setupFamiliarAddSearch(): void {
+    this.familiarAddSearch$
+      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(term => {
+        if (!term || term.length < 2) {
+          this.familiarAddResults.set([]);
+          return;
+        }
+        this.svc.findPaginado({ search: term, pageSize: 8 }).subscribe({
+          next: res => {
+            const cedulasActuales = new Set(this.familiares().map(f => f.cedula));
+            this.familiarAddResults.set(
+              res.items.filter(p => p.id !== String(this.personaId) && !cedulasActuales.has(p.cedula)),
+            );
+          },
+        });
+      });
+  }
+
+  onFamiliarAddSearch(event: Event): void {
+    const val = (event.target as HTMLInputElement).value;
+    this.familiarAddSearch.set(val);
+    this.familiarAddDropdownOpen.set(true);
+    this.familiarAddSearch$.next(val);
+  }
+
+  onFamiliarAddBlur(): void {
+    setTimeout(() => this.familiarAddDropdownOpen.set(false), 200);
+  }
+
+  elegirFamiliarAAgregar(persona: PersonaListItem): void {
+    this.familiarAddElegido.set(persona);
+    this.familiarAddSearch.set('');
+    this.familiarAddResults.set([]);
+    this.familiarAddDropdownOpen.set(false);
+  }
+
+  cancelarAgregarFamiliar(): void {
+    this.familiarAddElegido.set(null);
+    this.familiarAddTipoRelacion.set('');
+  }
+
+  confirmarAgregarFamiliar(): void {
+    const persona = this.familiarAddElegido();
+    if (!persona) return;
+
+    this.guardandoFamiliar.set(true);
+    this.svc.agregarFamiliar(this.personaId, {
+      cedula: persona.cedula,
+      ...(this.familiarAddTipoRelacion() && { tipo_relacion: this.familiarAddTipoRelacion() }),
+    }).subscribe({
+      next: nuevo => {
+        this.familiares.update(list => [...list, nuevo]);
+        this.guardandoFamiliar.set(false);
+        this.cancelarAgregarFamiliar();
+        this.toast.success('Familiar agregado correctamente');
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoFamiliar.set(false);
+        if (err.status === 403) {
+          this.errorModal.show(parseError(err));
+          return;
+        }
+        const msg = (err.status === 400 || err.status === 409) && err.error?.message
+          ? err.error.message
+          : 'No se pudo agregar el familiar. Intentá de nuevo.';
+        this.toast.error(msg);
+      },
+    });
+  }
+
+  quitarFamiliar(f: FamiliarItem): void {
+    if (!confirm(`¿Quitar a ${f.nombre_completo} de los familiares?`)) return;
+
+    this.svc.quitarFamiliar(this.personaId, f.id).subscribe({
+      next: () => {
+        this.familiares.update(list => list.filter(x => x.id !== f.id));
+        this.toast.success('Familiar quitado correctamente');
+      },
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 403) {
+          this.errorModal.show(parseError(err));
+        } else {
+          this.toast.error('No se pudo quitar el familiar. Intentá de nuevo.');
+        }
+      },
+    });
+  }
+
+  // ─── Edit ────────────────────────────────────────────────────────────────
 
   openEdit(): void {
     const p = this.persona()!;
     const rl = p.relacion_laboral;
+    const lm = p.legajo_militar;
 
     // Patch sin emitir eventos para no disparar la cascada de escalafon→grado
     this.editForm.patchValue({
@@ -293,6 +486,11 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       prima_tecnica:         rl?.prima_tecnica   ?? '',
       tiene_mando:           rl?.tiene_mando     ?? false,
       observaciones_laborales: rl?.observaciones ?? '',
+      nivel_educativo:         lm?.nivel_educativo ?? '',
+      fecha_ingreso_eta:       lm?.fecha_ingreso_eta ? lm.fecha_ingreso_eta.split('T')[0] : '',
+      fecha_egreso_eta:        lm?.fecha_egreso_eta  ? lm.fecha_egreso_eta.split('T')[0]  : '',
+      numero_orden_egreso_eta: lm?.numero_orden_egreso_eta ?? '',
+      mutaciones:              lm?.mutaciones ?? '',
     }, { emitEvent: false });
 
     if (rl?.escalafon?.id) {
@@ -317,6 +515,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   closeEdit(): void {
     this.editMode.set(false);
+    this.cancelarAgregarFamiliar();
   }
 
   saveEdit(): void {
@@ -350,6 +549,12 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       prima_tecnica:                   raw.prima_tecnica || null,
       tiene_mando:                     raw.tiene_mando,
       observaciones_laborales:         raw.observaciones_laborales || null,
+      // Legajo militar: vacío se manda como null para poder borrar el dato.
+      nivel_educativo:                 raw.nivel_educativo || null,
+      fecha_ingreso_eta:               raw.fecha_ingreso_eta || null,
+      fecha_egreso_eta:                raw.fecha_egreso_eta || null,
+      numero_orden_egreso_eta:         raw.numero_orden_egreso_eta || null,
+      mutaciones:                      raw.mutaciones || null,
     };
 
     this.editLoading.set(true);
@@ -358,14 +563,18 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         this.persona.set(updated);
         this.editLoading.set(false);
         this.editMode.set(false);
+        this.cancelarAgregarFamiliar();
         this.toast.success('Perfil actualizado correctamente');
       },
       error: (err: HttpErrorResponse) => {
         this.editLoading.set(false);
-        const msg = err.status === 400 && err.error?.message
-          ? err.error.message
-          : 'Error al guardar los cambios. Intentá de nuevo.';
-        this.toast.error(msg);
+        if (err.status === 403 || err.status === 400) {
+          // 400 acá incluye reglas de negocio como "no podés cambiar el destino de un
+          // funcionario a otra unidad", no solo validación de formulario.
+          this.errorModal.show(parseError(err));
+          return;
+        }
+        this.toast.error('Error al guardar los cambios. Intentá de nuevo.');
       },
     });
   }
@@ -375,7 +584,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     return !!(ctrl?.invalid && ctrl.touched);
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────────────────
 
   initials(p: PersonaDetalle): string {
     return `${p.primer_nombre[0]}${p.primer_apellido[0]}`.toUpperCase();

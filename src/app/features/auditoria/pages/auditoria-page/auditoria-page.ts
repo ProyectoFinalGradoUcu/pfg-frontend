@@ -3,11 +3,13 @@ import { FormBuilder } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuditoriaService } from '../../../../core/services/auditoria.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import {
   AuditoriaFiltroItem,
   AuditoriaRegistro,
 } from '../../../../core/models/auditoria.models';
 import { SeccionDetalle, formatearDetalle } from '../../detalle-auditoria';
+import { parseError } from '../../../../shared/utils/parse-error';
 
 @Component({
   selector: 'app-auditoria-page',
@@ -19,6 +21,7 @@ export class AuditoriaPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly auditoriaService = inject(AuditoriaService);
   private readonly toast = inject(ToastService);
+  private readonly errorModal = inject(ErrorModalService);
 
   readonly registros = signal<AuditoriaRegistro[]>([]);
   readonly total = signal(0);
@@ -71,7 +74,7 @@ export class AuditoriaPage implements OnInit {
           this.loading.set(false);
         },
         error: (err: HttpErrorResponse) => {
-          this.toast.error(this.parseError(err));
+          this.reportarError(err);
           this.loading.set(false);
         },
       });
@@ -122,7 +125,10 @@ export class AuditoriaPage implements OnInit {
 
   trackRegistro = (_: number, r: AuditoriaRegistro) => r.id;
 
-  private parseError(err: HttpErrorResponse): string {
-    return err.error?.message ?? err.message ?? 'Error inesperado';
+  /** 403 es bloqueante: se muestra en el modal informativo en vez de un toast que desaparece solo. */
+  private reportarError(err: HttpErrorResponse): void {
+    const msg = parseError(err);
+    if (err.status === 403) this.errorModal.show(msg);
+    else this.toast.error(msg);
   }
 }

@@ -1,0 +1,186 @@
+<section class="detalle">
+
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" routerLink="/ascensos-y-retiros/ordenes">Ascensos registrados</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">Detalle de orden</span>
+  </nav>
+
+  <p class="detalle__loading" *ngIf="loading()">Cargando la orden...</p>
+
+  <div class="detalle__alert" *ngIf="error()">
+    {{ error() }}
+    <button type="button" class="btn btn--sm btn--ghost" (click)="cargar()">Reintentar</button>
+  </div>
+
+  <ng-container *ngIf="!loading() && !error() && orden() as o">
+    <header class="detalle__header">
+      <div>
+        <h2>
+          {{ o.numero_orden || o.boletin }}
+          <span class="badge" [class.badge--anulada]="o.anulada" [class.badge--vigente]="!o.anulada">
+            {{ o.anulada ? 'Anulada' : 'Vigente' }}
+          </span>
+        </h2>
+        <p>{{ o.cantidad_funcionarios }} funcionarios · {{ o.cantidad_por_excepcion }} por excepción</p>
+      </div>
+      <button
+        *ngIf="puedeAnular() && !o.anulada && vigentes().length > 0"
+        type="button"
+        class="btn btn--danger btn--lg"
+        (click)="pedirAnularOrden()">
+        Anular orden completa
+      </button>
+    </header>
+
+    <article class="card">
+      <dl class="datos">
+        <dt>Fecha de la orden</dt><dd>{{ o.fecha_orden | date:'d/M/yyyy':'UTC' }}</dd>
+        <dt>Boletín</dt><dd>{{ o.boletin ?? '—' }}</dd>
+        <dt>Observaciones</dt><dd>{{ o.observaciones ?? '—' }}</dd>
+        <dt>Registrada por</dt><dd>{{ o.creada_por?.username ?? '—' }} · {{ o.creada_en | date:'d/M/yyyy HH:mm' }}</dd>
+        <ng-container *ngIf="o.anulada">
+          <dt>Anulada por</dt><dd>{{ o.anulada_por?.username ?? '—' }} · {{ o.anulada_en | date:'d/M/yyyy HH:mm' }}</dd>
+          <dt>Motivo</dt><dd>{{ o.motivo_anulacion }}</dd>
+        </ng-container>
+      </dl>
+      <p class="datos__nota">
+        Cada operación sobre esta orden queda además en la bitácora de Auditoría, en el contexto
+        «Ascensos».
+      </p>
+    </article>
+
+    <article class="card">
+      <h3 class="card__titulo">Funcionarios</h3>
+
+      <div class="tabla-wrap">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Funcionario</th>
+              <th>Grado anterior → nuevo</th>
+              <th>Fecha</th>
+              <th>Cumplía</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let a of o.ascensos">
+              <tr [class.tabla__anulado]="a.anulado">
+                <td>
+                  <button type="button" class="desplegar" *ngIf="a.evaluacion"
+                    (click)="alternarEvaluacion(a)"
+                    [attr.aria-label]="estaExpandida(a.id) ? 'Ocultar evaluación' : 'Ver evaluación'">
+                    {{ estaExpandida(a.id) ? '−' : '+' }}
+                  </button>
+                </td>
+                <td>
+                  <b>{{ a.persona?.nombre_completo ?? '—' }}</b>
+                  <small class="tabla__cedula">{{ a.persona?.cedula }}</small>
+                </td>
+                <td>
+                  {{ a.grado_anterior?.denominacion ?? '—' }} → {{ a.grado_nuevo?.denominacion ?? '—' }}
+                </td>
+                <td>{{ a.fecha_ascenso | date:'d/M/yyyy':'UTC' }}</td>
+                <td>
+                  <span *ngIf="a.cumplia_requisitos === true">Sí</span>
+                  <span class="excepcion" *ngIf="a.por_excepcion" [attr.title]="a.motivo_excepcion">
+                    Por excepción
+                  </span>
+                  <span *ngIf="a.cumplia_requisitos === null">Sin regla evaluable</span>
+                </td>
+                <td>{{ a.anulado ? 'Anulado' : 'Vigente' }}</td>
+                <td>
+                  <button
+                    *ngIf="puedeAnular() && !a.anulado && !o.anulada"
+                    type="button"
+                    class="btn btn--sm btn--danger-ghost"
+                    (click)="pedirAnularAscenso(a)">
+                    Anular
+                  </button>
+                </td>
+              </tr>
+
+              <tr *ngIf="a.por_excepcion && a.motivo_excepcion" class="tabla__nota">
+                <td colspan="7"><b>Motivo de la excepción:</b> {{ a.motivo_excepcion }}</td>
+              </tr>
+
+              <tr *ngIf="a.anulado" class="tabla__nota">
+                <td colspan="7">
+                  <b>Anulado</b> el {{ a.anulado_en | date:'d/M/yyyy HH:mm' }} por {{ a.anulado_por?.username ?? '—' }}:
+                  {{ a.motivo_anulacion }}
+                </td>
+              </tr>
+
+              <tr *ngIf="estaExpandida(a.id) && a.evaluacion as ev" class="tabla__evaluacion">
+                <td colspan="7">
+                  <p class="evaluacion__resumen">
+                    Al momento del ascenso: <b>{{ etiquetaEstado(ev.estado) }}</b>
+                    <ng-container *ngIf="ev.regla"> · regla «{{ ev.regla.nombre }}»</ng-container>
+                    <ng-container *ngIf="ev.motivo"> · {{ ev.motivo }}</ng-container>
+                  </p>
+                  <ul class="evaluacion__requisitos">
+                    <li *ngFor="let r of ev.requisitos">
+                      {{ simboloRequisito(r) }} {{ r.descripcion }} — {{ r.detalle }}
+                    </li>
+                  </ul>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+    </article>
+  </ng-container>
+</section>
+
+<!-- ─── Confirmación de anulación ────────────────────────────────────────── -->
+
+<div class="modal-overlay" *ngIf="modal() as tipo" (click)="cerrarModal()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h3>{{ tipo === 'anular-orden' ? 'Anular la orden completa' : 'Anular el ascenso' }}</h3>
+    </header>
+
+    <div class="modal__body">
+      <ng-container *ngIf="tipo === 'anular-orden'">
+        <p>Se van a revertir {{ vigentes().length }} ascensos. Cada funcionario vuelve a su grado anterior:</p>
+        <ul class="modal__lista">
+          <li *ngFor="let a of vigentes()">
+            {{ a.persona?.nombre_completo }}: vuelve a {{ a.grado_anterior?.denominacion ?? 'su grado anterior' }}
+          </li>
+        </ul>
+      </ng-container>
+
+      <ng-container *ngIf="tipo === 'anular-ascenso' && ascensoSeleccionado() as a">
+        <p>
+          {{ a.persona?.nombre_completo }} vuelve a
+          {{ a.grado_anterior?.denominacion ?? 'su grado anterior' }}. El resto de la orden queda como está.
+        </p>
+      </ng-container>
+
+      <p class="modal__hint">
+        Anular cierra la relación laboral que abrió el ascenso, borra sus dos movimientos y reactiva
+        la anterior. Si alguien ya tuvo un movimiento posterior, o si el ascenso ya se liquidó, el
+        sistema no lo va a permitir y va a decir cuál es el que traba.
+      </p>
+
+      <label class="modal__campo">
+        <span>Motivo</span>
+        <textarea class="input" rows="3" [value]="motivo()"
+          (input)="motivo.set($any($event.target).value)"
+          placeholder="Por qué se anula. Queda registrado en la orden y en la bitácora."></textarea>
+      </label>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+      <button type="button" class="btn btn--danger" [disabled]="procesando()"
+        (click)="confirmarAnulacion()">
+        {{ procesando() ? 'Anulando...' : 'Anular' }}
+      </button>
+    </footer>
+  </div>
+</div>

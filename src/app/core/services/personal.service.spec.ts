@@ -53,4 +53,39 @@ describe('PersonalService', () => {
       expect(result![0].activo).toBe(true);
     });
   });
+
+  describe('agregarFamiliar', () => {
+    it('pide POST /personas/:id/familiares con el body', () => {
+      service.agregarFamiliar(31, { cedula: '60000016', tipo_relacion: 'Madre' }).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/personas/31/familiares`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ cedula: '60000016', tipo_relacion: 'Madre' });
+      req.flush({ id: 16, cedula: '60000016', nombre_completo: 'Laura Acosta', tipo_relacion: 'Madre', grado: null, unidad: null });
+    });
+  });
+
+  describe('findPaginado e incluir_inactivos', () => {
+    it('manda incluir_inactivos cuando se pide: sin esto los retirados no aparecen', () => {
+      service.findPaginado({ incluir_inactivos: true }).subscribe();
+      const req = http.expectOne((r) => r.url.includes('/personas'));
+      expect(req.request.params.get('incluir_inactivos')).toBe('true');
+      req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+    });
+
+    it('no lo manda cuando está en false: el default del backend ya es ese', () => {
+      service.findPaginado({ incluir_inactivos: false }).subscribe();
+      const req = http.expectOne((r) => r.url.includes('/personas'));
+      expect(req.request.params.has('incluir_inactivos')).toBe(false);
+      req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+    });
+  });
+
+  describe('quitarFamiliar', () => {
+    it('pide DELETE /personas/:id/familiares/:familiarId', () => {
+      service.quitarFamiliar(31, 16).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/personas/31/familiares/16`);
+      expect(req.request.method).toBe('DELETE');
+      req.flush(null);
+    });
+  });
 });
