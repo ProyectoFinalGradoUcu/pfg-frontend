@@ -46,7 +46,7 @@ export interface ReglaRequisito {
   descripcion: string;
   modo: 'TODOS' | 'ALGUNO' | string;
   aplica_si: string[];
-  parametros: Record<string, unknown> | null;
+  anios_antiguedad: number | null;
   orden: number;
   cursos: CursoDeRequisito[];
 }
@@ -113,7 +113,7 @@ export interface RequisitoPayload {
   descripcion: string;
   modo?: string;
   aplica_si?: string[];
-  parametros?: Record<string, unknown>;
+  anios_antiguedad?: number | null;
   orden?: number;
   cursos_ids?: number[];
 }
@@ -319,6 +319,28 @@ export interface OrdenAscenso {
   cantidad_vigentes: number;
   cantidad_por_excepcion: number;
   ascensos: AscensoDeOrden[];
+}
+
+/** Lo que nombra la confirmación de anular la orden completa. */
+export interface VigenteDeOrden {
+  id: string;
+  nombre_completo: string | null;
+  grado_anterior: { id: string; codigo: string; denominacion: string } | null;
+}
+
+/**
+ * El detalle trae `ascensos` paginados (el total es `cantidad_funcionarios`);
+ * los contadores y `vigentes` son de la orden entera.
+ */
+export interface OrdenAscensoDetalle extends OrdenAscenso {
+  page: number;
+  pageSize: number;
+  vigentes: VigenteDeOrden[];
+}
+
+export interface DetalleOrdenQuery {
+  page?: number;
+  pageSize?: number;
 }
 
 export interface OrdenesPaginadas {

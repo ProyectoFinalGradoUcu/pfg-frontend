@@ -15,7 +15,8 @@ import {
   PasiblesPaginados,
   ListarOrdenesQuery,
   CrearOrdenPayload,
-  OrdenAscenso,
+  DetalleOrdenQuery,
+  OrdenAscensoDetalle,
   OrdenesPaginadas,
   ReglaAscenso,
   ResumenAscensos,
@@ -138,25 +139,34 @@ export class AscensosService {
     });
   }
 
-  getOrden(id: string): Observable<OrdenAscenso> {
-    return this.http.get<OrdenAscenso>(`${this.base}/ordenes/${id}`, { withCredentials: true });
+  /** Los funcionarios de la orden vienen paginados. */
+  getOrden(id: string, query: DetalleOrdenQuery = {}): Observable<OrdenAscensoDetalle> {
+    const params: Record<string, string> = {};
+    if (query.page) params['page'] = String(query.page);
+    if (query.pageSize) params['pageSize'] = String(query.pageSize);
+    return this.http.get<OrdenAscensoDetalle>(`${this.base}/ordenes/${id}`, {
+      params,
+      withCredentials: true,
+    });
   }
 
   /** Una sola transacción en el backend: o entran todos, o no entra ninguno. */
-  crearOrden(payload: CrearOrdenPayload): Observable<OrdenAscenso> {
-    return this.http.post<OrdenAscenso>(`${this.base}/ordenes`, payload, {
+  crearOrden(payload: CrearOrdenPayload): Observable<OrdenAscensoDetalle> {
+    return this.http.post<OrdenAscensoDetalle>(`${this.base}/ordenes`, payload, {
       withCredentials: true,
     });
   }
 
-  anularOrden(id: string, motivo: string): Observable<OrdenAscenso> {
-    return this.http.post<OrdenAscenso>(`${this.base}/ordenes/${id}/anular`, { motivo }, {
+  /** Devuelve la orden con la primera página de funcionarios. */
+  anularOrden(id: string, motivo: string): Observable<OrdenAscensoDetalle> {
+    return this.http.post<OrdenAscensoDetalle>(`${this.base}/ordenes/${id}/anular`, { motivo }, {
       withCredentials: true,
     });
   }
 
-  anularAscenso(ascensoId: string, motivo: string): Observable<OrdenAscenso> {
-    return this.http.post<OrdenAscenso>(`${this.base}/${ascensoId}/anular`, { motivo }, {
+  /** Devuelve la orden con la primera página de funcionarios. */
+  anularAscenso(ascensoId: string, motivo: string): Observable<OrdenAscensoDetalle> {
+    return this.http.post<OrdenAscensoDetalle>(`${this.base}/${ascensoId}/anular`, { motivo }, {
       withCredentials: true,
     });
   }

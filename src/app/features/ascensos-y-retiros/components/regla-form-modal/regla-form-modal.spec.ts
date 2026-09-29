@@ -3,6 +3,7 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { ReglaFormModal } from './regla-form-modal';
+import { Select } from '../../../../shared/components/select/select';
 import {
   CrearReglaPayload,
   EditarReglaPayload,
@@ -38,7 +39,7 @@ function makeRegla(overrides: Partial<ReglaAscenso> = {}): ReglaAscenso {
         descripcion: 'Curso de pasaje de grado (M-02)',
         modo: 'TODOS',
         aplica_si: ['ES_MUTADO'],
-        parametros: null,
+        anios_antiguedad: null,
         orden: 1,
         cursos: [{ id: '12', nombre_curso: 'Curso M-02', institucion: 'ETA' }],
       },
@@ -62,7 +63,7 @@ describe('ReglaFormModal', () => {
 
   async function montar(escalon: EscalonRegla): Promise<void> {
     await TestBed.configureTestingModule({
-      declarations: [ReglaFormModal],
+      declarations: [ReglaFormModal, Select],
       imports: [FormsModule, ReactiveFormsModule],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
     }).compileComponents();
@@ -174,18 +175,28 @@ describe('ReglaFormModal', () => {
   it('marcar «Siempre» limpia las demás condiciones del requisito', async () => {
     await montar(makeEscalon());
 
-    component.alternarCondicion(0, 'SIEMPRE');
+    // Lo que emite `app-select` al tildar "Siempre" además de lo ya elegido.
+    component.requisitos.at(0).get('aplica_si')!.setValue(['ES_MUTADO', 'SIEMPRE']);
 
     expect(component.requisitos.at(0).get('aplica_si')?.value).toEqual(['SIEMPRE']);
   });
 
   it('elegir otra condición saca «Siempre»', async () => {
     await montar(makeEscalon());
-    component.alternarCondicion(0, 'SIEMPRE');
+    component.requisitos.at(0).get('aplica_si')!.setValue(['SIEMPRE']);
 
-    component.alternarCondicion(0, 'NIVEL_LICEAL');
+    component.requisitos.at(0).get('aplica_si')!.setValue(['SIEMPRE', 'NIVEL_LICEAL']);
 
     expect(component.requisitos.at(0).get('aplica_si')?.value).toEqual(['NIVEL_LICEAL']);
+  });
+
+  it('deseleccionar la última condición vuelve a "Siempre"', async () => {
+    await montar(makeEscalon());
+    component.requisitos.at(0).get('aplica_si')!.setValue(['ES_MUTADO']);
+
+    component.requisitos.at(0).get('aplica_si')!.setValue([]);
+
+    expect(component.requisitos.at(0).get('aplica_si')?.value).toEqual(['SIEMPRE']);
   });
 
   it('avisa cuando un requisito de curso se quedó sin curso vinculado', async () => {
@@ -195,5 +206,36 @@ describe('ReglaFormModal', () => {
     component.alternarCurso(0, '12');
 
     expect(component.requisitoSinCurso(0)).toBe(true);
+  });
+
+  describe('requisito de antigüedad de servicio', () => {
+    it('no manda cursos y arma la descripción a partir de los años, no del texto guardado', async () => {
+      await montar(makeEscalon());
+      const req = component.requisitos.at(0);
+      req.patchValue({ tipo: 'ANTIGUEDAD_SERVICIO', anios_antiguedad: 10 });
+      component.onTipoChange(0);
+
+      let payload: EditarReglaPayload | null = null;
+      component.guardar.subscribe((p) => (payload = p as EditarReglaPayload));
+      component.onSubmit();
+
+      const reqPayload = payload!.requisitos![0];
+      expect(reqPayload.anios_antiguedad).toBe(10);
+      expect(reqPayload.descripcion).toBe('Antigüedad de servicio: requiere 10 años');
+      expect(reqPayload.cursos_ids).toEqual([]);
+    });
+
+    it('no se puede guardar sin años definidos', async () => {
+      await montar(makeEscalon());
+      const req = component.requisitos.at(0);
+      req.patchValue({ tipo: 'ANTIGUEDAD_SERVICIO', anios_antiguedad: null });
+      component.onTipoChange(0);
+
+      const emitido = vi.fn();
+      component.guardar.subscribe(emitido);
+      component.onSubmit();
+
+      expect(emitido).not.toHaveBeenCalled();
+    });
   });
 });

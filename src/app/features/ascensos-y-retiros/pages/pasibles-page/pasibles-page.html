@@ -1,9 +1,5 @@
 <section class="pasibles">
 
-  <nav class="breadcrumb">
-    <span class="breadcrumb__item breadcrumb__item--current">Pasibles de ascenso</span>
-  </nav>
-
   <header class="pasibles__header">
     <div>
       <h2>Pasibles de ascenso</h2>
@@ -25,19 +21,19 @@
   </header>
 
   <div class="pasibles__stats" *ngIf="stats() as s">
-    <article class="tile tile--ok">
+    <article class="tile">
       <span class="tile__value">{{ s.PASIBLE }}</span>
       <span class="tile__label">pasibles</span>
     </article>
-    <article class="tile tile--info">
+    <article class="tile">
       <span class="tile__value">{{ s.PROXIMO }}</span>
       <span class="tile__label">próximos</span>
     </article>
-    <article class="tile tile--warn">
+    <article class="tile">
       <span class="tile__value">{{ s.BLOQUEADO }}</span>
       <span class="tile__label">bloqueados</span>
     </article>
-    <article class="tile tile--bad">
+    <article class="tile">
       <span class="tile__value">{{ s.FUERA_DE_EDAD }}</span>
       <span class="tile__label">fuera de edad</span>
     </article>
@@ -51,59 +47,98 @@
 
   <article class="card">
     <div class="filtros">
-      <input
-        type="text"
-        class="input filtros__buscar"
-        placeholder="Cédula, nombre o apellido..."
-        (input)="onBusqueda($any($event.target).value)"
-        autocomplete="off"
-      />
-
-      <label class="filtros__campo">
-        <span>Escalafón</span>
-        <select class="input" (change)="onEscalafon($any($event.target).value)">
-          <option value="">Todos</option>
-          <option *ngFor="let e of escalafones()" [value]="e.id">{{ e.denominacion }}</option>
-        </select>
+      <label class="filtros__campo filtros__campo--buscar">
+        <span class="filtros__label">Buscar</span>
+        <span class="filtros__buscar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input type="text" placeholder="Cédula, nombre o apellido..." autocomplete="off"
+            [value]="textoBusqueda()" (input)="onBusqueda($any($event.target).value)" />
+        </span>
       </label>
 
-      <label class="filtros__campo">
-        <span>Unidad</span>
-        <select class="input" (change)="onUnidad($any($event.target).value)">
-          <option value="">Todas</option>
-          <option *ngFor="let u of unidades()" [value]="u.id">{{ u.denominacion }}</option>
-        </select>
-      </label>
+      <div class="filtros__campo">
+        <span class="filtros__label">Escalafón</span>
+        <app-select
+          [items]="escalafones()" bindLabel="denominacion" bindValue="id"
+          placeholder="Todos" [clearable]="true"
+          [ngModel]="filtroEscalafon()" (ngModelChange)="onEscalafon($event)">
+        </app-select>
+      </div>
 
-      <label class="filtros__campo">
-        <span>Evaluar al</span>
-        <input type="date" class="input" [value]="fechaReferencia()"
-          (change)="onFecha($any($event.target).value)" />
-      </label>
+      <div class="filtros__campo">
+        <span class="filtros__label">Unidad</span>
+        <app-select
+          [items]="unidades()" bindLabel="denominacion" bindValue="id"
+          placeholder="Todas" [clearable]="true" [searchable]="true"
+          [ngModel]="filtroUnidad()" (ngModelChange)="onUnidad($event)">
+        </app-select>
+      </div>
 
-      <button type="button" class="btn btn--sm btn--ghost" (click)="alPrimeroDeFebrero()">
-        Al 1.º de febrero
-      </button>
+      <div class="filtros__campo">
+        <span class="filtros__label">Estado</span>
+        <app-select
+          [items]="estadosDisponibles" bindLabel="label" bindValue="value"
+          placeholder="Todos los estados" [multiple]="true" [clearable]="true"
+          [ngModel]="filtroEstados()" (ngModelChange)="onEstados($event)">
+        </app-select>
+      </div>
 
-      <label class="filtros__campo">
-        <span>Próximos en (meses)</span>
-        <input type="number" min="1" max="120" class="input input--num" [value]="horizonteMeses()"
-          (change)="onHorizonte($any($event.target).value)" />
-      </label>
+      <div class="filtros__botones">
+        <button type="button" class="btn btn--clear filtros__icono" [disabled]="!hayFiltrosActivos()"
+          (click)="limpiarFiltros()" aria-label="Quitar todos los filtros" title="Quitar todos los filtros">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+          </svg>
+        </button>
 
-      <button type="button" class="btn btn--sm btn--ghost" (click)="limpiarFiltros()">Limpiar</button>
+        <button type="button" class="btn btn--clear filtros__icono filtros__desplegar"
+          [class.filtros__desplegar--abierto]="masFiltrosAbiertos()"
+          [class.filtros__desplegar--activo]="hayFiltrosAvanzados()"
+          (click)="alternarMasFiltros()"
+          [attr.aria-expanded]="masFiltrosAbiertos()" aria-controls="pasibles-mas-filtros"
+          [attr.aria-label]="masFiltrosAbiertos() ? 'Ocultar más filtros' : 'Mostrar más filtros'"
+          [attr.title]="masFiltrosAbiertos() ? 'Ocultar más filtros' : 'Mostrar más filtros'">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <div class="filtros__estados">
-      <button *ngFor="let e of estadosDisponibles" type="button" class="chip chip--filtro"
-        [class.chip--on]="estadoElegido(e.value)"
-        [attr.title]="e.ayuda"
-        (click)="alternarEstado(e.value)">
-        {{ e.label }}
-      </button>
-      <button type="button" class="link" (click)="verTodos()">Ver todos los estados</button>
-    </div>
+    <div class="filtros filtros--avanzados" id="pasibles-mas-filtros" *ngIf="masFiltrosAbiertos()">
+      <label class="filtros__campo">
+        <span class="filtros__label">Evaluar al</span>
+        <span class="filtros__linea">
+          <input type="date" class="filtros__input" [value]="fechaReferencia()"
+            (change)="onFecha($any($event.target).value)" />
+          <button type="button" class="filtros__atajo" [class.filtros__atajo--activo]="esPrimeroDeFebrero()"
+            [attr.aria-pressed]="esPrimeroDeFebrero()" (click)="alternarPrimeroDeFebrero()"
+            title="Fecha en que se confieren los ascensos de oficiales">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+            </svg>
+            Al 1.º de febrero
+          </button>
+        </span>
+      </label>
 
+      <label class="filtros__campo">
+        <span class="filtros__label">Próximos en (meses)</span>
+        <span class="filtros__linea">
+          <input type="number" min="1" max="120" class="filtros__input filtros__input--num"
+            [value]="horizonteMeses()" (change)="onHorizonte($any($event.target).value)" />
+          <span class="filtros__hasta">→ {{ fechaHorizonte() }}</span>
+        </span>
+      </label>
+    </div>
+  </article>
+
+  <!-- ─── Resultados ───────────────────────────────────────────────────── -->
+
+  <article class="card">
     <p class="pasibles__loading" *ngIf="loading()">Evaluando...</p>
 
     <div class="pasibles__alert" *ngIf="error()">
@@ -112,7 +147,7 @@
     </div>
 
     <p class="pasibles__empty" *ngIf="!loading() && !error() && items().length === 0">
-      No hay funcionarios con estos filtros. Probá sumar estados o ampliar el horizonte.
+      No hay funcionarios con estos filtros. Probá sumar estados o ampliar el horizonte en «Más filtros».
     </p>
 
     <!-- ─── Tabla ──────────────────────────────────────────────────────── -->
@@ -138,52 +173,51 @@
         </thead>
         <tbody>
           <tr *ngFor="let f of items()" class="tabla__fila" (click)="abrirDetalle(f)">
-            <td *ngIf="puedeRegistrar()" (click)="$event.stopPropagation()">
+            <td *ngIf="puedeRegistrar()" class="tabla__check" (click)="$event.stopPropagation()">
               <input type="checkbox" [checked]="estaMarcado(f.persona.id)"
                 (change)="alternarMarca(f.persona.id)"
                 [attr.aria-label]="'Seleccionar a ' + f.persona.nombre_completo" />
             </td>
-            <td>
+            <td data-label="Funcionario">
               <span class="tabla__nombre">{{ f.persona.nombre_completo }}</span>
               <small class="tabla__cedula">{{ f.persona.cedula }}</small>
             </td>
-            <td>{{ f.persona.unidad?.denominacion ?? '—' }}</td>
-            <td>
+            <td data-label="Unidad">{{ f.persona.unidad?.denominacion ?? '—' }}</td>
+            <td data-label="Grado">
               {{ f.grado_actual.denominacion }}
               <span class="tabla__flecha" *ngIf="f.grado_destino">→ {{ f.grado_destino.denominacion }}</span>
             </td>
-            <td>{{ antiguedadLegible(f.antiguedad_dias) }}</td>
-            <td>{{ f.edad ?? '—' }}</td>
-            <td>
+            <td data-label="Antigüedad">{{ antiguedadLegible(f.antiguedad_dias) }}</td>
+            <td data-label="Edad">{{ f.edad ?? '—' }}</td>
+            <td data-label="Requisitos">
               <span class="chip" *ngFor="let r of f.requisitos" [ngClass]="claseRequisito(r)"
                 [attr.title]="r.descripcion + ' — ' + r.detalle">
                 {{ simboloRequisito(r) }} {{ r.descripcion }}
               </span>
               <span class="tabla__sinreq" *ngIf="f.requisitos.length === 0">—</span>
             </td>
-            <td>
+            <td data-label="Estado">
               <span class="badge" [ngClass]="'badge--' + f.estado.toLowerCase()">
                 {{ etiquetaEstado(f.estado) }}
               </span>
             </td>
-            <td>{{ f.fecha_cumpliria ? (f.fecha_cumpliria | date:'d/M/yyyy':'UTC') : '—' }}</td>
+            <td data-label="Cumpliría el">{{ f.fecha_cumpliria ? (f.fecha_cumpliria | date:'d/M/yyyy':'UTC') : '—' }}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
     <p class="seleccion" *ngIf="marcados().size > 0">
-      {{ marcados().size }} seleccionados.
+      {{ marcados().size }} {{ marcados().size === 1 ? 'seleccionado' : 'seleccionados' }}.
       <button type="button" class="link" (click)="limpiarSeleccion()">Limpiar selección</button>
     </p>
 
-    <div class="paginador" *ngIf="totalPaginas() > 1">
-      <button type="button" class="btn btn--sm btn--ghost" [disabled]="page() === 1"
-        (click)="irAPagina(page() - 1)">Anterior</button>
-      <span>Página {{ page() }} de {{ totalPaginas() }} · {{ total() }} funcionarios</span>
-      <button type="button" class="btn btn--sm btn--ghost" [disabled]="page() === totalPaginas()"
-        (click)="irAPagina(page() + 1)">Siguiente</button>
-    </div>
+    <app-paginator *ngIf="!error()"
+      [totalItems]="total()"
+      [pageSize]="PAGE_SIZE"
+      [currentPage]="page()"
+      (pageChange)="irAPagina($event)">
+    </app-paginator>
   </article>
 </section>
 

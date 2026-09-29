@@ -11,6 +11,7 @@ import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Elegibilidad } from '../../../../core/models/ascensos.models';
+import { Select } from '../../../../shared/components/select/select';
 
 function makeElegibilidad(overrides: Partial<Elegibilidad> = {}): Elegibilidad {
   return {
@@ -47,7 +48,7 @@ describe('NuevaOrdenPage', () => {
 
   async function montar(): Promise<void> {
     await TestBed.configureTestingModule({
-      declarations: [NuevaOrdenPage],
+      declarations: [NuevaOrdenPage, Select],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: AscensosService, useValue: svc },
@@ -132,14 +133,35 @@ describe('NuevaOrdenPage', () => {
     expect(component.paso()).toBe(2);
   });
 
-  it('avisa que falta la orden o el boletín recién cuando se tocó un campo', async () => {
+  it('avisa que falta la orden o el boletín recién al tocar «Siguiente»', async () => {
     await montar();
     component.ordenForm.patchValue({ fecha_orden: '2027-02-01' });
+    component.ordenForm.get('numero_orden')!.markAsTouched();
     expect(component.faltaOrdenYBoletin()).toBe(false);
 
-    component.ordenForm.get('numero_orden')!.markAsTouched();
+    component.irAFuncionarios();
 
     expect(component.faltaOrdenYBoletin()).toBe(true);
+  });
+
+  it('muestra un solo aviso sobre el grupo y se va al completar uno de los dos', async () => {
+    await montar();
+    component.ordenForm.patchValue({ fecha_orden: '2027-02-01' });
+    component.irAFuncionarios();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.identificacion--error')).not.toBeNull();
+    expect(el.querySelectorAll('.field__error')).toHaveLength(1);
+    expect(el.querySelector('.field__error')!.textContent).toContain(
+      'Completá el N.º de orden o el boletín.',
+    );
+
+    component.ordenForm.patchValue({ boletin: 'BOL-2027-02' });
+    fixture.detectChanges();
+
+    expect(el.querySelector('.identificacion--error')).toBeNull();
+    expect(el.querySelector('.field__error')).toBeNull();
   });
 
   it('precarga al funcionario que viene del perfil', async () => {
@@ -219,6 +241,150 @@ describe('NuevaOrdenPage', () => {
       await montar();
       component.agregar(makeElegibilidad({ estado: 'BLOQUEADO', motivo: 'x' }));
       component.onMotivo('100', 'Vacante urgente');
+
+      expect(component.puedeConfirmar()).toBe(false);
+    });
+  });
+
+  describe('selector de funcionarios', () => {
+    it('elegir un resultado lo agrega y deja el selector vacío para el siguiente', async () => {
+      const bloqueado = makeElegibilidad({ estado: 'BLOQUEADO' });
+      svc['listarPasibles'].mockReturnValue(of({ items: [bloqueado], total: 1, page: 1, pageSize: 20 }));
+      await montar();
+      component.resultados.set([bloqueado]);
+
+      component.selectorFuncionario.setValue('100');
+
+      expect(component.filas()).toHaveLength(1);
+      expect(component.selectorFuncionario.value).toBeNull();
+      expect(component.opcionesFuncionario()).toHaveLength(0);
+    });
+
+    const persona = (id: string, nombre: string) =>
+      makeElegibilidad({ persona: { ...makeElegibilidad().persona, id, nombre_completo: nombre } });
+
+    it('sin búsqueda muestra los 10 primeros por nombre, en orden alfabético', async () => {
+      const nombres = ['Zoe Ruiz', 'Ana Ramírez', 'Ñandú Paz', 'Bruno Alba', 'Carla Díaz', 'Diego Sosa',
+        'Elena Vera', 'Fabio Luna', 'Gisela Mora', 'Hugo Rey', 'Inés Soto', 'Álvaro Gil'];
+      svc['listarPasibles'].mockReturnValue(
+        of({ items: nombres.map((n, i) => persona(String(i), n)), total: nombres.length, page: 1, pageSize: 500 }),
+      );
+      await montar();
+      component.ordenForm.patchValue({ numero_orden: 'O.C.G.F.A. N.º 1', fecha_orden: '2027-02-01' });
+
+      component.irAFuncionarios();
+
+      expect(component.resultados().map((r) => r.persona.nombre_completo)).toEqual([
+        'Álvaro Gil', 'Ana Ramírez', 'Bruno Alba', 'Carla Díaz', 'Diego Sosa',
+        'Elena Vera', 'Fabio Luna', 'Gisela Mora', 'Hugo Rey', 'Inés Soto',
+      ]);
+      expect(svc['listarPasibles']).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1, pageSize: 500, fecha_referencia: '2027-02-01' }),
+      );
+    });
+
+    it('la lista inicial no repite a los ya agregados y no se vuelve a pedir', async () => {
+      svc['listarPasibles'].mockReturnValue(
+        of({ items: [persona('1', 'Ana Ramírez'), persona('2', 'Bruno Alba')], total: 2, page: 1, pageSize: 500 }),
+      );
+      await montar();
+      component.ordenForm.patchValue({ numero_orden: 'O.C.G.F.A. N.º 1', fecha_orden: '2027-02-01' });
+      component.irAFuncionarios();
+
+      component.selectorFuncionario.setValue('1');
+      component.onBusqueda('');
+
+      expect(component.resultados().map((r) => r.persona.id)).toEqual(['2']);
+      expect(svc['listarPasibles']).toHaveBeenCalledTimes(1);
+    });
+
+    it('al borrar la búsqueda vuelve a la lista inicial', async () => {
+      svc['listarPasibles'].mockReturnValue(
+        of({ items: [persona('1', 'Ana Ramírez')], total: 1, page: 1, pageSize: 500 }),
+      );
+      await montar();
+      component.irAFuncionarios();
+      component.resultados.set([]);
+
+      component.onBusqueda('a');
+
+      expect(component.resultados().map((r) => r.persona.id)).toEqual(['1']);
+    });
+
+    it('arma la etiqueta con nombre, cédula y grado', async () => {
+      await montar();
+      component.resultados.set([makeElegibilidad()]);
+
+      expect(component.opcionesFuncionario()).toEqual([
+        { id: '100', label: 'José Pérez · CI 12345678 · Cbo. 2ª' },
+      ]);
+    });
+  });
+
+  describe('funcionario bloqueado', () => {
+    const bloqueado = () =>
+      makeElegibilidad({
+        estado: 'BLOQUEADO',
+        motivo: 'No cumple la antigüedad',
+        requisitos: [
+          { tipo: 'ANTIGUEDAD', descripcion: 'Antigüedad en el grado', aplica: true, cumple: false, detalle: '11 días de 2 años' },
+          { tipo: 'EDAD', descripcion: 'Edad', aplica: true, cumple: true, detalle: '33 años (máximo 48)' },
+          { tipo: 'CURSO_APROBADO', descripcion: 'Curso X', aplica: false, cumple: false, detalle: 'No aplica' },
+        ],
+      });
+
+    async function enPasoDos(): Promise<HTMLElement> {
+      await montar();
+      component.ordenForm.patchValue({ numero_orden: 'O.C.G.F.A. N.º 1', fecha_orden: '2027-02-01' });
+      component.irAFuncionarios();
+      component.agregar(bloqueado());
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('muestra como chips solo los requisitos que aplican y no cumple', async () => {
+      const el = await enPasoDos();
+
+      const chips = el.querySelectorAll('.chip-falta');
+      expect(chips).toHaveLength(1);
+      expect(chips[0].textContent).toContain('Antigüedad en el grado');
+      expect(chips[0].textContent).toContain('11 días de 2 años');
+    });
+
+    it('escribir el motivo habilita «Revisar y confirmar» en el momento, sin perder el input', async () => {
+      const el = await enPasoDos();
+      const boton = () =>
+        [...el.querySelectorAll<HTMLButtonElement>('.card__footer button')].find((b) =>
+          b.textContent!.includes('Revisar y confirmar'),
+        )!;
+      const input = el.querySelector<HTMLInputElement>('#motivo-100')!;
+      expect(boton().disabled).toBe(true);
+
+      input.value = 'V';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      input.value = 'Vacante urgente';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      // El trackBy mantiene el mismo elemento: antes se recreaba y se perdía el foco.
+      expect(el.querySelector('#motivo-100')).toBe(input);
+      expect(boton().disabled).toBe(false);
+    });
+
+    it('sin motivo no avanza al paso 3 aunque se llame directo', async () => {
+      await enPasoDos();
+
+      component.irAConfirmar();
+
+      expect(component.paso()).toBe(2);
+      expect(component.excepcionesSinMotivo()).toBe(1);
+    });
+
+    it('un motivo con solo espacios no cuenta', async () => {
+      await enPasoDos();
+
+      component.onMotivo('100', '   ');
 
       expect(component.puedeConfirmar()).toBe(false);
     });

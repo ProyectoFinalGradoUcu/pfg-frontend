@@ -9,17 +9,19 @@ import {
   EditarReglaPayload,
   EscaleraReglas,
   EscalonRegla,
+  GrupoEscalera,
   ImpactoRegla,
   ReglaAscenso,
   SimularImpactoPayload,
 } from '../../../../core/models/ascensos.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 
-type ModalKind = 'editor' | 'desactivar' | 'versiones' | null;
+type ModalKind = 'editor' | 'versiones' | null;
 
 /**
- * La escala de la fuerza: una columna por escalafón y un escalón por tramo. Los
- * tramos sin regla se muestran vacíos, para que se note lo que falta cargar.
+ * La escala de la fuerza, un escalafón a la vez: tabs arriba, reglas en
+ * acordeón adentro. Evita que los escalafones sin reglas definidas compitan
+ * visualmente con el que sí tiene contenido.
  */
 @Component({
   selector: 'app-reglas-page',
@@ -37,10 +39,18 @@ export class ReglasPage implements OnInit {
   readonly escalera = signal<EscaleraReglas | null>(null);
   readonly cursos = signal<CursoDelCatalogo[]>([]);
 
+  readonly activeTab = signal<string | null>(null);
+  /** La última regla guardada queda expandida para que se vea el resultado. */
+  readonly reglaRecienGuardada = signal<string | null>(null);
+
   readonly modal = signal<ModalKind>(null);
   readonly escalonEnEdicion = signal<EscalonRegla | null>(null);
+  readonly escalonesParaAlta = signal<EscalonRegla[]>([]);
   readonly reglaSeleccionada = signal<ReglaAscenso | null>(null);
   readonly procesando = signal(false);
+
+  /** El foco vuelve acá cuando se cierra el modal, como pide accesibilidad. */
+  private elementoDisparador: HTMLElement | null = null;
 
   readonly impacto = signal<ImpactoRegla | null>(null);
   readonly calculandoImpacto = signal(false);
@@ -48,6 +58,16 @@ export class ReglasPage implements OnInit {
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('reglas_ascenso.gestionar'));
 
   readonly stats = computed(() => this.escalera()?.stats ?? null);
+
+  readonly grupoActivo = computed<GrupoEscalera | null>(() => {
+    const grupos = this.escalera()?.grupos ?? [];
+    return grupos.find((g) => g.clave === this.activeTab()) ?? grupos[0] ?? null;
+  });
+
+  /** Los tramos que todavía no tienen regla: lo único que se puede dar de alta. */
+  readonly escalonesSinRegla = computed(
+    () => this.grupoActivo()?.escalones.filter((e) => !e.regla) ?? [],
+  );
 
   ngOnInit(): void {
     this.cargar();
@@ -57,6 +77,10 @@ export class ReglasPage implements OnInit {
     });
   }
 
+  switchTab(clave: string): void {
+    this.activeTab.set(clave);
+  }
+
   cargar(): void {
     this.loading.set(true);
     this.error.set(null);
@@ -64,6 +88,9 @@ export class ReglasPage implements OnInit {
       next: (e) => {
         this.escalera.set(e);
         this.loading.set(false);
+        if (this.activeTab() == null) {
+          this.activeTab.set(e.grupos.find((g) => g.clave === 'OFICIALES')?.clave ?? e.grupos[0]?.clave ?? null);
+        }
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
@@ -86,33 +113,60 @@ export class ReglasPage implements OnInit {
     return regla.edad_maxima == null ? 'sin tope de edad' : `menor de ${regla.edad_maxima}`;
   }
 
-  /** "solo si es mutado o tiene nivel liceal", para el chip del requisito. */
-  condicionLegible(aplicaSi: string[]): string | null {
-    if (!aplicaSi?.length || aplicaSi.includes('SIEMPRE')) return null;
-    const etiquetas: Record<string, string> = {
-      ES_MUTADO: 'es mutado',
-      NO_ES_MUTADO: 'no es mutado',
-      EGRESADO_ETA: 'egresó de la ETA',
-      NO_EGRESADO_ETA: 'no egresó de la ETA',
-      NIVEL_LICEAL: 'tiene nivel liceal',
-    };
-    const partes = aplicaSi.map((c) => etiquetas[c] ?? c);
-    return `solo si ${partes.join(' o ')}`;
+  /** Etiqueta fija del requisito de antigüedad, sin importar lo que diga `descripcion`. */
+  reqLabel(req: { tipo: string; descripcion: string; anios_antiguedad: number | null }): string {
+    if (req.tipo === 'ANTIGUEDAD_SERVICIO') {
+      const y = req.anios_antiguedad ?? 0;
+      return `Antigüedad de servicio: requiere ${y} ${y === 1 ? 'año' : 'años'}`;
+    }
+    return req.descripcion || '(sin definir)';
+  }
+
+  /** Texto de procedencia al pie de la card. */
+  provenance(regla: ReglaAscenso): string {
+    if (!regla.activo) {
+      return `Desactivada el ${this.fechaLegible(regla.actualizado_en)} · pendiente de revisión`;
+    }
+    let base = regla.es_por_defecto ? 'Regla propia de la FAU' : 'Regla editada manualmente, no sigue el criterio general de la FAU';
+    base += ` · última edición ${this.fechaLegible(regla.actualizado_en)}`;
+    return base;
+  }
+
+  private fechaLegible(iso: string | null): string {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-UY', { day: 'numeric', month: 'numeric', year: 'numeric' });
   }
 
   // ─── Acciones ─────────────────────────────────────────────────────────────
 
+  /** Editar una regla existente, o dar de alta un tramo puntual sin regla. */
   abrirEditor(escalon: EscalonRegla): void {
+    this.elementoDisparador = document.activeElement as HTMLElement;
     this.impacto.set(null);
     this.escalonEnEdicion.set(escalon);
+    this.escalonesParaAlta.set(escalon.regla ? [] : [escalon]);
+    this.modal.set('editor');
+  }
+
+  /** "+ Nueva regla": alta libre entre los tramos sin regla del escalafón activo. */
+  abrirNuevaRegla(): void {
+    const disponibles = this.escalonesSinRegla();
+    if (!disponibles.length) return;
+    this.elementoDisparador = document.activeElement as HTMLElement;
+    this.impacto.set(null);
+    this.escalonEnEdicion.set(disponibles[0]);
+    this.escalonesParaAlta.set(disponibles);
     this.modal.set('editor');
   }
 
   cerrarModal(): void {
     this.modal.set(null);
     this.escalonEnEdicion.set(null);
+    this.escalonesParaAlta.set([]);
     this.reglaSeleccionada.set(null);
     this.impacto.set(null);
+    this.elementoDisparador?.focus();
+    this.elementoDisparador = null;
   }
 
   /** Simula el cambio sin guardarlo. */
@@ -143,8 +197,9 @@ export class ReglasPage implements OnInit {
       : this.svc.crearRegla(payload as CrearReglaPayload);
 
     peticion.subscribe({
-      next: () => {
+      next: (guardada) => {
         this.procesando.set(false);
+        this.reglaRecienGuardada.set(guardada.id);
         this.cerrarModal();
         this.toast.success(
           escalon.regla
@@ -160,27 +215,14 @@ export class ReglasPage implements OnInit {
     });
   }
 
-  pedirDesactivar(regla: ReglaAscenso): void {
-    this.reglaSeleccionada.set(regla);
-    this.modal.set('desactivar');
-  }
-
-  confirmarDesactivar(): void {
-    const regla = this.reglaSeleccionada();
-    if (!regla) return;
-
-    this.procesando.set(true);
+  /** Instantáneo, sin modal de confirmación: el badge cambia al toque. */
+  desactivar(regla: ReglaAscenso): void {
     this.svc.desactivarRegla(regla.id).subscribe({
       next: () => {
-        this.procesando.set(false);
-        this.cerrarModal();
         this.toast.success(`La regla "${regla.nombre}" quedó desactivada`);
         this.cargar();
       },
-      error: (err: HttpErrorResponse) => {
-        this.procesando.set(false);
-        this.toast.error(parseError(err));
-      },
+      error: (err: HttpErrorResponse) => this.toast.error(parseError(err)),
     });
   }
 
@@ -194,13 +236,8 @@ export class ReglasPage implements OnInit {
     });
   }
 
-  /** Un tramo que nunca tuvo regla de la FAU no está «modificado»: se cargó acá. */
-  etiquetaOrigen(regla: ReglaAscenso): string {
-    if (regla.es_por_defecto) return 'Regla FAU';
-    return regla.versiones_anteriores?.length ? 'Modificada' : 'Actualizada manualmente';
-  }
-
   verVersiones(regla: ReglaAscenso): void {
+    this.elementoDisparador = document.activeElement as HTMLElement;
     this.reglaSeleccionada.set(regla);
     this.modal.set('versiones');
   }

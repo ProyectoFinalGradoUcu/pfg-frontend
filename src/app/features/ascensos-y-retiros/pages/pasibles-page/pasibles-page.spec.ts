@@ -2,10 +2,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { PasiblesPage } from './pasibles-page';
+import { Select } from '../../../../shared/components/select/select';
 import { AscensosService } from '../../../../core/services/ascensos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { Elegibilidad, PasiblesPaginados } from '../../../../core/models/ascensos.models';
@@ -78,7 +80,7 @@ describe('PasiblesPage', () => {
     };
 
     await TestBed.configureTestingModule({
-      declarations: [PasiblesPage],
+      declarations: [PasiblesPage, Select],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: AscensosService, useValue: svc },
@@ -112,25 +114,50 @@ describe('PasiblesPage', () => {
   });
 
   describe('filtros', () => {
-    it('sumar un estado vuelve a consultar y resetea la página', () => {
+    it('cambiar los estados vuelve a consultar desde la página 1', () => {
       component.irAPagina(1);
-      component.alternarEstado('BLOQUEADO');
+      component.onEstados(['PASIBLE', 'PROXIMO', 'BLOQUEADO']);
 
       expect(component.filtroEstados()).toEqual(['PASIBLE', 'PROXIMO', 'BLOQUEADO']);
       expect(component.page()).toBe(1);
+      expect(svc.listarPasibles).toHaveBeenLastCalledWith(
+        expect.objectContaining({ estado: ['PASIBLE', 'PROXIMO', 'BLOQUEADO'], page: 1 }),
+      );
     });
 
-    it('no deja quitar el último estado: la tabla quedaría vacía sin explicación', () => {
-      component.alternarEstado('PROXIMO');
-      component.alternarEstado('PASIBLE');
+    it('sin estados elegidos pide los seis («Todos los estados»)', () => {
+      component.onEstados([]);
 
-      expect(component.filtroEstados()).toEqual(['PASIBLE']);
+      expect(svc.listarPasibles).toHaveBeenLastCalledWith(
+        expect.objectContaining({ estado: component.estadosDisponibles.map((e) => e.value) }),
+      );
     });
 
-    it('«ver todos» incluye los seis estados', () => {
-      component.verTodos();
+    it('pagina de a 10', () => {
+      expect(svc.listarPasibles).toHaveBeenCalledWith(expect.objectContaining({ pageSize: 10 }));
+    });
 
-      expect(component.filtroEstados()).toHaveLength(6);
+    it('la fila de más filtros arranca plegada', () => {
+      expect(component.masFiltrosAbiertos()).toBe(false);
+      component.alternarMasFiltros();
+      expect(component.masFiltrosAbiertos()).toBe(true);
+    });
+
+    it('«quitar filtros» solo se habilita cuando algo difiere de los valores iniciales', () => {
+      expect(component.hayFiltrosActivos()).toBe(false);
+
+      component.onHorizonte('12');
+      expect(component.hayFiltrosAvanzados()).toBe(true);
+      expect(component.hayFiltrosActivos()).toBe(true);
+
+      component.limpiarFiltros();
+      expect(component.hayFiltrosActivos()).toBe(false);
+    });
+
+    it('la fecha de «próximos» se cuenta desde la fecha evaluada', () => {
+      component.onFecha('2027-02-01');
+      component.onHorizonte('2');
+      expect(component.fechaHorizonte()).toBe('1 de abril de 2027');
     });
 
     it('el atajo al 1.º de febrero apunta al próximo febrero', () => {
@@ -145,8 +172,17 @@ describe('PasiblesPage', () => {
       vi.useRealTimers();
     });
 
+    it('el atajo de febrero se prende y se apaga', () => {
+      component.alternarPrimeroDeFebrero();
+      expect(component.esPrimeroDeFebrero()).toBe(true);
+
+      component.alternarPrimeroDeFebrero();
+      expect(component.fechaReferencia()).toBe('');
+    });
+
     it('limpiar vuelve a los valores iniciales', () => {
-      component.verTodos();
+      component.onEstados([]);
+      component.onBusqueda('pérez');
       component.onUnidad('5');
       component.onFecha('2027-02-01');
 
@@ -154,6 +190,7 @@ describe('PasiblesPage', () => {
 
       expect(component.filtroEstados()).toEqual(['PASIBLE', 'PROXIMO']);
       expect(component.filtroUnidad()).toBeNull();
+      expect(component.textoBusqueda()).toBe('');
       expect(component.fechaReferencia()).toBe('');
       expect(component.horizonteMeses()).toBe(6);
     });
@@ -178,6 +215,21 @@ describe('PasiblesPage', () => {
 
     it('traduce el estado a la etiqueta de pantalla', () => {
       expect(component.etiquetaEstado('FUERA_DE_EDAD')).toBe('Fuera de edad');
+    });
+  });
+
+  describe('selección', () => {
+    it('lleva al registro de la orden con los seleccionados', () => {
+      const router = TestBed.inject(Router);
+      const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      component.alternarMarca('100');
+      component.alternarMarca('200');
+      component.registrarOrdenConSeleccionados();
+
+      expect(navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes/nueva'], {
+        queryParams: { personas: '100,200' },
+      });
     });
   });
 
