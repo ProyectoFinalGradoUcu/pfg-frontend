@@ -89,10 +89,12 @@ $grey-bg: #e2e8f0;
   border: 1px solid $line;
   border-radius: 10px;
   padding: 0.3rem;
-  width: fit-content;
 }
 
+// Las pestañas se reparten el ancho de la barra en partes iguales.
 .tab {
+  flex: 1;
+  justify-content: center;
   font-size: 0.85rem;
   font-weight: 600;
   padding: 0.55rem 1rem;
