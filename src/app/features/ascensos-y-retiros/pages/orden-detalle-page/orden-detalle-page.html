@@ -18,16 +18,16 @@
       <div>
         <h2>
           {{ o.numero_orden || o.boletin }}
-          <span class="badge" [class.badge--anulada]="o.anulada" [class.badge--vigente]="!o.anulada">
+          <span class="badge" [class.badge--red]="o.anulada" [class.badge--green]="!o.anulada">
             {{ o.anulada ? 'Anulada' : 'Vigente' }}
           </span>
         </h2>
         <p>{{ o.cantidad_funcionarios }} funcionarios · {{ o.cantidad_por_excepcion }} por excepción</p>
       </div>
       <button
-        *ngIf="puedeAnular() && !o.anulada && vigentes().length > 0"
+        *ngIf="puedeAnular() && !o.anulada && o.cantidad_vigentes > 0"
         type="button"
-        class="btn btn--danger btn--lg"
+        class="btn btn--danger"
         (click)="pedirAnularOrden()">
         Anular orden completa
       </button>
@@ -35,13 +35,27 @@
 
     <article class="card">
       <dl class="datos">
-        <dt>Fecha de la orden</dt><dd>{{ o.fecha_orden | date:'d/M/yyyy':'UTC' }}</dd>
-        <dt>Boletín</dt><dd>{{ o.boletin ?? '—' }}</dd>
-        <dt>Observaciones</dt><dd>{{ o.observaciones ?? '—' }}</dd>
-        <dt>Registrada por</dt><dd>{{ o.creada_por?.username ?? '—' }} · {{ o.creada_en | date:'d/M/yyyy HH:mm' }}</dd>
+        <div class="datos__fila">
+          <dt>Fecha de la orden</dt><dd>{{ o.fecha_orden | date:'d/M/yyyy':'UTC' }}</dd>
+        </div>
+        <div class="datos__fila">
+          <dt>Boletín</dt><dd>{{ o.boletin ?? '—' }}</dd>
+        </div>
+        <div class="datos__fila">
+          <dt>Observaciones</dt><dd>{{ o.observaciones ?? '—' }}</dd>
+        </div>
+        <div class="datos__fila">
+          <dt>Registrada por</dt>
+          <dd>{{ o.creada_por?.username ?? '—' }} · {{ o.creada_en | date:'d/M/yyyy HH:mm' }}</dd>
+        </div>
         <ng-container *ngIf="o.anulada">
-          <dt>Anulada por</dt><dd>{{ o.anulada_por?.username ?? '—' }} · {{ o.anulada_en | date:'d/M/yyyy HH:mm' }}</dd>
-          <dt>Motivo</dt><dd>{{ o.motivo_anulacion }}</dd>
+          <div class="datos__fila datos__fila--anulada">
+            <dt>Anulada por</dt>
+            <dd>{{ o.anulada_por?.username ?? '—' }} · {{ o.anulada_en | date:'d/M/yyyy HH:mm' }}</dd>
+          </div>
+          <div class="datos__fila datos__fila--anulada">
+            <dt>Motivo</dt><dd>{{ o.motivo_anulacion }}</dd>
+          </div>
         </ng-container>
       </dl>
       <p class="datos__nota">
@@ -50,14 +64,14 @@
       </p>
     </article>
 
-    <article class="card">
+    <article class="card card--tabla">
       <h3 class="card__titulo">Funcionarios</h3>
 
       <div class="tabla-wrap">
         <table class="tabla">
           <thead>
             <tr>
-              <th></th>
+              <th class="tabla__toggle"></th>
               <th>Funcionario</th>
               <th>Grado anterior → nuevo</th>
               <th>Fecha</th>
@@ -68,31 +82,33 @@
           </thead>
           <tbody>
             <ng-container *ngFor="let a of o.ascensos">
-              <tr [class.tabla__anulado]="a.anulado">
-                <td>
-                  <button type="button" class="desplegar" *ngIf="a.evaluacion"
+              <tr [class.tabla__anulado]="a.anulado" [class.tabla__abierta]="estaExpandida(a.id)">
+                <td class="tabla__toggle">
+                  <button type="button" class="desplegar" *ngIf="tieneDetalle(a)"
                     (click)="alternarEvaluacion(a)"
-                    [attr.aria-label]="estaExpandida(a.id) ? 'Ocultar evaluación' : 'Ver evaluación'">
+                    [attr.aria-expanded]="estaExpandida(a.id)"
+                    [attr.aria-controls]="'detalle-' + a.id"
+                    [attr.aria-label]="(estaExpandida(a.id) ? 'Ocultar detalle de ' : 'Ver detalle de ') + (a.persona?.nombre_completo ?? 'el ascenso')">
                     {{ estaExpandida(a.id) ? '−' : '+' }}
                   </button>
                 </td>
                 <td>
-                  <b>{{ a.persona?.nombre_completo ?? '—' }}</b>
+                  <b class="tabla__nombre">{{ a.persona?.nombre_completo ?? '—' }}</b>
                   <small class="tabla__cedula">{{ a.persona?.cedula }}</small>
                 </td>
-                <td>
-                  {{ a.grado_anterior?.denominacion ?? '—' }} → {{ a.grado_nuevo?.denominacion ?? '—' }}
-                </td>
+                <td>{{ a.grado_anterior?.denominacion ?? '—' }} → {{ a.grado_nuevo?.denominacion ?? '—' }}</td>
                 <td>{{ a.fecha_ascenso | date:'d/M/yyyy':'UTC' }}</td>
                 <td>
-                  <span *ngIf="a.cumplia_requisitos === true">Sí</span>
-                  <span class="excepcion" *ngIf="a.por_excepcion" [attr.title]="a.motivo_excepcion">
-                    Por excepción
-                  </span>
-                  <span *ngIf="a.cumplia_requisitos === null">Sin regla evaluable</span>
+                  <span class="cumplia cumplia--ok" *ngIf="a.cumplia_requisitos === true">Cumplía</span>
+                  <span class="cumplia cumplia--excepcion" *ngIf="a.por_excepcion">Por excepción</span>
+                  <span class="cumplia cumplia--sin-regla" *ngIf="a.cumplia_requisitos === null">Sin regla evaluable</span>
                 </td>
-                <td>{{ a.anulado ? 'Anulado' : 'Vigente' }}</td>
                 <td>
+                  <span class="badge" [class.badge--red]="a.anulado" [class.badge--green]="!a.anulado">
+                    {{ a.anulado ? 'Anulado' : 'Vigente' }}
+                  </span>
+                </td>
+                <td class="tabla__accion">
                   <button
                     *ngIf="puedeAnular() && !a.anulado && !o.anulada"
                     type="button"
@@ -103,35 +119,50 @@
                 </td>
               </tr>
 
-              <tr *ngIf="a.por_excepcion && a.motivo_excepcion" class="tabla__nota">
-                <td colspan="7"><b>Motivo de la excepción:</b> {{ a.motivo_excepcion }}</td>
-              </tr>
-
-              <tr *ngIf="a.anulado" class="tabla__nota">
+              <tr *ngIf="estaExpandida(a.id)" class="tabla__detalle" [id]="'detalle-' + a.id">
                 <td colspan="7">
-                  <b>Anulado</b> el {{ a.anulado_en | date:'d/M/yyyy HH:mm' }} por {{ a.anulado_por?.username ?? '—' }}:
-                  {{ a.motivo_anulacion }}
-                </td>
-              </tr>
+                  <div class="expandido">
+                    <p class="expandido__linea" *ngIf="a.por_excepcion && a.motivo_excepcion">
+                      <b>Motivo de la excepción:</b> {{ a.motivo_excepcion }}
+                    </p>
 
-              <tr *ngIf="estaExpandida(a.id) && a.evaluacion as ev" class="tabla__evaluacion">
-                <td colspan="7">
-                  <p class="evaluacion__resumen">
-                    Al momento del ascenso: <b>{{ etiquetaEstado(ev.estado) }}</b>
-                    <ng-container *ngIf="ev.regla"> · regla «{{ ev.regla.nombre }}»</ng-container>
-                    <ng-container *ngIf="ev.motivo"> · {{ ev.motivo }}</ng-container>
-                  </p>
-                  <ul class="evaluacion__requisitos">
-                    <li *ngFor="let r of ev.requisitos">
-                      {{ simboloRequisito(r) }} {{ r.descripcion }} — {{ r.detalle }}
-                    </li>
-                  </ul>
+                    <p class="expandido__linea expandido__linea--anulado" *ngIf="a.anulado">
+                      <b>Anulado</b> el {{ a.anulado_en | date:'d/M/yyyy HH:mm' }} por
+                      {{ a.anulado_por?.username ?? '—' }}: {{ a.motivo_anulacion }}
+                    </p>
+
+                    <ng-container *ngIf="a.evaluacion as ev">
+                      <p class="expandido__linea evaluacion__resumen">
+                        <b>Al momento del ascenso:</b>
+                        <b class="evaluacion__estado" [class.evaluacion__estado--ok]="ev.estado === 'PASIBLE'">{{ estadoAlAscender(ev) }}</b>
+                        <ng-container *ngIf="ev.regla"> · regla «{{ ev.regla.nombre }}»</ng-container>
+                        <ng-container *ngIf="ev.motivo"> · {{ ev.motivo }}</ng-container>
+                      </p>
+                      <ul class="evaluacion__requisitos" *ngIf="ev.requisitos.length">
+                        <li *ngFor="let r of ev.requisitos"
+                          [class.req--ok]="r.aplica && r.cumple"
+                          [class.req--falta]="r.aplica && !r.cumple"
+                          [class.req--na]="!r.aplica">
+                          <span class="req__marca"
+                            [attr.aria-label]="!r.aplica ? 'no aplica' : (r.cumple ? 'cumple' : 'no cumple')">{{ simboloRequisito(r) }}</span>
+                          {{ r.descripcion }} — {{ r.detalle }}
+                        </li>
+                      </ul>
+                    </ng-container>
+                  </div>
                 </td>
               </tr>
             </ng-container>
           </tbody>
         </table>
       </div>
+
+      <app-paginator
+        [totalItems]="o.cantidad_funcionarios"
+        [pageSize]="PAGE_SIZE"
+        [currentPage]="page()"
+        (pageChange)="irAPagina($event)">
+      </app-paginator>
     </article>
   </ng-container>
 </section>
@@ -139,9 +170,10 @@
 <!-- ─── Confirmación de anulación ────────────────────────────────────────── -->
 
 <div class="modal-overlay" *ngIf="modal() as tipo" (click)="cerrarModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="anular-titulo"
+    (click)="$event.stopPropagation()">
     <header class="modal__header">
-      <h3>{{ tipo === 'anular-orden' ? 'Anular la orden completa' : 'Anular el ascenso' }}</h3>
+      <h3 id="anular-titulo">{{ tipo === 'anular-orden' ? 'Anular la orden completa' : 'Anular el ascenso' }}</h3>
     </header>
 
     <div class="modal__body">
@@ -149,7 +181,7 @@
         <p>Se van a revertir {{ vigentes().length }} ascensos. Cada funcionario vuelve a su grado anterior:</p>
         <ul class="modal__lista">
           <li *ngFor="let a of vigentes()">
-            {{ a.persona?.nombre_completo }}: vuelve a {{ a.grado_anterior?.denominacion ?? 'su grado anterior' }}
+            {{ a.nombre_completo }}: vuelve a {{ a.grado_anterior?.denominacion ?? 'su grado anterior' }}
           </li>
         </ul>
       </ng-container>
@@ -169,7 +201,7 @@
 
       <label class="modal__campo">
         <span>Motivo</span>
-        <textarea class="input" rows="3" [value]="motivo()"
+        <textarea #motivoInput class="input" rows="3" [value]="motivo()"
           (input)="motivo.set($any($event.target).value)"
           placeholder="Por qué se anula. Queda registrado en la orden y en la bitácora."></textarea>
       </label>

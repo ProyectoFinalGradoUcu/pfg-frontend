@@ -1,9 +1,5 @@
 <section class="reglas">
 
-  <nav class="breadcrumb">
-    <span class="breadcrumb__item breadcrumb__item--current">Reglas de ascenso</span>
-  </nav>
-
   <header class="reglas__header">
     <div>
       <h2>Reglas de ascenso</h2>
@@ -12,6 +8,12 @@
         edad se puede ascender y qué cursos hacen falta.
       </p>
     </div>
+    <button type="button" class="btn btn--primary" *ngIf="puedeGestionar()"
+      [disabled]="!escalonesSinRegla().length"
+      [title]="!escalonesSinRegla().length ? 'Todos los tramos de este escalafón ya tienen una regla' : ''"
+      (click)="abrirNuevaRegla()">
+      + Nueva regla
+    </button>
   </header>
 
   <div class="reglas__stats" *ngIf="stats() as s">
@@ -36,69 +38,111 @@
     <button type="button" class="btn btn--sm btn--ghost" (click)="cargar()">Reintentar</button>
   </div>
 
-  <!-- ─── La escalera ──────────────────────────────────────────────────── -->
+  <!-- ─── Tabs por escalafón ───────────────────────────────────────────── -->
 
-  <div class="escalera" *ngIf="!loading() && !error() && escalera() as esc">
-    <section class="columna" *ngFor="let grupo of esc.grupos">
-      <h3 class="columna__titulo">{{ grupo.nombre }}</h3>
+  <div class="tabs" *ngIf="!loading() && !error() && escalera() as esc">
+    <button type="button" class="tab" *ngFor="let grupo of esc.grupos"
+      [class.tab--active]="grupo.clave === grupoActivo()?.clave"
+      (click)="switchTab(grupo.clave)">
+      {{ grupo.nombre }} <span class="tab__count">{{ grupo.escalones.length }}</span>
+    </button>
+  </div>
 
-      <article class="escalon" *ngFor="let e of grupo.escalones"
-        [class.escalon--vacio]="!e.regla"
-        [class.escalon--inactiva]="e.regla && !e.regla.activo">
+  <ng-container *ngIf="!loading() && !error() && grupoActivo() as grupo">
+    <p class="hint">Tocá una regla para ver los requisitos completos.</p>
 
-        <header class="escalon__head">
-          <span class="escalon__tramo">
-            {{ e.grado_origen.denominacion }}
-            <span class="escalon__flecha">→</span>
-            {{ e.grado_destino?.denominacion ?? 'sin destino' }}
-          </span>
-          <span class="escalon__dotacion">{{ e.funcionarios_en_grado }} en el grado</span>
-        </header>
+    <!-- Escalafón sin ninguna regla cargada: un solo CTA, nada de acordeón vacío. -->
+    <div class="empty" *ngIf="grupo.escalones.length && grupo.escalones.every(e => !e.regla); else conReglas">
+      <p>Todavía no hay reglas para este escalafón.</p>
+      <button type="button" class="btn btn--ghost btn--sm" *ngIf="puedeGestionar()" (click)="abrirNuevaRegla()">
+        + Definir regla
+      </button>
+    </div>
 
-        <ng-container *ngIf="e.regla as r; else sinRegla">
-          <p class="escalon__resumen">
-            {{ tiempoLegible(r) }} · {{ edadLegible(r) }}
-          </p>
+    <ng-template #conReglas>
+      <div class="rule-list">
+        <ng-container *ngFor="let e of grupo.escalones">
+        <details class="rule" *ngIf="e.regla as r" [open]="r.id === reglaRecienGuardada()">
+            <summary class="rule-head">
+              <span class="path-mini">
+                <span>{{ e.grado_origen.denominacion }}</span>
+                <span class="mini-arrow">→</span>
+                <span>{{ e.grado_destino?.denominacion ?? 'sin destino' }}</span>
+              </span>
+              <span class="years-chip">{{ tiempoLegible(r) }} en el grado</span>
+              <span class="spacer"></span>
+              <span class="badge badge--grey" *ngIf="!r.activo">Inactiva</span>
+              <span class="badge badge--blue" *ngIf="r.activo && !r.es_por_defecto">Distinta de la FAU</span>
+              <span class="badge badge--green" *ngIf="r.activo && r.es_por_defecto">Activa</span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </summary>
 
-          <ul class="escalon__requisitos">
-            <li class="chip" *ngFor="let req of r.requisitos">
-              {{ req.descripcion }}
-              <em *ngIf="condicionLegible(req.aplica_si) as cond"> ({{ cond }})</em>
-              <em *ngIf="req.modo === 'ALGUNO' && req.cursos.length > 1"> (alcanza con uno)</em>
-            </li>
-          </ul>
+            <div class="rule-body">
+              <div class="path">
+                <div class="grade">{{ e.grado_origen.denominacion }}</div>
+                <span class="path-arrow">→</span>
+                <div class="mid">
+                  <div class="mid__years">{{ tiempoLegible(r) }}</div>
+                  <div class="mid__cap">{{ edadLegible(r) }}</div>
+                </div>
+                <span class="path-arrow">→</span>
+                <div class="grade">{{ e.grado_destino?.denominacion ?? 'sin destino' }}</div>
+              </div>
 
-          <footer class="escalon__foot">
-            <span class="badge" [class.badge--defecto]="r.es_por_defecto" [class.badge--editada]="!r.es_por_defecto">
-              {{ etiquetaOrigen(r) }}
-            </span>
-            <span class="badge badge--inactiva" *ngIf="!r.activo">Inactiva</span>
-            <span class="escalon__vigencia">Vigente desde {{ r.vigente_desde | date:'d/M/yyyy':'UTC' }}</span>
+              <div class="section-title">Cursos y evaluaciones requeridas</div>
+              <ul class="req-list" *ngIf="r.requisitos.length; else sinRequisitos">
+                <li *ngFor="let req of r.requisitos">
+                  <span class="req-check">✓</span>{{ reqLabel(req) }}
+                </li>
+              </ul>
+              <ng-template #sinRequisitos>
+                <p class="req-none">Sin cursos obligatorios para este tramo.</p>
+              </ng-template>
 
-            <button type="button" class="link" *ngIf="r.versiones_anteriores?.length"
-              (click)="verVersiones(r)">
-              Ver {{ r.versiones_anteriores!.length }}
-              {{ r.versiones_anteriores!.length === 1 ? 'versión anterior' : 'versiones anteriores' }}
-            </button>
-
-            <span class="escalon__acciones" *ngIf="puedeGestionar()">
-              <button type="button" class="btn btn--sm btn--ghost" (click)="abrirEditor(e)">Editar</button>
-              <button type="button" class="btn btn--sm btn--ghost" *ngIf="r.activo" (click)="pedirDesactivar(r)">Desactivar</button>
-              <button type="button" class="btn btn--sm btn--ghost" *ngIf="!r.activo" (click)="activar(r)">Activar</button>
-            </span>
-          </footer>
+              <footer class="rule-foot">
+                <span class="provenance">
+                  {{ provenance(r) }}
+                  <ng-container *ngIf="r.activo && e.funcionarios_en_grado">
+                    · {{ e.funcionarios_en_grado }} funcionarios en el grado
+                  </ng-container>
+                </span>
+                <div class="actions" *ngIf="puedeGestionar()">
+                  <button type="button" class="btn btn--ghost btn--sm" (click)="abrirEditor(e)">Editar</button>
+                  <button type="button" class="link-btn" *ngIf="r.versiones_anteriores?.length"
+                    (click)="verVersiones(r)">
+                    Ver historial
+                  </button>
+                  <button type="button" class="btn btn--ghost btn--sm" *ngIf="r.activo" (click)="desactivar(r)">
+                    Desactivar
+                  </button>
+                  <button type="button" class="btn btn--ghost btn--sm" *ngIf="!r.activo" (click)="activar(r)">
+                    Reactivar
+                  </button>
+                </div>
+              </footer>
+            </div>
+        </details>
         </ng-container>
 
-        <ng-template #sinRegla>
-          <p class="escalon__resumen escalon__resumen--vacio">Sin regla cargada</p>
-          <button *ngIf="puedeGestionar()" type="button" class="btn btn--sm btn--primary"
-            (click)="abrirEditor(e)">
-            Cargar regla
-          </button>
-        </ng-template>
-      </article>
-    </section>
-  </div>
+        <!-- Tramos sin regla: visibles pero livianos, no compiten con las cards. -->
+        <article class="rule rule--vacio" *ngFor="let e of grupo.escalones" [hidden]="e.regla">
+          <div class="rule-vacio__head">
+            <span class="path-mini">
+              <span>{{ e.grado_origen.denominacion }}</span>
+              <span class="mini-arrow">→</span>
+              <span>{{ e.grado_destino?.denominacion ?? 'sin destino' }}</span>
+            </span>
+            <span class="rule-vacio__label">Sin regla cargada</span>
+            <button type="button" class="btn btn--ghost btn--sm" *ngIf="puedeGestionar()" (click)="abrirEditor(e)">
+              Cargar regla
+            </button>
+          </div>
+        </article>
+      </div>
+    </ng-template>
+  </ng-container>
 </section>
 
 <!-- ─── Editor ─────────────────────────────────────────────────────────── -->
@@ -106,6 +150,7 @@
 <app-regla-form-modal
   *ngIf="modal() === 'editor' && escalonEnEdicion() as escalon"
   [escalon]="escalon"
+  [escalonesDisponibles]="escalonesParaAlta()"
   [cursos]="cursos()"
   [guardando]="procesando()"
   [impacto]="impacto()"
@@ -114,28 +159,6 @@
   (verImpacto)="verImpacto($event)"
   (guardar)="guardarRegla($event)">
 </app-regla-form-modal>
-
-<!-- ─── Confirmar desactivación ────────────────────────────────────────── -->
-
-<div class="modal-overlay" *ngIf="modal() === 'desactivar'" (click)="cerrarModal()">
-  <div class="modal" (click)="$event.stopPropagation()">
-    <header class="modal__header">
-      <h3>Desactivar la regla</h3>
-    </header>
-    <div class="modal__body">
-      <p>
-        «{{ reglaSeleccionada()?.nombre }}» deja de evaluarse: nadie va a aparecer como pasible por
-        ese tramo hasta que se vuelva a activar. El tramo sigue visible en la escala.
-      </p>
-    </div>
-    <footer class="modal__footer">
-      <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
-      <button type="button" class="btn btn--primary" [disabled]="procesando()" (click)="confirmarDesactivar()">
-        {{ procesando() ? 'Desactivando...' : 'Desactivar' }}
-      </button>
-    </footer>
-  </div>
-</div>
 
 <!-- ─── Versiones anteriores ───────────────────────────────────────────── -->
 

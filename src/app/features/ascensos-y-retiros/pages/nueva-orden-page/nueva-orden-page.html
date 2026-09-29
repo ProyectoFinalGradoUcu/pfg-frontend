@@ -7,52 +7,70 @@
   </nav>
 
   <header class="orden__header">
-    <div>
-      <h2>Registrar orden de ascenso</h2>
-      <p>Primero los datos de la orden, después los funcionarios que alcanza.</p>
-    </div>
+    <h2>Registrar orden de ascenso</h2>
+    <p>Primero los datos de la orden, después los funcionarios que alcanza.</p>
   </header>
 
-  <ol class="pasos">
-    <li [class.pasos__actual]="paso() === 1" [class.pasos__hecho]="paso() > 1">1. La orden</li>
-    <li [class.pasos__actual]="paso() === 2" [class.pasos__hecho]="paso() > 2">2. Los funcionarios</li>
-    <li [class.pasos__actual]="paso() === 3">3. Confirmación</li>
+  <ol class="pasos" aria-label="Pasos">
+    <li class="pasos__item" [class.pasos__item--actual]="paso() === 1" [class.pasos__item--hecho]="paso() > 1"
+      [attr.aria-current]="paso() === 1 ? 'step' : null">
+      <span class="pasos__num">{{ paso() > 1 ? '✓' : '1' }}</span> La orden
+    </li>
+    <li class="pasos__linea" aria-hidden="true"></li>
+    <li class="pasos__item" [class.pasos__item--actual]="paso() === 2" [class.pasos__item--hecho]="paso() > 2"
+      [attr.aria-current]="paso() === 2 ? 'step' : null">
+      <span class="pasos__num">{{ paso() > 2 ? '✓' : '2' }}</span> Los funcionarios
+    </li>
+    <li class="pasos__linea" aria-hidden="true"></li>
+    <li class="pasos__item" [class.pasos__item--actual]="paso() === 3"
+      [attr.aria-current]="paso() === 3 ? 'step' : null">
+      <span class="pasos__num">3</span> Confirmación
+    </li>
   </ol>
 
   <!-- ─── Paso 1 ───────────────────────────────────────────────────────── -->
 
   <article class="card" *ngIf="paso() === 1">
     <form [formGroup]="ordenForm" (ngSubmit)="irAFuncionarios()" novalidate>
-      <div class="grid2">
-        <div class="field">
-          <label for="numero">N.º de orden</label>
-          <input id="numero" type="text" class="input" formControlName="numero_orden"
-            placeholder="O.C.G.F.A. N.º 12.345" [class.input--error]="faltaOrdenYBoletin()" />
-        </div>
-
+      <div class="campos">
         <div class="field">
           <label for="fecha">Fecha de la orden</label>
-          <input id="fecha" type="date" class="input" formControlName="fecha_orden"
+          <input id="fecha" type="date" class="input input--fecha" formControlName="fecha_orden"
             [class.input--error]="hayError('fecha_orden')" />
           <span class="field__error" *ngIf="hayError('fecha_orden')">Poné la fecha de la orden</span>
           <span class="field__hint">Es la fecha por defecto de cada ascenso; se puede cambiar por funcionario.</span>
         </div>
 
-        <div class="field">
-          <label for="boletin">Boletín</label>
-          <input id="boletin" type="text" class="input" formControlName="boletin"
-            placeholder="BOL-2027-02" [class.input--error]="faltaOrdenYBoletin()" />
-          <span class="field__hint" *ngIf="!faltaOrdenYBoletin()">
-            El N.º de orden o el boletín: alcanza con uno de los dos.
+        <fieldset class="field identificacion-field">
+          <legend>Identificá la orden</legend>
+          <div class="identificacion" [class.identificacion--error]="faltaOrdenYBoletin()">
+            <div class="identificacion__opcion">
+              <label for="numero">N.º de orden</label>
+              <input id="numero" type="text" class="input" formControlName="numero_orden"
+                placeholder="O.C.G.F.A. N.º 12.345"
+                [attr.aria-invalid]="faltaOrdenYBoletin()"
+                [attr.aria-describedby]="faltaOrdenYBoletin() ? 'identificacion-error' : 'identificacion-hint'" />
+            </div>
+            <span class="identificacion__o" aria-hidden="true">o</span>
+            <div class="identificacion__opcion">
+              <label for="boletin">Boletín</label>
+              <input id="boletin" type="text" class="input" formControlName="boletin"
+                placeholder="BOL-2027-02"
+                [attr.aria-invalid]="faltaOrdenYBoletin()"
+                [attr.aria-describedby]="faltaOrdenYBoletin() ? 'identificacion-error' : 'identificacion-hint'" />
+            </div>
+          </div>
+          <span id="identificacion-error" class="field__error" role="alert" *ngIf="faltaOrdenYBoletin(); else ayudaIdentificacion">
+            Completá el N.º de orden o el boletín.
           </span>
-          <span class="field__error" *ngIf="faltaOrdenYBoletin()">
-            Poné al menos el N.º de orden o el boletín
-          </span>
-        </div>
+          <ng-template #ayudaIdentificacion>
+            <span id="identificacion-hint" class="field__hint">Alcanza con uno de los dos.</span>
+          </ng-template>
+        </fieldset>
 
-        <div class="field field--ancho">
-          <label for="obs">Observaciones</label>
-          <textarea id="obs" class="input" rows="2" formControlName="observaciones"></textarea>
+        <div class="field">
+          <label for="obs">Observaciones <span class="field__opcional">(opcional)</span></label>
+          <textarea id="obs" class="input" rows="3" formControlName="observaciones"></textarea>
         </div>
       </div>
 
@@ -66,86 +84,106 @@
   <!-- ─── Paso 2 ───────────────────────────────────────────────────────── -->
 
   <article class="card" *ngIf="paso() === 2">
-    <div class="buscador">
-      <input type="text" class="input" placeholder="Buscar funcionario por cédula, nombre o apellido..."
-        (input)="onBusqueda($any($event.target).value)" autocomplete="off" />
-      <span class="buscador__estado" *ngIf="buscando()">Buscando...</span>
+    <div class="field">
+      <span class="field__label">Agregar funcionario</span>
+      <app-select
+        class="selector"
+        [formControl]="selectorFuncionario"
+        [items]="opcionesFuncionario()"
+        bindLabel="label"
+        bindValue="id"
+        placeholder="Seleccione personal"
+        [searchable]="true"
+        [remoteSearch]="true"
+        [loading]="buscando()"
+        [emptyText]="textoSinResultados()"
+        (searchChange)="onBusqueda($event)">
+      </app-select>
+      <span class="field__hint">Buscá por cédula, nombre o apellido. Se pueden agregar varios.</span>
     </div>
 
-    <ul class="resultados" *ngIf="resultados().length > 0">
-      <li *ngFor="let r of resultados()">
-        <button type="button" class="resultados__item" (click)="agregar(r)">
-          <span>
-            <b>{{ r.persona.nombre_completo }}</b>
-            <small>{{ r.persona.cedula }} · {{ r.grado_actual.denominacion }}</small>
-          </span>
-          <span class="badge" [ngClass]="'badge--' + r.estado.toLowerCase()">
-            {{ etiquetaEstado(r.estado) }}
-          </span>
-        </button>
-      </li>
-    </ul>
+    <div class="funcionarios-head">
+      <h3 class="card__titulo">Funcionarios de la orden</h3>
+      <span class="funcionarios-head__count">{{ filas().length }}</span>
+    </div>
 
     <p class="vacio" *ngIf="filas().length === 0">
       Todavía no agregaste ningún funcionario a la orden.
     </p>
 
-    <div class="tabla-wrap" *ngIf="filas().length > 0">
-      <table class="tabla">
-        <thead>
-          <tr>
-            <th>Funcionario</th>
-            <th>Grado actual</th>
-            <th>Grado destino</th>
-            <th>Fecha del ascenso</th>
-            <th>Evaluación</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <ng-container *ngFor="let f of filas()">
-            <tr>
-              <td>
-                <b>{{ f.evaluacion.persona.nombre_completo }}</b>
-                <small class="tabla__cedula">{{ f.evaluacion.persona.cedula }}</small>
-              </td>
-              <td>{{ f.evaluacion.grado_actual.denominacion }}</td>
-              <td>{{ f.evaluacion.grado_destino?.denominacion ?? '—' }}</td>
-              <td>
-                <input type="date" class="input input--sm" [value]="f.fecha_ascenso"
-                  (change)="onFechaAscenso(f.evaluacion.persona.id, $any($event.target).value)" />
-              </td>
-              <td>
-                <span class="badge" [ngClass]="'badge--' + f.evaluacion.estado.toLowerCase()">
-                  {{ etiquetaEstado(f.evaluacion.estado) }}
-                </span>
-              </td>
-              <td>
-                <button type="button" class="btn btn--sm btn--danger-ghost"
-                  (click)="quitar(f.evaluacion.persona.id)">Quitar</button>
-              </td>
-            </tr>
-            <tr *ngIf="esExcepcion(f)" class="tabla__excepcion">
-              <td colspan="6">
-                <p class="aviso">
-                  No cumple los requisitos: {{ f.evaluacion.motivo }}. Para ascenderlo igual hay que
-                  escribir un motivo, y queda registrado como ascenso por excepción.
-                </p>
-                <input type="text" class="input" placeholder="Motivo de la excepción"
-                  [value]="f.motivo_excepcion"
-                  (input)="onMotivo(f.evaluacion.persona.id, $any($event.target).value)" />
-                <p class="aviso aviso--bloqueo" *ngIf="!puedeExcepcion()">
-                  No tenés el permiso para registrar ascensos por excepción: sacalo de la orden o
-                  pedile a alguien con ese permiso que la registre.
-                </p>
-              </td>
-            </tr>
-          </ng-container>
-        </tbody>
-      </table>
+    <div class="funcionarios" *ngIf="filas().length > 0">
+      <article class="funcionario" *ngFor="let f of filas(); trackBy: trackFila"
+        [class.funcionario--bloqueado]="esExcepcion(f)">
+        <div class="funcionario__main">
+          <div class="funcionario__persona">
+            <b>{{ f.evaluacion.persona.nombre_completo }}</b>
+            <small>CI {{ f.evaluacion.persona.cedula }}</small>
+          </div>
+
+          <div class="funcionario__grados">
+            <span>{{ f.evaluacion.grado_actual.denominacion }}</span>
+            <span class="funcionario__flecha" aria-hidden="true">→</span>
+            <span class="funcionario__destino">{{ f.evaluacion.grado_destino?.denominacion ?? '—' }}</span>
+          </div>
+
+          <label class="funcionario__fecha">
+            <span>Fecha del ascenso</span>
+            <input type="date" class="input input--sm" [value]="f.fecha_ascenso"
+              (change)="onFechaAscenso(f.evaluacion.persona.id, $any($event.target).value)" />
+          </label>
+
+          <span class="badge" [ngClass]="f.evaluacion.estado === 'PASIBLE' ? 'badge--pasible' : 'badge--' + f.evaluacion.estado.toLowerCase()">
+            {{ f.evaluacion.estado === 'PASIBLE' ? 'Cumple' : etiquetaEstado(f.evaluacion.estado) }}
+          </span>
+
+          <button type="button" class="btn btn--sm btn--danger-ghost"
+            [attr.aria-label]="'Quitar a ' + f.evaluacion.persona.nombre_completo"
+            (click)="quitar(f.evaluacion.persona.id)">Quitar</button>
+        </div>
+
+        <div class="bloqueo" *ngIf="esExcepcion(f)">
+          <p class="bloqueo__titulo">No cumple los requisitos para ascender</p>
+
+          <ul class="bloqueo__chips" *ngIf="requisitosFaltantes(f).length; else motivoGeneral">
+            <li class="chip-falta" *ngFor="let r of requisitosFaltantes(f)">
+              <span class="chip-falta__x" aria-hidden="true">✗</span>
+              <b>{{ r.descripcion }}</b>
+              <span class="chip-falta__detalle">{{ r.detalle }}</span>
+            </li>
+          </ul>
+          <ng-template #motivoGeneral>
+            <ul class="bloqueo__chips" *ngIf="f.evaluacion.motivo">
+              <li class="chip-falta">
+                <span class="chip-falta__x" aria-hidden="true">✗</span>{{ f.evaluacion.motivo }}
+              </li>
+            </ul>
+          </ng-template>
+
+          <label class="bloqueo__campo" [attr.for]="'motivo-' + f.evaluacion.persona.id">
+            Motivo de la excepción <span class="bloqueo__obligatorio">(obligatorio)</span>
+          </label>
+          <input type="text" class="input" [id]="'motivo-' + f.evaluacion.persona.id"
+            placeholder="Por qué se lo asciende igual"
+            [class.input--pendiente]="!f.motivo_excepcion.trim()"
+            [value]="f.motivo_excepcion"
+            (input)="onMotivo(f.evaluacion.persona.id, $any($event.target).value)" />
+          <p class="bloqueo__ayuda">
+            Para ascenderlo igual hay que escribir un motivo, y queda registrado como ascenso por excepción.
+          </p>
+          <p class="bloqueo__permiso" *ngIf="!puedeExcepcion()">
+            No tenés el permiso para registrar ascensos por excepción: sacalo de la orden o
+            pedile a alguien con ese permiso que la registre.
+          </p>
+        </div>
+      </article>
     </div>
 
     <footer class="card__footer">
+      <p class="card__footer-aviso" *ngIf="excepcionesSinMotivo() > 0" role="status">
+        {{ excepcionesSinMotivo() === 1
+          ? 'Falta el motivo de la excepción de 1 funcionario.'
+          : 'Falta el motivo de la excepción de ' + excepcionesSinMotivo() + ' funcionarios.' }}
+      </p>
       <button type="button" class="btn btn--ghost" (click)="volverAOrden()">Atrás</button>
       <button type="button" class="btn btn--primary" [disabled]="!puedeConfirmar()"
         (click)="irAConfirmar()">
@@ -160,18 +198,23 @@
     <h3 class="card__titulo">Confirmar la orden</h3>
 
     <dl class="resumen">
-      <dt>N.º de orden</dt><dd>{{ ordenForm.get('numero_orden')?.value || '—' }}</dd>
-      <dt>Fecha</dt><dd>{{ ordenForm.get('fecha_orden')?.value | date:'d/M/yyyy':'UTC' }}</dd>
-      <dt>Boletín</dt><dd>{{ ordenForm.get('boletin')?.value || '—' }}</dd>
-      <dt>Funcionarios</dt><dd>{{ filas().length }}</dd>
-      <dt>Por excepción</dt><dd>{{ porExcepcion() }}</dd>
+      <div><dt>N.º de orden</dt><dd>{{ ordenForm.get('numero_orden')?.value || '—' }}</dd></div>
+      <div><dt>Fecha</dt><dd>{{ ordenForm.get('fecha_orden')?.value | date:'d/M/yyyy':'UTC' }}</dd></div>
+      <div><dt>Boletín</dt><dd>{{ ordenForm.get('boletin')?.value || '—' }}</dd></div>
+      <div><dt>Funcionarios</dt><dd>{{ filas().length }}</dd></div>
+      <div><dt>Por excepción</dt><dd>{{ porExcepcion() }}</dd></div>
     </dl>
 
     <ul class="confirmacion">
-      <li *ngFor="let f of filas()">
-        {{ f.evaluacion.persona.nombre_completo }}:
-        {{ f.evaluacion.grado_actual.denominacion }} → {{ f.evaluacion.grado_destino?.denominacion }}
-        <em *ngIf="esExcepcion(f)">(por excepción: {{ f.motivo_excepcion }})</em>
+      <li *ngFor="let f of filas(); trackBy: trackFila">
+        <span class="confirmacion__persona">{{ f.evaluacion.persona.nombre_completo }}</span>
+        <span class="confirmacion__grados">
+          {{ f.evaluacion.grado_actual.denominacion }} → {{ f.evaluacion.grado_destino?.denominacion }}
+        </span>
+        <span class="badge badge--bloqueado" *ngIf="esExcepcion(f)" [attr.title]="f.motivo_excepcion">
+          por excepción
+        </span>
+        <span class="confirmacion__motivo" *ngIf="esExcepcion(f)">{{ f.motivo_excepcion }}</span>
       </li>
     </ul>
 

@@ -43,7 +43,7 @@ function makeRegla(overrides: Partial<ReglaAscenso> = {}): ReglaAscenso {
         descripcion: 'Curso de pasaje de grado (M-02)',
         modo: 'TODOS',
         aplica_si: ['ES_MUTADO', 'NIVEL_LICEAL'],
-        parametros: null,
+        anios_antiguedad: null,
         orden: 1,
         cursos: [{ id: '12', nombre_curso: 'Curso M-02', institucion: 'ETA' }],
       },
@@ -113,6 +113,34 @@ describe('ReglasPage', () => {
     expect(component.loading()).toBe(false);
   });
 
+  it('activa por defecto la tab de Oficiales si existe, si no la primera', () => {
+    expect(component.activeTab()).toBe('SUBALTERNOS');
+    expect(component.grupoActivo()?.clave).toBe('SUBALTERNOS');
+  });
+
+  it('cambiar de tab actualiza el grupo activo', () => {
+    svc['getEscalera'].mockReturnValue(
+      of({
+        grupos: [
+          { clave: 'SUBALTERNOS', nombre: 'Subalternos (SG y ST)', escalones: [makeEscalon()] },
+          { clave: 'OFICIALES', nombre: 'Oficiales', escalones: [makeEscalon({ regla: null })] },
+        ],
+        stats: { tramos_con_regla: 1, tramos_activos: 1, reglas_modificadas: 0 },
+      }),
+    );
+    component.cargar();
+
+    component.switchTab('OFICIALES');
+
+    expect(component.grupoActivo()?.clave).toBe('OFICIALES');
+    expect(component.escalonesSinRegla()).toHaveLength(1);
+  });
+
+  it('"+ Nueva regla" no hace nada si no hay tramos sin regla en la tab activa', () => {
+    component.abrirNuevaRegla();
+    expect(component.modal()).toBeNull();
+  });
+
   it('muestra el error del backend y deja reintentar', () => {
     svc['getEscalera'].mockReturnValue(
       throwError(() => new HttpErrorResponse({ status: 500, error: { message: 'Se cayó' } })),
@@ -139,15 +167,13 @@ describe('ReglasPage', () => {
       expect(component.edadLegible(makeRegla({ edad_maxima: null }))).toBe('sin tope de edad');
     });
 
-    it('arma la condición del requisito como la escribe el reglamento', () => {
-      expect(component.condicionLegible(['ES_MUTADO', 'NIVEL_LICEAL'])).toBe(
-        'solo si es mutado o tiene nivel liceal',
-      );
-    });
-
-    it('no muestra condición cuando el requisito aplica siempre', () => {
-      expect(component.condicionLegible(['SIEMPRE'])).toBeNull();
-      expect(component.condicionLegible([])).toBeNull();
+    it('etiqueta la antigüedad de servicio con los años, sin importar la descripción guardada', () => {
+      expect(
+        component.reqLabel({ tipo: 'ANTIGUEDAD_SERVICIO', descripcion: 'Prueba de Suficiencia', anios_antiguedad: 10 }),
+      ).toBe('Antigüedad de servicio: requiere 10 años');
+      expect(
+        component.reqLabel({ tipo: 'CURSO_APROBADO', descripcion: 'Curso M-02', anios_antiguedad: null }),
+      ).toBe('Curso M-02');
     });
   });
 
@@ -190,12 +216,11 @@ describe('ReglasPage', () => {
   });
 
   describe('desactivar', () => {
-    it('desactiva solo después de confirmar', () => {
-      component.pedirDesactivar(makeRegla());
-      expect(svc['desactivarRegla']).not.toHaveBeenCalled();
+    it('desactiva al instante, sin modal de confirmación', () => {
+      component.desactivar(makeRegla());
 
-      component.confirmarDesactivar();
       expect(svc['desactivarRegla']).toHaveBeenCalledWith('40');
+      expect(toast.success).toHaveBeenCalled();
       expect(component.modal()).toBeNull();
     });
 

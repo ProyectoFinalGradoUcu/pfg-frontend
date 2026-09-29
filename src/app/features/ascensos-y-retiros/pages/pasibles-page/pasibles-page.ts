@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
+import { Subject, debounceTime, takeUntil } from 'rxjs';
 import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { PersonalService } from '../../../../core/services/personal.service';
@@ -16,7 +16,14 @@ import {
 import { OpcionSelect } from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
+const ESTADOS_POR_DEFECTO: EstadoElegibilidad[] = ['PASIBLE', 'PROXIMO'];
+const HORIZONTE_POR_DEFECTO = 6;
+// La app no registra el locale es: el pipe `date` pondría los meses en inglés.
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
 
 /**
  * Listado evaluado. Por defecto muestra pasibles y próximos; con el filtro de
@@ -35,6 +42,7 @@ export class PasiblesPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
 
   readonly estadosDisponibles = ESTADOS_ELEGIBILIDAD;
+  readonly PAGE_SIZE = PAGE_SIZE;
 
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
@@ -42,11 +50,15 @@ export class PasiblesPage implements OnInit, OnDestroy {
 
   readonly page = signal(1);
   readonly filtroTexto = signal('');
-  readonly filtroEstados = signal<EstadoElegibilidad[]>(['PASIBLE', 'PROXIMO']);
+  /** Lo tipeado, al instante; `filtroTexto` recién después del debounce. */
+  readonly textoBusqueda = signal('');
+  /** Vacío equivale a «Todos los estados». */
+  readonly filtroEstados = signal<EstadoElegibilidad[]>([...ESTADOS_POR_DEFECTO]);
   readonly filtroEscalafon = signal<number | null>(null);
   readonly filtroUnidad = signal<number | null>(null);
   readonly fechaReferencia = signal<string>('');
-  readonly horizonteMeses = signal(6);
+  readonly horizonteMeses = signal(HORIZONTE_POR_DEFECTO);
+  readonly masFiltrosAbiertos = signal(false);
 
   readonly escalafones = signal<OpcionSelect[]>([]);
   readonly unidades = signal<OpcionSelect[]>([]);
@@ -61,20 +73,49 @@ export class PasiblesPage implements OnInit, OnDestroy {
   readonly stats = computed(() => this.datos()?.stats ?? null);
   readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.total() / PAGE_SIZE)));
 
+  /** Los de la fila plegada: se marcan en el botón para que no queden activos sin verse. */
+  readonly hayFiltrosAvanzados = computed(
+    () => !!this.fechaReferencia() || this.horizonteMeses() !== HORIZONTE_POR_DEFECTO,
+  );
+
+  readonly hayFiltrosActivos = computed(() => {
+    const estados = this.filtroEstados();
+    const estadosPorDefecto =
+      estados.length === ESTADOS_POR_DEFECTO.length &&
+      ESTADOS_POR_DEFECTO.every((e) => estados.includes(e));
+    return (
+      !!this.textoBusqueda() ||
+      !estadosPorDefecto ||
+      this.filtroEscalafon() !== null ||
+      this.filtroUnidad() !== null ||
+      this.hayFiltrosAvanzados()
+    );
+  });
+
+  /** Hasta dónde llega «próximos»: desde la fecha evaluada, o desde hoy. */
+  readonly fechaHorizonte = computed(() => {
+    const base = this.fechaReferencia() ? new Date(`${this.fechaReferencia()}T00:00:00`) : new Date();
+    base.setMonth(base.getMonth() + this.horizonteMeses());
+    const anio = base.getFullYear() !== new Date().getFullYear() ? ` de ${base.getFullYear()}` : '';
+    return `${base.getDate()} de ${MESES[base.getMonth()]}${anio}`;
+  });
+
   private readonly busqueda$ = new Subject<string>();
   private readonly destroy$ = new Subject<void>();
 
   ngOnInit(): void {
     this.busqueda$
-      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(debounceTime(400), takeUntil(this.destroy$))
       .subscribe((texto) => {
         this.filtroTexto.set(texto);
         this.page.set(1);
         this.cargar();
       });
 
-    this.personal.getEscalafones().subscribe({ next: (e) => this.escalafones.set(e) });
-    this.personal.getUnidades().subscribe({ next: (u) => this.unidades.set(u) });
+    // El select compara con ===: los ids tienen que ser del mismo tipo que el filtro.
+    const conIdNumerico = (ops: OpcionSelect[]) => ops.map((o) => ({ ...o, id: Number(o.id) }));
+    this.personal.getEscalafones().subscribe({ next: (e) => this.escalafones.set(conIdNumerico(e)) });
+    this.personal.getUnidades().subscribe({ next: (u) => this.unidades.set(conIdNumerico(u)) });
 
     this.cargar();
   }
@@ -91,7 +132,10 @@ export class PasiblesPage implements OnInit, OnDestroy {
       .listarPasibles({
         page: this.page(),
         pageSize: PAGE_SIZE,
-        estado: this.filtroEstados(),
+        // Sin estados elegidos se piden todos, no el default del backend.
+        estado: this.filtroEstados().length
+          ? this.filtroEstados()
+          : this.estadosDisponibles.map((e) => e.value),
         query: this.filtroTexto() || undefined,
         escalafon_id: this.filtroEscalafon() ?? undefined,
         unidad_id: this.filtroUnidad() ?? undefined,
@@ -113,38 +157,23 @@ export class PasiblesPage implements OnInit, OnDestroy {
   // ─── Filtros ─────────────────────────────────────────────────────────────
 
   onBusqueda(texto: string): void {
+    this.textoBusqueda.set(texto);
     this.busqueda$.next(texto);
   }
 
-  estadoElegido(estado: EstadoElegibilidad): boolean {
-    return this.filtroEstados().includes(estado);
-  }
-
-  /** Quitar el último dejaría la tabla vacía sin explicación. */
-  alternarEstado(estado: EstadoElegibilidad): void {
-    const actuales = this.filtroEstados();
-    const nuevos = actuales.includes(estado)
-      ? actuales.filter((e) => e !== estado)
-      : [...actuales, estado];
-    if (nuevos.length === 0) return;
-    this.filtroEstados.set(nuevos);
+  onEstados(estados: EstadoElegibilidad[] | null): void {
+    this.filtroEstados.set(estados ?? []);
     this.page.set(1);
     this.cargar();
   }
 
-  verTodos(): void {
-    this.filtroEstados.set(this.estadosDisponibles.map((e) => e.value));
-    this.page.set(1);
-    this.cargar();
-  }
-
-  onEscalafon(valor: string): void {
+  onEscalafon(valor: number | string | null): void {
     this.filtroEscalafon.set(valor ? Number(valor) : null);
     this.page.set(1);
     this.cargar();
   }
 
-  onUnidad(valor: string): void {
+  onUnidad(valor: number | string | null): void {
     this.filtroUnidad.set(valor ? Number(valor) : null);
     this.page.set(1);
     this.cargar();
@@ -158,25 +187,45 @@ export class PasiblesPage implements OnInit, OnDestroy {
 
   /** La Ley 19.775 confiere los ascensos de oficiales con esa fecha. */
   alPrimeroDeFebrero(): void {
+    this.onFecha(this.proximoPrimeroDeFebrero());
+  }
+
+  esPrimeroDeFebrero(): boolean {
+    return this.fechaReferencia() === this.proximoPrimeroDeFebrero();
+  }
+
+  /** Atajo con estado: si ya está evaluando al 1.º de febrero, vuelve a hoy. */
+  alternarPrimeroDeFebrero(): void {
+    if (this.esPrimeroDeFebrero()) this.onFecha('');
+    else this.alPrimeroDeFebrero();
+  }
+
+  private proximoPrimeroDeFebrero(): string {
     const hoy = new Date();
     const anio = hoy.getMonth() > 1 ? hoy.getFullYear() + 1 : hoy.getFullYear();
-    this.onFecha(`${anio}-02-01`);
+    return `${anio}-02-01`;
   }
 
   onHorizonte(valor: string): void {
     const meses = Number(valor);
     if (!Number.isFinite(meses) || meses < 1) return;
     this.horizonteMeses.set(meses);
+    this.page.set(1);
     this.cargar();
   }
 
+  alternarMasFiltros(): void {
+    this.masFiltrosAbiertos.update((v) => !v);
+  }
+
   limpiarFiltros(): void {
+    this.textoBusqueda.set('');
     this.filtroTexto.set('');
-    this.filtroEstados.set(['PASIBLE', 'PROXIMO']);
+    this.filtroEstados.set([...ESTADOS_POR_DEFECTO]);
     this.filtroEscalafon.set(null);
     this.filtroUnidad.set(null);
     this.fechaReferencia.set('');
-    this.horizonteMeses.set(6);
+    this.horizonteMeses.set(HORIZONTE_POR_DEFECTO);
     this.page.set(1);
     this.cargar();
   }

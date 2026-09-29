@@ -3,12 +3,13 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import {
   AbstractControl,
   FormBuilder,
+  FormControl,
   FormGroup,
   ValidationErrors,
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
+import { EMPTY, Subject, debounceTime, distinctUntilChanged, expand, reduce, takeUntil } from 'rxjs';
 import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
@@ -18,6 +19,7 @@ import {
   Elegibilidad,
   EstadoElegibilidad,
   FuncionarioDeOrdenPayload,
+  RequisitoEvaluado,
 } from '../../../../core/models/ascensos.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 
@@ -27,6 +29,21 @@ interface FilaDeOrden {
   grado_destino_id: string | null;
   fecha_ascenso: string;
   motivo_excepcion: string;
+}
+
+/** Todos los estados: se puede ascender a alguien que no cumple, como excepción. */
+const FILTRO_CANDIDATOS: { estado: EstadoElegibilidad[]; horizonte_meses: number } = {
+  estado: ['PASIBLE', 'PROXIMO', 'BLOQUEADO', 'FUERA_DE_EDAD', 'SIN_REGLA'],
+  horizonte_meses: 120,
+};
+
+/** Cuántos muestra el combobox antes de que se escriba algo. */
+const INICIALES = 10;
+
+/** Una opción del combobox de funcionarios. */
+interface OpcionFuncionario {
+  id: string;
+  label: string;
 }
 
 /**
@@ -61,6 +78,28 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   readonly resultados = signal<Elegibilidad[]>([]);
   readonly filas = signal<FilaDeOrden[]>([]);
 
+  /** El error del grupo N.º de orden / boletín se muestra recién al tocar «Siguiente». */
+  readonly intentoSiguiente = signal(false);
+
+  /** Lo que se escribió en el buscador del combobox, para elegir el texto del estado vacío. */
+  readonly terminoBusqueda = signal('');
+
+  /** Vuelve a null después de cada elección: el combobox queda listo para el siguiente. */
+  readonly selectorFuncionario = new FormControl<string | null>(null);
+
+  readonly opcionesFuncionario = computed<OpcionFuncionario[]>(() =>
+    this.resultados().map((r) => ({
+      id: r.persona.id,
+      label: `${r.persona.nombre_completo} · CI ${r.persona.cedula} · ${r.grado_actual.denominacion}`,
+    })),
+  );
+
+  readonly textoSinResultados = computed(() =>
+    this.terminoBusqueda().trim().length < 2
+      ? 'No hay funcionarios para agregar'
+      : 'No se encontró ningún funcionario',
+  );
+
   readonly puedeExcepcion = computed(() => this.auth.hasPermiso('ascensos.excepcion'));
 
   readonly ordenForm: FormGroup = this.fb.group(
@@ -76,9 +115,12 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   /** Cuántos van por excepción. */
   readonly porExcepcion = computed(() => this.filas().filter((f) => this.esExcepcion(f)).length);
 
-  readonly hayExcepcionSinMotivo = computed(() =>
-    this.filas().some((f) => this.esExcepcion(f) && !f.motivo_excepcion.trim()),
+  /** Cuántos van por excepción y todavía no tienen motivo. */
+  readonly excepcionesSinMotivo = computed(
+    () => this.filas().filter((f) => this.esExcepcion(f) && !f.motivo_excepcion.trim()).length,
   );
+
+  readonly hayExcepcionSinMotivo = computed(() => this.excepcionesSinMotivo() > 0);
 
   readonly puedeConfirmar = computed(
     () =>
@@ -88,6 +130,12 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       this.filas().every((f) => !!f.grado_destino_id),
   );
 
+  /**
+   * Todos los candidatos, ordenados por nombre, para la lista inicial del combobox.
+   * Depende de la fecha de la orden, que es la fecha con la que se los evalúa.
+   */
+  private candidatos: { fecha: string; items: Elegibilidad[] } | null = null;
+
   private readonly busqueda$ = new Subject<string>();
   private readonly destroy$ = new Subject<void>();
 
@@ -95,6 +143,15 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
     this.busqueda$
       .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe((texto) => this.buscar(texto));
+
+    this.selectorFuncionario.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((id) => {
+        if (!id) return;
+        const elegido = this.resultados().find((r) => r.persona.id === id);
+        if (elegido) this.agregar(elegido);
+        this.selectorFuncionario.setValue(null, { emitEvent: false });
+      });
 
     const params = this.route.snapshot.queryParamMap;
     const ids = [
@@ -112,6 +169,7 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   // ─── Paso 1: la orden ─────────────────────────────────────────────────────
 
   irAFuncionarios(): void {
+    this.intentoSiguiente.set(true);
     if (this.ordenForm.invalid) {
       this.ordenForm.markAllAsTouched();
       return;
@@ -121,6 +179,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       filas.map((f) => ({ ...f, fecha_ascenso: f.fecha_ascenso || fecha })),
     );
     this.paso.set(2);
+    // Se precarga para que al abrir el combobox la lista ya esté.
+    this.mostrarIniciales();
   }
 
   volverAOrden(): void {
@@ -132,47 +192,88 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
     return !!(ctrl?.invalid && ctrl.touched);
   }
 
-  /** Recién se avisa cuando tocó alguno de los dos campos. */
+  /** Un solo aviso para el grupo, y recién cuando se intentó avanzar. */
   faltaOrdenYBoletin(): boolean {
-    return (
-      this.ordenForm.hasError('sinOrdenNiBoletin') &&
-      (!!this.ordenForm.get('numero_orden')?.touched ||
-        !!this.ordenForm.get('boletin')?.touched)
-    );
+    return this.intentoSiguiente() && this.ordenForm.hasError('sinOrdenNiBoletin');
   }
 
   // ─── Paso 2: los funcionarios ─────────────────────────────────────────────
 
   onBusqueda(texto: string): void {
+    this.terminoBusqueda.set(texto);
+    // Sin término, la lista inicial sale al instante; la búsqueda sí espera el debounce.
+    if (this.terminoCorto()) this.mostrarIniciales();
     this.busqueda$.next(texto);
   }
 
+  private terminoCorto(): boolean {
+    return this.terminoBusqueda().trim().length < 2;
+  }
+
   private buscar(texto: string): void {
-    if (texto.trim().length < 2) {
-      this.resultados.set([]);
-      return;
-    }
+    if (texto.trim().length < 2) return;
     this.buscando.set(true);
     this.svc
       .listarPasibles({
+        ...FILTRO_CANDIDATOS,
         query: texto,
-        // Todos los estados: se puede ascender a alguien que no cumple, como excepción.
-        estado: ['PASIBLE', 'PROXIMO', 'BLOQUEADO', 'FUERA_DE_EDAD', 'SIN_REGLA'],
         pageSize: 20,
-        horizonte_meses: 120,
         fecha_referencia: this.fechaDeLaOrden(),
       })
       .subscribe({
         next: (res) => {
-          const yaEstan = new Set(this.filas().map((f) => f.evaluacion.persona.id));
-          this.resultados.set(res.items.filter((i) => !yaEstan.has(i.persona.id)));
           this.buscando.set(false);
+          // Si mientras tanto se borró o cambió el término, esta respuesta ya no aplica.
+          if (texto !== this.terminoBusqueda()) return;
+          this.resultados.set(this.sinLosYaAgregados(res.items));
         },
         error: (err: HttpErrorResponse) => {
           this.buscando.set(false);
           this.toast.error(parseError(err));
         },
       });
+  }
+
+  /** Los primeros por nombre, en orden alfabético, sin los que ya están en la orden. */
+  private mostrarIniciales(): void {
+    const fecha = this.fechaDeLaOrden();
+    if (this.candidatos?.fecha === fecha) {
+      this.resultados.set(this.sinLosYaAgregados(this.candidatos.items).slice(0, INICIALES));
+      return;
+    }
+
+    // El backend ordena por apellido: se traen todos y se ordena acá por nombre.
+    const pagina = (page: number) =>
+      this.svc.listarPasibles({ ...FILTRO_CANDIDATOS, page, pageSize: 500, fecha_referencia: fecha });
+
+    this.buscando.set(true);
+    pagina(1)
+      .pipe(
+        expand((res) => (res.page * res.pageSize < res.total ? pagina(res.page + 1) : EMPTY)),
+        reduce((todos, res) => todos.concat(res.items), [] as Elegibilidad[]),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (todos) => {
+          this.buscando.set(false);
+          const items = [...todos].sort((a, b) =>
+            a.persona.nombre_completo.localeCompare(b.persona.nombre_completo, 'es'),
+          );
+          this.candidatos = { fecha, items };
+          if (this.terminoCorto()) {
+            this.resultados.set(this.sinLosYaAgregados(items).slice(0, INICIALES));
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          this.buscando.set(false);
+          this.toast.error(parseError(err));
+        },
+      });
+  }
+
+  private sinLosYaAgregados(items: Elegibilidad[]): Elegibilidad[] {
+    const yaEstan = new Set(this.filas().map((f) => f.evaluacion.persona.id));
+    return items.filter((i) => !yaEstan.has(i.persona.id));
   }
 
   private agregarPorId(personaId: string): void {
@@ -215,6 +316,17 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
         f.evaluacion.persona.id === personaId ? { ...f, motivo_excepcion: motivo } : f,
       ),
     );
+  }
+
+  /**
+   * Sin esto el `*ngFor` recrea la card en cada tecla del motivo (`onMotivo`
+   * reemplaza el array) y el input pierde el foco a mitad de la escritura.
+   */
+  trackFila = (_: number, fila: FilaDeOrden): string => fila.evaluacion.persona.id;
+
+  /** Los requisitos que el motor evaluó como no cumplidos, para mostrarlos como chips. */
+  requisitosFaltantes(fila: FilaDeOrden): RequisitoEvaluado[] {
+    return fila.evaluacion.requisitos.filter((r) => r.aplica && !r.cumple);
   }
 
   /** Tiene regla evaluable y el motor no lo dio por pasible. */

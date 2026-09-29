@@ -9,7 +9,7 @@ import { OrdenDetallePage } from './orden-detalle-page';
 import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { AscensoDeOrden, OrdenAscenso } from '../../../../core/models/ascensos.models';
+import { AscensoDeOrden, OrdenAscensoDetalle } from '../../../../core/models/ascensos.models';
 
 function makeAscenso(overrides: Partial<AscensoDeOrden> = {}): AscensoDeOrden {
   return {
@@ -32,7 +32,8 @@ function makeAscenso(overrides: Partial<AscensoDeOrden> = {}): AscensoDeOrden {
   };
 }
 
-function makeOrden(overrides: Partial<OrdenAscenso> = {}): OrdenAscenso {
+function makeOrden(overrides: Partial<OrdenAscensoDetalle> = {}): OrdenAscensoDetalle {
+  const ascensos = overrides.ascensos ?? [makeAscenso()];
   return {
     id: '70',
     numero_orden: 'O.C.G.F.A. N.º 12.345',
@@ -48,7 +49,16 @@ function makeOrden(overrides: Partial<OrdenAscenso> = {}): OrdenAscenso {
     cantidad_funcionarios: 1,
     cantidad_vigentes: 1,
     cantidad_por_excepcion: 0,
-    ascensos: [makeAscenso()],
+    ascensos,
+    page: 1,
+    pageSize: 10,
+    vigentes: ascensos
+      .filter((a) => !a.anulado)
+      .map((a) => ({
+        id: a.id,
+        nombre_completo: a.persona?.nombre_completo ?? null,
+        grado_anterior: a.grado_anterior,
+      })),
     ...overrides,
   };
 }
@@ -91,8 +101,48 @@ describe('OrdenDetallePage', () => {
   });
 
   it('carga la orden al entrar', () => {
-    expect(svc['getOrden']).toHaveBeenCalledWith('70');
+    expect(svc['getOrden']).toHaveBeenCalledWith('70', { page: 1, pageSize: 10 });
     expect(component.orden()?.numero_orden).toBe('O.C.G.F.A. N.º 12.345');
+  });
+
+  describe('paginación de funcionarios', () => {
+    it('pide la página elegida', () => {
+      component.irAPagina(3);
+
+      expect(component.page()).toBe(3);
+      expect(svc['getOrden']).toHaveBeenLastCalledWith('70', { page: 3, pageSize: 10 });
+    });
+
+    it('el paginador usa el total de la orden, no el de la página', () => {
+      svc['getOrden'].mockReturnValue(of(makeOrden({ cantidad_funcionarios: 25 })));
+      component.cargar();
+      fixture.detectChanges();
+
+      const paginador = fixture.debugElement.nativeElement.querySelector('app-paginator');
+      // Sin declarar el componente, Angular deja las entradas como propiedades del elemento.
+      expect(paginador.totalItems).toBe(25);
+    });
+
+    it('después de anular en otra página, vuelve a pedir esa página', () => {
+      component.irAPagina(2);
+      svc['getOrden'].mockClear();
+      component.pedirAnularAscenso(makeAscenso());
+      component.motivo.set('Se corrigió el grado');
+
+      component.confirmarAnulacion();
+
+      expect(svc['getOrden']).toHaveBeenCalledWith('70', { page: 2, pageSize: 10 });
+    });
+
+    it('después de anular en la primera página, usa la respuesta sin volver a pedir', () => {
+      svc['getOrden'].mockClear();
+      component.pedirAnularOrden();
+      component.motivo.set('Se dejó sin efecto por resolución');
+
+      component.confirmarAnulacion();
+
+      expect(svc['getOrden']).not.toHaveBeenCalled();
+    });
   });
 
   it('muestra el error del backend y deja reintentar', () => {
@@ -164,17 +214,21 @@ describe('OrdenDetallePage', () => {
       expect(otro.componentInstance.puedeAnular()).toBe(false);
     });
 
-    it('solo los ascensos vigentes se revierten', () => {
+    it('la confirmación nombra los vigentes de toda la orden, no solo los de la página', () => {
       svc['getOrden'].mockReturnValue(
         of(
           makeOrden({
             ascensos: [makeAscenso(), makeAscenso({ id: '901', anulado: true })],
+            vigentes: [
+              { id: '900', nombre_completo: 'José Pérez', grado_anterior: null },
+              { id: '950', nombre_completo: 'Ana Gómez', grado_anterior: null },
+            ],
           }),
         ),
       );
       component.cargar();
 
-      expect(component.vigentes()).toHaveLength(1);
+      expect(component.vigentes()).toHaveLength(2);
     });
   });
 
@@ -187,5 +241,96 @@ describe('OrdenDetallePage', () => {
 
     component.alternarEvaluacion(a);
     expect(component.estaExpandida(a.id)).toBe(false);
+  });
+
+  describe('fila expandible', () => {
+    it('solo ofrece expandir si hay algo para mostrar', () => {
+      expect(component.tieneDetalle(makeAscenso())).toBe(false);
+      expect(component.tieneDetalle(makeAscenso({ por_excepcion: true, motivo_excepcion: 'Vacante' }))).toBe(true);
+      expect(component.tieneDetalle(makeAscenso({ anulado: true }))).toBe(true);
+      expect(
+        component.tieneDetalle(
+          makeAscenso({
+            evaluacion: {
+              estado: 'PASIBLE',
+              requisitos: [],
+            } as unknown as AscensoDeOrden['evaluacion'],
+          }),
+        ),
+      ).toBe(true);
+    });
+
+    it('al expandir muestra el motivo de excepción, la anulación y cada requisito evaluado', () => {
+      const ascenso = makeAscenso({
+        por_excepcion: true,
+        cumplia_requisitos: false,
+        motivo_excepcion: 'Vacante urgente',
+        anulado: true,
+        anulado_en: '2027-03-01T12:00:00Z',
+        anulado_por: { id: '8', username: 'admin@fau.mil.uy' },
+        motivo_anulacion: 'Se corrigió el grado',
+        evaluacion: {
+          estado: 'BLOQUEADO',
+          regla: { id: '40', nombre: 'Cbo. 2.ª → Cbo. 1.ª' },
+          motivo: null,
+          requisitos: [
+            { tipo: 'ANTIGUEDAD', descripcion: 'Antigüedad en el grado', aplica: true, cumple: false, detalle: '11 días de 2 años' },
+            { tipo: 'EDAD', descripcion: 'Edad', aplica: true, cumple: true, detalle: '33 años (máximo 48)' },
+          ],
+        } as unknown as AscensoDeOrden['evaluacion'],
+      });
+      svc['getOrden'].mockReturnValue(of(makeOrden({ ascensos: [ascenso] })));
+      component.cargar();
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      // Plegado: la tabla no muestra el detalle.
+      expect(el.querySelector('.tabla__detalle')).toBeNull();
+
+      el.querySelector<HTMLButtonElement>('.desplegar')!.click();
+      fixture.detectChanges();
+
+      const detalle = el.querySelector('.tabla__detalle')!.textContent!;
+      expect(detalle).toContain('Vacante urgente');
+      expect(detalle).toContain('Se corrigió el grado');
+      expect(detalle).toContain('admin@fau.mil.uy');
+      expect(detalle).toContain('Bloqueado');
+      expect(detalle).toContain('regla «Cbo. 2.ª → Cbo. 1.ª»');
+      expect(el.querySelector('.req--falta')!.textContent).toContain('11 días de 2 años');
+      expect(el.querySelector('.req--falta')!.textContent).toContain('✗');
+      expect(el.querySelector('.req--ok')!.textContent).toContain('✓');
+    });
+  });
+
+  describe('modal', () => {
+    it('Esc lo cierra', () => {
+      component.pedirAnularOrden();
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+      expect(component.modal()).toBeNull();
+    });
+
+    it('Esc no lo cierra mientras se está anulando', () => {
+      component.pedirAnularOrden();
+      component.procesando.set(true);
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+      expect(component.modal()).toBe('anular-orden');
+    });
+
+    it('al cerrarlo devuelve el foco a quien lo abrió', async () => {
+      fixture.detectChanges();
+      const disparador = fixture.nativeElement.querySelector('.btn--danger') as HTMLButtonElement;
+      disparador.focus();
+      disparador.click();
+      fixture.detectChanges();
+
+      component.cerrarModal();
+      await new Promise((r) => setTimeout(r));
+
+      expect(document.activeElement).toBe(disparador);
+    });
   });
 });

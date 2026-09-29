@@ -126,6 +126,63 @@ describe('OrdenesPage', () => {
     expect(component.estaDesplegada(o.id)).toBe(false);
   });
 
+  describe('período', () => {
+    it('ofrece los años que tienen órdenes, más el año en curso', () => {
+      const actual = new Date().getFullYear();
+      expect(svc.listarOrdenes).toHaveBeenCalledWith(
+        expect.objectContaining({ desde: '1900-01-01', hasta: '2201-01-01', page: 1 }),
+      );
+      expect(component.aniosConOrdenes()).toEqual([2027]);
+      expect(component.anios()).toEqual([...new Set([2027, actual])].sort((a, b) => b - a));
+    });
+
+    it('recorre todas las páginas del historial para armar los años', () => {
+      const historial = [
+        { ...makePagina([makeOrden({ fecha_orden: '2025-03-01' })]), page: 1, pageSize: 1, total: 2 },
+        { ...makePagina([makeOrden({ fecha_orden: '2023-07-10' })]), page: 2, pageSize: 1, total: 2 },
+      ];
+      svc.listarOrdenes.mockImplementation((q: { desde?: string; page: number }) =>
+        of(q.desde ? historial[q.page - 1] : makePagina()),
+      );
+
+      const otro = TestBed.createComponent(OrdenesPage);
+      otro.detectChanges();
+
+      expect(otro.componentInstance.aniosConOrdenes()).toEqual([2025, 2023]);
+    });
+  });
+
+  describe('limpiar filtros', () => {
+    it('vuelve todo a los valores por defecto y recarga', () => {
+      component.onBusqueda('12.345');
+      component.onAnio('2025');
+      component.onAnuladas('true');
+      component.onExcepciones(true);
+      expect(component.hayFiltrosActivos()).toBe(true);
+
+      component.limpiarFiltros();
+
+      expect(component.textoBusqueda()).toBe('');
+      expect(component.anio()).toBe(component.anioPorDefecto());
+      expect(component.filtroAnuladas()).toBe('');
+      expect(component.filtroExcepciones()).toBe(false);
+      expect(component.hayFiltrosActivos()).toBe(false);
+      expect(svc.listarOrdenes).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          anio: component.anioPorDefecto(),
+          page: 1,
+          numero_orden: undefined,
+          anuladas: undefined,
+          con_excepciones: undefined,
+        }),
+      );
+    });
+
+    it('el año por defecto es el más reciente con órdenes', () => {
+      expect(component.anioPorDefecto()).toBe(Math.max(2027, new Date().getFullYear()));
+    });
+  });
+
   it('ofrece registrar orden solo con el permiso', () => {
     expect(component.puedeRegistrar()).toBe(true);
 

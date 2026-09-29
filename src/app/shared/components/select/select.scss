@@ -201,6 +201,12 @@ $accent: #4a9eff;
     background-color: #f1f5f9;
     color: $navy;
   }
+
+  &:focus-visible {
+    outline: 2px solid $navy;
+    outline-offset: -2px;
+    background-color: #f1f5f9;
+  }
 }
 
 .appsel__option--selected {
