@@ -50,7 +50,10 @@
         class="appsel__option appsel__option--selected"
         role="option"
         aria-selected="true"
+        tabindex="0"
         (click)="pick(sel)"
+        (keydown.enter)="onOptionKeydown($event, sel)"
+        (keydown.space)="onOptionKeydown($event, sel)"
       >
         <span>{{ getLabelOf(sel) }}</span>
         <svg
@@ -84,7 +87,10 @@
         [class.appsel__option--selected]="multiple && isSelected(item)"
         role="option"
         [attr.aria-selected]="multiple ? isSelected(item) : false"
+        tabindex="0"
         (click)="pick(item)"
+        (keydown.enter)="onOptionKeydown($event, item)"
+        (keydown.space)="onOptionKeydown($event, item)"
       >
         <span>{{ getLabelOf(item) }}</span>
         <svg
@@ -100,7 +106,7 @@
         </svg>
       </li>
       <li *ngIf="displayItems().length === 0" class="appsel__empty">
-        Sin resultados
+        {{ loading ? 'Buscando...' : emptyText }}
       </li>
     </ul>
   </div>

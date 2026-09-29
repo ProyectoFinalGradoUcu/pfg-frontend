@@ -2,8 +2,10 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  EventEmitter,
   HostListener,
   Input,
+  Output,
   ViewChild,
   effect,
   forwardRef,
@@ -39,7 +41,18 @@ export class Select implements ControlValueAccessor {
   private readonly elementRef = inject(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
 
-  @Input() items: unknown[] = [];
+  /**
+   * Respaldado por un signal: con búsqueda remota los items cambian después de
+   * que el término ya se leyó, y los `computed` tienen que enterarse.
+   */
+  @Input() set items(value: unknown[] | null | undefined) {
+    this.itemsSig.set(value ?? []);
+  }
+  get items(): unknown[] {
+    return this.itemsSig();
+  }
+  private readonly itemsSig = signal<unknown[]>([]);
+
   @Input() bindLabel = 'label';
   @Input() bindValue = 'value';
   @Input() placeholder = 'Seleccionar...';
@@ -47,6 +60,16 @@ export class Select implements ControlValueAccessor {
   @Input() clearable = false;
   /** Selección múltiple: el valor del control pasa a ser un array y el panel no se cierra al elegir. */
   @Input() multiple = false;
+  /**
+   * Búsqueda del lado del servidor: el término se emite por `searchChange` y los
+   * `items` que llegan ya vienen filtrados, así que no se vuelven a filtrar acá.
+   */
+  @Input() remoteSearch = false;
+  /** Solo se muestra en lugar de la lista vacía mientras llegan los resultados. */
+  @Input() loading = false;
+  @Input() emptyText = 'Sin resultados';
+
+  @Output() searchChange = new EventEmitter<string>();
 
   @ViewChild('searchInputRef') searchInputRef?: ElementRef<HTMLInputElement>;
   @ViewChild('controlRef') controlRef?: ElementRef<HTMLElement>;
@@ -83,7 +106,7 @@ export class Select implements ControlValueAccessor {
     let list: unknown[] = sel
       ? this.items.filter((item) => this.getValue(item) !== this.getValue(sel))
       : this.items.slice();
-    if (this.searchable && term) {
+    if (this.searchable && term && !this.remoteSearch) {
       list = list.filter((item) =>
         String(this.getLabel(item)).toLowerCase().includes(term),
       );
@@ -114,7 +137,7 @@ export class Select implements ControlValueAccessor {
   readonly filteredItems = computed<unknown[]>(() => {
     const term = this.searchTerm().toLowerCase().trim();
     let list = this.items.slice();
-    if (this.searchable && term) {
+    if (this.searchable && term && !this.remoteSearch) {
       list = list.filter((item) =>
         String(this.getLabel(item)).toLowerCase().includes(term),
       );
@@ -197,7 +220,11 @@ export class Select implements ControlValueAccessor {
   toggle(): void {
     if (this.disabledState()) return;
     this.searchTerm.set('');
-    if (!this.open()) this.posicionarPanel();
+    if (!this.open()) {
+      this.posicionarPanel();
+      // El buscador arranca vacío: los resultados de la búsqueda anterior ya no aplican.
+      if (this.remoteSearch) this.searchChange.emit('');
+    }
     this.open.update((v) => !v);
   }
 
@@ -240,6 +267,13 @@ export class Select implements ControlValueAccessor {
   onSearchInput(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.searchTerm.set(value);
+    this.searchChange.emit(value);
+  }
+
+  /** Enter o espacio sobre una opción enfocada la elige, igual que el click. */
+  onOptionKeydown(event: Event, item: unknown): void {
+    event.preventDefault();
+    this.pick(item);
   }
 
   getLabelOf(item: unknown): string {

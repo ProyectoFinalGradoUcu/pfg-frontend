@@ -1,5 +1,15 @@
 $navy: #132744;
 $navy-soft: #1e3a5f;
+$line: #e2e8f0;
+$muted: #64748b;
+$muted-2: #94a3b8;
+$text: #334155;
+$green: #166534;
+$green-bg: #dcfce7;
+$blue: #1d4ed8;
+$blue-bg: #dbeafe;
+$grey: #475569;
+$grey-bg: #e2e8f0;
 
 .reglas {
   display: grid;
@@ -36,7 +46,7 @@ $navy-soft: #1e3a5f;
 
 .tile {
   background-color: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid $line;
   border-radius: 10px;
   padding: 1rem 1.25rem;
   display: grid;
@@ -51,12 +61,12 @@ $navy-soft: #1e3a5f;
 }
 
 .tile__label {
-  color: #64748b;
+  color: $muted;
   font-size: 0.82rem;
 }
 
 .reglas__loading {
-  color: #64748b;
+  color: $muted;
 }
 
 .reglas__alert {
@@ -70,159 +80,273 @@ $navy-soft: #1e3a5f;
   padding: 0.85rem 1rem;
 }
 
-// ─── Escalera ────────────────────────────────────────────────────────────
+// ─── Tabs ───────────────────────────────────────────────────────────────────
 
-.escalera {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.5rem;
-  align-items: start;
-}
-
-.columna {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.columna__titulo {
-  margin: 0;
-  color: $navy;
-  font-size: 1rem;
-  font-weight: 700;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 0.5rem;
-}
-
-.escalon {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 0.9rem 1rem;
-  display: grid;
-  gap: 0.55rem;
-
-  &--vacio {
-    background-color: #f8fafc;
-    border-style: dashed;
-  }
-
-  &--inactiva {
-    opacity: 0.65;
-  }
-}
-
-.escalon__head {
+.tabs {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  gap: 0.35rem;
+  background-color: #ffffff;
+  border: 1px solid $line;
+  border-radius: 10px;
+  padding: 0.3rem;
+  width: fit-content;
+}
+
+.tab {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  border-radius: 7px;
+  color: $muted;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: none;
+  background: none;
+
+  &--active {
+    background-color: $blue-bg;
+    color: $blue;
+
+    .tab__count { background-color: #c7d9fb; color: $blue; }
+  }
+}
+
+.tab__count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 5px;
+  background-color: #eef1f6;
+  color: $muted-2;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: $muted-2;
+  margin: -0.5rem 0 0;
+}
+
+// ─── Acordeón de reglas ─────────────────────────────────────────────────────
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
-.escalon__tramo {
+.rule {
+  background-color: #ffffff;
+  border: 1px solid $line;
+  border-radius: 12px;
+  overflow: hidden;
+
+  &[open] { border-color: #cbd5e1; }
+}
+
+.rule-head {
+  list-style: none;
+  cursor: pointer;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+
+  &::-webkit-details-marker { display: none; }
+}
+
+.path-mini {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: $navy;
-  font-weight: 600;
-  font-size: 0.92rem;
-}
-
-.escalon__flecha {
-  color: #94a3b8;
-  padding: 0 0.15rem;
-}
-
-.escalon__dotacion {
-  color: #94a3b8;
-  font-size: 0.75rem;
   white-space: nowrap;
 }
 
-.escalon__resumen {
-  margin: 0;
-  color: #334155;
-  font-size: 0.85rem;
+.mini-arrow { color: $muted-2; }
 
-  &--vacio {
-    color: #94a3b8;
-    font-style: italic;
-  }
+.years-chip {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: $muted;
+  background-color: #eef1f6;
+  padding: 0.28rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
 }
 
-.escalon__requisitos {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.escalon__foot {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding-top: 0.35rem;
-  border-top: 1px solid #f1f5f9;
-}
-
-.escalon__vigencia {
-  color: #94a3b8;
-  font-size: 0.75rem;
-}
-
-.escalon__acciones {
-  margin-left: auto;
-  display: flex;
-  gap: 0.4rem;
-}
-
-.chip {
-  display: inline-block;
-  background-color: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  padding: 0.15rem 0.6rem;
-  font-size: 0.76rem;
-  color: #334155;
-
-  em {
-    color: #64748b;
-    font-style: normal;
-  }
-}
+.spacer { flex: 1; }
 
 .badge {
-  border-radius: 999px;
-  padding: 0.1rem 0.55rem;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
+  padding: 0.28rem 0.6rem;
+  border-radius: 20px;
+  white-space: nowrap;
 
-  &--defecto {
-    background-color: #dcfce7;
-    color: #166534;
-  }
-
-  &--editada {
-    background-color: #fef3c7;
-    color: #92400e;
-  }
-
-  &--inactiva {
-    background-color: #e2e8f0;
-    color: #475569;
-  }
+  &--green { background-color: $green-bg; color: $green; }
+  &--grey { background-color: $grey-bg; color: $grey; }
+  &--blue { background-color: $blue-bg; color: $blue; }
+  &--defecto { background-color: $green-bg; color: $green; }
 }
 
-.link {
-  border: none;
-  background: none;
-  padding: 0;
-  color: $navy;
+.chevron {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: $muted-2;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.rule[open] .chevron { transform: rotate(180deg); }
+
+.rule-body {
+  padding: 0 1.25rem 1.25rem;
+  border-top: 1px solid $line;
+}
+
+.path {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.2rem;
+  background-color: #eef1f6;
+  border-radius: 10px;
+  margin: 1.2rem 0 1.3rem;
+}
+
+.path-arrow { color: $blue; flex-shrink: 0; }
+
+.grade {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.mid { flex: 1; text-align: center; }
+.mid__years { font-size: 0.9rem; font-weight: 700; color: $blue; }
+.mid__cap { font-size: 0.75rem; color: $muted; margin-top: 0.1rem; }
+
+.section-title {
   font-size: 0.76rem;
-  cursor: pointer;
-  text-decoration: underline;
+  font-weight: 700;
+  color: $muted-2;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.65rem;
 }
 
-// ─── Modales ─────────────────────────────────────────────────────────────
+.req-list {
+  list-style: none;
+  margin: 0 0 1.3rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.87rem;
+    color: #0f172a;
+    background-color: #eef1f6;
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+  }
+}
+
+.req-check {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background-color: $green-bg;
+  color: $green;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.req-none {
+  font-size: 0.85rem;
+  color: $muted;
+  font-style: italic;
+  margin: 0 0 1.2rem;
+}
+
+.rule-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.provenance {
+  font-size: 0.78rem;
+  color: $muted;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: $blue;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+// ─── Tramos sin regla ───────────────────────────────────────────────────────
+
+.rule--vacio {
+  background-color: #f8fafc;
+  border: 1px dashed $line;
+  border-radius: 12px;
+}
+
+.rule-vacio__head {
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.rule-vacio__label {
+  flex: 1;
+  color: $muted-2;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+// ─── Estado vacío del escalafón ─────────────────────────────────────────────
+
+.empty {
+  background-color: #ffffff;
+  border: 1px dashed $line;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+
+  p { font-size: 0.85rem; color: $muted; margin: 0 0 1rem; }
+}
+
+// ─── Modales (versiones) ────────────────────────────────────────────────────
 
 .modal-overlay {
   position: fixed;
@@ -248,7 +372,7 @@ $navy-soft: #1e3a5f;
 
 .modal__header {
   padding: 1.5rem 1.75rem 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid $line;
 
   h3 {
     margin: 0;
@@ -270,15 +394,10 @@ $navy-soft: #1e3a5f;
   gap: 0.75rem;
   max-height: 60vh;
   overflow-y: auto;
-  color: #334155;
+  color: $text;
   font-size: 0.9rem;
 
   p { margin: 0; }
-}
-
-.modal__hint {
-  color: #64748b;
-  font-size: 0.82rem;
 }
 
 .modal__footer {
@@ -286,11 +405,11 @@ $navy-soft: #1e3a5f;
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid $line;
 }
 
 .version {
-  border: 1px solid #e2e8f0;
+  border: 1px solid $line;
   border-radius: 8px;
   padding: 0.75rem 0.9rem;
   display: grid;
@@ -307,7 +426,7 @@ $navy-soft: #1e3a5f;
 }
 
 .version__resumen {
-  color: #334155;
+  color: $text;
   font-size: 0.85rem;
 }
 
@@ -319,7 +438,7 @@ $navy-soft: #1e3a5f;
 }
 
 .version__autor {
-  color: #94a3b8;
+  color: $muted-2;
   font-size: 0.76rem;
 }
 
@@ -359,4 +478,9 @@ $navy-soft: #1e3a5f;
     background-color: $navy-soft;
     border-color: $navy-soft;
   }
+}
+
+@media (max-width: 900px) {
+  .path { flex-direction: column; text-align: center; }
+  .path-arrow { transform: rotate(90deg); }
 }

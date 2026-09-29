@@ -1,5 +1,6 @@
-import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { pairwise, startWith } from 'rxjs';
 import {
   CONDICIONES_APLICACION,
   CrearReglaPayload,
@@ -25,6 +26,8 @@ import {
 export class ReglaFormModal implements OnInit {
   /** Con `regla` en null es un alta. */
   @Input({ required: true }) escalon!: EscalonRegla;
+  /** Solo se usa en alta: los tramos del escalafón que todavía no tienen regla. */
+  @Input() escalonesDisponibles: EscalonRegla[] = [];
   @Input() cursos: CursoDelCatalogo[] = [];
   @Input() guardando = false;
   @Input() impacto: ImpactoRegla | null = null;
@@ -39,6 +42,10 @@ export class ReglaFormModal implements OnInit {
   readonly condiciones = CONDICIONES_APLICACION;
   readonly tipos = TIPOS_REQUISITO;
   readonly cursoBuscado = signal('');
+  readonly impactoAbierto = signal(false);
+
+  /** En alta, cuál de los tramos sin regla eligió el usuario. */
+  readonly escalonElegido = signal<EscalonRegla | null>(null);
 
   readonly form: FormGroup = this.fb.group({
     anios: [2, [Validators.required, Validators.min(0), Validators.max(40)]],
@@ -51,12 +58,26 @@ export class ReglaFormModal implements OnInit {
 
   readonly esAlta = computed(() => this.escalon?.regla == null);
 
+  /** El tramo real sobre el que se está trabajando: fijo en edición, elegible en alta. */
+  readonly escalonActivo = computed<EscalonRegla | null>(() =>
+    this.esAlta() ? this.escalonElegido() : this.escalon,
+  );
+
   get requisitos(): FormArray {
     return this.form.get('requisitos') as FormArray;
   }
 
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.cerrar.emit();
+  }
+
   ngOnInit(): void {
     const regla = this.escalon.regla;
+
+    if (this.esAlta()) {
+      this.escalonElegido.set(this.escalonesDisponibles[0] ?? this.escalon);
+    }
 
     this.form.patchValue({
       anios: regla ? regla.anios : 2,
@@ -67,32 +88,93 @@ export class ReglaFormModal implements OnInit {
     });
 
     for (const req of regla?.requisitos ?? []) {
-      this.requisitos.push(
-        this.fb.group({
-          tipo: [req.tipo, Validators.required],
-          descripcion: [req.descripcion, [Validators.required, Validators.maxLength(200)]],
-          modo: [req.modo ?? 'TODOS'],
-          aplica_si: [req.aplica_si?.length ? req.aplica_si : ['SIEMPRE']],
-          cursos_ids: [req.cursos.map((c) => c.id)],
-        }),
-      );
+      this.pushRequisito({
+        tipo: req.tipo,
+        descripcion: req.descripcion,
+        modo: req.modo ?? 'TODOS',
+        aplica_si: req.aplica_si?.length ? req.aplica_si : ['SIEMPRE'],
+        anios_antiguedad: req.anios_antiguedad,
+        cursos_ids: req.cursos.map((c) => c.id),
+      });
     }
   }
 
+  /** Cambiar el tramo elegido en alta: no toca nada más del formulario. */
+  elegirEscalon(escalon: EscalonRegla): void {
+    this.escalonElegido.set(escalon);
+  }
+
+  private pushRequisito(valores: {
+    tipo: string;
+    descripcion: string;
+    modo: string;
+    aplica_si: string[];
+    anios_antiguedad: number | null;
+    cursos_ids: string[];
+  }): void {
+    const grupo = this.fb.group({
+      tipo: [valores.tipo, Validators.required],
+      descripcion: [valores.descripcion],
+      modo: [valores.modo],
+      aplica_si: [valores.aplica_si],
+      anios_antiguedad: [valores.anios_antiguedad],
+      cursos_ids: [valores.cursos_ids],
+    });
+    this.aplicarValidadoresPorTipo(grupo);
+    this.wireAplicaExclusividad(grupo);
+    this.requisitos.push(grupo);
+  }
+
+  /** `descripcion` solo hace falta para CURSO_APROBADO; antigüedad se autodescribe. */
+  private aplicarValidadoresPorTipo(grupo: FormGroup): void {
+    const esAntiguedad = grupo.get('tipo')?.value === 'ANTIGUEDAD_SERVICIO';
+    const descripcion = grupo.get('descripcion')!;
+    const aniosAntiguedad = grupo.get('anios_antiguedad')!;
+
+    descripcion.setValidators(esAntiguedad ? [] : [Validators.required, Validators.maxLength(200)]);
+    aniosAntiguedad.setValidators(esAntiguedad ? [Validators.required, Validators.min(1), Validators.max(60)] : []);
+    descripcion.updateValueAndValidity({ emitEvent: false });
+    aniosAntiguedad.updateValueAndValidity({ emitEvent: false });
+  }
+
+  /** "Siempre" es excluyente con el resto: se detecta qué cambió y se reaplica la regla. */
+  private wireAplicaExclusividad(grupo: FormGroup): void {
+    const ctrl = grupo.get('aplica_si')!;
+    ctrl.valueChanges
+      .pipe(startWith(ctrl.value as string[]), pairwise())
+      .subscribe(([anterior, actual]: [string[], string[]]) => {
+        const agregado = (actual ?? []).find((v) => !(anterior ?? []).includes(v));
+        const corregido = this.exclusividadSiempre(anterior ?? [], actual ?? [], agregado);
+        if (JSON.stringify(corregido) !== JSON.stringify(actual)) {
+          ctrl.setValue(corregido, { emitEvent: false });
+        }
+      });
+  }
+
+  private exclusividadSiempre(anterior: string[], actual: string[], agregado: string | undefined): string[] {
+    if (agregado === 'SIEMPRE') return ['SIEMPRE'];
+    if (agregado && agregado !== 'SIEMPRE') return actual.filter((v) => v !== 'SIEMPRE');
+    if (actual.length === 0) return ['SIEMPRE'];
+    return actual;
+  }
+
   agregarRequisito(): void {
-    this.requisitos.push(
-      this.fb.group({
-        tipo: ['CURSO_APROBADO', Validators.required],
-        descripcion: ['', [Validators.required, Validators.maxLength(200)]],
-        modo: ['TODOS'],
-        aplica_si: [['SIEMPRE']],
-        cursos_ids: [[] as string[]],
-      }),
-    );
+    this.pushRequisito({
+      tipo: 'CURSO_APROBADO',
+      descripcion: '',
+      modo: 'TODOS',
+      aplica_si: ['SIEMPRE'],
+      anios_antiguedad: null,
+      cursos_ids: [],
+    });
   }
 
   quitarRequisito(i: number): void {
     this.requisitos.removeAt(i);
+  }
+
+  onTipoChange(i: number): void {
+    this.aplicarValidadoresPorTipo(this.requisitos.at(i) as FormGroup);
   }
 
   /** Un requisito de curso sin curso vinculado no se puede evaluar. */
@@ -115,27 +197,6 @@ export class ReglaFormModal implements OnInit {
     );
   }
 
-  condicionElegida(i: number, valor: string): boolean {
-    return ((this.requisitos.at(i).get('aplica_si')?.value ?? []) as string[]).includes(valor);
-  }
-
-  /** Marcar «Siempre» limpia el resto. */
-  alternarCondicion(i: number, valor: string): void {
-    const ctrl = this.requisitos.at(i).get('aplica_si')!;
-    const actuales = (ctrl.value ?? []) as string[];
-
-    if (valor === 'SIEMPRE') {
-      ctrl.setValue(['SIEMPRE']);
-      return;
-    }
-
-    const sinSiempre = actuales.filter((c) => c !== 'SIEMPRE');
-    const nuevas = sinSiempre.includes(valor)
-      ? sinSiempre.filter((c) => c !== valor)
-      : [...sinSiempre, valor];
-    ctrl.setValue(nuevas.length > 0 ? nuevas : ['SIEMPRE']);
-  }
-
   cursosFiltrados(): CursoDelCatalogo[] {
     const q = this.cursoBuscado().trim().toLowerCase();
     if (!q) return this.cursos;
@@ -146,11 +207,22 @@ export class ReglaFormModal implements OnInit {
     return this.cursos.find((c) => c.id === id)?.nombre_curso ?? `Curso ${id}`;
   }
 
+  /** Etiqueta fija del requisito de antigüedad, para mostrarla junto al input. */
+  descripcionAntiguedad(i: number): string {
+    const anios = Number(this.requisitos.at(i).get('anios_antiguedad')?.value ?? 0);
+    return `Antigüedad de servicio: requiere ${anios} ${anios === 1 ? 'año' : 'años'}`;
+  }
+
+  toggleImpactoDetalle(): void {
+    this.impactoAbierto.update((v) => !v);
+  }
+
   /** En un alta no hay con qué comparar. */
   onVerImpacto(): void {
     if (this.esAlta()) return;
     const armado = this.armarPayload();
     if (!armado) return;
+    this.impactoAbierto.set(true);
     this.verImpacto.emit({
       dias_minimos: armado.dias_minimos,
       edad_maxima: armado.edad_maxima,
@@ -164,21 +236,22 @@ export class ReglaFormModal implements OnInit {
 
     this.guardar.emit(
       this.esAlta()
-        ? ({ ...base, grado_origen_id: Number(this.escalon.grado_origen.id) } as CrearReglaPayload)
+        ? ({ ...base, grado_origen_id: Number(this.escalonActivo()!.grado_origen.id) } as CrearReglaPayload)
         : (base as EditarReglaPayload),
     );
   }
 
-  /** El nombre y el destino los fija el tramo: no se editan desde acá. */
+  /** El nombre lo fija el tramo: no se edita desde acá. */
   private nombreDelTramo(): string {
+    const escalon = this.escalonActivo();
     return (
       this.escalon.regla?.nombre ??
-      `${this.escalon.grado_origen.denominacion} → ${this.escalon.grado_destino?.denominacion ?? ''}`.trim()
+      `${escalon?.grado_origen.denominacion ?? ''} → ${escalon?.grado_destino?.denominacion ?? ''}`.trim()
     );
   }
 
   private gradoDestinoId(): string | null {
-    return this.escalon.regla?.grado_destino?.id ?? this.escalon.grado_destino?.id ?? null;
+    return this.escalon.regla?.grado_destino?.id ?? this.escalonActivo()?.grado_destino?.id ?? null;
   }
 
   /** null si el formulario todavía no está en condiciones de mandarse. */
@@ -200,14 +273,21 @@ export class ReglaFormModal implements OnInit {
       return null;
     }
 
-    const requisitos = (raw.requisitos as Record<string, unknown>[]).map((r, i) => ({
-      tipo: String(r['tipo']),
-      descripcion: String(r['descripcion']),
-      modo: String(r['modo'] ?? 'TODOS'),
-      aplica_si: (r['aplica_si'] as string[]) ?? ['SIEMPRE'],
-      orden: i + 1,
-      cursos_ids: ((r['cursos_ids'] as string[]) ?? []).map((c) => Number(c)),
-    }));
+    const requisitos = (raw.requisitos as Record<string, unknown>[]).map((r, i) => {
+      const esAntiguedad = r['tipo'] === 'ANTIGUEDAD_SERVICIO';
+      const aniosAntiguedad = esAntiguedad ? Number(r['anios_antiguedad'] ?? 0) : null;
+      return {
+        tipo: String(r['tipo']),
+        descripcion: esAntiguedad
+          ? `Antigüedad de servicio: requiere ${aniosAntiguedad} ${aniosAntiguedad === 1 ? 'año' : 'años'}`
+          : String(r['descripcion']),
+        modo: String(r['modo'] ?? 'TODOS'),
+        aplica_si: (r['aplica_si'] as string[]) ?? ['SIEMPRE'],
+        anios_antiguedad: aniosAntiguedad,
+        orden: i + 1,
+        cursos_ids: esAntiguedad ? [] : ((r['cursos_ids'] as string[]) ?? []).map((c) => Number(c)),
+      };
+    });
 
     return {
       nombre: this.nombreDelTramo(),
