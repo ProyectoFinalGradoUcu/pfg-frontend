@@ -9,6 +9,7 @@ import { vi } from 'vitest';
 import { PersonalDetailPage } from './personal-detail-page';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { AuthService } from '../../../../core/services/auth.service';
 import { FamiliarItem, PersonaDetalle, PersonaListItem } from '../../../../core/models/personal.models';
 
 function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDetalle {
@@ -131,6 +132,27 @@ describe('PersonalDetailPage', () => {
       const keys = component.visibleTabs().map(t => t.key);
       expect(keys).toContain('familiar');
       expect(keys).toContain('historial');
+    });
+  });
+
+  describe('documentos', () => {
+    it('la pestaña se llama "Documentos"', () => {
+      const tab = component.visibleTabs().find((t) => t.key === 'documentos');
+      expect(tab?.label).toBe('Documentos');
+      expect(component.visibleTabs().some((t) => (t.key as string) === 'documentacion')).toBe(false);
+    });
+
+    it('al abrir la pestaña monta app-documentos-personal en vez del placeholder', () => {
+      component.switchTab('documentos');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('app-documentos-personal')).not.toBeNull();
+      expect(fixture.nativeElement.textContent).not.toContain('Sección de documentos en desarrollo.');
+    });
+
+    it('puede editar documentos con personas.editar o su variante .unidad', () => {
+      const spy = vi.spyOn(TestBed.inject(AuthService), 'puedeConAlcance').mockReturnValue(true);
+      expect(component.puedeEditarDocumentos()).toBe(true);
+      expect(spy).toHaveBeenCalledWith('personas.editar');
     });
   });
 

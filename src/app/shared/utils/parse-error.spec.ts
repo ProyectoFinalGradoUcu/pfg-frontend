@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { parseError } from './parse-error';
+import { parseError, sobreDeError } from './parse-error';
 
 function error(body: unknown, status = 400): HttpErrorResponse {
   return new HttpErrorResponse({ error: body, status });
@@ -41,5 +41,36 @@ describe('parseError', () => {
 
   it('cae en un mensaje genérico para cualquier otro caso', () => {
     expect(parseError(error(null, 500))).toBe('Ocurrió un error inesperado. Intentá de nuevo.');
+  });
+});
+
+describe('sobreDeError', () => {
+  it('devuelve el mensaje y los datos del sobre', () => {
+    const err = error(
+      {
+        service_response: {
+          service_status: { http_status: '409', http_message: 'Ya existe un documento con el nombre «a.pdf»' },
+          service_data: { motivo: 'nombre', existente: { id: '12' } },
+        },
+      },
+      409,
+    );
+    const { mensaje, datos } = sobreDeError<{ motivo: string; existente: { id: string } }>(err);
+    expect(mensaje).toBe('Ya existe un documento con el nombre «a.pdf»');
+    expect(datos).toEqual({ motivo: 'nombre', existente: { id: '12' } });
+  });
+
+  it('datos es null cuando el error no trae service_data', () => {
+    const err = error(
+      { service_response: { service_status: { http_status: '404', http_message: 'Documento no encontrado' }, service_data: null } },
+      404,
+    );
+    expect(sobreDeError(err)).toEqual({ mensaje: 'Documento no encontrado', datos: null });
+  });
+
+  it('sin sobre (el 413 de Caddy) cae a parseError y datos es null', () => {
+    const { mensaje, datos } = sobreDeError(error(null, 413));
+    expect(datos).toBeNull();
+    expect(mensaje).toBe('Ocurrió un error inesperado. Intentá de nuevo.');
   });
 });
