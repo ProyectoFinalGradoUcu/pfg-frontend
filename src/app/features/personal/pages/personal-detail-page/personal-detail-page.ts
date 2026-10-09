@@ -21,7 +21,7 @@ import {
   EstadoElegibilidad,
 } from '../../../../core/models/ascensos.models';
 
-export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'misiones' | 'documentacion';
+export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'misiones' | 'documentos';
 
 interface TabDef { key: TabKey; label: string }
 
@@ -41,7 +41,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private readonly errorModal = inject(ErrorModalService);
   private readonly fb       = inject(FormBuilder);
 
-  private personaId!: number;
+  protected personaId!: number;
 
   // ─── Page state ──────────────────────────────────────────────────────────
   readonly persona        = signal<PersonaDetalle | null>(null);
@@ -66,7 +66,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       { key: 'cursos',         label: 'Cursos'               },
       { key: 'destinos',       label: 'Destinos'             },
       { key: 'misiones',       label: 'Misiones'             },
-      { key: 'documentacion',  label: 'Documentación'        },
+      { key: 'documentos',     label: 'Documentos'           },
     ];
   });
 
@@ -93,6 +93,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly loadingElegibilidad = signal(false);
   readonly elegibilidadError   = signal<string | null>(null);
   readonly puedeRegistrarAscenso = computed(() => this.auth.hasPermiso('ascensos.registrar'));
+
+  readonly puedeEditarDocumentos = computed(() => this.auth.puedeConAlcance('personas.editar'));
   readonly sortedRangos     = computed(() => {
     const rangos = this.historial()?.historial_rangos ?? [];
     return [...rangos].sort((a, b) =>
