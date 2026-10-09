@@ -1,7 +1,15 @@
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subject, switchMap, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
-import { CargaMasivaResult, GradoItem, OpcionSelect, PersonaListItem } from '../../../../core/models/personal.models';
+import {
+  CargaMasivaResult,
+  FiltroCategoria,
+  GradoItem,
+  OPCIONES_FILTRO_CATEGORIA,
+  OpcionSelect,
+  PersonaListItem,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
 
@@ -36,6 +44,8 @@ export class PersonalPage implements OnInit, OnDestroy {
   readonly selectedDestino = signal<number | null>(null);
   readonly selectedRango   = signal<number | null>(null);
   readonly selectedEstado  = signal<number | null>(null);
+  readonly selectedCategoria = signal<FiltroCategoria>('todos');
+  readonly opcionesCategoria = OPCIONES_FILTRO_CATEGORIA;
   /**
    * `GET /personas` excluye a los retirados por defecto: exige una relación con
    * `fecha_fin: null`. Sin este toggle, un retirado simplemente no está en la grilla.
@@ -52,7 +62,7 @@ export class PersonalPage implements OnInit, OnDestroy {
   readonly situaciones = signal<OpcionSelect[]>([]);
 
   readonly hayFiltrosActivos = computed(() =>
-    !!this.searchTerm() || !!this.selectedDestino() || !!this.selectedRango() || !!this.selectedEstado() || this.incluirRetirados()
+    !!this.searchTerm() || !!this.selectedDestino() || !!this.selectedRango() || !!this.selectedEstado() || this.selectedCategoria() !== 'todos' || this.incluirRetirados()
   );
 
   readonly openMenuId    = signal<string | null>(null);
@@ -84,6 +94,7 @@ export class PersonalPage implements OnInit, OnDestroy {
             rango:    this.selectedRango()   ?? undefined,
             estado:   this.selectedEstado()  ?? undefined,
             incluir_inactivos: this.incluirRetirados() || undefined,
+            categoria: categoriaParam(this.selectedCategoria()),
           });
         }),
         takeUntil(this.destroy$),
@@ -146,6 +157,12 @@ export class PersonalPage implements OnInit, OnDestroy {
     this.triggerLoad$.next();
   }
 
+  onCategoriaChange(event: Event): void {
+    this.selectedCategoria.set((event.target as HTMLSelectElement).value as FiltroCategoria);
+    this.currentPage.set(1);
+    this.triggerLoad$.next();
+  }
+
   setIncluirRetirados(valor: boolean): void {
     this.incluirRetirados.set(valor);
     this.currentPage.set(1);
@@ -162,6 +179,7 @@ export class PersonalPage implements OnInit, OnDestroy {
     this.selectedDestino.set(null);
     this.selectedRango.set(null);
     this.selectedEstado.set(null);
+    this.selectedCategoria.set('todos');
     this.incluirRetirados.set(false);
     this.currentPage.set(1);
     this.triggerLoad$.next();

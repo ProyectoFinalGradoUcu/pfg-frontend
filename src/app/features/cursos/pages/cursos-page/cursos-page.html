@@ -55,43 +55,54 @@
       <div class="cursos__historial-header">
         <h3>Inscripciones</h3>
 
-        <div class="cursos__search-wrap">
-          <svg class="cursos__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-          </svg>
-          <input
-            type="text"
-            class="cursos__search-input"
-            placeholder="Filtrar por cédula..."
-            [value]="cedulaFiltro()"
-            (input)="onCedulaInput($any($event.target).value)"
-            autocomplete="off"
-            inputmode="numeric"
-          />
-          <button
-            *ngIf="cedulaFiltro()"
-            type="button"
-            class="cursos__search-clear"
-            (click)="limpiarCedula()"
-            aria-label="Limpiar filtro"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        <div class="cursos__historial-filters">
+          <div class="cursos__search-wrap">
+            <svg class="cursos__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
             </svg>
-          </button>
-          <span *ngIf="buscandoCedula()" class="cursos__search-spinner"></span>
-        </div>
+            <input
+              type="text"
+              class="cursos__search-input"
+              placeholder="Filtrar por cédula..."
+              [value]="cedulaFiltro()"
+              (input)="onCedulaInput($any($event.target).value)"
+              autocomplete="off"
+              inputmode="numeric"
+            />
+            <button
+              *ngIf="cedulaFiltro()"
+              type="button"
+              class="cursos__search-clear"
+              (click)="limpiarCedula()"
+              aria-label="Limpiar filtro"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <span *ngIf="buscandoCedula()" class="cursos__search-spinner"></span>
+          </div>
 
-        <button
-          type="button"
-          class="btn btn--ghost btn--sm cursos__ver-bajas-btn"
-          [class.cursos__ver-bajas-btn--active]="verBajas()"
-          (click)="toggleVerBajas()"
-          [attr.aria-pressed]="verBajas()"
-          title="Mostrar u ocultar inscripciones dadas de baja"
-        >
-          {{ verBajas() ? 'Ocultar bajas' : 'Ver bajas' }}
-        </button>
+          <select
+            class="cursos__def-tipo-select"
+            [value]="categoriaFiltro()"
+            (change)="onCategoriaChange($any($event.target).value)"
+            aria-label="Categoría"
+          >
+            <option *ngFor="let c of categoriaOpciones" [value]="c.value">{{ c.label }}</option>
+          </select>
+
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm cursos__ver-bajas-btn"
+            [class.cursos__ver-bajas-btn--active]="verBajas()"
+            (click)="toggleVerBajas()"
+            [attr.aria-pressed]="verBajas()"
+            title="Mostrar u ocultar inscripciones dadas de baja"
+          >
+            {{ verBajas() ? 'Ocultar bajas' : 'Ver bajas' }}
+          </button>
+        </div>
       </div>
 
       <div *ngIf="loading()" class="cursos__placeholder">Cargando...</div>

@@ -59,6 +59,15 @@
       </label>
 
       <div class="filtros__campo">
+        <span class="filtros__label">Categoría</span>
+        <app-select
+          [items]="categoriaOpciones" bindLabel="label" bindValue="value"
+          placeholder="Todos"
+          [ngModel]="filtroCategoria()" (ngModelChange)="onCategoria($event)">
+        </app-select>
+      </div>
+
+      <div class="filtros__campo">
         <span class="filtros__label">Escalafón</span>
         <app-select
           [items]="escalafones()" bindLabel="denominacion" bindValue="id"

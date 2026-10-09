@@ -18,13 +18,27 @@
 
   <article class="unidad-detalle__card">
     <div class="unidad-detalle__gestion-header">
-      <div class="unidad-detalle__toggle">
-        <button type="button" [class.unidad-detalle__toggle--active]="soloVigentes()" (click)="onToggleVigentes(true)">
-          Dotación actual
-        </button>
-        <button type="button" [class.unidad-detalle__toggle--active]="!soloVigentes()" (click)="onToggleVigentes(false)">
-          Todo el historial
-        </button>
+      <div class="unidad-detalle__toggles">
+        <div class="unidad-detalle__toggle">
+          <button type="button" [class.unidad-detalle__toggle--active]="soloVigentes()" (click)="onToggleVigentes(true)">
+            Dotación actual
+          </button>
+          <button type="button" [class.unidad-detalle__toggle--active]="!soloVigentes()" (click)="onToggleVigentes(false)">
+            Todo el historial
+          </button>
+        </div>
+
+        <div class="unidad-detalle__toggle" role="group" aria-label="Categoría">
+          <button type="button" [class.unidad-detalle__toggle--active]="filtroCategoria() === 'todos'" (click)="onCategoriaChange('todos')">
+            Todos
+          </button>
+          <button type="button" [class.unidad-detalle__toggle--active]="filtroCategoria() === 'oficial'" (click)="onCategoriaChange('oficial')">
+            Oficiales
+          </button>
+          <button type="button" [class.unidad-detalle__toggle--active]="filtroCategoria() === 'subalterno'" (click)="onCategoriaChange('subalterno')">
+            Subalternos
+          </button>
+        </div>
       </div>
 
       <div class="unidad-detalle__search-wrap">

@@ -174,4 +174,5 @@ export interface ListarRetirosQuery {
   /** `true`: los retirados de hoy. `false`: todos los eventos de retiro. */
   vigentes?: boolean;
   incluir_anulados?: boolean;
+  categoria?: 'oficial' | 'subalterno';
 }

@@ -9,6 +9,11 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
 import { PaisesService, PaisOpcion } from '../../../../core/services/paises.service';
 import {
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
+import {
   FuncionarioConMisiones,
   FuncionarioMisionItem,
   MisionDefinicion,
@@ -87,9 +92,13 @@ export class MisionesPage implements OnInit, OnDestroy {
   readonly misionesFiltroIds = signal<string[]>([]);
   readonly ordenBoletinFiltroPersonal = signal('');
   readonly estadoFiltroPersonal = signal<EstadoFiltro>('');
+  /** Se filtra en el backend: cambiarla vuelve a pedir el listado. */
+  readonly categoriaFiltroPersonal = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly hayFiltrosPersonal = computed(
     () =>
       !!this.busquedaPersonal() ||
+      this.categoriaFiltroPersonal() !== 'todos' ||
       this.misionesFiltroIds().length > 0 ||
       !!this.ordenBoletinFiltroPersonal() ||
       !!this.estadoFiltroPersonal(),
@@ -195,7 +204,7 @@ export class MisionesPage implements OnInit, OnDestroy {
   cargarPersonal(): void {
     this.loadingPersonal.set(true);
     this.misionesService
-      .findFuncionariosConMisiones()
+      .findFuncionariosConMisiones(1, 200, categoriaParam(this.categoriaFiltroPersonal()))
       .pipe(catchError(() => of([])))
       .subscribe((funcionarios) => {
         this.funcionarios.set(funcionarios);
@@ -245,12 +254,21 @@ export class MisionesPage implements OnInit, OnDestroy {
     this.personalPage.set(1);
   }
 
+  onCategoriaFiltroPersonalChange(value: string): void {
+    this.categoriaFiltroPersonal.set(value as FiltroCategoria);
+    this.personalPage.set(1);
+    this.cargarPersonal();
+  }
+
   limpiarFiltrosPersonal(): void {
+    const recargar = this.categoriaFiltroPersonal() !== 'todos';
     this.busquedaPersonal.set('');
     this.misionesFiltroIds.set([]);
     this.ordenBoletinFiltroPersonal.set('');
     this.estadoFiltroPersonal.set('');
+    this.categoriaFiltroPersonal.set('todos');
     this.personalPage.set(1);
+    if (recargar) this.cargarPersonal();
   }
 
   // ── Navegación ───────────────────────────────────────────────────────────

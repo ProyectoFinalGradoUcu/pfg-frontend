@@ -7,7 +7,12 @@ import {
   Retiro,
   RetiroCreado,
 } from '../../../../core/models/retiros.models';
-import { OpcionSelect } from '../../../../core/models/personal.models';
+import {
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  OpcionSelect,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
@@ -48,6 +53,8 @@ export class RetirosPage implements OnInit, OnDestroy {
   readonly desde = signal('');
   readonly hasta = signal('');
   readonly incluirAnulados = signal(false);
+  readonly categoria = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
 
   readonly unidades = signal<OpcionSelect[]>([]);
   readonly motivos = signal<MotivoBajaCatalogo[]>([]);
@@ -59,6 +66,7 @@ export class RetirosPage implements OnInit, OnDestroy {
       !!this.busqueda() ||
       this.unidadId() !== null ||
       this.motivoBajaId() !== null ||
+      this.categoria() !== 'todos' ||
       !!this.desde() ||
       !!this.hasta() ||
       this.incluirAnulados(),
@@ -117,6 +125,7 @@ export class RetirosPage implements OnInit, OnDestroy {
     if (this.desde()) q.desde = this.desde();
     if (this.hasta()) q.hasta = this.hasta();
     if (this.incluirAnulados()) q.incluir_anulados = true;
+    q.categoria = categoriaParam(this.categoria());
     return q;
   }
 
@@ -140,6 +149,11 @@ export class RetirosPage implements OnInit, OnDestroy {
     this.reiniciarPaginado();
   }
 
+  setCategoria(categoria: FiltroCategoria | null): void {
+    this.categoria.set(categoria ?? 'todos');
+    this.reiniciarPaginado();
+  }
+
   setRango(desde: string, hasta: string): void {
     this.desde.set(desde);
     this.hasta.set(hasta);
@@ -150,6 +164,7 @@ export class RetirosPage implements OnInit, OnDestroy {
     this.busqueda.set('');
     this.unidadId.set(null);
     this.motivoBajaId.set(null);
+    this.categoria.set('todos');
     this.desde.set('');
     this.hasta.set('');
     this.incluirAnulados.set(false);

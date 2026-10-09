@@ -97,23 +97,33 @@
         </div>
       </div>
 
-      <div class="detalle__search-wrap">
-        <svg class="detalle__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-        </svg>
-        <input
-          type="text"
-          class="detalle__search-input"
-          placeholder="Buscar por nombre o cédula..."
-          [value]="busquedaFuncionario()"
-          (input)="onBusquedaFuncionarioInput($any($event.target).value)"
-          autocomplete="off"
-        />
-        <button *ngIf="busquedaFuncionario()" type="button" class="detalle__search-clear" (click)="limpiarBusquedaFuncionario()" aria-label="Limpiar">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+      <div class="detalle__filters">
+        <div class="detalle__search-wrap">
+          <svg class="detalle__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
           </svg>
-        </button>
+          <input
+            type="text"
+            class="detalle__search-input"
+            placeholder="Buscar por nombre o cédula..."
+            [value]="busquedaFuncionario()"
+            (input)="onBusquedaFuncionarioInput($any($event.target).value)"
+            autocomplete="off"
+          />
+          <button *ngIf="busquedaFuncionario()" type="button" class="detalle__search-clear" (click)="limpiarBusquedaFuncionario()" aria-label="Limpiar">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <app-select
+          class="detalle__filter-select"
+          [items]="categoriaOpciones"
+          placeholder="Todos"
+          [ngModel]="categoriaFuncionario()"
+          (ngModelChange)="onCategoriaFuncionarioChange($event)"
+        ></app-select>
       </div>
 
       <div class="detalle__table-wrapper">

@@ -76,6 +76,14 @@
           (ngModelChange)="onEstadoChange($any($event))"
         ></app-select>
 
+        <app-select
+          class="asignaciones__filter-select"
+          [items]="categoriaOpciones"
+          placeholder="Todos"
+          [ngModel]="filtroCategoria()"
+          (ngModelChange)="onCategoriaChange($any($event))"
+        ></app-select>
+
         <button
           type="button"
           class="btn asignaciones__clear-btn"

@@ -13,7 +13,12 @@ import {
   EstadoElegibilidad,
   PasiblesPaginados,
 } from '../../../../core/models/ascensos.models';
-import { OpcionSelect } from '../../../../core/models/personal.models';
+import {
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  OpcionSelect,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 
 const PAGE_SIZE = 10;
@@ -56,6 +61,8 @@ export class PasiblesPage implements OnInit, OnDestroy {
   readonly filtroEstados = signal<EstadoElegibilidad[]>([...ESTADOS_POR_DEFECTO]);
   readonly filtroEscalafon = signal<number | null>(null);
   readonly filtroUnidad = signal<number | null>(null);
+  readonly filtroCategoria = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly fechaReferencia = signal<string>('');
   readonly horizonteMeses = signal(HORIZONTE_POR_DEFECTO);
   readonly masFiltrosAbiertos = signal(false);
@@ -88,6 +95,7 @@ export class PasiblesPage implements OnInit, OnDestroy {
       !estadosPorDefecto ||
       this.filtroEscalafon() !== null ||
       this.filtroUnidad() !== null ||
+      this.filtroCategoria() !== 'todos' ||
       this.hayFiltrosAvanzados()
     );
   });
@@ -139,6 +147,7 @@ export class PasiblesPage implements OnInit, OnDestroy {
         query: this.filtroTexto() || undefined,
         escalafon_id: this.filtroEscalafon() ?? undefined,
         unidad_id: this.filtroUnidad() ?? undefined,
+        categoria: categoriaParam(this.filtroCategoria()),
         fecha_referencia: this.fechaReferencia() || undefined,
         horizonte_meses: this.horizonteMeses(),
       })
@@ -175,6 +184,12 @@ export class PasiblesPage implements OnInit, OnDestroy {
 
   onUnidad(valor: number | string | null): void {
     this.filtroUnidad.set(valor ? Number(valor) : null);
+    this.page.set(1);
+    this.cargar();
+  }
+
+  onCategoria(valor: FiltroCategoria | null): void {
+    this.filtroCategoria.set(valor ?? 'todos');
     this.page.set(1);
     this.cargar();
   }
@@ -224,6 +239,7 @@ export class PasiblesPage implements OnInit, OnDestroy {
     this.filtroEstados.set([...ESTADOS_POR_DEFECTO]);
     this.filtroEscalafon.set(null);
     this.filtroUnidad.set(null);
+    this.filtroCategoria.set('todos');
     this.fechaReferencia.set('');
     this.horizonteMeses.set(HORIZONTE_POR_DEFECTO);
     this.page.set(1);

@@ -28,6 +28,7 @@ export interface FindPersonasParams {
   estado?: number;
   /** Sin esto los retirados no aparecen: el backend exige relación abierta. */
   incluir_inactivos?: boolean;
+  categoria?: 'oficial' | 'subalterno';
 }
 
 export interface OpcionSelect {
@@ -42,6 +43,20 @@ export interface GradoItem extends OpcionSelect {
 }
 
 export type TipoFuncionario = 'oficial' | 'subalterno' | 'civil';
+
+/** Filtro de los listados de personal: 'todos' equivale a no filtrar. */
+export type FiltroCategoria = 'todos' | 'oficial' | 'subalterno';
+
+export const OPCIONES_FILTRO_CATEGORIA: { value: FiltroCategoria; label: string }[] = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'oficial', label: 'Solo oficiales' },
+  { value: 'subalterno', label: 'Solo subalternos' },
+];
+
+/** Valor del query param `categoria`; `undefined` cuando el filtro es 'todos'. */
+export function categoriaParam(filtro: FiltroCategoria | null | undefined): 'oficial' | 'subalterno' | undefined {
+  return filtro && filtro !== 'todos' ? filtro : undefined;
+}
 
 export interface FamiliarPayload {
   cedula: string;
