@@ -12,6 +12,11 @@ import {
   ListarDestinosQuery,
   UnidadConDestinados,
 } from '../../../../core/models/destinos.models';
+import {
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 import {
   DEBOUNCE_MS,
@@ -53,8 +58,14 @@ export class AsignacionesPage implements OnInit, OnDestroy {
   readonly filtroQuery = signal('');
   readonly filtroUnidadId = signal<string>('');
   readonly filtroEstado = signal<EstadoFiltro>('');
+  readonly filtroCategoria = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly hayFiltros = computed(
-    () => !!this.filtroQuery() || !!this.filtroUnidadId() || !!this.filtroEstado(),
+    () =>
+      !!this.filtroQuery() ||
+      !!this.filtroUnidadId() ||
+      !!this.filtroEstado() ||
+      this.filtroCategoria() !== 'todos',
   );
 
   readonly estadoOpciones = [
@@ -118,6 +129,7 @@ export class AsignacionesPage implements OnInit, OnDestroy {
     if (this.filtroUnidadId()) q.unidad_id = Number(this.filtroUnidadId());
     const estado = this.filtroEstado();
     if (estado) q.activo = estado === 'vigentes';
+    q.categoria = categoriaParam(this.filtroCategoria());
     return q;
   }
 
@@ -138,10 +150,17 @@ export class AsignacionesPage implements OnInit, OnDestroy {
     this.cargar();
   }
 
+  onCategoriaChange(value: FiltroCategoria | null): void {
+    this.filtroCategoria.set(value ?? 'todos');
+    this.page.set(1);
+    this.cargar();
+  }
+
   limpiarFiltros(): void {
     this.filtroQuery.set('');
     this.filtroUnidadId.set('');
     this.filtroEstado.set('');
+    this.filtroCategoria.set('todos');
     this.page.set(1);
     this.cargar();
   }

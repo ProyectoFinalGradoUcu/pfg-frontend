@@ -247,6 +247,7 @@ export interface ListarPasiblesQuery {
   query?: string;
   fecha_referencia?: string;
   horizonte_meses?: number;
+  categoria?: 'oficial' | 'subalterno';
 }
 
 export interface ResumenAscensos {

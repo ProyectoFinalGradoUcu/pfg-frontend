@@ -45,6 +45,7 @@ export class PersonalService {
     if (params.rango)    query['rango']    = String(params.rango);
     if (params.estado)   query['estado']   = String(params.estado);
     if (params.incluir_inactivos) query['incluir_inactivos'] = 'true';
+    if (params.categoria) query['categoria'] = params.categoria;
     return this.http.get<PersonasPaginadas>(`${API_BASE_URL}/personas`, {
       params: query,
       withCredentials: true,

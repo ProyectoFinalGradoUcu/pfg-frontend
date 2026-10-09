@@ -9,6 +9,11 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
 import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
 import {
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
+import {
   Convocatoria,
   FuncionarioConvocatoria,
   FuncionarioConvocatoriaPayload,
@@ -57,6 +62,8 @@ export class ConvocatoriaDetallePage implements OnInit {
   readonly funcionariosPage = signal(1);
   readonly funcionariosLimit = 5;
   readonly busquedaFuncionario = signal('');
+  readonly categoriaFuncionario = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   private readonly busquedaSubject = new Subject<string>();
 
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('misiones.gestionar'));
@@ -126,6 +133,7 @@ export class ConvocatoriaDetallePage implements OnInit {
         page,
         this.funcionariosLimit,
         this.busquedaFuncionario().trim() || undefined,
+        categoriaParam(this.categoriaFuncionario()),
       )
       .subscribe({
         next: (res) => {
@@ -150,6 +158,12 @@ export class ConvocatoriaDetallePage implements OnInit {
   onBusquedaFuncionarioInput(value: string): void {
     this.busquedaFuncionario.set(value);
     this.busquedaSubject.next(value);
+  }
+
+  onCategoriaFuncionarioChange(categoria: FiltroCategoria | null): void {
+    this.categoriaFuncionario.set(categoria ?? 'todos');
+    const c = this.convocatoria();
+    if (c) this.cargarFuncionarios(c.id, 1);
   }
 
   limpiarBusquedaFuncionario(): void {
@@ -418,6 +432,7 @@ export class ConvocatoriaDetallePage implements OnInit {
         page,
         this.funcionariosLimit,
         this.busquedaFuncionario().trim() || undefined,
+        categoriaParam(this.categoriaFuncionario()),
       ),
     });
   }

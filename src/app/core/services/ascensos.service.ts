@@ -93,6 +93,7 @@ export class AscensosService {
     if (query.query) params['query'] = query.query;
     if (query.fecha_referencia) params['fecha_referencia'] = query.fecha_referencia;
     if (query.horizonte_meses) params['horizonte_meses'] = String(query.horizonte_meses);
+    if (query.categoria) params['categoria'] = query.categoria;
     return this.http.get<PasiblesPaginados>(`${this.base}/pasibles`, {
       params,
       withCredentials: true,

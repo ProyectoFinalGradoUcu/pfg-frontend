@@ -150,6 +150,7 @@ export interface ListarDestinosQuery {
   query?: string;
   unidad_id?: number;
   activo?: boolean;
+  categoria?: 'oficial' | 'subalterno';
 }
 
 export interface ListarUnidadesQuery {
@@ -170,4 +171,5 @@ export interface ListarFuncionariosUnidadQuery {
   pageSize?: number;
   query?: string;
   activo?: boolean;
+  categoria?: 'oficial' | 'subalterno';
 }

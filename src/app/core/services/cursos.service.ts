@@ -58,10 +58,12 @@ export class CursosService {
     page = 1,
     pageSize = 100,
     incluirBajas = false,
+    categoria?: 'oficial' | 'subalterno',
   ): Observable<FuncionarioConCursos[]> {
     const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     if (cedula) qs.set('cedula', cedula);
     if (incluirBajas) qs.set('incluir_bajas', 'true');
+    if (categoria) qs.set('categoria', categoria);
     return this.http
       .get<PaginatedResponse<any>>(`${API_BASE_URL}/cursos/funcionarios?${qs}`, { withCredentials: true })
       .pipe(

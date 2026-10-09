@@ -11,6 +11,7 @@ import {
   ListarFuncionariosUnidadQuery,
   UnidadConDestinados,
 } from '../../../../core/models/destinos.models';
+import { FiltroCategoria, categoriaParam } from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 import {
   DEBOUNCE_MS,
@@ -43,6 +44,7 @@ export class UnidadDetallePage implements OnInit, OnDestroy {
   /** Sin este filtro el listado incluye el historial y no coincide con `total_destinados`. */
   readonly soloVigentes = signal(true);
   readonly filtroQuery = signal('');
+  readonly filtroCategoria = signal<FiltroCategoria>('todos');
 
   private readonly querySubject = new Subject<void>();
 
@@ -96,6 +98,7 @@ export class UnidadDetallePage implements OnInit, OnDestroy {
     if (this.soloVigentes()) q.activo = true;
     const texto = this.filtroQuery().trim();
     if (texto) q.query = texto;
+    q.categoria = categoriaParam(this.filtroCategoria());
     return q;
   }
 
@@ -106,6 +109,12 @@ export class UnidadDetallePage implements OnInit, OnDestroy {
 
   onToggleVigentes(soloVigentes: boolean): void {
     this.soloVigentes.set(soloVigentes);
+    this.page.set(1);
+    this.cargar();
+  }
+
+  onCategoriaChange(categoria: FiltroCategoria): void {
+    this.filtroCategoria.set(categoria);
     this.page.set(1);
     this.cargar();
   }

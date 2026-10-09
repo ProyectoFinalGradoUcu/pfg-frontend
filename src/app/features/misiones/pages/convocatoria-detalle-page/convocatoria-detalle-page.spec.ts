@@ -137,7 +137,7 @@ describe('ConvocatoriaDetallePage', () => {
 
     it('carga los funcionarios de la convocatoria tras el éxito', async () => {
       await setup();
-      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenCalledWith('1', 'c1', 1, 5, undefined);
+      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenCalledWith('1', 'c1', 1, 5, undefined, undefined);
     });
   });
 
@@ -169,7 +169,7 @@ describe('ConvocatoriaDetallePage', () => {
     it('pasa la búsqueda recortada como query', () => {
       component.busquedaFuncionario.set('  Pérez  ');
       component.cargarFuncionarios('c1');
-      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 1, 5, 'Pérez');
+      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 1, 5, 'Pérez', undefined);
     });
 
     it('setea funcionarios, total y página', () => {
@@ -190,7 +190,7 @@ describe('ConvocatoriaDetallePage', () => {
 
     it('cargarFuncionariosPage delega con el id de la convocatoria actual', () => {
       component.cargarFuncionariosPage(3);
-      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 3, 5, undefined);
+      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 3, 5, undefined, undefined);
     });
 
     it('cargarFuncionariosPage no hace nada sin convocatoria cargada', () => {
@@ -206,7 +206,19 @@ describe('ConvocatoriaDetallePage', () => {
       vi.advanceTimersByTime(400);
       vi.useRealTimers();
       expect(component.busquedaFuncionario()).toBe('García');
-      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 1, 5, 'García');
+      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 1, 5, 'García', undefined);
+    });
+
+    it('onCategoriaFuncionarioChange filtra por categoría y vuelve a la primera página', () => {
+      component.onCategoriaFuncionarioChange('oficial');
+      expect(component.categoriaFuncionario()).toBe('oficial');
+      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 1, 5, undefined, 'oficial');
+    });
+
+    it('onCategoriaFuncionarioChange con "todos" no manda el parámetro', () => {
+      component.onCategoriaFuncionarioChange('subalterno');
+      component.onCategoriaFuncionarioChange('todos');
+      expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 1, 5, undefined, undefined);
     });
 
     it('limpiarBusquedaFuncionario limpia el filtro', () => {

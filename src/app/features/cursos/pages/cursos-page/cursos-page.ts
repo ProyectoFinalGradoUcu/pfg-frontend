@@ -10,6 +10,11 @@ import { ErrorModalService } from '../../../../core/services/error-modal.service
 import { CursosService } from '../../../../core/services/cursos.service';
 import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
 import {
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
+import {
   CursoDefinicion,
   CursoFuncionarioItem,
   EstadoCurso,
@@ -68,6 +73,8 @@ export class CursosPage implements OnInit, OnDestroy {
   // ── Historial ──────────────────────────────────────────────────────────────
   readonly funcionarios = signal<FuncionarioConCursos[]>([]);
   readonly cedulaFiltro = signal('');
+  readonly categoriaFiltro = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly buscandoCedula = signal(false);
   readonly personal = signal<PersonaListItem[]>([]);
   readonly historialPage = signal(1);
@@ -254,7 +261,13 @@ export class CursosPage implements OnInit, OnDestroy {
         switchMap((cedula) => {
           this.buscandoCedula.set(true);
           return this.cursosService
-            .findFuncionariosConCursos(cedula || undefined, 1, 100, this.verBajas())
+            .findFuncionariosConCursos(
+              cedula || undefined,
+              1,
+              100,
+              this.verBajas(),
+              categoriaParam(this.categoriaFiltro()),
+            )
             .pipe(catchError(() => of([])));
         }),
       )
@@ -281,7 +294,13 @@ export class CursosPage implements OnInit, OnDestroy {
     this.loading.set(true);
     forkJoin({
       funcionarios: this.cursosService
-        .findFuncionariosConCursos(this.cedulaFiltro().trim() || undefined, 1, 100, this.verBajas())
+        .findFuncionariosConCursos(
+          this.cedulaFiltro().trim() || undefined,
+          1,
+          100,
+          this.verBajas(),
+          categoriaParam(this.categoriaFiltro()),
+        )
         .pipe(catchError(() => of([]))),
       personal: this.personalService.findAll().pipe(catchError(() => of([]))),
     }).subscribe({
@@ -711,6 +730,12 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   // ── Baja / Reactivación ─────────────────────────────────────────────────────
+
+  onCategoriaChange(value: string): void {
+    this.categoriaFiltro.set(value as FiltroCategoria);
+    this.historialPage.set(1);
+    this.cargar();
+  }
 
   toggleVerBajas(): void {
     this.verBajas.update((v) => !v);

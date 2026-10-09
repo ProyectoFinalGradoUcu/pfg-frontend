@@ -381,6 +381,7 @@ export class MisionesService {
     page = 1,
     limit = 5,
     query?: string,
+    categoria?: 'oficial' | 'subalterno',
   ): Observable<PaginatedResponse<FuncionarioConvocatoria>> {
     if (misionesServiceConfig.useMockData) {
       let items = this.mockFuncionarios[convocatoriaId] ?? [];
@@ -399,6 +400,7 @@ export class MisionesService {
 
     const qs = new URLSearchParams({ page: String(page), pageSize: String(limit) });
     if (query) qs.set('query', query);
+    if (categoria) qs.set('categoria', categoria);
     return this.http.get<PaginatedResponse<FuncionarioConvocatoria>>(
       `${API_BASE_URL}/misiones/${misionId}/convocatorias/${convocatoriaId}/funcionarios?${qs}`,
       { withCredentials: true },
@@ -500,7 +502,11 @@ export class MisionesService {
 
   // ── Personal en misión (agrupado por persona) ────────────────────────────
 
-  findFuncionariosConMisiones(page = 1, pageSize = 200): Observable<FuncionarioConMisiones[]> {
+  findFuncionariosConMisiones(
+    page = 1,
+    pageSize = 200,
+    categoria?: 'oficial' | 'subalterno',
+  ): Observable<FuncionarioConMisiones[]> {
     if (misionesServiceConfig.useMockData) {
       const agrupados = new Map<string, FuncionarioConMisiones>();
       for (const [convocatoriaId, filas] of Object.entries(this.mockFuncionarios)) {
@@ -532,6 +538,7 @@ export class MisionesService {
     }
 
     const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (categoria) qs.set('categoria', categoria);
     return this.http
       .get<PaginatedResponse<any>>(`${API_BASE_URL}/misiones/funcionarios?${qs}`, {
         withCredentials: true,

@@ -58,6 +58,12 @@
       </label>
 
       <label class="personal-page__field">
+        <select [value]="selectedCategoria()" (change)="onCategoriaChange($event)" aria-label="Categoría">
+          <option *ngFor="let c of opcionesCategoria" [value]="c.value">{{ c.label }}</option>
+        </select>
+      </label>
+
+      <label class="personal-page__field">
         <select [value]="selectedRango() ?? ''" (change)="onRangoChange($event)">
           <option value="">Todos los grados</option>
           <option *ngFor="let g of todosGrados()" [value]="g.id">{{ g.denominacion }}</option>

@@ -51,6 +51,14 @@
         (ngModelChange)="setMotivo($event)"
       ></app-select>
 
+      <app-select
+        class="retiros__filter-select"
+        [items]="categoriaOpciones"
+        placeholder="Todos"
+        [ngModel]="categoria()"
+        (ngModelChange)="setCategoria($event)"
+      ></app-select>
+
       <!-- Un solo control: dos inputs sueltos se leen como filtros distintos. -->
       <div class="retiros__daterange">
         <label>

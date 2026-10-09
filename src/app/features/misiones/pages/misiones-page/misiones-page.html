@@ -256,6 +256,15 @@
             <option value="finalizada">Finalizada</option>
           </select>
 
+          <select
+            class="misiones__def-tipo-select"
+            [value]="categoriaFiltroPersonal()"
+            (change)="onCategoriaFiltroPersonalChange($any($event.target).value)"
+            aria-label="Categoría"
+          >
+            <option *ngFor="let c of categoriaOpciones" [value]="c.value">{{ c.label }}</option>
+          </select>
+
           <button
             type="button"
             class="btn misiones__clear-btn"
