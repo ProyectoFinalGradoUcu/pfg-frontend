@@ -2,7 +2,6 @@ import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } 
 import { Router } from '@angular/router';
 import { Subject, switchMap, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 import {
-  CargaMasivaResult,
   FiltroCategoria,
   GradoItem,
   OPCIONES_FILTRO_CATEGORIA,
@@ -12,6 +11,7 @@ import {
 } from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 
 @Component({
   selector: 'app-personal-page',
@@ -70,10 +70,7 @@ export class PersonalPage implements OnInit, OnDestroy {
 
   // ─── Import ───────────────────────────────────────────────────────────────────
   readonly importPanelOpen = signal(false);
-  readonly importFile      = signal<File | null>(null);
-  readonly importLoading   = signal(false);
-  readonly importResult    = signal<CargaMasivaResult | null>(null);
-  readonly importError     = signal<string | null>(null);
+  readonly cargaPersonal = CARGAS_MASIVAS.personal;
 
   private readonly destroy$       = new Subject<void>();
   private readonly searchSubject$ = new Subject<string>();
@@ -204,49 +201,12 @@ export class PersonalPage implements OnInit, OnDestroy {
   }
 
   abrirImportar(): void {
-    this.importFile.set(null);
-    this.importResult.set(null);
-    this.importError.set(null);
     this.importPanelOpen.set(true);
   }
 
-  cerrarImportar(): void {
-    if (this.importResult()?.exitosos) {
-      this.triggerLoad$.next();
-    }
+  cerrarImportar(huboCambios: boolean): void {
     this.importPanelOpen.set(false);
-  }
-
-  onImportFileChange(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-    this.importFile.set(file);
-    this.importError.set(null);
-    this.importResult.set(null);
-  }
-
-  procesarImportacion(): void {
-    const file = this.importFile();
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      this.importError.set('El archivo no puede superar los 5 MB.');
-      return;
-    }
-    this.importLoading.set(true);
-    this.importError.set(null);
-    this.personalService.cargaMasiva(file).subscribe({
-      next: result => {
-        this.importResult.set(result);
-        this.importLoading.set(false);
-      },
-      error: () => {
-        this.importError.set('Error al procesar el archivo. Verificá el formato e intentá de nuevo.');
-        this.importLoading.set(false);
-      },
-    });
-  }
-
-  descargarPlantilla(): void {
-    this.personalService.descargarPlantilla();
+    if (huboCambios) this.triggerLoad$.next();
   }
 
   abrirNuevoPersonal(): void {
