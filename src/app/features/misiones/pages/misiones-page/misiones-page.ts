@@ -7,6 +7,7 @@ import { catchError, debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
+import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { PaisesService, PaisOpcion } from '../../../../core/services/paises.service';
 import {
   FiltroCategoria,
@@ -140,6 +141,21 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   // ── Permisos ─────────────────────────────────────────────────────────────
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('misiones.gestionar'));
+
+  // ── Carga masiva ─────────────────────────────────────────────────────────
+  readonly importOpen = signal(false);
+  readonly cargaMisiones = CARGAS_MASIVAS.misiones;
+
+  cerrarImportar(huboCambios: boolean): void {
+    this.importOpen.set(false);
+    if (!huboCambios) return;
+    if (this.tab() === 'catalogo') {
+      this.cargarDefiniciones();
+    } else {
+      this.cargarPersonal();
+      this.misionesService.findMisionesOpciones().subscribe((m) => this.misionesOpciones.set(m));
+    }
+  }
 
   // ── Formularios ──────────────────────────────────────────────────────────
   readonly misionForm = this.fb.group({

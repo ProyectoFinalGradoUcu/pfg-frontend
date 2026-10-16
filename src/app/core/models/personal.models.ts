@@ -279,21 +279,6 @@ export interface CrearPersonaPayload {
   mutaciones?: string;
 }
 
-export interface CargaMasivaResultadoItem {
-  fila: number;
-  cedula: string;
-  estado: 'ok' | 'error';
-  id?: number;
-  mensaje?: string;
-}
-
-export interface CargaMasivaResult {
-  total: number;
-  exitosos: number;
-  errores: number;
-  resultados: CargaMasivaResultadoItem[];
-}
-
 export interface CrearPersonaResponse {
   id: number;
   cedula: string;

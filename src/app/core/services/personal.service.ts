@@ -3,7 +3,6 @@ import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
-  CargaMasivaResult,
   CrearPersonaPayload,
   CrearPersonaResponse,
   CursoPersona,
@@ -135,27 +134,5 @@ export class PersonalService {
   /** Historial de destinos de la persona, del más reciente al más antiguo. Array plano, sin paginar. */
   getDestinos(id: number): Observable<DestinoDePersona[]> {
     return this.http.get<DestinoDePersona[]>(`${API_BASE_URL}/personas/${id}/destinos`, { withCredentials: true });
-  }
-
-  descargarPlantilla(): void {
-    this.http.get(`${API_BASE_URL}/personas/plantilla`, {
-      responseType: 'blob',
-      withCredentials: true,
-    }).subscribe(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'plantilla_personal.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-  }
-
-  cargaMasiva(file: File): Observable<CargaMasivaResult> {
-    const formData = new FormData();
-    formData.append('archivo', file);
-    return this.http.post<CargaMasivaResult>(`${API_BASE_URL}/personas/carga-masiva`, formData, {
-      withCredentials: true,
-    });
   }
 }
