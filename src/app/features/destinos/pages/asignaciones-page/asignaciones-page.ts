@@ -6,6 +6,7 @@ import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import {
   Destino,
   DestinosStats,
@@ -78,6 +79,14 @@ export class AsignacionesPage implements OnInit, OnDestroy {
 
   readonly modal = signal<ModalKind>(null);
   readonly destinoEnEdicion = signal<Destino | null>(null);
+
+  readonly importOpen = signal(false);
+  readonly cargaDestinos = CARGAS_MASIVAS.destinos;
+
+  cerrarImportar(huboCambios: boolean): void {
+    this.importOpen.set(false);
+    if (huboCambios) this.cargar();
+  }
 
   readonly destinoSeleccionado = signal<Destino | null>(null);
   readonly procesando = signal(false);

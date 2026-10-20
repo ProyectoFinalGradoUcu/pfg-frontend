@@ -9,6 +9,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { CursosService } from '../../../../core/services/cursos.service';
 import { FILTRO_DERECHA_NUMOR_INICIAL, FiltroDerechaNumor } from '../../../../core/models/derecha.models';
+import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
 import {
   FiltroCategoria,
@@ -73,6 +74,15 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly tab = signal<TabKind>('inscripciones');
   readonly loading = signal(false);
   readonly modal = signal<ModalKind>(null);
+
+  // ── Carga masiva del historial ─────────────────────────────────────────────
+  readonly importOpen = signal(false);
+  readonly cargaHistorial = CARGAS_MASIVAS.historialCursos;
+
+  cerrarImportar(huboCambios: boolean): void {
+    this.importOpen.set(false);
+    if (huboCambios) this.cargar();
+  }
   readonly modalError = signal<string | null>(null);
 
   // ── Historial ──────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { PanelImpacto } from './components/panel-impacto/panel-impacto';
 import { FiltroDerechaNumorComponent } from './components/filtro-derecha-numor/filtro-derecha-numor';
 import { SelectorPosicionDerecha } from './components/selector-posicion-derecha/selector-posicion-derecha';
 import { SelectorRango } from './components/selector-rango/selector-rango';
+import { CargaMasivaModal } from './components/carga-masiva-modal/carga-masiva-modal';
 
 @NgModule({
   declarations: [
@@ -20,6 +21,7 @@ import { SelectorRango } from './components/selector-rango/selector-rango';
     FiltroDerechaNumorComponent,
     SelectorPosicionDerecha,
     SelectorRango,
+    CargaMasivaModal,
   ],
   imports: [CommonModule, RouterModule],
   exports: [
@@ -31,6 +33,7 @@ import { SelectorRango } from './components/selector-rango/selector-rango';
     FiltroDerechaNumorComponent,
     SelectorPosicionDerecha,
     SelectorRango,
+    CargaMasivaModal,
   ],
 })
 export class SharedModule {}
