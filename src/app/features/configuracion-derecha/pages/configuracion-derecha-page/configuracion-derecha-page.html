@@ -1,0 +1,134 @@
+<section class="cdp">
+  <nav class="breadcrumb">
+    <a class="breadcrumb__item breadcrumb__item--link" routerLink="/personal">Administración de Personal</a>
+    <span class="breadcrumb__sep">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">Configuración de derecha y numor</span>
+  </nav>
+
+  <app-page-header
+    title="Configuración de derecha y numor"
+    subtitle="Derecha y numor de todo el personal en actividad"
+  ></app-page-header>
+
+  <div class="cdp__cuerpo">
+    <article class="cdp__card">
+      <!-- Filtros -->
+      <div class="cdp__filtros">
+        <div class="cdp__buscar">
+          <svg class="cdp__buscar-icono" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+          </svg>
+          <input type="search" placeholder="Buscar por nombre o CI" aria-label="Buscar por nombre o cédula"
+            autocomplete="off" [value]="filtroTexto()" (input)="onTexto($event)" />
+        </div>
+
+        <app-select class="cdp__filtro" [items]="escalas()" bindLabel="nombre" bindValue="escala"
+          placeholder="Todas las escalas" [multiple]="true"
+          [ngModel]="filtroEscalas()" (ngModelChange)="onEscalas($event)"></app-select>
+
+        <app-select class="cdp__filtro" [items]="opcionesGrado()" bindLabel="denominacion" bindValue="id"
+          placeholder="Todos los grados" [multiple]="true" [searchable]="true"
+          [ngModel]="filtroGrados()" (ngModelChange)="onGrados($event)"></app-select>
+
+        <app-select class="cdp__filtro" [items]="opcionesEscalafon()" bindLabel="codigo" bindValue="id"
+          placeholder="Todos los escalafones" [multiple]="true" [searchable]="true"
+          [ngModel]="filtroEscalafones()" (ngModelChange)="onEscalafones($event)"></app-select>
+
+        <button type="button" class="btn btn--clear" [disabled]="!hayFiltros()" (click)="limpiarFiltros()"
+          aria-label="Limpiar filtros" title="Limpiar filtros">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+          </svg>
+        </button>
+
+        <select class="cdp__sugerir" *ngIf="gradoFiltrado() as g" [hidden]="g.cantidad < 2"
+          aria-label="Sugerir orden del grado" (change)="onSugerir($event)">
+          <option value="" selected>Sugerir orden de {{ g.denominacion }}…</option>
+          <option *ngFor="let c of criterios" [value]="c.value" [title]="c.ayuda">{{ c.label }}</option>
+        </select>
+      </div>
+
+      <p class="cdp__ayuda">Escribí la nueva derecha o numor en las filas que quieras y guardá todo junto abajo.</p>
+
+
+      <div class="cdp__tabla-wrap">
+        <table class="cdp__tabla">
+          <thead>
+            <tr>
+              <th class="cdp__col-num">Derecha</th>
+              <th class="cdp__col-num">Numor</th>
+              <th>Funcionario</th>
+              <th>CI</th>
+              <th>Grado</th>
+              <th>Escalafón</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngIf="cargando()"><td colspan="6" class="cdp__vacio">Cargando…</td></tr>
+            <tr *ngIf="!cargando() && filas().length === 0">
+              <td colspan="6" class="cdp__vacio">
+                {{ hayFiltros() ? 'Ningún funcionario coincide con los filtros.' : 'No hay funcionarios en actividad.' }}
+              </td>
+            </tr>
+            <ng-container *ngIf="!cargando()">
+              <tr *ngFor="let f of filas(); trackBy: trackFila" [class.cdp__fila--modificada]="f.cambiaDerecha || f.cambiaNumor">
+                <td class="cdp__col-num">
+                  <input type="number" class="cdp__valor" step="1" [value]="f.derechaNueva" [disabled]="confirmando()"
+                    [class.cdp__valor--cambio]="f.cambiaDerecha"
+                    [class.cdp__valor--error]="errorValor()?.persona_id === f.persona_id && errorValor()?.campo === 'derecha'"
+                    [attr.aria-label]="'Derecha de ' + f.nombre"
+                    (change)="onValor(f, 'derecha', $event)" (keydown.enter)="$any($event.target).blur()" />
+                  <small class="cdp__antes" *ngIf="f.cambiaDerecha">era {{ f.derecha ?? '—' }}</small>
+                </td>
+                <td class="cdp__col-num">
+                  <input type="number" class="cdp__valor" step="1" [value]="f.numorNuevo" [disabled]="confirmando()"
+                    [class.cdp__valor--cambio]="f.cambiaNumor"
+                    [class.cdp__valor--error]="errorValor()?.persona_id === f.persona_id && errorValor()?.campo === 'numor'"
+                    [attr.aria-label]="'Numor de ' + f.nombre"
+                    (change)="onValor(f, 'numor', $event)" (keydown.enter)="$any($event.target).blur()" />
+                  <small class="cdp__antes" *ngIf="f.cambiaNumor">era {{ f.numor ?? '—' }}</small>
+                </td>
+                <td class="cdp__nombre">
+                  {{ f.nombre }}
+                  <small class="cdp__error" *ngIf="errorValor()?.persona_id === f.persona_id" role="alert">
+                    {{ errorValor()!.mensaje }}
+                  </small>
+                </td>
+                <td class="cdp__tenue">{{ f.cedula }}</td>
+                <td>{{ f.grado }}</td>
+                <td class="cdp__tenue">{{ f.escalafon ?? '—' }}</td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+
+      <app-paginator
+        *ngIf="!cargando() && filtrados().length > tamanioPagina"
+        [totalItems]="filtrados().length"
+        [pageSize]="tamanioPagina"
+        [currentPage]="pagina()"
+        (pageChange)="pagina.set($event)"
+      ></app-paginator>
+    </article>
+
+  </div>
+
+  <!-- Debajo de la tabla, para que los cambios pendientes no la achiquen -->
+  <div class="cdp__panel" *ngIf="hayCambios()">
+    <p class="cdp__panel-quien">
+      <b>{{ cambios().length }} {{ cambios().length === 1 ? 'cambio pendiente' : 'cambios pendientes' }}</b>
+      · se guardan todos juntos al confirmar
+    </p>
+    <app-panel-impacto
+      [impacto]="impacto()"
+      [cargando]="calculando()"
+      [error]="errorImpacto()"
+      [pendiente]="true"
+      [confirmando]="confirmando()"
+      (descartar)="descartar()"
+      (confirmar)="confirmar($event)"
+    ></app-panel-impacto>
+  </div>
+</section>

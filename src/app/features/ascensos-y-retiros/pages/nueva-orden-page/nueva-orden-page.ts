@@ -22,6 +22,8 @@ import {
   RequisitoEvaluado,
 } from '../../../../core/models/ascensos.models';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { DerechaService } from '../../../../core/services/derecha.service';
+import { Impacto } from '../../../../core/models/derecha.models';
 
 /** Un funcionario ya agregado a la orden. */
 interface FilaDeOrden {
@@ -29,6 +31,15 @@ interface FilaDeOrden {
   grado_destino_id: string | null;
   fecha_ascenso: string;
   motivo_excepcion: string;
+  /** null = al final del grado destino / del grupo de numor. */
+  posicion_derecha: number | null;
+  /** Solo para mostrar: la derecha que corresponde a `posicion_derecha`. */
+  derecha_elegida: number | null;
+  posicion_numor: number | null;
+  verDerecha: boolean;
+  impacto: Impacto | null;
+  calculandoImpacto: boolean;
+  errorImpacto: string | null;
 }
 
 /** Todos los estados: se puede ascender a alguien que no cumple, como excepción. */
@@ -66,6 +77,7 @@ function alMenosOrdenOBoletin(group: AbstractControl): ValidationErrors | null {
 export class NuevaOrdenPage implements OnInit, OnDestroy {
   private readonly svc = inject(AscensosService);
   private readonly auth = inject(AuthService);
+  private readonly derecha = inject(DerechaService);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
@@ -101,6 +113,13 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   );
 
   readonly puedeExcepcion = computed(() => this.auth.hasPermiso('ascensos.excepcion'));
+  readonly puedeElegirPosicion = computed(() => this.auth.hasPermiso('derecha.gestionar'));
+
+  /** Varios al mismo grado: las posiciones se aplican en el orden de la lista. */
+  readonly destinosRepetidos = computed(() => {
+    const destinos = this.filas().map((f) => f.grado_destino_id).filter(Boolean);
+    return destinos.length !== new Set(destinos).size;
+  });
 
   readonly ordenForm: FormGroup = this.fb.group(
     {
@@ -293,6 +312,13 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
         grado_destino_id: evaluacion.grado_destino?.id ?? null,
         fecha_ascenso: this.fechaDeLaOrden(),
         motivo_excepcion: '',
+        posicion_derecha: null,
+        derecha_elegida: null,
+        posicion_numor: null,
+        verDerecha: false,
+        impacto: null,
+        calculandoImpacto: false,
+        errorImpacto: null,
       },
     ]);
     this.resultados.update((r) => r.filter((i) => i.persona.id !== evaluacion.persona.id));
@@ -316,6 +342,62 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
         f.evaluacion.persona.id === personaId ? { ...f, motivo_excepcion: motivo } : f,
       ),
     );
+  }
+
+  private actualizarFila(personaId: string, cambio: Partial<FilaDeOrden>): void {
+    this.filas.update((filas) =>
+      filas.map((f) => (f.evaluacion.persona.id === personaId ? { ...f, ...cambio } : f)),
+    );
+  }
+
+  alternarDerecha(fila: FilaDeOrden): void {
+    const abrir = !fila.verDerecha;
+    this.actualizarFila(fila.evaluacion.persona.id, { verDerecha: abrir });
+    if (abrir) this.calcularImpacto(fila.evaluacion.persona.id);
+  }
+
+  onPosicionDerecha(personaId: string, posicion: number | null): void {
+    this.actualizarFila(personaId, { posicion_derecha: posicion });
+    this.calcularImpacto(personaId);
+  }
+
+  onDerechaElegida(personaId: string, derecha: number | null): void {
+    this.actualizarFila(personaId, { derecha_elegida: derecha });
+  }
+
+  onPosicionNumor(personaId: string, posicion: number | null): void {
+    this.actualizarFila(personaId, { posicion_numor: posicion });
+    this.calcularImpacto(personaId);
+  }
+
+  private calcularImpacto(personaId: string): void {
+    const fila = this.filas().find((f) => f.evaluacion.persona.id === personaId);
+    if (!fila?.grado_destino_id) return;
+    this.actualizarFila(personaId, { calculandoImpacto: true, errorImpacto: null });
+    this.derecha
+      .previsualizar({
+        operacion: 'ASCENSO',
+        persona_id: Number(personaId),
+        grado_id: Number(fila.grado_destino_id),
+        posicion: fila.posicion_derecha ?? undefined,
+        posicion_numor: fila.posicion_numor ?? undefined,
+      })
+      .subscribe({
+        next: (impacto) => this.actualizarFila(personaId, { impacto, calculandoImpacto: false }),
+        error: (err: HttpErrorResponse) =>
+          this.actualizarFila(personaId, {
+            impacto: null,
+            calculandoImpacto: false,
+            errorImpacto: parseError(err),
+          }),
+      });
+  }
+
+  textoPosicion(fila: FilaDeOrden): string {
+    const destino = fila.evaluacion.grado_destino?.denominacion ?? 'el grado destino';
+    return fila.posicion_derecha === null
+      ? `al final de ${destino}`
+      : `${fila.derecha_elegida ?? fila.posicion_derecha} en ${destino}`;
   }
 
   /**
@@ -362,6 +444,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       grado_destino_id: f.grado_destino_id ? Number(f.grado_destino_id) : undefined,
       fecha_ascenso: f.fecha_ascenso || undefined,
       motivo_excepcion: this.esExcepcion(f) ? f.motivo_excepcion.trim() : undefined,
+      posicion_derecha: f.posicion_derecha ?? undefined,
+      posicion_numor: f.posicion_numor ?? undefined,
     }));
 
     const payload: CrearOrdenPayload = {

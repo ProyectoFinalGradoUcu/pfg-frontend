@@ -404,6 +404,34 @@ textarea.input { resize: vertical; }
   &--tope_de_escala { background-color: #ede9fe; color: #5b21b6; }
 }
 
+// ─── Derecha en el grado destino ────────────────────────────────────────────
+
+.derecha {
+  border-top: 1px solid #f1f5f9;
+  padding: 0.7rem 1.1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.derecha__resumen {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: $text;
+  font-size: 0.84rem;
+
+  b { color: $navy; }
+}
+
+.derecha__detalle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 1rem;
+  align-items: start;
+}
+
 // ─── Confirmación (paso 3) ──────────────────────────────────────────────────
 
 .resumen {
@@ -444,6 +472,7 @@ textarea.input { resize: vertical; }
 .confirmacion__persona { font-weight: 600; color: #0f172a; }
 .confirmacion__grados { color: $text; }
 .confirmacion__motivo { flex-basis: 100%; color: $warn; font-size: 0.8rem; }
+.confirmacion__derecha { color: $muted; font-size: 0.8rem; }
 
 .advertencia {
   margin: 0;
@@ -506,6 +535,8 @@ textarea.input { resize: vertical; }
 }
 
 @media (max-width: 900px) {
+  .derecha__detalle { grid-template-columns: minmax(0, 1fr); }
+
   .funcionario__main {
     grid-template-columns: minmax(0, 1fr) auto;
   }

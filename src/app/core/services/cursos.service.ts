@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { FiltroDerechaNumor, filtroDerechaNumorParams } from '../models/derecha.models';
 import { API_BASE_URL } from '../api.config';
 import { PaginatedResponse } from '../models/auth.models';
 import {
@@ -59,11 +60,15 @@ export class CursosService {
     pageSize = 100,
     incluirBajas = false,
     categoria?: 'oficial' | 'subalterno',
+    filtroDerecha?: FiltroDerechaNumor,
   ): Observable<FuncionarioConCursos[]> {
     const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     if (cedula) qs.set('cedula', cedula);
     if (incluirBajas) qs.set('incluir_bajas', 'true');
     if (categoria) qs.set('categoria', categoria);
+    if (filtroDerecha) {
+      for (const [k, v] of Object.entries(filtroDerechaNumorParams(filtroDerecha))) qs.set(k, v);
+    }
     return this.http
       .get<PaginatedResponse<any>>(`${API_BASE_URL}/cursos/funcionarios?${qs}`, { withCredentials: true })
       .pipe(
@@ -80,7 +85,16 @@ export class CursosService {
                 .filter(Boolean)
                 .join(' ')
                 .trim() || (persona.nombre ?? '');
-              agrupados.set(personaId, { id: personaId, cedula: persona.cedula ?? '', nombre, cursos: [] });
+              agrupados.set(personaId, {
+                id: personaId,
+                cedula: persona.cedula ?? '',
+                nombre,
+                cursos: [],
+                grado: persona.grado ?? null,
+                escalafon: persona.escalafon ?? null,
+                derecha: persona.derecha ?? null,
+                numor: persona.numor ?? null,
+              });
             }
             agrupados.get(personaId)!.cursos.push(this.mapCursoFuncionario(row));
           }

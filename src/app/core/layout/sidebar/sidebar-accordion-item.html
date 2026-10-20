@@ -16,10 +16,17 @@
 
   <!-- Sub-items -->
   <div *ngIf="expanded() && !collapsed" class="sidebar__sub">
-    <a *ngFor="let child of children" class="sidebar__sub-item"
-      [routerLink]="child.route" routerLinkActive="sidebar__sub-item--active">
-      <span class="sidebar__sub-dot"></span>
-      {{ child.label }}
-    </a>
+    <ng-container *ngFor="let child of children">
+      <a *ngIf="!child.excluir" class="sidebar__sub-item"
+        [routerLink]="child.route" routerLinkActive="sidebar__sub-item--active">
+        <span class="sidebar__sub-dot"></span>
+        {{ child.label }}
+      </a>
+      <a *ngIf="child.excluir" class="sidebar__sub-item"
+        [routerLink]="child.route" [class.sidebar__sub-item--active]="esActivo(child)">
+        <span class="sidebar__sub-dot"></span>
+        {{ child.label }}
+      </a>
+    </ng-container>
   </div>
 </div>

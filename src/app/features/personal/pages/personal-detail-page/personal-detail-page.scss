@@ -1025,3 +1025,26 @@
   opacity: 0.6;
   text-decoration: line-through #cbd5e1;
 }
+
+// ─── Derecha y numor (edición) ───────────────────────────────────────────────
+
+.pd__derecha-inputs {
+  display: flex;
+  gap: 0.75rem;
+
+  label {
+    display: grid;
+    gap: 0.2rem;
+    flex: 1;
+
+    span {
+      color: #64748b;
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+  }
+}
+
+.pd__derecha-impacto {
+  margin: 0.4rem 0;
+}

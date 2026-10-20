@@ -6,6 +6,8 @@ import { filter } from 'rxjs';
 export interface AccordionChild {
   label: string;
   route: string;
+  /** Subrutas que tienen su propio ítem y no deben marcar a este como activo. */
+  excluir?: string[];
 }
 
 @Component({
@@ -25,6 +27,7 @@ export class SidebarAccordionItem implements OnInit {
 
   readonly expanded = signal(false);
   private readonly router = inject(Router);
+  readonly url = signal(this.router.url);
 
   ngOnInit(): void {
     if (this.router.url.startsWith(this.route)) {
@@ -33,10 +36,17 @@ export class SidebarAccordionItem implements OnInit {
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe((e) => {
+        this.url.set(e.urlAfterRedirects);
         if (e.urlAfterRedirects.startsWith(this.route)) {
           this.expanded.set(true);
         }
       });
+  }
+
+  esActivo(child: AccordionChild): boolean {
+    const url = this.url().split(/[?#]/)[0];
+    const dentro = (ruta: string) => url === ruta || url.startsWith(`${ruta}/`);
+    return dentro(child.route) && !(child.excluir ?? []).some(dentro);
   }
 
   toggle(): void {

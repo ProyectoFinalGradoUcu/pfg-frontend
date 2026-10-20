@@ -377,6 +377,9 @@ export interface FuncionarioDeOrdenPayload {
   grado_destino_id?: number;
   fecha_ascenso?: string;
   motivo_excepcion?: string;
+  /** Posición en la derecha del grado destino. Sin valor: al final. */
+  posicion_derecha?: number;
+  posicion_numor?: number;
 }
 
 export interface CrearOrdenPayload {

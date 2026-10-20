@@ -23,7 +23,7 @@ const routes: Routes = [
       },
       {
         path: 'personal',
-        canActivate: [permissionGuard(['personas.ver', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar'])],
+        canActivate: [permissionGuard(['personas.ver', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar', 'derecha.gestionar'])],
         loadChildren: () => import('./features/personal/personal-module').then((m) => m.PersonalModule),
       },
       {

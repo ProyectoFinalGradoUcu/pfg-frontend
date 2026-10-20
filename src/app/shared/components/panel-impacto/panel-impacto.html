@@ -1,0 +1,69 @@
+<aside class="impacto" aria-live="polite">
+  <h3 class="impacto__titulo">Impacto del cambio</h3>
+
+  <p class="impacto__vacio" *ngIf="!impacto && !cargando && !error">{{ textoVacio }}</p>
+  <p class="impacto__cargando" *ngIf="cargando">Calculando a quién afecta…</p>
+  <p class="impacto__error" *ngIf="error && !cargando" role="alert">{{ error }}</p>
+
+  <ng-container *ngIf="impacto && !cargando && !error">
+    <div class="impacto__total">
+      <b>{{ impacto.afectados }}</b>
+      <span>{{ impacto.afectados === 1 ? 'funcionario afectado' : 'funcionarios afectados' }}</span>
+    </div>
+
+    <p class="impacto__alto" *ngIf="impacto.afectados > umbral" role="alert">
+      Cambio de alto impacto: corre a más de {{ umbral }} funcionarios. Revisá la lista antes de confirmar.
+    </p>
+
+    <p class="impacto__aviso" *ngFor="let aviso of impacto.avisos">{{ aviso }}</p>
+
+    <section class="impacto__seccion" *ngIf="impacto.derecha.length">
+      <h4>Derecha</h4>
+      <ul class="impacto__lista">
+        <li *ngFor="let a of impacto.derecha">
+          <span class="impacto__nombre">
+            {{ a.nombre }}
+            <small *ngIf="a.grado">{{ a.grado }}<ng-container *ngIf="a.escalafon"> · {{ a.escalafon }}</ng-container></small>
+          </span>
+          <span class="impacto__cambio">
+            {{ valor(a.antes) }} <span aria-hidden="true">→</span><span class="sr-only">pasa a</span> <b>{{ valor(a.despues) }}</b>
+          </span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="impacto__seccion" *ngIf="impacto.numor.length">
+      <h4>Numor</h4>
+      <ul class="impacto__lista">
+        <li *ngFor="let a of impacto.numor">
+          <span class="impacto__nombre">
+            {{ a.nombre }}
+            <small *ngIf="a.grado">{{ a.grado }}<ng-container *ngIf="a.escalafon"> · {{ a.escalafon }}</ng-container></small>
+          </span>
+          <span class="impacto__cambio">
+            {{ valor(a.antes) }} <span aria-hidden="true">→</span><span class="sr-only">pasa a</span> <b>{{ valor(a.despues) }}</b>
+          </span>
+        </li>
+      </ul>
+    </section>
+
+    <p class="impacto__vacio" *ngIf="impacto.afectados === 0">El cambio no corre a nadie.</p>
+  </ng-container>
+
+  <div class="impacto__acciones" *ngIf="conAcciones">
+    <label class="impacto__motivo">
+      <span>Motivo <small>(opcional)</small></span>
+      <textarea rows="2" [value]="motivo()" (input)="motivo.set($any($event.target).value)"
+        [disabled]="!pendiente || confirmando" placeholder="Ej.: corrección según Boletín 12/2026"></textarea>
+    </label>
+    <div class="impacto__botones">
+      <button type="button" class="btn btn--ghost" [disabled]="!pendiente || confirmando" (click)="onDescartar()">
+        Descartar
+      </button>
+      <button type="button" class="btn btn--primary"
+        [disabled]="!pendiente || !impacto || cargando || !!error || confirmando" (click)="onConfirmar()">
+        {{ confirmando ? 'Guardando…' : 'Confirmar' }}
+      </button>
+    </div>
+  </div>
+</aside>

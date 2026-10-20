@@ -4,7 +4,6 @@ import { Subject, switchMap, takeUntil, debounceTime, distinctUntilChanged } fro
 import {
   CargaMasivaResult,
   FiltroCategoria,
-  GradoItem,
   OPCIONES_FILTRO_CATEGORIA,
   OpcionSelect,
   PersonaListItem,
@@ -12,6 +11,11 @@ import {
 } from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import {
+  FILTRO_DERECHA_NUMOR_INICIAL,
+  FiltroDerechaNumor,
+  OrdenarPorDerechaNumor,
+} from '../../../../core/models/derecha.models';
 
 @Component({
   selector: 'app-personal-page',
@@ -42,7 +46,6 @@ export class PersonalPage implements OnInit, OnDestroy {
 
   readonly searchTerm     = signal('');
   readonly selectedDestino = signal<number | null>(null);
-  readonly selectedRango   = signal<number | null>(null);
   readonly selectedEstado  = signal<number | null>(null);
   readonly selectedCategoria = signal<FiltroCategoria>('todos');
   readonly opcionesCategoria = OPCIONES_FILTRO_CATEGORIA;
@@ -51,6 +54,8 @@ export class PersonalPage implements OnInit, OnDestroy {
    * `fecha_fin: null`. Sin este toggle, un retirado simplemente no está en la grilla.
    */
   readonly incluirRetirados = signal(false);
+  /** Grado, escalafón, rangos de derecha y numor, y el orden del listado. */
+  readonly filtroDerecha = signal<FiltroDerechaNumor>({ ...FILTRO_DERECHA_NUMOR_INICIAL });
   readonly currentPage     = signal(1);
 
   readonly items   = signal<PersonaListItem[]>([]);
@@ -58,11 +63,18 @@ export class PersonalPage implements OnInit, OnDestroy {
   readonly loading = signal(false);
 
   readonly unidades    = signal<OpcionSelect[]>([]);
-  readonly todosGrados = signal<GradoItem[]>([]);
   readonly situaciones = signal<OpcionSelect[]>([]);
 
+  /** Fila de escala, grado, escalafón, derecha y numor: se despliega con la flecha junto a 'Borrar filtros'. */
+  readonly filtrosDerechaAbiertos = signal(false);
+
+  readonly hayFiltroDerecha = computed(() => {
+    const f = this.filtroDerecha();
+    return [f.escala, f.gradoId, f.escalafonId, f.derechaDesde, f.derechaHasta, f.numorDesde, f.numorHasta].some((v) => v != null);
+  });
+
   readonly hayFiltrosActivos = computed(() =>
-    !!this.searchTerm() || !!this.selectedDestino() || !!this.selectedRango() || !!this.selectedEstado() || this.selectedCategoria() !== 'todos' || this.incluirRetirados()
+    !!this.searchTerm() || !!this.selectedDestino() || !!this.selectedEstado() || this.selectedCategoria() !== 'todos' || this.incluirRetirados() || this.hayFiltroDerecha()
   );
 
   readonly openMenuId    = signal<string | null>(null);
@@ -91,8 +103,8 @@ export class PersonalPage implements OnInit, OnDestroy {
             pageSize: this.PAGE_SIZE,
             search:   this.searchTerm().trim() || undefined,
             destino:  this.selectedDestino() ?? undefined,
-            rango:    this.selectedRango()   ?? undefined,
             estado:   this.selectedEstado()  ?? undefined,
+            filtroDerecha: this.filtroDerecha(),
             incluir_inactivos: this.incluirRetirados() || undefined,
             categoria: categoriaParam(this.selectedCategoria()),
           });
@@ -127,7 +139,6 @@ export class PersonalPage implements OnInit, OnDestroy {
 
   private loadFilterOptions(): void {
     this.personalService.getUnidades().subscribe({ next: d => this.unidades.set(d) });
-    this.personalService.getGrados().subscribe({ next: d => this.todosGrados.set(d) });
     this.personalService.getSituaciones().subscribe({ next: d => this.situaciones.set(d) });
   }
 
@@ -143,11 +154,29 @@ export class PersonalPage implements OnInit, OnDestroy {
     this.triggerLoad$.next();
   }
 
-  onRangoChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedRango.set(val ? Number(val) : null);
+  onFiltroDerecha(filtro: FiltroDerechaNumor): void {
+    this.filtroDerecha.set(filtro);
     this.currentPage.set(1);
     this.triggerLoad$.next();
+  }
+
+  /** Click en el encabezado: el mismo campo invierte la dirección, otro arranca ascendente. */
+  ordenarPor(campo: OrdenarPorDerechaNumor): void {
+    const actual = this.filtroDerecha();
+    const direccion = actual.ordenarPor === campo && actual.direccion === 'ASC' ? 'DESC' : 'ASC';
+    this.onFiltroDerecha({ ...actual, ordenarPor: campo, direccion });
+  }
+
+  indicadorOrden(campo: OrdenarPorDerechaNumor): string {
+    const f = this.filtroDerecha();
+    if (f.ordenarPor !== campo) return '';
+    return f.direccion === 'DESC' ? '↓' : '↑';
+  }
+
+  ariaSort(campo: OrdenarPorDerechaNumor): 'ascending' | 'descending' | 'none' {
+    const f = this.filtroDerecha();
+    if (f.ordenarPor !== campo) return 'none';
+    return f.direccion === 'DESC' ? 'descending' : 'ascending';
   }
 
   onEstadoChange(event: Event): void {
@@ -177,8 +206,10 @@ export class PersonalPage implements OnInit, OnDestroy {
   limpiarFiltros(): void {
     this.searchTerm.set('');
     this.selectedDestino.set(null);
-    this.selectedRango.set(null);
     this.selectedEstado.set(null);
+    // Se conserva el orden elegido en la tabla: limpiar borra filtros, no el orden.
+    const { ordenarPor, direccion } = this.filtroDerecha();
+    this.filtroDerecha.set({ ...FILTRO_DERECHA_NUMOR_INICIAL, ordenarPor, direccion });
     this.selectedCategoria.set('todos');
     this.incluirRetirados.set(false);
     this.currentPage.set(1);

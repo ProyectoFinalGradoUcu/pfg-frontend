@@ -105,6 +105,12 @@
         </div>
       </div>
 
+      <app-filtro-derecha-numor
+        class="cursos__filtro-derecha"
+        [valor]="filtroDerecha()"
+        (valorChange)="onFiltroDerecha($event)"
+      ></app-filtro-derecha-numor>
+
       <div *ngIf="loading()" class="cursos__placeholder">Cargando...</div>
 
       <div *ngIf="!loading()" class="cursos__table-wrapper">
@@ -113,6 +119,9 @@
             <tr>
               <th>Funcionario</th>
               <th>Cédula</th>
+              <th>Grado</th>
+              <th>Derecha</th>
+              <th>Numor</th>
               <th>Curso</th>
               <th>Institución</th>
               <th>Fecha Inicio</th>
@@ -129,6 +138,9 @@
             >
               <td>{{ fila.nombre }}</td>
               <td class="cursos__cedula">{{ fila.cedula }}</td>
+              <td>{{ fila.grado ?? '—' }}<small class="cursos__escalafon" *ngIf="fila.escalafon"> {{ fila.escalafon }}</small></td>
+              <td class="cursos__num">{{ fila.derecha ?? '—' }}</td>
+              <td class="cursos__num">{{ fila.numor ?? '—' }}</td>
               <td>
                 <div class="cursos__curso-cell">
                   <strong>{{ fila.curso.nombre_curso }}</strong>
@@ -215,7 +227,7 @@
               </td>
             </tr>
             <tr *ngIf="filasFlat().length === 0">
-              <td [attr.colspan]="puedeGestionar() ? 9 : 8" class="cursos__empty">
+              <td [attr.colspan]="puedeGestionar() ? 12 : 11" class="cursos__empty">
                 {{ cedulaFiltro() ? 'No se encontraron cursos para esa cédula' : 'No hay cursos registrados' }}
               </td>
             </tr>

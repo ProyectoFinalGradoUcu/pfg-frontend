@@ -1363,3 +1363,25 @@ $navy-soft: #1e3a5f;
     background-color: #d1fae5;
   }
 }
+
+// ── Derecha y numor ─────────────────────────────────────────────────────────
+
+// Con Grado, Derecha y Numor la tabla es más ancha que la página: que scrollee dentro de la card.
+.cursos__card {
+  min-width: 0;
+}
+
+.cursos__filtro-derecha {
+  margin-bottom: 1rem;
+}
+
+.cursos__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: #132744;
+}
+
+.cursos__escalafon {
+  color: #64748b;
+  font-size: 0.78rem;
+}

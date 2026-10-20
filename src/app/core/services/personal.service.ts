@@ -22,6 +22,7 @@ import {
   PersonasPaginadas,
 } from '../models/personal.models';
 import { DestinoDePersona } from '../models/destinos.models';
+import { filtroDerechaNumorParams } from '../models/derecha.models';
 
 // Re-exportado para que módulos que importaban desde el servicio no rompan.
 export type { PersonaListItem } from '../models/personal.models';
@@ -46,6 +47,7 @@ export class PersonalService {
     if (params.estado)   query['estado']   = String(params.estado);
     if (params.incluir_inactivos) query['incluir_inactivos'] = 'true';
     if (params.categoria) query['categoria'] = params.categoria;
+    if (params.filtroDerecha) Object.assign(query, filtroDerechaNumorParams(params.filtroDerecha));
     return this.http.get<PersonasPaginadas>(`${API_BASE_URL}/personas`, {
       params: query,
       withCredentials: true,
