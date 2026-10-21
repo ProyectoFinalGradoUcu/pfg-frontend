@@ -11,6 +11,7 @@ export interface CargaMasivaResult {
   exitosos: number;
   errores: number;
   resultados: CargaMasivaResultadoItem[];
+  avisos?: string[];
 }
 
 /**
