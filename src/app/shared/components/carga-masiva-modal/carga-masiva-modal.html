@@ -75,6 +75,8 @@
       </div>
     </div>
 
+    <p class="cm-error" role="alert" *ngFor="let aviso of r.avisos">{{ aviso }}</p>
+
     <p class="cm-ayuda" *ngIf="r.errores > 0">
       Las filas con error no se cargaron. Corregilas en el Excel y subilo de nuevo: conviene dejar solo esas filas
       para no duplicar las que ya entraron.
