@@ -28,6 +28,10 @@
             {{ p.relacion_laboral?.grado?.denominacion }}
             <span class="pd__meta-dot">·</span>
             {{ p.cedula }}
+            <span class="pd__meta-dot">·</span>
+            Derecha {{ p.relacion_laboral?.derecha ?? '—' }}
+            <span class="pd__meta-dot">·</span>
+            Numor {{ p.relacion_laboral?.numor ?? '—' }}
           </p>
         </div>
       </div>
@@ -210,6 +214,14 @@
                 <span class="pd__value">{{ rl.grado?.denominacion ?? '—' }}</span>
               </div>
               <div class="pd__field">
+                <span class="pd__label">Derecha</span>
+                <span class="pd__value">{{ rl.estado === 'activo' ? (rl.derecha ?? '—') : '—' }}</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Numor</span>
+                <span class="pd__value">{{ rl.estado === 'activo' ? (rl.numor ?? '—') : '—' }}</span>
+              </div>
+              <div class="pd__field">
                 <span class="pd__label">Destino / Unidad</span>
                 <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
               </div>
@@ -297,6 +309,46 @@
                   <option *ngFor="let gr of editGrados()" [ngValue]="gr.id">{{ gr.denominacion }}</option>
                 </select>
               </div>
+              <ng-container *ngIf="puedeEditarDerecha()">
+                <div class="pd__field" *ngIf="!cambioGradoOEscalafon(); else derechaPorGrado">
+                  <span class="pd__label">Derecha y numor</span>
+                  <div class="pd__derecha-inputs">
+                    <label>
+                      <span>Derecha</span>
+                      <input type="number" formControlName="derecha" class="pd__edit-input"
+                        [min]="rangoDerecha()?.desde ?? 1" [max]="rangoDerecha()?.hasta ?? null" step="1" />
+                    </label>
+                    <label>
+                      <span>Numor</span>
+                      <input type="number" formControlName="numor" class="pd__edit-input"
+                        min="1" [max]="maxNumor() ?? null" step="1" />
+                    </label>
+                  </div>
+                  <span class="pd__edit-hint" *ngIf="rangoDerecha() as r">
+                    Derecha de {{ r.desde }} a {{ r.hasta }} ({{ rl.grado?.denominacion }})<ng-container *ngIf="maxNumor()"> · numor de 1 a {{ maxNumor() }} ({{ rl.grado?.denominacion }} {{ rl.escalafon?.denominacion }})</ng-container>
+                  </span>
+                  <span class="pd__edit-error" *ngIf="errorRangoDerecha() as e">{{ e }}</span>
+                  <ng-container *ngIf="cambioDerecha() && !errorRangoDerecha()">
+                    <app-panel-impacto
+                      class="pd__derecha-impacto"
+                      [impacto]="impactoDerecha()"
+                      [cargando]="calculandoDerecha()"
+                      [error]="errorDerecha()"
+                      [conAcciones]="false"
+                      textoVacio="Calculando a quiénes afecta…"
+                    ></app-panel-impacto>
+                    <input type="text" formControlName="motivo_derecha" class="pd__edit-input"
+                      placeholder="Motivo del cambio de derecha o numor (opcional)" />
+                    <span class="pd__edit-hint">Se aplica al guardar el perfil.</span>
+                  </ng-container>
+                </div>
+                <ng-template #derechaPorGrado>
+                  <div class="pd__field">
+                    <span class="pd__label">Derecha y numor</span>
+                    <span class="pd__edit-hint">Al cambiar el grado o el escalafón, queda al final de su nuevo grado y grupo de numor.</span>
+                  </div>
+                </ng-template>
+              </ng-container>
               <div class="pd__field">
                 <span class="pd__label">Unidad</span>
                 <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>

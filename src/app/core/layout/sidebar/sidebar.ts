@@ -16,6 +16,22 @@ export class Sidebar {
   readonly puedeVerPersonal = computed(() =>
     this.auth.hasAnyPermiso(['personas.ver', 'personas.ver.unidad', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar']),
   );
+  readonly puedeGestionarDerecha = computed(() => this.auth.hasPermiso('derecha.gestionar'));
+
+  readonly itemsPersonal = computed(() => {
+    const items: { label: string; route: string; excluir?: string[] }[] = [];
+    if (this.puedeVerPersonal()) {
+      items.push({
+        label: 'Administración de personal',
+        route: '/personal',
+        excluir: ['/personal/configuracion-derecha'],
+      });
+    }
+    if (this.puedeGestionarDerecha()) {
+      items.push({ label: 'Configuración', route: '/personal/configuracion-derecha' });
+    }
+    return items;
+  });
   readonly puedeVerAscensos = computed(() =>
     this.auth.hasAnyPermiso([
       'ascensos.ver', 'ascensos.ver.unidad', 'ascensos.registrar', 'ascensos.anular',

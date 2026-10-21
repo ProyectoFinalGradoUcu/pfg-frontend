@@ -252,6 +252,33 @@
       </div>
     </article>
 
+    <!-- ── Sección 2b: Derecha y numor (personal en actividad) ── -->
+    <article class="nf__card" *ngIf="!form.get('es_civil')?.value">
+      <h2 class="nf__section-title">Derecha y numor</h2>
+      <p class="nf__derecha-ayuda" *ngIf="!gradoElegido() || !escalafonElegido()">
+        Elegí escalafón y grado para ubicarlo en la derecha. Por defecto queda al final de su grado y de su numor.
+      </p>
+      <div class="nf__derecha" *ngIf="gradoElegido() && escalafonElegido()">
+        <app-selector-posicion-derecha
+          [gradoId]="gradoElegido()"
+          [escalafonId]="escalafonElegido()"
+          [nombre]="(form.get('primer_nombre')?.value || 'Nuevo') + ' ' + (form.get('primer_apellido')?.value || 'funcionario')"
+          [editable]="puedeElegirPosicion()"
+          [posicion]="posicionDerecha()"
+          [posicionNumor]="posicionNumor()"
+          (posicionChange)="onPosicionDerecha($event)"
+          (posicionNumorChange)="onPosicionNumor($event)"
+        ></app-selector-posicion-derecha>
+        <app-panel-impacto
+          [impacto]="impactoAlta()"
+          [cargando]="calculandoAlta()"
+          [error]="errorAlta()"
+          [conAcciones]="false"
+          textoVacio="Calculando la ubicación…"
+        ></app-panel-impacto>
+      </div>
+    </article>
+
     <!-- ── Sección 3: Familiares (siempre visible; obligatorio solo para civiles) ── -->
     <article class="nf__card">
       <h2 class="nf__section-title">Familiares</h2>

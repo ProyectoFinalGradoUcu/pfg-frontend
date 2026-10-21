@@ -8,6 +8,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { CursosService } from '../../../../core/services/cursos.service';
+import { FILTRO_DERECHA_NUMOR_INICIAL, FiltroDerechaNumor } from '../../../../core/models/derecha.models';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
 import {
@@ -47,6 +48,10 @@ interface FilaHistorial {
   funcionarioId: string;
   cedula: string;
   nombre: string;
+  grado?: string | null;
+  escalafon?: string | null;
+  derecha?: number | null;
+  numor?: number | null;
   curso: CursoFuncionarioItem;
 }
 
@@ -85,6 +90,7 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly cedulaFiltro = signal('');
   readonly categoriaFiltro = signal<FiltroCategoria>('todos');
   readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
+  readonly filtroDerecha = signal<FiltroDerechaNumor>({ ...FILTRO_DERECHA_NUMOR_INICIAL });
   readonly buscandoCedula = signal(false);
   readonly personal = signal<PersonaListItem[]>([]);
   readonly historialPage = signal(1);
@@ -179,6 +185,10 @@ export class CursosPage implements OnInit, OnDestroy {
         funcionarioId: f.id,
         cedula: f.cedula,
         nombre: f.nombre,
+        grado: f.grado,
+        escalafon: f.escalafon,
+        derecha: f.derecha,
+        numor: f.numor,
         curso: c,
       })),
     ),
@@ -277,6 +287,7 @@ export class CursosPage implements OnInit, OnDestroy {
               100,
               this.verBajas(),
               categoriaParam(this.categoriaFiltro()),
+              this.filtroDerecha(),
             )
             .pipe(catchError(() => of([])));
         }),
@@ -310,6 +321,7 @@ export class CursosPage implements OnInit, OnDestroy {
           100,
           this.verBajas(),
           categoriaParam(this.categoriaFiltro()),
+          this.filtroDerecha(),
         )
         .pipe(catchError(() => of([]))),
       personal: this.personalService.findAll().pipe(catchError(() => of([]))),
@@ -740,6 +752,12 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   // ── Baja / Reactivación ─────────────────────────────────────────────────────
+
+  onFiltroDerecha(filtro: FiltroDerechaNumor): void {
+    this.filtroDerecha.set(filtro);
+    this.historialPage.set(1);
+    this.cargar();
+  }
 
   onCategoriaChange(value: string): void {
     this.categoriaFiltro.set(value as FiltroCategoria);

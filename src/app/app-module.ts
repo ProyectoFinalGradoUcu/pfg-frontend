@@ -11,15 +11,16 @@ import { SidebarAccordionItem } from './core/layout/sidebar/sidebar-accordion-it
 import { Topbar } from './core/layout/topbar/topbar';
 import { ToastContainer } from './core/components/toast-container/toast-container';
 import { ErrorModal } from './core/components/error-modal/error-modal';
+import { ConfirmModal } from './core/components/confirm-modal/confirm-modal';
 import { CoreModule } from './core/core-module';
 import { credentialsInterceptor } from './core/interceptors/credentials.interceptor';
 import { authErrorInterceptor } from './core/interceptors/auth-error.interceptor';
 import { responseUnwrapInterceptor } from './core/interceptors/response-unwrap.interceptor';
 
 @NgModule({
-  declarations: [App, NotFoundPage, MainLayout, Sidebar, Topbar, ToastContainer, ErrorModal],
+  declarations: [App, NotFoundPage, MainLayout, Sidebar, Topbar, ToastContainer, ErrorModal, ConfirmModal],
   imports: [BrowserModule, CoreModule, AppRoutingModule, SidebarAccordionItem],
-  exports: [ToastContainer, ErrorModal],
+  exports: [ToastContainer, ErrorModal, ConfirmModal],
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideHttpClient(

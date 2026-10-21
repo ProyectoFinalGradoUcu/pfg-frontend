@@ -1,0 +1,167 @@
+$navy: #132744;
+$line: #e2e8f0;
+$muted: #64748b;
+
+:host {
+  display: block;
+}
+
+.spd {
+  display: grid;
+  gap: 1rem;
+}
+
+.spd__vacio,
+.spd__ayuda {
+  margin: 0;
+  color: $muted;
+  font-size: 0.84rem;
+}
+
+.spd__error {
+  margin: 0;
+  color: #b91c1c !important;
+  font-size: 0.8rem;
+}
+
+.spd__tope {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  background-color: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 0.8rem;
+}
+
+.spd__bloque {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.spd__cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+
+  h4 {
+    margin: 0;
+    color: $navy;
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  span {
+    color: $muted;
+    font-size: 0.78rem;
+  }
+}
+
+.spd__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid $line;
+  border-radius: 10px;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.spd__fila {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  color: #0f172a;
+
+  &--corre {
+    background-color: #fffbeb;
+  }
+}
+
+.spd__num {
+  min-width: 2rem;
+  font-weight: 700;
+  color: $navy;
+  font-variant-numeric: tabular-nums;
+}
+
+.spd__nombre {
+  flex: 1;
+  min-width: 0;
+
+  small {
+    color: $muted;
+    margin-left: 0.3rem;
+  }
+}
+
+.spd__mas {
+  color: #92400e;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.spd__fila--nuevo {
+  background-color: #e0f2fe;
+  color: #075985;
+  font-weight: 700;
+
+  .spd__num {
+    color: #075985;
+  }
+}
+
+.spd__valores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.spd__campo {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 11rem;
+
+  > span {
+    color: #334155;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  small {
+    color: $muted;
+    font-size: 0.74rem;
+  }
+
+  input {
+    width: 10rem;
+    height: 2.3rem;
+    padding: 0 0.6rem;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: $navy;
+
+    &:focus-visible {
+      outline: none;
+      border-color: $navy;
+    }
+
+    &:disabled {
+      background-color: #f8fafc;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.spd__input--error {
+  border-color: #dc2626 !important;
+}
+

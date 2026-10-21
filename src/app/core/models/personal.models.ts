@@ -1,5 +1,7 @@
 import { RetiroHistorial } from './retiros.models';
 
+import { FiltroDerechaNumor } from './derecha.models';
+
 export interface PersonaListItem {
   id: string;
   nombre: string;
@@ -10,6 +12,10 @@ export interface PersonaListItem {
   estado: string | null;
   /** Lo que hay que mirar para saber si está retirado. */
   relacion_estado: 'activo' | 'inactivo' | null;
+  escalafon?: string | null;
+  /** Solo el personal en actividad tiene derecha y numor. */
+  derecha?: number | null;
+  numor?: number | null;
 }
 
 export interface PersonasPaginadas {
@@ -29,6 +35,7 @@ export interface FindPersonasParams {
   /** Sin esto los retirados no aparecen: el backend exige relación abierta. */
   incluir_inactivos?: boolean;
   categoria?: 'oficial' | 'subalterno';
+  filtroDerecha?: FiltroDerechaNumor;
 }
 
 export interface OpcionSelect {
@@ -78,6 +85,9 @@ export interface SimpleRef   { id: number; denominacion: string }
 export interface RelacionLaboral {
   id: number;
   estado: string;
+  /** Null si no está en actividad o su grado no tiene derecha. */
+  derecha: number | null;
+  numor: number | null;
   tipo_funcionario: string;
   fecha_inicio: string;
   fecha_ultimo_ascenso: string | null;
@@ -244,6 +254,10 @@ export interface PatchPersonaPayload {
   fecha_egreso_eta?: string | null;
   numero_orden_egreso_eta?: string | null;
   mutaciones?: string | null;
+  // Derecha y numor: exigen derecha.gestionar
+  derecha?: number;
+  numor?: number;
+  motivo_derecha?: string;
 }
 
 export interface CrearPersonaPayload {

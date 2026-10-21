@@ -1,12 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, map, merge, of, switchMap, takeUntil } from 'rxjs';
 import { FamiliarEntry, GradoItem, OpcionSelect, PersonaListItem } from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { AuthService } from '../../../../core/services/auth.service';
+import { DerechaService } from '../../../../core/services/derecha.service';
+import { Impacto } from '../../../../core/models/derecha.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 
 /**
@@ -34,6 +37,8 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
+  private readonly auth = inject(AuthService);
+  private readonly derecha = inject(DerechaService);
 
   // ─── Estado general ──────────────────────────────────────────────────────────
   readonly loading = signal(false);
@@ -46,6 +51,18 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   readonly programas   = signal<OpcionSelect[]>([]);
   readonly situaciones = signal<OpcionSelect[]>([]);
   readonly subUnidades = signal<OpcionSelect[]>([]);
+
+  // ─── Derecha y numor ─────────────────────────────────────────────────────────
+  readonly puedeElegirPosicion = computed(() => this.auth.hasPermiso('derecha.gestionar'));
+  readonly gradoElegido     = signal<number | null>(null);
+  readonly escalafonElegido = signal<number | null>(null);
+  /** null = al final del grado / del grupo. */
+  readonly posicionDerecha  = signal<number | null>(null);
+  readonly posicionNumor    = signal<number | null>(null);
+  readonly impactoAlta      = signal<Impacto | null>(null);
+  readonly calculandoAlta   = signal(false);
+  readonly errorAlta        = signal<string | null>(null);
+  private readonly impactoAlta$ = new Subject<void>();
 
   // ─── Familiares (civil) ───────────────────────────────────────────────────────
   readonly familiares       = signal<FamiliarEntry[]>([]);
@@ -112,6 +129,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     this.setupEscalafonCascade();
     this.setupCivilToggle();
     this.setupFamiliarSearch();
+    this.setupDerecha();
   }
 
   ngOnDestroy(): void {
@@ -147,6 +165,58 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
           gradoCtrl.disable();
         }
       });
+  }
+
+  private setupDerecha(): void {
+    merge(this.form.get('grado_id')!.valueChanges, this.form.get('escalafon_id')!.valueChanges)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        const raw = this.form.getRawValue();
+        this.gradoElegido.set(raw.grado_id ? Number(raw.grado_id) : null);
+        this.escalafonElegido.set(raw.escalafon_id ? Number(raw.escalafon_id) : null);
+        this.posicionDerecha.set(null);
+        this.posicionNumor.set(null);
+        this.impactoAlta$.next();
+      });
+
+    this.impactoAlta$
+      .pipe(
+        debounceTime(250),
+        switchMap(() => {
+          const grado = this.gradoElegido();
+          const escalafon = this.escalafonElegido();
+          if (!grado || !escalafon) return of({ impacto: null, error: null });
+          this.calculandoAlta.set(true);
+          return this.derecha
+            .previsualizar({
+              operacion: 'ALTA',
+              grado_id: grado,
+              escalafon_id: escalafon,
+              posicion: this.posicionDerecha() ?? undefined,
+              posicion_numor: this.posicionNumor() ?? undefined,
+            })
+            .pipe(
+              map((impacto) => ({ impacto, error: null as string | null })),
+              catchError((err: HttpErrorResponse) => of({ impacto: null, error: parseError(err) })),
+            );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((r) => {
+        this.calculandoAlta.set(false);
+        this.impactoAlta.set(r.impacto);
+        this.errorAlta.set(r.error);
+      });
+  }
+
+  onPosicionDerecha(posicion: number | null): void {
+    this.posicionDerecha.set(posicion);
+    this.impactoAlta$.next();
+  }
+
+  onPosicionNumor(posicion: number | null): void {
+    this.posicionNumor.set(posicion);
+    this.impactoAlta$.next();
   }
 
   private setupCivilToggle(): void {
@@ -327,6 +397,8 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       payload['tiene_mando']      = !!raw.tiene_mando;
       if (raw.sub_unidad_id) payload['sub_unidad_id'] = Number(raw.sub_unidad_id);
       if (raw.prima_tecnica) payload['prima_tecnica'] = raw.prima_tecnica;
+      if (this.posicionDerecha() !== null) payload['posicion_derecha'] = this.posicionDerecha();
+      if (this.posicionNumor() !== null) payload['posicion_numor'] = this.posicionNumor();
     }
 
     this.personalService.crear(payload as never).subscribe({

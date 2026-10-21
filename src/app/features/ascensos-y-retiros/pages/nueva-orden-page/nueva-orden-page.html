@@ -141,6 +141,38 @@
             (click)="quitar(f.evaluacion.persona.id)">Quitar</button>
         </div>
 
+        <div class="derecha" *ngIf="f.grado_destino_id">
+          <div class="derecha__resumen">
+            <span>
+              Derecha: <b>{{ textoPosicion(f) }}</b>
+              <ng-container *ngIf="f.posicion_numor !== null"> · numor {{ f.posicion_numor }}</ng-container>
+            </span>
+            <button type="button" class="btn btn--sm btn--ghost" (click)="alternarDerecha(f)"
+              [attr.aria-expanded]="f.verDerecha">
+              {{ f.verDerecha ? 'Ocultar' : (puedeElegirPosicion() ? 'Elegir posición' : 'Ver derecha') }}
+            </button>
+          </div>
+          <div class="derecha__detalle" *ngIf="f.verDerecha">
+            <app-selector-posicion-derecha
+              [gradoId]="f.grado_destino_id"
+              [escalafonId]="f.evaluacion.persona.escalafon?.id ?? null"
+              [nombre]="f.evaluacion.persona.nombre_completo"
+              [editable]="puedeElegirPosicion()"
+              [posicion]="f.posicion_derecha"
+              [posicionNumor]="f.posicion_numor"
+              (posicionChange)="onPosicionDerecha(f.evaluacion.persona.id, $event)"
+              (derechaChange)="onDerechaElegida(f.evaluacion.persona.id, $event)"
+              (posicionNumorChange)="onPosicionNumor(f.evaluacion.persona.id, $event)"
+            ></app-selector-posicion-derecha>
+            <app-panel-impacto
+              [impacto]="f.impacto"
+              [cargando]="f.calculandoImpacto"
+              [error]="f.errorImpacto"
+              [conAcciones]="false"
+            ></app-panel-impacto>
+          </div>
+        </div>
+
         <div class="bloqueo" *ngIf="esExcepcion(f)">
           <p class="bloqueo__titulo">No cumple los requisitos para ascender</p>
 
@@ -178,6 +210,11 @@
       </article>
     </div>
 
+    <p class="advertencia" *ngIf="destinosRepetidos() && puedeElegirPosicion()">
+      Varios funcionarios ascienden al mismo grado: las posiciones en la derecha se aplican en el orden
+      de esta lista, cada una sobre la derecha que dejó el anterior.
+    </p>
+
     <footer class="card__footer">
       <p class="card__footer-aviso" *ngIf="excepcionesSinMotivo() > 0" role="status">
         {{ excepcionesSinMotivo() === 1
@@ -210,6 +247,9 @@
         <span class="confirmacion__persona">{{ f.evaluacion.persona.nombre_completo }}</span>
         <span class="confirmacion__grados">
           {{ f.evaluacion.grado_actual.denominacion }} → {{ f.evaluacion.grado_destino?.denominacion }}
+        </span>
+        <span class="confirmacion__derecha">
+          Derecha {{ textoPosicion(f) }}<ng-container *ngIf="f.posicion_numor !== null"> · numor {{ f.posicion_numor }}</ng-container>
         </span>
         <span class="badge badge--bloqueado" *ngIf="esExcepcion(f)" [attr.title]="f.motivo_excepcion">
           por excepción

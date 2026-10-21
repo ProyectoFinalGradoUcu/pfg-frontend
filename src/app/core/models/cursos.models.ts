@@ -50,6 +50,10 @@ export interface FuncionarioConCursos {
   cedula: string;
   nombre: string;
   cursos: CursoFuncionarioItem[];
+  grado?: string | null;
+  escalafon?: string | null;
+  derecha?: number | null;
+  numor?: number | null;
 }
 
 export interface CreateHistorialCursoPayload {

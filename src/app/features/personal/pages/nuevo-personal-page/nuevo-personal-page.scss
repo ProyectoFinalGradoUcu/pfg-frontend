@@ -440,3 +440,22 @@
     }
   }
 }
+
+// ─── Derecha y numor ─────────────────────────────────────────────────────────
+
+.nf__derecha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  gap: 1rem;
+  align-items: start;
+
+  @media (max-width: 1000px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.nf__derecha-ayuda {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}

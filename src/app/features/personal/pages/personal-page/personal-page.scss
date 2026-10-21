@@ -32,6 +32,10 @@
 // Alto único para todos los controles del filtro: input, select, check y botón.
 $pp-alto-control: 2.75rem;
 
+.personal-page__filtro-derecha {
+  --fdn-alto: #{$pp-alto-control};
+}
+
 .personal-page__filters-row {
   display: flex;
   align-items: center;
@@ -353,11 +357,13 @@ $pp-alto-control: 2.75rem;
   flex-shrink: 0;
 }
 
-.personal-page__clear-btn {
+// Tooltip propio (el texto sale de data-tooltip).
+.personal-page__clear-btn,
+.personal-page__toggle-btn {
   position: relative;
 
   &::after {
-    content: 'Borrar filtros';
+    content: attr(data-tooltip);
     position: absolute;
     bottom: calc(100% + 7px);
     left: 50%;
@@ -396,6 +402,32 @@ $pp-alto-control: 2.75rem;
   }
 }
 
+.personal-page__toggle-btn {
+  svg {
+    transition: transform 0.2s ease;
+  }
+
+  &[aria-expanded='true'] {
+    border-color: #94a3b8;
+    color: #334155;
+
+    svg {
+      transform: rotate(180deg);
+    }
+  }
+}
+
+// Avisa que hay filtros de derecha o numor aplicados aunque la fila esté cerrada.
+.personal-page__toggle-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #132744;
+}
+
 // El badge de situación sigue diciendo "en actividad": este chip es el real.
 .personal-page__badge--retirado {
   margin-left: 0.35rem;
@@ -430,4 +462,33 @@ $pp-alto-control: 2.75rem;
     color: #132744;
     font-weight: 500;
   }
+}
+
+// ─── Derecha y numor ─────────────────────────────────────────────────────────
+
+.personal-page__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.personal-page__num {
+  font-variant-numeric: tabular-nums;
+  color: #132744;
+  font-weight: 600;
+}
+
+.personal-page__escalafon {
+  color: #64748b;
+  font-size: 0.78rem;
 }

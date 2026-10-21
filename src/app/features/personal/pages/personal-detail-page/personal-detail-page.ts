@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, map, merge, of, switchMap, takeUntil } from 'rxjs';
 import {
   CursoPersona, FamiliarItem, GradoItem, HistorialMilitar,
   MisionPersona, NIVELES_EDUCATIVOS, OpcionSelect, PatchPersonaPayload,
@@ -14,6 +14,8 @@ import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { DerechaService } from '../../../../core/services/derecha.service';
+import { Impacto } from '../../../../core/models/derecha.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 import {
   ESTADOS_ELEGIBILIDAD,
@@ -40,6 +42,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private readonly toast    = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
   private readonly fb       = inject(FormBuilder);
+  private readonly derecha  = inject(DerechaService);
 
   protected personaId!: number;
 
@@ -179,7 +182,22 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     fecha_egreso_eta:        [''],
     numero_orden_egreso_eta: [''],
     mutaciones:              [''],
+    // Derecha y numor
+    derecha:                 [null as number | null],
+    numor:                   [null as number | null],
+    motivo_derecha:          [''],
   }, { validators: (group: AbstractControl) => this.nacimientoAnteriorAInicio(group) });
+
+  // ─── Derecha y numor (edición) ───────────────────────────────────────────
+  /** Solo con el permiso y si el funcionario tiene derecha (en actividad, grado con derecha). */
+  readonly puedeEditarDerecha = computed(
+    () => this.auth.hasPermiso('derecha.gestionar') && this.persona()?.relacion_laboral?.derecha != null,
+  );
+  readonly rangoDerecha = signal<{ desde: number; hasta: number } | null>(null);
+  readonly maxNumor = signal<number | null>(null);
+  readonly impactoDerecha = signal<Impacto | null>(null);
+  readonly calculandoDerecha = signal(false);
+  readonly errorDerecha = signal<string | null>(null);
 
   /**
    * La relación laboral no puede empezar antes de que la persona haya nacido. Acá las dos fechas son
@@ -221,6 +239,71 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     this.loadPersona();
     this.setupEscalafonCascade();
     this.setupFamiliarAddSearch();
+    this.setupEdicionDerecha();
+  }
+
+  /** Mientras se escribe, se previsualiza a quiénes corre el cambio. */
+  private setupEdicionDerecha(): void {
+    merge(this.editForm.get('derecha')!.valueChanges, this.editForm.get('numor')!.valueChanges)
+      .pipe(
+        debounceTime(300),
+        switchMap(() => {
+          const cambio = this.cambioDerecha();
+          if (!cambio || this.errorRangoDerecha()) return of({ impacto: null, error: null as string | null });
+          this.calculandoDerecha.set(true);
+          return this.derecha
+            .previsualizar({ operacion: 'REORDEN', persona_id: this.personaId, ...cambio })
+            .pipe(
+              map((impacto) => ({ impacto, error: null as string | null })),
+              catchError((err: HttpErrorResponse) => of({ impacto: null, error: parseError(err) })),
+            );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((r) => {
+        this.calculandoDerecha.set(false);
+        this.impactoDerecha.set(r.impacto);
+        this.errorDerecha.set(r.error);
+      });
+  }
+
+  /** Al cambiar grado o escalafón la derecha la recalcula el sistema: va al final del grado nuevo. */
+  cambioGradoOEscalafon(): boolean {
+    const rl = this.persona()?.relacion_laboral;
+    const raw = this.editForm.getRawValue();
+    return (
+      (raw.grado_id != null && Number(raw.grado_id) !== Number(rl?.grado?.id)) ||
+      (raw.escalafon_id != null && Number(raw.escalafon_id) !== Number(rl?.escalafon?.id))
+    );
+  }
+
+  /** Lo que cambió de derecha y numor respecto de lo guardado, o null si nada. */
+  cambioDerecha(): { derecha?: number; numor?: number } | null {
+    if (!this.puedeEditarDerecha() || this.cambioGradoOEscalafon()) return null;
+    const rl = this.persona()!.relacion_laboral!;
+    const raw = this.editForm.getRawValue();
+    const derecha = raw.derecha === null || raw.derecha === '' ? null : Number(raw.derecha);
+    const numor = raw.numor === null || raw.numor === '' ? null : Number(raw.numor);
+    const cambio: { derecha?: number; numor?: number } = {};
+    if (derecha !== null && derecha !== rl.derecha) cambio.derecha = derecha;
+    if (numor !== null && numor !== rl.numor) cambio.numor = numor;
+    return Object.keys(cambio).length ? cambio : null;
+  }
+
+  errorRangoDerecha(): string | null {
+    const raw = this.editForm.getRawValue();
+    const rango = this.rangoDerecha();
+    const derecha = Number(raw.derecha);
+    if (rango && raw.derecha != null && raw.derecha !== '' &&
+        (!Number.isInteger(derecha) || derecha < rango.desde || derecha > rango.hasta)) {
+      return `La derecha tiene que estar entre ${rango.desde} y ${rango.hasta}, el bloque de su grado.`;
+    }
+    const max = this.maxNumor();
+    const numor = Number(raw.numor);
+    if (max && raw.numor != null && raw.numor !== '' && (!Number.isInteger(numor) || numor < 1 || numor > max)) {
+      return `El numor tiene que estar entre 1 y ${max}.`;
+    }
+    return null;
   }
 
   ngOnDestroy(): void {
@@ -493,7 +576,23 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       fecha_egreso_eta:        lm?.fecha_egreso_eta  ? lm.fecha_egreso_eta.split('T')[0]  : '',
       numero_orden_egreso_eta: lm?.numero_orden_egreso_eta ?? '',
       mutaciones:              lm?.mutaciones ?? '',
+      derecha:                 rl?.derecha ?? null,
+      numor:                   rl?.numor ?? null,
+      motivo_derecha:          '',
     }, { emitEvent: false });
+
+    this.impactoDerecha.set(null);
+    this.errorDerecha.set(null);
+    if (this.puedeEditarDerecha() && rl?.grado?.id) {
+      this.derecha.obtenerGrado(rl.grado.id).subscribe({
+        next: (g) => {
+          this.rangoDerecha.set(
+            g.derecha_desde !== null ? { desde: g.derecha_desde, hasta: g.derecha_hasta! } : null,
+          );
+          this.maxNumor.set(g.escalafones.find((e) => Number(e.id) === Number(rl.escalafon?.id))?.cantidad ?? null);
+        },
+      });
+    }
 
     if (rl?.escalafon?.id) {
       this.editForm.get('grado_id')!.enable({ emitEvent: false });
@@ -525,6 +624,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       this.editForm.markAllAsTouched();
       return;
     }
+    if (this.cambioDerecha() && this.errorRangoDerecha()) return;
     const raw = this.editForm.getRawValue();
     const payload: PatchPersonaPayload = {
       ...(raw.primer_nombre         && { primer_nombre:         raw.primer_nombre }),
@@ -557,6 +657,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       fecha_egreso_eta:                raw.fecha_egreso_eta || null,
       numero_orden_egreso_eta:         raw.numero_orden_egreso_eta || null,
       mutaciones:                      raw.mutaciones || null,
+      ...this.cambioDerecha(),
+      ...(this.cambioDerecha() && raw.motivo_derecha?.trim() && { motivo_derecha: raw.motivo_derecha.trim() }),
     };
 
     this.editLoading.set(true);

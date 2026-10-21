@@ -1,0 +1,293 @@
+$navy: #132744;
+$line: #e2e8f0;
+$soft: #f1f5f9;
+$muted: #64748b;
+$text: #0f172a;
+$amber: #b45309;
+// Igual que el app-select, para que la barra de filtros quede pareja.
+$alto-control: 2.55rem;
+
+:host {
+  display: block;
+}
+
+.cdp {
+  display: grid;
+  gap: 1rem;
+  padding-top: 1.5rem;
+}
+
+.cdp__cuerpo {
+  display: grid;
+  min-width: 0;
+}
+
+.cdp__card {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 1.1rem 1.25rem;
+  background-color: #ffffff;
+  border: 1px solid $line;
+  border-radius: 12px;
+}
+
+// ─── Filtros ─────────────────────────────────────────────────────────────────
+
+.cdp__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cdp__filtro {
+  flex: 0 1 13rem;
+  min-width: 11rem;
+}
+
+select,
+.cdp__buscar input {
+  height: $alto-control;
+  border: 1px solid $line;
+  border-radius: 8px;
+  background-color: #ffffff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: $text;
+
+  &:focus-visible {
+    outline: none;
+    border-color: $navy;
+  }
+}
+
+select {
+  padding: 0 0.6rem;
+  cursor: pointer;
+}
+
+.cdp__buscar {
+  position: relative;
+  flex: 1 1 16rem;
+  max-width: 22rem;
+
+  input {
+    width: 100%;
+    padding: 0 0.75rem 0 2.1rem;
+  }
+}
+
+.cdp__buscar-icono {
+  position: absolute;
+  left: 0.7rem;
+  top: 50%;
+  width: 1rem;
+  height: 1rem;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: $muted;
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+// Mismo botón de limpiar filtros que Personal, Órdenes y Pasibles.
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  background-color: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.btn--clear {
+  border-color: #cbd5e1;
+  color: $muted;
+  height: $alto-control;
+  padding: 0 0.7rem;
+  flex-shrink: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover:not(:disabled) {
+    background-color: #f8fafc;
+    border-color: #94a3b8;
+    color: #334155;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.cdp__sugerir {
+  margin-left: auto;
+  color: $navy;
+}
+
+.cdp__ayuda {
+  margin: 0;
+  color: $muted;
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.cdp__info {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background-color: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.82rem;
+}
+
+// ─── Tabla ───────────────────────────────────────────────────────────────────
+
+.cdp__tabla-wrap {
+  overflow-x: auto;
+}
+
+.cdp__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+
+  th,
+  td {
+    padding: 0.45rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid $soft;
+    vertical-align: middle;
+  }
+
+  thead th {
+    color: $muted;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1px solid $line;
+    white-space: nowrap;
+  }
+
+  tbody tr:hover td {
+    background-color: #f8fafc;
+  }
+}
+
+.cdp__col-num {
+  width: 5.5rem;
+  white-space: nowrap;
+}
+
+.cdp__nombre {
+  color: $text;
+}
+
+.cdp__tenue {
+  color: $muted;
+}
+
+.cdp__fila--modificada td,
+.cdp__fila--modificada:hover td {
+  background-color: #fffbeb;
+}
+
+// Parece texto hasta que se pasa el mouse o se edita.
+.cdp__valor {
+  width: 4rem;
+  height: 1.9rem;
+  padding: 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: $navy;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: $line;
+    background-color: #ffffff;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: $navy;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(19, 39, 68, 0.12);
+  }
+
+  &--cambio {
+    color: $amber;
+  }
+
+  &--error {
+    border-color: #dc2626;
+  }
+}
+
+.cdp__antes {
+  display: block;
+  padding-left: 0.4rem;
+  color: $amber;
+  font-size: 0.7rem;
+}
+
+.cdp__error {
+  display: block;
+  margin-top: 0.15rem;
+  color: #b91c1c;
+  font-size: 0.75rem;
+}
+
+.cdp__vacio {
+  padding: 2rem !important;
+  text-align: center !important;
+  color: $muted;
+}
+
+// ─── Panel del cambio pendiente ──────────────────────────────────────────────
+
+.cdp__panel {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.cdp__panel-quien {
+  margin: 0;
+  color: $muted;
+  font-size: 0.82rem;
+
+  b {
+    color: $text;
+    font-weight: 600;
+  }
+}
+
+@media (max-width: 720px) {
+  .cdp__buscar {
+    max-width: none;
+  }
+
+  .cdp__sugerir {
+    margin-left: 0;
+  }
+}
