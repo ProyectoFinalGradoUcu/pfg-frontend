@@ -1,0 +1,90 @@
+<div class="modal-overlay" (click)="cerrar()">
+  <div class="modal modal--extra-ancho" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <div>
+        <h3>Historial de vuelo</h3>
+        <p *ngIf="historial() as h">{{ h.persona.nombre_completo }} · C.I. {{ h.persona.cedula }}</p>
+      </div>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body">
+      <div *ngIf="loading()" class="vuelos__placeholder">Cargando...</div>
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+
+      <ng-container *ngIf="historial() as h">
+        <h4 class="seccion">Horas por período</h4>
+        <div class="vuelos__table-wrapper">
+          <table class="vuelos__table">
+            <thead>
+              <tr>
+                <th>Período</th>
+                <th>Grado</th>
+                <th>Unidad de vuelo</th>
+                <th>Aeronaves</th>
+                <th class="vuelos__num">Av Año Mil.</th>
+                <th class="vuelos__num">Av Total</th>
+                <th class="vuelos__num">Ob Año Mil.</th>
+                <th class="vuelos__num">Ob Total</th>
+                <th class="vuelos__num">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of h.registros; let i = index">
+                <td class="nowrap">
+                  {{ r.periodo }}
+                  <span class="vuelos__badge vuelos__badge--neutro" *ngIf="r.periodo_cerrado">Cerrado</span>
+                </td>
+                <td class="nowrap">{{ r.grado?.denominacion || '—' }} {{ r.escalafon?.denominacion || '' }}</td>
+                <td class="nowrap">
+                  {{ r.unidad_vuelo?.denominacion || '—' }}
+                  <span class="vuelos__badge vuelos__badge--aviso" *ngIf="cambioUnidad(i)">Cambió</span>
+                </td>
+                <td class="aeronaves">{{ r.aeronaves || '—' }}</td>
+                <td class="vuelos__num">{{ formatoHoras(r.hs_av_anio_militar) }}</td>
+                <td class="vuelos__num">{{ formatoHoras(r.hs_av_total) }}</td>
+                <td class="vuelos__num">{{ formatoHoras(r.hs_ob_anio_militar) }}</td>
+                <td class="vuelos__num">{{ formatoHoras(r.hs_ob_total) }}</td>
+                <td class="vuelos__num"><strong>{{ formatoHoras(r.total) }}</strong></td>
+              </tr>
+              <tr *ngIf="h.registros.length === 0">
+                <td colspan="9" class="vuelos__empty">No figura en ningún período de vuelo.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4 class="seccion">Cambios de unidad de vuelo</h4>
+        <div class="vuelos__table-wrapper">
+          <table class="vuelos__table">
+            <thead>
+              <tr>
+                <th>Período</th>
+                <th>Unidad anterior</th>
+                <th>Unidad nueva</th>
+                <th>Registrado por</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of h.cambios_unidad">
+                <td>{{ c.periodo }}</td>
+                <td>{{ c.unidad_anterior?.denominacion || 'Sin unidad' }}</td>
+                <td><strong>{{ c.unidad_nueva?.denominacion || 'Sin unidad' }}</strong></td>
+                <td>{{ c.usuario || '—' }}</td>
+                <td class="nowrap">{{ c.fecha | date:'d/M/yyyy HH:mm' }}</td>
+              </tr>
+              <tr *ngIf="h.cambios_unidad.length === 0">
+                <td colspan="5" class="vuelos__empty">Nunca se le cambió la unidad de vuelo.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()">Cerrar</button>
+    </footer>
+  </div>
+</div>
