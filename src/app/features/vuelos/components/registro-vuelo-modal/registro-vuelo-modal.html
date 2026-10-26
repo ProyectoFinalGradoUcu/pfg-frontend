@@ -1,0 +1,80 @@
+<div class="modal-overlay" (click)="cerrar()">
+  <form class="modal modal--ancho" (click)="$event.stopPropagation()" [formGroup]="form" (ngSubmit)="guardar(haySiguiente)">
+    <header class="modal__header">
+      <div>
+        <h3>{{ registro.persona.nombre_completo }}</h3>
+        <p>
+          {{ registro.grado?.denominacion || '—' }} {{ registro.escalafon?.denominacion || '' }}
+          · C.I. {{ registro.persona.cedula }} · {{ registro.periodo }}
+        </p>
+      </div>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body">
+      <div class="grid-2">
+        <div class="field">
+          <label>Unidad de vuelo</label>
+          <app-select
+            [items]="opcionesUnidad"
+            placeholder="Sin unidad de vuelo"
+            [searchable]="true"
+            [clearable]="true"
+            formControlName="unidad_vuelo_id"
+          ></app-select>
+          <p class="field__hint">Si cambia, queda registrado en el historial con este período.</p>
+        </div>
+        <div class="field">
+          <label for="rv-aeronaves">Aeronaves</label>
+          <input id="rv-aeronaves" type="text" formControlName="aeronaves" placeholder="Ej: UH-1H, AT-92, B-212" autocomplete="off" />
+        </div>
+      </div>
+
+      <fieldset class="anexo">
+        <legend>Hs Av</legend>
+        <div class="grid-2">
+          <div class="field">
+            <label for="rv-av-anio">Año militar</label>
+            <input #primerCampo id="rv-av-anio" type="text" inputmode="decimal" formControlName="hs_av_anio_militar" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="rv-av-total">Total</label>
+            <input id="rv-av-total" type="text" inputmode="decimal" formControlName="hs_av_total" autocomplete="off" />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="anexo">
+        <legend>Hs Ob</legend>
+        <div class="grid-2">
+          <div class="field">
+            <label for="rv-ob-anio">Año militar</label>
+            <input id="rv-ob-anio" type="text" inputmode="decimal" formControlName="hs_ob_anio_militar" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="rv-ob-total">Total</label>
+            <input id="rv-ob-total" type="text" inputmode="decimal" formControlName="hs_ob_total" autocomplete="off" />
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="resumen" *ngIf="total() !== null">
+        <span>Total</span>
+        <strong>{{ formatoHoras(total()) }}</strong>
+        <small>Suma de las 4 columnas de horas</small>
+      </div>
+
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()" [disabled]="guardando()">Cancelar</button>
+      <button type="button" class="btn btn--ghost" *ngIf="haySiguiente" (click)="guardar(false)" [disabled]="guardando()">
+        Guardar
+      </button>
+      <button type="submit" class="btn btn--primary" [disabled]="guardando()">
+        {{ guardando() ? 'Guardando...' : (haySiguiente ? 'Guardar y siguiente' : 'Guardar') }}
+      </button>
+    </footer>
+  </form>
+</div>

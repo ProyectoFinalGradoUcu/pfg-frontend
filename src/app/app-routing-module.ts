@@ -52,6 +52,11 @@ const routes: Routes = [
         loadChildren: () => import('./features/destinos/destinos-module').then((m) => m.DestinosModule),
       },
       {
+        path: 'vuelos',
+        canActivate: [permissionGuard(['vuelos.ver', 'vuelos.ver.unidad', 'vuelos.gestionar', 'vuelos.gestionar.unidad'])],
+        loadChildren: () => import('./features/vuelos/vuelos-module').then((m) => m.VuelosModule),
+      },
+      {
         path: 'reportes',
         canActivate: [permissionGuard(['reportes.ejecutar'])],
         loadChildren: () => import('./features/reportes/reportes-module').then((m) => m.ReportesModule),
