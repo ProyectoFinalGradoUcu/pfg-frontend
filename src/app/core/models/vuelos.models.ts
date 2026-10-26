@@ -115,6 +115,10 @@ export interface PeriodoVueloCreado extends PeriodoVuelo {
   registros_generados: number;
 }
 
+export interface PeriodoVueloSincronizado extends PeriodoVuelo {
+  registros_agregados: number;
+}
+
 /** Solo las claves que cambian: el backend corre con `forbidNonWhitelisted`. */
 export interface EditarRegistroVueloPayload {
   /** `null` deja a la persona sin unidad de vuelo. */

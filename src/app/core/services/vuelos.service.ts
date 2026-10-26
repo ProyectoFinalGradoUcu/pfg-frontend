@@ -11,6 +11,7 @@ import {
   ListarRegistrosVueloQuery,
   PeriodoVuelo,
   PeriodoVueloCreado,
+  PeriodoVueloSincronizado,
   RegistroVuelo,
   UnidadVuelo,
 } from '../models/vuelos.models';
@@ -29,6 +30,13 @@ export class VuelosService {
 
   crearPeriodo(payload: CrearPeriodoVueloPayload): Observable<PeriodoVueloCreado> {
     return this.http.post<PeriodoVueloCreado>(`${this.base}/periodos`, payload, { withCredentials: true });
+  }
+
+  /** Agrega al período a quienes entraron en actividad después de abrirlo. */
+  sincronizarPeriodo(periodoId: string): Observable<PeriodoVueloSincronizado> {
+    return this.http.post<PeriodoVueloSincronizado>(`${this.base}/periodos/${periodoId}/sincronizar`, {}, {
+      withCredentials: true,
+    });
   }
 
   cambiarEstadoPeriodo(periodoId: string, cerrado: boolean): Observable<PeriodoVuelo> {

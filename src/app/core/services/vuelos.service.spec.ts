@@ -73,6 +73,13 @@ describe('VuelosService', () => {
     req.flush({});
   });
 
+  it('sincroniza el personal con POST /periodos/:id/sincronizar', () => {
+    service.sincronizarPeriodo('10').subscribe();
+    const req = http.expectOne(`${BASE}/periodos/10/sincronizar`);
+    expect(req.request.method).toBe('POST');
+    req.flush({});
+  });
+
   it('cierra y reabre con PATCH { cerrado }', () => {
     service.cambiarEstadoPeriodo('10', true).subscribe();
     const req = http.expectOne(`${BASE}/periodos/10`);

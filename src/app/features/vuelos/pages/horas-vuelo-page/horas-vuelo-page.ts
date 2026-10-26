@@ -163,6 +163,7 @@ export class HorasVueloPage implements OnInit, OnDestroy {
   private huboCambios = false;
 
   readonly exportando = signal(false);
+  readonly sincronizando = signal(false);
 
   private readonly querySubject = new Subject<void>();
 
@@ -466,6 +467,28 @@ export class HorasVueloPage implements OnInit, OnDestroy {
       this.toast.success(`${periodo.etiqueta} eliminado`);
       this.periodo.set(null);
       this.cargarPeriodos();
+    });
+  }
+
+  sincronizar(): void {
+    const periodo = this.periodo();
+    if (!periodo) return;
+    this.sincronizando.set(true);
+    this.vuelosService.sincronizarPeriodo(periodo.id).subscribe({
+      next: (res) => {
+        this.sincronizando.set(false);
+        if (!res.registros_agregados) {
+          this.toast.success('El período ya tenía a todo el personal en actividad');
+          return;
+        }
+        this.toast.success(`Se agregaron ${res.registros_agregados} funcionarios al período`);
+        this.cargar();
+        this.cargarPeriodos();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.sincronizando.set(false);
+        this.toast.error(parseError(err));
+      },
     });
   }
 
