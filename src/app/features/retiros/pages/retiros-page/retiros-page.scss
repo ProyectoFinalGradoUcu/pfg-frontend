@@ -179,21 +179,30 @@ $alto-control: 2.375rem;
   }
 }
 
+// Mismo botón de icono que el resto de las pantallas con filtros.
 .retiros__clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: $alto-control;
-  padding: 0 0.85rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background-color: #ffffff;
+  padding: 0 0.7rem;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: transparent;
   color: #64748b;
-  font-family: inherit;
-  font-size: 0.82rem;
-  font-weight: 500;
   cursor: pointer;
   flex-shrink: 0;
+  transition: background-color 0.15s;
 
-  &:hover:not(:disabled) { background-color: #f1f5f9; color: $navy; }
-  &:disabled { opacity: 0.45; cursor: not-allowed; }
+  svg { width: 18px; height: 18px; }
+
+  &:hover:not(:disabled) {
+    background-color: #f8fafc;
+    border-color: #94a3b8;
+    color: #334155;
+  }
+
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 // Tabla
