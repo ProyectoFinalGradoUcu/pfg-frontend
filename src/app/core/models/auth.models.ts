@@ -64,6 +64,8 @@ export interface Rol {
   descripcion: string | null;
   protegido: boolean;
   cantidadUsuarios: number;
+  /** Solo en el detalle: usuarios con el rol directo o vía unidad, los que pierden la sesión al editarlo. */
+  cantidadUsuariosAfectados?: number;
   permisos: { id: string; nombre: string }[];
 }
 

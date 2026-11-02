@@ -105,7 +105,26 @@ export class EditarPermisosRolPage implements OnInit {
     return this.rol()?.permisos.some((p) => p.id === permiso.id) ?? false;
   }
 
-  togglePermiso(permiso: Permiso, activar: boolean): void {
+  /**
+   * Tocar un permiso desloguea a todos los que tienen el rol, directo o por su unidad.
+   * Se avisa cuántos son antes; si se cancela, el checkbox vuelve a como estaba.
+   */
+  togglePermiso(permiso: Permiso, checkbox: HTMLInputElement): void {
+    const activar = checkbox.checked;
+    const afectados = this.rol()?.cantidadUsuariosAfectados ?? 0;
+    if (afectados > 0) {
+      const confirmado = confirm(
+        `${afectados} ${afectados === 1 ? 'usuario tiene' : 'usuarios tienen'} este rol, ` +
+          'asignado directamente o a través de su unidad. ' +
+          `Al ${activar ? 'activar' : 'desactivar'} el permiso se les va a cerrar la sesión activa ` +
+          'y van a tener que volver a ingresar.\n\n¿Confirmás?',
+      );
+      if (!confirmado) {
+        checkbox.checked = !activar;
+        return;
+      }
+    }
+
     const op = activar
       ? this.rolesService.activarPermiso(this.rolId, permiso.id)
       : this.rolesService.desactivarPermiso(this.rolId, permiso.id);
