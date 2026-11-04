@@ -41,9 +41,9 @@ export class PersonalService {
     if (params.page)     query['page']     = String(params.page);
     if (params.pageSize) query['pageSize'] = String(params.pageSize);
     if (params.search)   query['search']   = params.search;
-    if (params.destino)  query['destino']  = String(params.destino);
+    if (params.destino?.length) query['destino'] = params.destino.join(',');
     if (params.rango)    query['rango']    = String(params.rango);
-    if (params.estado)   query['estado']   = String(params.estado);
+    if (params.estado?.length) query['estado'] = params.estado.join(',');
     if (params.incluir_inactivos) query['incluir_inactivos'] = 'true';
     if (params.categoria) query['categoria'] = params.categoria;
     if (params.filtroDerecha) Object.assign(query, filtroDerechaNumorParams(params.filtroDerecha));

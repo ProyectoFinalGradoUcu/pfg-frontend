@@ -12,10 +12,9 @@ $alto: var(--fdn-alto, 2.55rem);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem;
+  gap: var(--fdn-gap, 0.65rem);
 }
 
-select,
 input {
   height: $alto;
   border: 1px solid $line;
@@ -32,16 +31,14 @@ input {
   }
 }
 
-select {
+.fdn__select {
   flex: 1 1 10rem;
   min-width: 9rem;
   max-width: 14rem;
-  padding: 0 0.6rem;
-  cursor: pointer;
 }
 
 .fdn__rango {
-  flex: 0 1 11rem;
+  flex: var(--fdn-rango-flex, 0 1 11rem);
   min-width: 9rem;
 }
 

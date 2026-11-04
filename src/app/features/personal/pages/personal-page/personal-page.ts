@@ -1,8 +1,9 @@
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Subject, switchMap, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, switchMap, takeUntil, debounceTime, filter } from 'rxjs';
 import {
   FiltroCategoria,
+  GradoItem,
   OPCIONES_FILTRO_CATEGORIA,
   OpcionSelect,
   PersonaListItem,
@@ -13,6 +14,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import {
   FILTRO_DERECHA_NUMOR_INICIAL,
   FiltroDerechaNumor,
+  hayFiltroDerechaNumor,
   OrdenarPorDerechaNumor,
 } from '../../../../core/models/derecha.models';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
@@ -45,8 +47,9 @@ export class PersonalPage implements OnInit, OnDestroy {
   readonly PAGE_SIZE = 10;
 
   readonly searchTerm     = signal('');
-  readonly selectedDestino = signal<number | null>(null);
-  readonly selectedEstado  = signal<number | null>(null);
+  /** En los filtros de lista, vacío equivale a «Todos». */
+  readonly selectedDestinos = signal<number[]>([]);
+  readonly selectedEstados = signal<number[]>([]);
   readonly selectedCategoria = signal<FiltroCategoria>('todos');
   readonly opcionesCategoria = OPCIONES_FILTRO_CATEGORIA;
   /**
@@ -64,18 +67,24 @@ export class PersonalPage implements OnInit, OnDestroy {
 
   readonly unidades    = signal<OpcionSelect[]>([]);
   readonly situaciones = signal<OpcionSelect[]>([]);
+  readonly grados      = signal<GradoItem[]>([]);
+  readonly escalafones = signal<OpcionSelect[]>([]);
 
-  /** Fila de escala, grado, escalafón, derecha y numor: se despliega con la flecha junto a 'Borrar filtros'. */
-  readonly filtrosDerechaAbiertos = signal(false);
+  /** Segunda fila de filtros (derecha, numor, estado y retirados): se despliega con la flecha. */
+  readonly filtrosExtraAbiertos = signal(false);
 
-  readonly hayFiltroDerecha = computed(() => {
+  /** Solo lo que está en la fila desplegable: es lo que avisa el punto de la flecha. */
+  readonly hayFiltroExtra = computed(() => {
     const f = this.filtroDerecha();
-    return [f.escala, f.gradoId, f.escalafonId, f.derechaDesde, f.derechaHasta, f.numorDesde, f.numorHasta].some((v) => v != null);
+    return this.selectedEstados().length > 0 || this.incluirRetirados()
+      || [f.derechaDesde, f.derechaHasta, f.numorDesde, f.numorHasta].some((v) => v != null);
   });
 
-  readonly hayFiltrosActivos = computed(() =>
-    !!this.searchTerm() || !!this.selectedDestino() || !!this.selectedEstado() || this.selectedCategoria() !== 'todos' || this.incluirRetirados() || this.hayFiltroDerecha()
-  );
+  readonly hayFiltrosActivos = computed(() => {
+    const f = this.filtroDerecha();
+    return !!this.searchTerm() || this.selectedDestinos().length > 0 || this.selectedEstados().length > 0
+      || this.selectedCategoria() !== 'todos' || this.incluirRetirados() || hayFiltroDerechaNumor(f);
+  });
 
   readonly openMenuId    = signal<string | null>(null);
   readonly menuPosition  = signal<{ top: number; right: number } | null>(null);
@@ -87,6 +96,11 @@ export class PersonalPage implements OnInit, OnDestroy {
   private readonly destroy$       = new Subject<void>();
   private readonly searchSubject$ = new Subject<string>();
   private readonly triggerLoad$   = new Subject<void>();
+  /**
+   * Término con el que salió la última petición. Reemplaza a `distinctUntilChanged`, que tras
+   * 'Borrar filtros' seguía recordando el término viejo y no recargaba al volver a escribirlo.
+   */
+  private busquedaAplicada: string | undefined;
 
   ngOnInit(): void {
     // Todas las peticiones pasan por triggerLoad$ con switchMap para cancelar
@@ -95,12 +109,13 @@ export class PersonalPage implements OnInit, OnDestroy {
       .pipe(
         switchMap(() => {
           this.loading.set(true);
+          this.busquedaAplicada = this.searchTerm().trim() || undefined;
           return this.personalService.findPaginado({
             page:     this.currentPage(),
             pageSize: this.PAGE_SIZE,
-            search:   this.searchTerm().trim() || undefined,
-            destino:  this.selectedDestino() ?? undefined,
-            estado:   this.selectedEstado()  ?? undefined,
+            search:   this.busquedaAplicada,
+            destino:  this.selectedDestinos().length ? this.selectedDestinos() : undefined,
+            estado:   this.selectedEstados().length ? this.selectedEstados() : undefined,
             filtroDerecha: this.filtroDerecha(),
             incluir_inactivos: this.incluirRetirados() || undefined,
             categoria: categoriaParam(this.selectedCategoria()),
@@ -119,7 +134,11 @@ export class PersonalPage implements OnInit, OnDestroy {
 
     // Buscador con 400 ms de margen antes de disparar la petición.
     this.searchSubject$
-      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(
+        debounceTime(400),
+        filter(term => (term.trim() || undefined) !== this.busquedaAplicada),
+        takeUntil(this.destroy$),
+      )
       .subscribe(() => {
         this.currentPage.set(1);
         this.triggerLoad$.next();
@@ -137,16 +156,17 @@ export class PersonalPage implements OnInit, OnDestroy {
   private loadFilterOptions(): void {
     this.personalService.getUnidades().subscribe({ next: d => this.unidades.set(d) });
     this.personalService.getSituaciones().subscribe({ next: d => this.situaciones.set(d) });
+    this.personalService.getGrados().subscribe({ next: d => this.grados.set(d) });
+    this.personalService.getEscalafones().subscribe({ next: d => this.escalafones.set(d) });
   }
 
-  onSearch(event: Event): void {
-    this.searchTerm.set((event.target as HTMLInputElement).value);
-    this.searchSubject$.next(this.searchTerm());
+  onSearch(term: string): void {
+    this.searchTerm.set(term);
+    this.searchSubject$.next(term);
   }
 
-  onDestinoChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedDestino.set(val ? Number(val) : null);
+  onDestinosChange(ids: number[] | null): void {
+    this.selectedDestinos.set(ids ?? []);
     this.currentPage.set(1);
     this.triggerLoad$.next();
   }
@@ -155,6 +175,14 @@ export class PersonalPage implements OnInit, OnDestroy {
     this.filtroDerecha.set(filtro);
     this.currentPage.set(1);
     this.triggerLoad$.next();
+  }
+
+  onGradosChange(ids: number[] | null): void {
+    this.onFiltroDerecha({ ...this.filtroDerecha(), gradoId: ids ?? [] });
+  }
+
+  onEscalafonesChange(ids: number[] | null): void {
+    this.onFiltroDerecha({ ...this.filtroDerecha(), escalafonId: ids ?? [] });
   }
 
   /** Click en el encabezado: el mismo campo invierte la dirección, otro arranca ascendente. */
@@ -176,15 +204,14 @@ export class PersonalPage implements OnInit, OnDestroy {
     return f.direccion === 'DESC' ? 'descending' : 'ascending';
   }
 
-  onEstadoChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedEstado.set(val ? Number(val) : null);
+  onEstadosChange(ids: number[] | null): void {
+    this.selectedEstados.set(ids ?? []);
     this.currentPage.set(1);
     this.triggerLoad$.next();
   }
 
-  onCategoriaChange(event: Event): void {
-    this.selectedCategoria.set((event.target as HTMLSelectElement).value as FiltroCategoria);
+  onCategoriaChange(categoria: FiltroCategoria): void {
+    this.selectedCategoria.set(categoria);
     this.currentPage.set(1);
     this.triggerLoad$.next();
   }
@@ -202,8 +229,8 @@ export class PersonalPage implements OnInit, OnDestroy {
 
   limpiarFiltros(): void {
     this.searchTerm.set('');
-    this.selectedDestino.set(null);
-    this.selectedEstado.set(null);
+    this.selectedDestinos.set([]);
+    this.selectedEstados.set([]);
     // Se conserva el orden elegido en la tabla: limpiar borra filtros, no el orden.
     const { ordenarPor, direccion } = this.filtroDerecha();
     this.filtroDerecha.set({ ...FILTRO_DERECHA_NUMOR_INICIAL, ordenarPor, direccion });

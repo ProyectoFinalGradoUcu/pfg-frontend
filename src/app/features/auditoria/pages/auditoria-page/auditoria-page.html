@@ -4,49 +4,65 @@
     subtitle="Bitácora de acciones realizadas en el sistema"
   ></app-page-header>
 
-  <form class="aud__filtros" [formGroup]="filtrosForm" (ngSubmit)="aplicarFiltros()">
-    <div class="aud__filtro">
-      <label>Acción</label>
-      <select formControlName="accion">
-        <option value="">Todas</option>
-        <option *ngFor="let a of acciones()" [value]="a.nombre">{{ a.nombre }}</option>
-      </select>
-    </div>
+  <form class="aud__filtros" [formGroup]="filtrosForm">
+    <app-select
+      class="aud__filtro"
+      formControlName="usuarioId"
+      [items]="usuarios()"
+      bindLabel="username"
+      bindValue="id"
+      placeholder="Usuario"
+      [searchable]="true"
+      [clearable]="true"
+    ></app-select>
 
-    <div class="aud__filtro">
-      <label>Contexto</label>
-      <select formControlName="contexto">
-        <option value="">Todos</option>
-        <option *ngFor="let c of contextos()" [value]="c.nombre">{{ c.nombre }}</option>
-      </select>
-    </div>
+    <app-select
+      class="aud__filtro"
+      formControlName="accion"
+      [items]="acciones()"
+      bindLabel="nombre"
+      bindValue="nombre"
+      placeholder="Acción"
+      [searchable]="true"
+      [clearable]="true"
+    ></app-select>
 
-    <div class="aud__filtro">
-      <label>Desde</label>
-      <input type="date" formControlName="desde" />
-    </div>
+    <app-select
+      class="aud__filtro"
+      formControlName="contexto"
+      [items]="contextos()"
+      bindLabel="nombre"
+      bindValue="nombre"
+      placeholder="Contexto"
+      [searchable]="true"
+      [clearable]="true"
+    ></app-select>
 
-    <div class="aud__filtro">
-      <label>Hasta</label>
-      <input type="date" formControlName="hasta" />
-    </div>
+    <!-- Cada fecha limita a la otra: así no se puede armar un período invertido. -->
+    <app-date-input
+      class="aud__filtro"
+      formControlName="desde"
+      placeholder="Desde"
+      [max]="filtrosForm.controls.hasta.value"
+    ></app-date-input>
 
-    <div class="aud__filtro-acciones">
-      <button type="submit" class="btn btn--primary btn--sm">Filtrar</button>
-      <button type="button" class="btn btn--ghost btn--sm" (click)="limpiarFiltros()">Limpiar</button>
-    </div>
+    <app-date-input
+      class="aud__filtro"
+      formControlName="hasta"
+      placeholder="Hasta"
+      [min]="filtrosForm.controls.desde.value"
+    ></app-date-input>
+
+    <app-clear-filters-button
+      [disabled]="!hayFiltros()"
+      (limpiar)="limpiarFiltros()"
+    ></app-clear-filters-button>
   </form>
 
   <article class="aud__card">
     <div *ngIf="loading()" class="aud__placeholder">Cargando...</div>
 
-    <app-empty-state
-      *ngIf="!loading() && registros().length === 0"
-      title="Sin registros"
-      description="No hay eventos de auditoría para los filtros seleccionados."
-    ></app-empty-state>
-
-    <div *ngIf="!loading() && registros().length > 0" class="aud__table-wrapper">
+    <div *ngIf="!loading()" class="aud__table-wrapper">
       <table class="aud__table">
         <thead>
           <tr>
@@ -54,8 +70,6 @@
             <th>Usuario</th>
             <th>Acción</th>
             <th>Contexto</th>
-            <th>Entidad</th>
-            <th>Host</th>
             <th class="aud__col-actions">Detalle</th>
           </tr>
         </thead>
@@ -65,12 +79,6 @@
             <td>{{ r.usuario.username }}</td>
             <td><span class="aud__badge" [attr.data-accion]="r.accion">{{ r.accion }}</span></td>
             <td>{{ r.contexto }}</td>
-            <td>
-              <span *ngIf="r.entidad">{{ r.entidad }}</span>
-              <span *ngIf="r.entidadId" class="aud__muted"> #{{ r.entidadId }}</span>
-              <span *ngIf="!r.entidad && !r.entidadId" class="aud__muted">—</span>
-            </td>
-            <td><span class="aud__muted">{{ r.host || '—' }}</span></td>
             <td class="aud__col-actions">
               <button
                 *ngIf="r.detalle"
@@ -82,6 +90,9 @@
               </button>
               <span *ngIf="!r.detalle" class="aud__muted">—</span>
             </td>
+          </tr>
+          <tr *ngIf="registros().length === 0">
+            <td colspan="5" class="aud__empty">{{ mensajeVacio() }}</td>
           </tr>
         </tbody>
       </table>

@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { PersonalRoutingModule } from './personal-routing-module';
 import { SharedModule } from '../../shared/shared-module';
 import { PersonalPage } from './pages/personal-page/personal-page';
@@ -19,6 +19,6 @@ import { DocumentosPersonal } from './components/documentos-personal/documentos-
     CargarDocumentoModal,
     DocumentosPersonal,
   ],
-  imports: [CommonModule, ReactiveFormsModule, SharedModule, PersonalRoutingModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, SharedModule, PersonalRoutingModule],
 })
 export class PersonalModule {}

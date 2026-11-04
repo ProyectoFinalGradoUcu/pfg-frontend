@@ -191,8 +191,9 @@ export interface FiltroDerechaNumor {
   derechaHasta?: number | null;
   numorDesde?: number | null;
   numorHasta?: number | null;
-  gradoId?: number | null;
-  escalafonId?: number | null;
+  /** Varios grados o escalafones: trae a quien tenga cualquiera de ellos. */
+  gradoId?: number[] | null;
+  escalafonId?: number[] | null;
   escala?: EscalaDerecha | null;
   ordenarPor?: OrdenarPorDerechaNumor;
   direccion?: DireccionOrden;
@@ -207,7 +208,16 @@ export const FILTRO_DERECHA_NUMOR_INICIAL: FiltroDerechaNumor = {
 export function filtroDerechaNumorParams(f: FiltroDerechaNumor): Record<string, string> {
   const params: Record<string, string> = {};
   for (const [clave, valor] of Object.entries(f)) {
-    if (valor !== null && valor !== undefined && valor !== '') params[clave] = String(valor);
+    // Las listas viajan separadas por coma; una lista vacía no filtra.
+    const texto = Array.isArray(valor) ? valor.join(',') : valor;
+    if (texto !== null && texto !== undefined && texto !== '') params[clave] = String(texto);
   }
   return params;
+}
+
+/** Hay algún filtro de derecha y numor cargado (el orden no cuenta). */
+export function hayFiltroDerechaNumor(f: FiltroDerechaNumor): boolean {
+  return [f.escala, f.gradoId, f.escalafonId, f.derechaDesde, f.derechaHasta, f.numorDesde, f.numorHasta].some(
+    (v) => (Array.isArray(v) ? v.length > 0 : v != null),
+  );
 }

@@ -1,12 +1,14 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, forkJoin } from 'rxjs';
+import { Observable, Subject, Subscription, debounceTime, forkJoin } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
 import { InvitacionesService } from '../../../../core/services/invitaciones.service';
 import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
@@ -30,6 +32,7 @@ type ModalKind =
 })
 export class UsuariosYRolesPage implements OnInit {
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly auth = inject(AuthService);
   private readonly usuariosService = inject(UsuariosService);
   private readonly personalService = inject(PersonalService);
@@ -37,6 +40,7 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly invitacionesService = inject(InvitacionesService);
   private readonly toast = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
+  private readonly confirmModal = inject(ConfirmModalService);
   private readonly router = inject(Router);
 
   // ── Tab ──────────────────────────────────────────────────────────────────
@@ -48,10 +52,38 @@ export class UsuariosYRolesPage implements OnInit {
   readonly usuariosLoading = signal(false);
   readonly usuariosPage = signal(1);
   readonly usuariosPageSize = 10;
+  readonly usuariosBusqueda = signal('');
+  readonly usuariosRol = signal<string | null>(null);
+  readonly usuariosEstado = signal<string | null>(null);
+  /** El listado filtrado no se pudo cargar: la tabla queda vacía y lo avisa. */
+  readonly usuariosError = signal(false);
+  readonly hayFiltrosUsuarios = computed(
+    () => !!this.usuariosBusqueda().trim() || !!this.usuariosRol() || !!this.usuariosEstado(),
+  );
+
+  private readonly usuariosBusqueda$ = new Subject<void>();
+  /** Texto del último pedido: paginar mientras se tipea no adelanta la búsqueda en curso. */
+  private usuariosBusquedaAplicada = '';
+  /** Última página cargada: si falla un cambio de página, la tabla y el paginador vuelven acá. */
+  private usuariosPageCargada = 1;
+  private usuariosSub?: Subscription;
 
   // ── Roles ─────────────────────────────────────────────────────────────────
   readonly roles = signal<Rol[]>([]);
   readonly loading = signal(false);
+  readonly rolesPage = signal(1);
+  readonly rolesPageSize = 10;
+
+  /** Paginado en el cliente: los modales necesitan la lista completa de roles. */
+  readonly rolesPageActual = computed(() => {
+    // Al eliminar el único rol de la última página no se queda en una página inexistente.
+    const ultima = Math.max(1, Math.ceil(this.roles().length / this.rolesPageSize));
+    return Math.min(this.rolesPage(), ultima);
+  });
+  readonly rolesDePagina = computed(() => {
+    const inicio = (this.rolesPageActual() - 1) * this.rolesPageSize;
+    return this.roles().slice(inicio, inicio + this.rolesPageSize);
+  });
 
   // Menú kebab de la tabla de roles
   readonly menuAbierto = signal<string | null>(null);
@@ -61,6 +93,12 @@ export class UsuariosYRolesPage implements OnInit {
   readonly invitaciones = signal<Invitacion[]>([]);
   readonly invitacionesTodas = signal<Invitacion[]>([]);
   readonly invitacionesLoading = signal(false);
+  readonly invitacionesTotal = signal(0);
+  readonly invitacionesPage = signal(1);
+  readonly invitacionesPageSize = 10;
+  /** Última página cargada: si falla un cambio de página, la tabla y el paginador vuelven acá. */
+  private invitacionesPageCargada = 1;
+  private invitacionesSub?: Subscription;
   readonly estadoFiltro = signal<string>('pendiente');
 
   readonly estadosFiltro = [
@@ -126,6 +164,13 @@ export class UsuariosYRolesPage implements OnInit {
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
+    this.usuariosBusqueda$
+      .pipe(debounceTime(400), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        // Limpiar o elegir un filtro durante la espera ya aplicó este mismo texto.
+        if (this.usuariosBusqueda().trim() !== this.usuariosBusquedaAplicada) this.aplicarFiltrosUsuarios();
+      });
+
     this.cargar();
 
     // El selector de unidad del detalle de usuario usa el catálogo de solo lectura,
@@ -158,18 +203,75 @@ export class UsuariosYRolesPage implements OnInit {
     this.cargarUsuarios();
   }
 
-  private cargarUsuarios(): void {
+  onUsuariosBusqueda(texto: string): void {
+    this.usuariosBusqueda.set(texto);
+    this.usuariosBusqueda$.next();
+  }
+
+  onUsuariosRolChange(rolId: string | null): void {
+    this.usuariosRol.set(rolId);
+    this.aplicarFiltrosUsuarios();
+  }
+
+  onUsuariosEstadoChange(estado: string | null): void {
+    this.usuariosEstado.set(estado);
+    this.aplicarFiltrosUsuarios();
+  }
+
+  limpiarFiltrosUsuarios(): void {
+    this.usuariosBusqueda.set('');
+    this.usuariosRol.set(null);
+    this.usuariosEstado.set(null);
+    this.aplicarFiltrosUsuarios();
+  }
+
+  private aplicarFiltrosUsuarios(): void {
+    this.usuariosBusquedaAplicada = this.usuariosBusqueda().trim();
+    this.usuariosPage.set(1);
+    this.cargarUsuarios({ vaciarSiFalla: true });
+  }
+
+  /**
+   * `vaciarSiFalla`: al cambiar un filtro, las filas ya cargadas no cumplen lo pedido y no pueden
+   * quedar a la vista. Al paginar o refrescar siguen siendo válidas y solo se vuelve de página.
+   */
+  private cargarUsuarios({ vaciarSiFalla = false } = {}): void {
+    // Con filtros o clics seguidos, una respuesta vieja no debe pisar a la última.
+    this.usuariosSub?.unsubscribe();
     this.usuariosLoading.set(true);
-    this.usuariosService
-      .findAll({ page: this.usuariosPage(), pageSize: this.usuariosPageSize })
+    this.usuariosSub = this.usuariosService
+      .findAll({
+        page: this.usuariosPage(),
+        pageSize: this.usuariosPageSize,
+        search: this.usuariosBusquedaAplicada,
+        rolId: this.usuariosRol(),
+        estado: this.usuariosEstado(),
+      })
       .subscribe({
         next: ({ items, total }) => {
+          // Si editar deja la última página sin resultados del filtro, esa página ya no existe.
+          const ultima = Math.max(1, Math.ceil(total / this.usuariosPageSize));
+          if (this.usuariosPage() > ultima) {
+            this.usuariosPage.set(ultima);
+            this.cargarUsuarios({ vaciarSiFalla });
+            return;
+          }
           this.usuarios.set(items);
           this.usuariosTotal.set(total);
+          this.usuariosPageCargada = this.usuariosPage();
+          this.usuariosError.set(false);
           this.usuariosLoading.set(false);
         },
         error: (err: HttpErrorResponse) => {
           this.reportarError(err);
+          if (vaciarSiFalla) {
+            this.usuarios.set([]);
+            this.usuariosTotal.set(0);
+            this.usuariosPageCargada = 1;
+            this.usuariosError.set(true);
+          } else {
+            this.usuariosPage.set(this.usuariosPageCargada);
+          }
           this.usuariosLoading.set(false);
         },
       });
@@ -238,6 +340,9 @@ export class UsuariosYRolesPage implements OnInit {
       .subscribe({
         next: () => {
           this.cerrarModal();
+          // La nueva queda primera entre las pendientes: es lo que se verá al ir a Invitaciones.
+          this.estadoFiltro.set('pendiente');
+          this.invitacionesPage.set(1);
           this.toast.success(
             `Se realizó una nueva invitación a ${username}. Esto queda visible en la sección de invitaciones.`,
           );
@@ -428,21 +533,45 @@ export class UsuariosYRolesPage implements OnInit {
 
   // ── Invitaciones ─────────────────────────────────────────────────────────
   cargarInvitaciones(): void {
+    // Con clics seguidos en el paginador, una respuesta vieja no debe pisar a la última.
+    this.invitacionesSub?.unsubscribe();
     this.invitacionesLoading.set(true);
-    this.invitacionesService.findAll({ estado: this.estadoFiltro() }).subscribe({
-      next: (items) => {
-        this.invitaciones.set(items);
-        this.invitacionesLoading.set(false);
-      },
-      error: (err: HttpErrorResponse) => {
-        this.reportarError(err);
-        this.invitacionesLoading.set(false);
-      },
-    });
+    this.invitacionesSub = this.invitacionesService
+      .findPaginado({
+        estado: this.estadoFiltro(),
+        page: this.invitacionesPage(),
+        pageSize: this.invitacionesPageSize,
+      })
+      .subscribe({
+        next: ({ items, total }) => {
+          // Al revocar la única invitación de la última página, esa página deja de existir.
+          const ultima = Math.max(1, Math.ceil(total / this.invitacionesPageSize));
+          if (this.invitacionesPage() > ultima) {
+            this.invitacionesPage.set(ultima);
+            this.cargarInvitaciones();
+            return;
+          }
+          this.invitaciones.set(items);
+          this.invitacionesTotal.set(total);
+          this.invitacionesPageCargada = this.invitacionesPage();
+          this.invitacionesLoading.set(false);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.reportarError(err);
+          this.invitacionesPage.set(this.invitacionesPageCargada);
+          this.invitacionesLoading.set(false);
+        },
+      });
+  }
+
+  onInvitacionesPageChange(page: number): void {
+    this.invitacionesPage.set(page);
+    this.cargarInvitaciones();
   }
 
   onEstadoFiltroChange(event: Event): void {
     this.estadoFiltro.set((event.target as HTMLSelectElement).value);
+    this.invitacionesPage.set(1);
     this.cargarInvitaciones();
   }
 
@@ -453,8 +582,14 @@ export class UsuariosYRolesPage implements OnInit {
     }
   }
 
-  revocarInvitacion(inv: Invitacion): void {
-    if (!confirm(`¿Revocar la invitación enviada a ${inv.email}?`)) return;
+  async revocarInvitacion(inv: Invitacion): Promise<void> {
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Revocar invitación',
+      mensaje: `¿Revocar la invitación enviada a ${inv.email}? El enlace del mail dejará de funcionar.`,
+      textoConfirmar: 'Revocar',
+    });
+    if (!confirmado) return;
+
     this.revocandoId.set(inv.id);
     this.invitacionesService.remove(inv.id).subscribe({
       next: () => {

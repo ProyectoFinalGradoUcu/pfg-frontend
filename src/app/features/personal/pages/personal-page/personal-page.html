@@ -29,97 +29,123 @@
     <h2 class="personal-page__card-title">Búsqueda Avanzada</h2>
 
     <div class="personal-page__filters-row">
-      <div class="personal-page__search">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-        </svg>
-        <input
-          type="text"
-          [value]="searchTerm()"
-          (input)="onSearch($event)"
-          placeholder="Buscar por nombre o cédula..."
-          autocomplete="off"
-        />
+      <app-search-input
+        class="personal-page__search"
+        placeholder="Nombre o cédula..."
+        ariaLabel="Buscar por nombre o cédula"
+        [value]="searchTerm()"
+        (valueChange)="onSearch($event)"
+      ></app-search-input>
+
+      <app-select
+        [items]="opcionesCategoria"
+        placeholder="Todos"
+        [ngModel]="selectedCategoria()"
+        (ngModelChange)="onCategoriaChange($event)"
+      ></app-select>
+
+      <app-select
+        *ngIf="!alcanceAcotado()"
+        [items]="unidades()"
+        bindLabel="denominacion"
+        bindValue="id"
+        placeholder="Destino"
+        [multiple]="true"
+        [searchable]="true"
+        [clearable]="true"
+        [ngModel]="selectedDestinos()"
+        (ngModelChange)="onDestinosChange($event)"
+      ></app-select>
+
+      <app-select
+        *ngIf="alcanceAcotado()"
+        title="Solo podés ver el personal de tu unidad"
+        [items]="[{ value: 'propia', label: unidadPropia() }]"
+        [ngModel]="'propia'"
+        [disabled]="true"
+      ></app-select>
+
+      <app-select
+        [items]="grados()"
+        bindLabel="denominacion"
+        bindValue="id"
+        placeholder="Grado"
+        [multiple]="true"
+        [searchable]="true"
+        [clearable]="true"
+        [ngModel]="filtroDerecha().gradoId ?? []"
+        (ngModelChange)="onGradosChange($event)"
+      ></app-select>
+
+      <app-select
+        [items]="escalafones()"
+        bindLabel="denominacion"
+        bindValue="id"
+        placeholder="Escalafón"
+        [multiple]="true"
+        [searchable]="true"
+        [clearable]="true"
+        [ngModel]="filtroDerecha().escalafonId ?? []"
+        (ngModelChange)="onEscalafonesChange($event)"
+      ></app-select>
+
+      <div class="personal-page__acciones">
+        <app-clear-filters-button
+          [disabled]="!hayFiltrosActivos()"
+          (limpiar)="limpiarFiltros()"
+        ></app-clear-filters-button>
+
+        <button
+          type="button"
+          class="btn btn--clear personal-page__toggle-btn"
+          [attr.aria-expanded]="filtrosExtraAbiertos()"
+          aria-controls="filtros-extra"
+          [attr.aria-label]="filtrosExtraAbiertos() ? 'Ocultar más filtros' : 'Más filtros: derecha, numor, estado y retirados'"
+          [attr.data-tooltip]="filtrosExtraAbiertos() ? 'Ocultar filtros' : 'Más filtros'"
+          (click)="filtrosExtraAbiertos.set(!filtrosExtraAbiertos())"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+          </svg>
+          <span class="personal-page__toggle-dot" *ngIf="hayFiltroExtra() && !filtrosExtraAbiertos()" aria-hidden="true"></span>
+        </button>
       </div>
 
-      <label class="personal-page__field">
-        <select
-          *ngIf="!alcanceAcotado()"
-          [value]="selectedDestino() ?? ''"
-          (change)="onDestinoChange($event)"
-        >
-          <option value="">Todos los destinos</option>
-          <option *ngFor="let u of unidades()" [value]="u.id">{{ u.denominacion }}</option>
-        </select>
+      <div id="filtros-extra" class="personal-page__filtros-extra" *ngIf="filtrosExtraAbiertos()">
+        <!-- El orden se elige desde los encabezados de la tabla y el botón de borrar de arriba también limpia estos filtros. -->
+        <app-filtro-derecha-numor
+          class="personal-page__filtro-derecha"
+          [valor]="filtroDerecha()"
+          [conOrden]="false"
+          [conLimpiar]="false"
+          [conEscala]="false"
+          [conGradoEscalafon]="false"
+          (valorChange)="onFiltroDerecha($event)"
+        ></app-filtro-derecha-numor>
 
-        <select *ngIf="alcanceAcotado()" disabled title="Solo podés ver el personal de tu unidad">
-          <option selected>{{ unidadPropia() }}</option>
-        </select>
-      </label>
+        <app-select
+          [items]="situaciones()"
+          bindLabel="denominacion"
+          bindValue="id"
+          placeholder="Estado"
+          [multiple]="true"
+          [searchable]="true"
+          [clearable]="true"
+          [ngModel]="selectedEstados()"
+          (ngModelChange)="onEstadosChange($event)"
+        ></app-select>
 
-      <label class="personal-page__field">
-        <select [value]="selectedCategoria()" (change)="onCategoriaChange($event)" aria-label="Categoría">
-          <option *ngFor="let c of opcionesCategoria" [value]="c.value">{{ c.label }}</option>
-        </select>
-      </label>
-
-      <label class="personal-page__field">
-        <select [value]="selectedEstado() ?? ''" (change)="onEstadoChange($event)">
-          <option value="">Todos los estados</option>
-          <option *ngFor="let s of situaciones()" [value]="s.id">{{ s.denominacion }}</option>
-        </select>
-      </label>
-
-      <!-- Sin esto los retirados no aparecen. -->
-      <label class="personal-page__check" [class.personal-page__check--activo]="incluirRetirados()">
-        <input
-          type="checkbox"
-          [checked]="incluirRetirados()"
-          (change)="setIncluirRetirados($any($event.target).checked)"
-        />
-        Incluir retirados
-      </label>
-
-      <button
-        type="button"
-        class="btn btn--clear personal-page__clear-btn"
-        [disabled]="!hayFiltrosActivos()"
-        (click)="limpiarFiltros()"
-        aria-label="Borrar filtros"
-        data-tooltip="Borrar filtros"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        class="btn btn--clear personal-page__toggle-btn"
-        [attr.aria-expanded]="filtrosDerechaAbiertos()"
-        aria-controls="filtros-derecha-numor"
-        [attr.aria-label]="filtrosDerechaAbiertos() ? 'Ocultar filtros de derecha y numor' : 'Más filtros: derecha y numor'"
-        [attr.data-tooltip]="filtrosDerechaAbiertos() ? 'Ocultar filtros' : 'Más filtros'"
-        (click)="filtrosDerechaAbiertos.set(!filtrosDerechaAbiertos())"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-        </svg>
-        <span class="personal-page__toggle-dot" *ngIf="hayFiltroDerecha() && !filtrosDerechaAbiertos()" aria-hidden="true"></span>
-      </button>
+        <!-- Sin esto los retirados no aparecen. -->
+        <label class="personal-page__check" [class.personal-page__check--activo]="incluirRetirados()">
+          <input
+            type="checkbox"
+            [checked]="incluirRetirados()"
+            (change)="setIncluirRetirados($any($event.target).checked)"
+          />
+          Incluir retirados
+        </label>
+      </div>
     </div>
-
-    <!-- El orden se elige desde los encabezados de la tabla y el botón de arriba borra también estos filtros. -->
-    <app-filtro-derecha-numor
-      *ngIf="filtrosDerechaAbiertos()"
-      id="filtros-derecha-numor"
-      class="personal-page__filtro-derecha"
-      [valor]="filtroDerecha()"
-      [conOrden]="false"
-      [conLimpiar]="false"
-      (valorChange)="onFiltroDerecha($event)"
-    ></app-filtro-derecha-numor>
   </article>
 
   <article class="personal-page__table-card">
@@ -154,7 +180,7 @@
           <tr *ngIf="loading() && items().length === 0">
             <td colspan="8" class="personal-page__empty">Cargando...</td>
           </tr>
-          <tr *ngFor="let item of items(); trackBy: trackPersonal">
+          <tr *ngFor="let item of items(); trackBy: trackPersonal" class="personal-page__row--clickable" (click)="ver(item)">
             <td>{{ item.nombre }}</td>
             <td>{{ item.cedula }}</td>
             <td>{{ item.rango }}<small class="personal-page__escalafon" *ngIf="item.escalafon"> {{ item.escalafon }}</small></td>
@@ -177,7 +203,8 @@
                 Retirado
               </span>
             </td>
-            <td class="personal-page__col-actions">
+            <!-- El menú tiene sus propias acciones: un clic acá no abre el detalle. -->
+            <td class="personal-page__col-actions" (click)="$event.stopPropagation()">
               <div class="personal-page__menu-wrap">
                 <button
                   type="button"

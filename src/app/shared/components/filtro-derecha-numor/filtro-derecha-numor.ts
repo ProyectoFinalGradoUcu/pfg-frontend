@@ -5,12 +5,11 @@ import {
   FILTRO_DERECHA_NUMOR_INICIAL,
   FiltroDerechaNumor,
   NOMBRES_ESCALA,
+  hayFiltroDerechaNumor,
   OrdenarPorDerechaNumor,
 } from '../../../core/models/derecha.models';
 import { GradoItem, OpcionSelect } from '../../../core/models/personal.models';
 import { PersonalService } from '../../../core/services/personal.service';
-
-type CampoNumerico = 'gradoId' | 'escalafonId';
 
 /**
  * Filtro (y opcionalmente orden) por derecha y numor. Emite un objeto con la forma
@@ -32,6 +31,10 @@ export class FiltroDerechaNumorComponent implements OnInit {
   @Input() conOrden = true;
   /** Sin "Limpiar" cuando la pantalla ya tiene su propio botón para borrar filtros. */
   @Input() conLimpiar = true;
+  /** Sin escala cuando la pantalla ya filtra por categoría (oficial / subalterno). */
+  @Input() conEscala = true;
+  /** Sin grado ni escalafón cuando la pantalla los muestra en su propia fila de filtros. */
+  @Input() conGradoEscalafon = true;
   @Output() valorChange = new EventEmitter<FiltroDerechaNumor>();
 
   readonly filtro = signal<FiltroDerechaNumor>({ ...FILTRO_DERECHA_NUMOR_INICIAL });
@@ -44,35 +47,17 @@ export class FiltroDerechaNumorComponent implements OnInit {
   }));
 
   readonly opcionesOrden: { value: OrdenarPorDerechaNumor; label: string }[] = [
-    { value: 'derecha', label: 'Derecha' },
-    { value: 'numor', label: 'Numor' },
-    { value: 'apellido', label: 'Apellido' },
+    { value: 'derecha', label: 'Ordenar por derecha' },
+    { value: 'numor', label: 'Ordenar por numor' },
+    { value: 'apellido', label: 'Ordenar por apellido' },
   ];
 
-  readonly hayFiltro = computed(() => {
-    const f = this.filtro();
-    return [f.escala, f.gradoId, f.escalafonId, f.derechaDesde, f.derechaHasta, f.numorDesde, f.numorHasta].some(
-      (v) => v != null,
-    );
-  });
+  readonly hayFiltro = computed(() => hayFiltroDerechaNumor(this.filtro()));
 
   ngOnInit(): void {
+    if (!this.conGradoEscalafon) return;
     this.personal.getGrados().subscribe({ next: (g) => this.grados.set(g) });
     this.personal.getEscalafones().subscribe({ next: (e) => this.escalafones.set(e) });
-  }
-
-  onNumero(campo: CampoNumerico, event: Event): void {
-    const crudo = (event.target as HTMLSelectElement).value;
-    this.actualizar({ [campo]: crudo === '' ? null : Number(crudo) });
-  }
-
-  onEscala(event: Event): void {
-    const v = (event.target as HTMLSelectElement).value;
-    this.actualizar({ escala: v ? (v as EscalaDerecha) : null });
-  }
-
-  onOrdenarPor(event: Event): void {
-    this.actualizar({ ordenarPor: (event.target as HTMLSelectElement).value as OrdenarPorDerechaNumor });
   }
 
   alternarDireccion(): void {

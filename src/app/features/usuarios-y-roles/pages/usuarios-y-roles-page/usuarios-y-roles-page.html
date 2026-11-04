@@ -59,6 +59,42 @@
   <article class="ur__card" *ngIf="tab() === 'usuarios'">
     <h3>Usuarios del Sistema</h3>
 
+    <div class="ur__filtros">
+      <app-search-input
+        class="ur__filtros-busqueda"
+        placeholder="Buscar por nombre o email..."
+        ariaLabel="Buscar por nombre o email"
+        [value]="usuariosBusqueda()"
+        (valueChange)="onUsuariosBusqueda($event)"
+      ></app-search-input>
+
+      <app-select
+        class="ur__filtros-select"
+        [items]="roles()"
+        bindLabel="nombre"
+        bindValue="id"
+        placeholder="Rol"
+        [searchable]="true"
+        [clearable]="true"
+        [ngModel]="usuariosRol()"
+        (ngModelChange)="onUsuariosRolChange($event)"
+      ></app-select>
+
+      <app-select
+        class="ur__filtros-select"
+        [items]="estadosOpciones"
+        placeholder="Estado"
+        [clearable]="true"
+        [ngModel]="usuariosEstado()"
+        (ngModelChange)="onUsuariosEstadoChange($event)"
+      ></app-select>
+
+      <app-clear-filters-button
+        [disabled]="!hayFiltrosUsuarios()"
+        (limpiar)="limpiarFiltrosUsuarios()"
+      ></app-clear-filters-button>
+    </div>
+
     <div *ngIf="usuariosLoading()" class="ur__placeholder">Cargando...</div>
 
     <div *ngIf="!usuariosLoading()" class="ur__table-wrapper">
@@ -120,7 +156,9 @@
           </tr>
           <tr *ngIf="usuariosTotal() === 0">
             <td [attr.colspan]="puedeGestionarUsuarios() ? 6 : 5" class="ur__empty">
-              No hay usuarios registrados
+              {{ usuariosError()
+                ? 'No se pudieron cargar los usuarios. Volvé a intentar.'
+                : hayFiltrosUsuarios() ? 'No hay usuarios que coincidan con los filtros.' : 'No hay usuarios registrados' }}
             </td>
           </tr>
         </tbody>
@@ -140,8 +178,9 @@
     <header class="ur__card-header">
       <h3>Invitaciones</h3>
       <div class="ur__filter">
-        <select [value]="estadoFiltro()" (change)="onEstadoFiltroChange($event)">
-          <option *ngFor="let o of estadosFiltro" [value]="o.value">{{ o.label }}</option>
+        <!-- Con [value] en el select, al volver a la pestaña se vería la primera opción: las opciones aún no existen. -->
+        <select (change)="onEstadoFiltroChange($event)">
+          <option *ngFor="let o of estadosFiltro" [value]="o.value" [selected]="o.value === estadoFiltro()">{{ o.label }}</option>
         </select>
       </div>
     </header>
@@ -197,6 +236,13 @@
         </tbody>
       </table>
     </div>
+
+    <app-paginator
+      [totalItems]="invitacionesTotal()"
+      [pageSize]="invitacionesPageSize"
+      [currentPage]="invitacionesPage()"
+      (pageChange)="onInvitacionesPageChange($event)"
+    ></app-paginator>
   </article>
 
   <!-- ── TAB: ROLES Y PERMISOS ─────────────────────────────────────────── -->
@@ -217,7 +263,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let r of roles(); trackBy: trackRol">
+          <tr *ngFor="let r of rolesDePagina(); trackBy: trackRol">
             <td>
               <span class="ur__rol-badge" [attr.data-rol]="r.nombre">{{ r.nombre }}</span>
             </td>
@@ -249,6 +295,13 @@
         </tbody>
       </table>
     </div>
+
+    <app-paginator
+      [totalItems]="roles().length"
+      [pageSize]="rolesPageSize"
+      [currentPage]="rolesPageActual()"
+      (pageChange)="rolesPage.set($event)"
+    ></app-paginator>
   </article>
 
   <!-- Dropdown kebab de roles (fixed, escapa del overflow de la tabla) -->
