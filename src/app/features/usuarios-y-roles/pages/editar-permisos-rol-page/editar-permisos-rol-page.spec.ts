@@ -25,6 +25,8 @@ const pagina = (page: number) => ({
 
 const rolCon = (nombre: string, permisos: Permiso[]): Rol => ({ id: '1', nombre, permisos }) as unknown as Rol;
 
+const checkboxMarcado = (): HTMLInputElement => ({ checked: true }) as HTMLInputElement;
+
 describe('EditarPermisosRolPage: paginación', () => {
   let fixture: ComponentFixture<EditarPermisosRolPage>;
   let component: EditarPermisosRolPage;
@@ -81,7 +83,7 @@ describe('EditarPermisosRolPage: paginación', () => {
     permisos.findAll.mockClear();
     roles.activarPermiso.mockReturnValue(of(rolCon('Consulta', [permiso(11)])));
 
-    component.togglePermiso(permiso(11), true);
+    component.togglePermiso(permiso(11), checkboxMarcado());
     fixture.detectChanges();
 
     expect(component.page()).toBe(2);
@@ -93,7 +95,7 @@ describe('EditarPermisosRolPage: paginación', () => {
     await setup();
     component.onPageChange(2);
     roles.activarPermiso.mockReturnValue(of(rolCon('Consulta', [permiso(11)])));
-    component.togglePermiso(permiso(11), true);
+    component.togglePermiso(permiso(11), checkboxMarcado());
 
     component.onPageChange(1);
     fixture.detectChanges();
