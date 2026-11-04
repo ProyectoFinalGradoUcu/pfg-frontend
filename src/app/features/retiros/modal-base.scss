@@ -135,6 +135,33 @@ $navy-soft: #1e3a5f;
   gap: 0 1rem;
 }
 
+// Prefijo o sufijo pegado al input, para que no se confunda 30 con 0,30.
+.monto {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+
+  &:focus-within { border-color: $navy; }
+
+  span {
+    padding: 0 0.65rem;
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+
+    &:focus { outline: none; }
+  }
+
+  &--sufijo input { text-align: right; }
+}
+
 
 .aviso {
   margin-top: 1rem;

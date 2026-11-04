@@ -1,4 +1,4 @@
-import { Retiro } from '../../core/models/retiros.models';
+import { Retiro, RetiroDetalle } from '../../core/models/retiros.models';
 
 export const DEBOUNCE_MS = 350;
 
@@ -8,6 +8,15 @@ export type EstadoRetiro = 'vigente' | 'revertido' | 'anulado';
 export function estadoRetiro(r: Pick<Retiro, 'anulado' | 'vigente'>): EstadoRetiro {
   if (r.anulado) return 'anulado';
   return r.vigente ? 'vigente' : 'revertido';
+}
+
+/** Los casos en que el backend responde 409 y que el detalle ya permite anticipar. */
+export function motivoNoAnulable(
+  r: Pick<RetiroDetalle, 'movimiento' | 'vigente'>,
+): string | null {
+  if (!r.movimiento) return 'El retiro es histórico o importado: no se registró desde este módulo.';
+  if (!r.vigente) return 'El funcionario volvió al servicio después de este retiro.';
+  return null;
 }
 
 /** El grado no va acá: es un dato del retiro y tiene columna propia. */

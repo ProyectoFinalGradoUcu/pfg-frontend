@@ -82,6 +82,56 @@ $navy-soft: #1e3a5f;
     border-color: #fecaca;
     background-color: #fef2f2;
   }
+
+  &--reincorporado {
+    border-color: #bae6fd;
+    background-color: #f0f9ff;
+
+    a { color: $navy-soft; }
+  }
+}
+
+.retiro-detalle__card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+
+  .btn { margin-top: -0.25rem; }
+}
+
+// Sin estos datos liquidación paga de más: tiene que verse antes que el resto de la tarjeta.
+.retiro-detalle__aviso {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.85rem;
+
+  p { margin: 0; flex: 1 1 18rem; }
+  strong { font-weight: 600; }
+}
+
+.retiro-detalle__cerrada { margin-top: 0.9rem; font-size: 0.8rem; }
+
+.retiro-detalle__bloqueos {
+  margin: -0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  color: #64748b;
+
+  li + li { margin-top: 0.25rem; }
+
+  strong { color: #334155; font-weight: 600; }
 }
 
 // El grado y la unidad son los del momento del retiro, no los actuales.

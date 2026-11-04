@@ -1,0 +1,93 @@
+<div class="modal-overlay">
+  <div class="modal">
+    <header class="modal__header">
+      <div>
+        <h3>Datos de cálculo de la reincorporación</h3>
+        <p class="dc__sub">
+          <strong>{{ retiro.persona.primer_nombre }} {{ retiro.persona.primer_apellido }}</strong>
+          · C.I. {{ retiro.persona.cedula }}
+        </p>
+      </div>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body" [formGroup]="form">
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+
+      <div class="field">
+        <label for="dc-grado">Grado de reincorporación</label>
+        <select id="dc-grado" formControlName="grado_reincorporacion_id">
+          <option [ngValue]="null" disabled>Seleccionar...</option>
+          <option *ngFor="let g of grados()" [ngValue]="g.id">{{ g.denominacion }}</option>
+        </select>
+        <p class="field__hint">El del acto de reincorporación.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="dc-haber">Haber de retiro mensual</label>
+          <div class="monto">
+            <span>$</span>
+            <input
+              id="dc-haber"
+              type="number"
+              formControlName="haber_retiro"
+              min="0.01"
+              step="0.01"
+              placeholder="Ej.: 45.000,50"
+            />
+          </div>
+          <p
+            class="field__error"
+            *ngIf="form.controls.haber_retiro.touched && form.controls.haber_retiro.invalid"
+          >
+            {{
+              form.controls.haber_retiro.hasError('required')
+                ? 'Ya está cargado: se puede corregir, no borrar.'
+                : 'Indicá un monto mayor que 0, con hasta 2 decimales.'
+            }}
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="dc-porcentaje">Porcentaje progresivo</label>
+          <div class="monto monto--sufijo">
+            <input
+              id="dc-porcentaje"
+              type="number"
+              formControlName="porcentaje"
+              min="0.01"
+              max="100"
+              step="0.01"
+              placeholder="Ej.: 30"
+            />
+            <span>%</span>
+          </div>
+          <p
+            class="field__error"
+            *ngIf="form.controls.porcentaje.touched && form.controls.porcentaje.invalid"
+          >
+            {{
+              form.controls.porcentaje.hasError('required')
+                ? 'Ya está cargado: se puede corregir, no borrar.'
+                : 'Indicá un porcentaje mayor que 0 y hasta 100, con hasta 2 decimales.'
+            }}
+          </p>
+        </div>
+      </div>
+      <p class="field__error" *ngIf="faltaPar(); else hintPar">
+        Cargá el haber y el porcentaje juntos.
+      </p>
+      <ng-template #hintPar>
+        <p class="field__hint">Del acto de reincorporación. Se cargan los dos o ninguno.</p>
+      </ng-template>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()">Cancelar</button>
+      <button type="button" class="btn btn--primary" [disabled]="!puedeGuardar()" (click)="guardar()">
+        {{ enviando() ? 'Guardando...' : 'Guardar' }}
+      </button>
+    </footer>
+  </div>
+</div>

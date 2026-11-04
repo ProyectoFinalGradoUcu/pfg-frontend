@@ -22,10 +22,40 @@
       <button type="button" *ngIf="puedeCorregir()" class="btn" (click)="abrir('corregir')">
         Corregir
       </button>
-      <button type="button" *ngIf="puedeAnular()" class="btn btn--danger" (click)="abrir('anular')">
+      <button
+        type="button"
+        *ngIf="puedeReincorporar()"
+        class="btn btn--primary"
+        [disabled]="!reincorporacionHabilitada()"
+        (click)="abrir('reincorporar')"
+      >
+        Reincorporar
+      </button>
+      <button
+        type="button"
+        *ngIf="puedeAnular()"
+        class="btn btn--danger"
+        [disabled]="!!noAnulable()"
+        (click)="abrir('anular')"
+      >
         Anular
       </button>
     </div>
+
+    <!-- Texto visible y no tooltip: un botón deshabilitado no siempre muestra el title. -->
+    <ul
+      class="retiro-detalle__bloqueos"
+      *ngIf="(puedeReincorporar() && bloqueosReincorporacion().length) || (puedeAnular() && noAnulable())"
+    >
+      <ng-container *ngIf="puedeReincorporar()">
+        <li *ngFor="let b of bloqueosReincorporacion()">
+          <strong>Reincorporar no disponible.</strong> {{ b }}
+        </li>
+      </ng-container>
+      <li *ngIf="puedeAnular() && noAnulable() as motivo">
+        <strong>Anular no disponible.</strong> {{ motivo }}
+      </li>
+    </ul>
 
     <!-- Primero: si el retiro no cuenta, cambia cómo se lee todo lo de abajo. -->
     <article class="retiro-detalle__card retiro-detalle__card--anulado" *ngIf="r.anulacion as an">
@@ -38,6 +68,67 @@
         <div><dt>Fecha</dt><dd>{{ an.fecha ? (an.fecha | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd></div>
         <div><dt>Anulado por</dt><dd>{{ an.por?.username ?? 'No registrado' }}</dd></div>
       </dl>
+    </article>
+
+    <article class="retiro-detalle__card retiro-detalle__card--reincorporado" *ngIf="r.reincorporacion as re">
+      <div class="retiro-detalle__card-header">
+        <h2>El funcionario fue reincorporado</h2>
+        <button
+          type="button"
+          class="btn"
+          *ngIf="puedeEditarDatosCalculo() && !re.faltan_datos_de_calculo"
+          (click)="abrir('datos-calculo')"
+        >
+          Corregir datos de cálculo
+        </button>
+      </div>
+      <p class="retiro-detalle__nota">
+        Tiene una relación laboral nueva posterior a este retiro. El retiro queda en el historial.
+      </p>
+      <div class="retiro-detalle__aviso" *ngIf="re.faltan_datos_de_calculo">
+        <p>
+          <strong>Falta cargar el haber de retiro y el porcentaje progresivo del acto de reincorporación.</strong>
+        </p>
+        <button
+          type="button"
+          class="btn btn--primary"
+          *ngIf="puedeEditarDatosCalculo()"
+          (click)="abrir('datos-calculo')"
+        >
+          Cargar datos
+        </button>
+      </div>
+      <dl class="retiro-detalle__campos">
+        <div>
+          <dt>Fecha</dt>
+          <dd class="retiro-detalle__fuerte">{{ re.fecha ? (re.fecha | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Situación</dt>
+          <dd>{{ re.situacion ? re.situacion.codigo + ' · ' + re.situacion.denominacion : '—' }}</dd>
+        </div>
+        <ng-container *ngIf="conDatosCalculo()">
+          <div>
+            <dt>Grado de reincorporación</dt>
+            <dd>{{ re.grado_reincorporacion?.denominacion ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Haber de retiro</dt>
+            <dd>{{ re.haber_retiro !== null ? '$ ' + formatoMoneda(re.haber_retiro) : 'Sin cargar' }}</dd>
+          </div>
+          <div>
+            <dt>Porcentaje progresivo</dt>
+            <dd>{{ re.porcentaje_progresivo !== null ? formatoPorcentaje(re.porcentaje_progresivo) : 'Sin cargar' }}</dd>
+          </div>
+        </ng-container>
+        <div>
+          <dt>Legajo</dt>
+          <dd><a [routerLink]="['/personal', r.persona.id]">Ver legajo</a></dd>
+        </div>
+      </dl>
+      <p class="retiro-detalle__vacio retiro-detalle__cerrada" *ngIf="mostrarRelacionCerrada()">
+        La relación de la reincorporación ya está cerrada: sus datos de cálculo no se cambian.
+      </p>
     </article>
 
     <article class="retiro-detalle__card">
@@ -136,4 +227,18 @@
     (anulado)="onAnulado($event)"
     (cerrado)="cerrarModal()"
   ></app-anular-retiro-modal>
+
+  <app-reincorporar-retiro-modal
+    *ngIf="modalAbierto() === 'reincorporar' && previaReincorporacion() as p"
+    [previa]="p"
+    (reincorporado)="onReincorporado($event)"
+    (cerrado)="cerrarModal()"
+  ></app-reincorporar-retiro-modal>
+
+  <app-datos-calculo-reincorporacion-modal
+    *ngIf="modalAbierto() === 'datos-calculo' && retiro() as r"
+    [retiro]="r"
+    (guardado)="onDatosCalculoGuardados($event)"
+    (cerrado)="cerrarModal()"
+  ></app-datos-calculo-reincorporacion-modal>
 </section>
