@@ -8,9 +8,19 @@ import { RetiroDetallePage } from './pages/retiro-detalle-page/retiro-detalle-pa
 import { AnularRetiroModal } from './components/anular-retiro-modal/anular-retiro-modal';
 import { CorregirRetiroModal } from './components/corregir-retiro-modal/corregir-retiro-modal';
 import { RetiroFormModal } from './components/retiro-form-modal/retiro-form-modal';
+import { ReincorporarRetiroModal } from './components/reincorporar-retiro-modal/reincorporar-retiro-modal';
+import { DatosCalculoReincorporacionModal } from './components/datos-calculo-reincorporacion-modal/datos-calculo-reincorporacion-modal';
 
 @NgModule({
-  declarations: [RetirosPage, RetiroDetallePage, AnularRetiroModal, CorregirRetiroModal, RetiroFormModal],
+  declarations: [
+    RetirosPage,
+    RetiroDetallePage,
+    AnularRetiroModal,
+    CorregirRetiroModal,
+    RetiroFormModal,
+    ReincorporarRetiroModal,
+    DatosCalculoReincorporacionModal,
+  ],
   imports: [CommonModule, FormsModule, ReactiveFormsModule, SharedModule, RetirosRoutingModule],
 })
 export class RetirosModule {}

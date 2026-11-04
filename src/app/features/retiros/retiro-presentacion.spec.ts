@@ -1,5 +1,5 @@
 import { Retiro } from '../../core/models/retiros.models';
-import { estadoRetiro, nombreFuncionario } from './retiro-presentacion';
+import { estadoRetiro, motivoNoAnulable, nombreFuncionario } from './retiro-presentacion';
 
 function retiro(overrides: Partial<Retiro> = {}): Retiro {
   return {
@@ -28,6 +28,29 @@ describe('estadoRetiro', () => {
 
   it('anulado gana sobre todo lo demás', () => {
     expect(estadoRetiro(retiro({ anulado: true, vigente: false }))).toBe('anulado');
+  });
+});
+
+describe('motivoNoAnulable', () => {
+  const movimiento = { id: '8', tipo: 'Retiro', fecha: '2026-08-28' };
+
+  it('un retiro registrado desde el módulo y sin relación activa se puede anular', () => {
+    expect(motivoNoAnulable({ ...retiro(), movimiento })).toBeNull();
+  });
+
+  it('sin movimiento es importado o histórico', () => {
+    expect(motivoNoAnulable({ ...retiro(), movimiento: null })).toContain('histórico o importado');
+  });
+
+  it('el motivo FALLECIMIENTO no lo bloquea: el backend mira la fecha de la persona', () => {
+    const r = { ...retiro({ motivo_baja: { codigo: 'FALLECIMIENTO', denominacion: 'Fallecimiento.' } }), movimiento };
+    expect(motivoNoAnulable(r)).toBeNull();
+  });
+
+  it('si volvió al servicio después del retiro no se anula', () => {
+    expect(motivoNoAnulable({ ...retiro({ vigente: false }), movimiento })).toBe(
+      'El funcionario volvió al servicio después de este retiro.',
+    );
   });
 });
 

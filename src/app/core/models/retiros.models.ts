@@ -49,7 +49,7 @@ export interface Retiro {
   motivo_baja: MotivoBaja;
   motivo: string | null;
   anulado: boolean;
-  /** No anulado y la persona no tiene relación laboral activa. */
+  /** No anulado y nadie volvió a entrar después de él: ninguna relación posterior, ni activa. */
   vigente: boolean;
 }
 
@@ -64,7 +64,7 @@ export interface RetiroDetalle extends Retiro {
     unidad: Ref | null;
     grado: Ref | null;
   } | null;
-  /** `null` si el retiro fue anulado. `tipo` dice "Retiro" o "Baja" según el motivo. */
+  /** `null` si el retiro fue anulado o es importado o histórico. `tipo` dice "Retiro" o "Baja" según el motivo. */
   movimiento: { id: string; tipo: string | null; fecha: string | null } | null;
   cerrado_con_el_retiro: CierresAplicados;
   registrado_por: { id: string; username: string } | null;
@@ -74,11 +74,19 @@ export interface RetiroDetalle extends Retiro {
     fecha: string | null;
     por: { id: string; username: string } | null;
   } | null;
-  /** Hoy siempre `null`: no hay flujo de reincorporación. Ninguna UI lo consume. */
+  /** La primera relación laboral que empieza después del retiro, se haya abierto como se haya abierto. */
   reincorporacion: {
     relacion_laboral_id: string;
     fecha: string | null;
     situacion: { codigo: string; denominacion: string } | null;
+    /** Una relación cerrada ya se liquidó: sus datos de cálculo no se cambian. */
+    activa: boolean;
+    grado_reincorporacion: Ref | null;
+    haber_retiro: number | null;
+    /** Fracción, no porcentaje: 0.3 es un 30 %. */
+    porcentaje_progresivo: number | null;
+    /** Sin haber y porcentaje liquidación le paga sin el descuento. */
+    faltan_datos_de_calculo: boolean;
   } | null;
 }
 
@@ -151,6 +159,72 @@ export interface RetiroAnulado {
     inscripciones: string[];
     usuario: string | null;
   };
+}
+
+/** Lo que la relación nueva hereda de la cerrada. No se edita desde la reincorporación. */
+export interface DatosCopiadosReincorporacion {
+  regimen: Ref | null;
+  programa: Ref | null;
+  escalafon: Ref | null;
+  grado: Ref | null;
+  tipo_funcionario: 'oficial' | 'subalterno' | null;
+  fecha_ascenso_oficial: string | null;
+  fecha_ultimo_ascenso: string | null;
+  anios_servicio_anterior: number;
+  anios_inactivos: number | null;
+  riesgo_vuelo: number | null;
+  categoria_viatico: number;
+  usa_fonasa: boolean;
+  superprima: boolean;
+  prima_tecnica: string | null;
+  prima_solidaria_familiar: string | null;
+}
+
+export interface PreviaReincorporacion {
+  retiro: { id: string; fecha_retiro: string | null };
+  persona: PersonaMin;
+  /** `null` si la categoría no admite reincorporación: en ese caso viene un bloqueo. */
+  situacion: { id: string; codigo: string; denominacion: string } | null;
+  se_copia: DatosCopiadosReincorporacion;
+  unidad_anterior: Ref | null;
+  /** Los que aceptan el POST y el PATCH según la categoría: vigentes, ordenados, sin cadetes, aprendices ni At. 3.ª. */
+  grados_validos: { id: string; codigo: string; denominacion: string }[];
+  destino_abierto: { id: string; unidad: Ref | null; fecha_inicio: string | null } | null;
+  /** Si trae elementos el POST falla con 409 o 422. Son strings listos para mostrar. */
+  bloqueos: string[];
+}
+
+export interface ReincorporarBody {
+  fecha_reincorporacion: string;
+  grado_reincorporacion_id: number;
+  /** Del acto de reincorporación; se descuenta del sueldo. Va junto con el porcentaje. */
+  haber_retiro?: number;
+  /** Fracción, no porcentaje: 0.3 es un 30 %. Va junto con el haber. */
+  porcentaje_progresivo?: number;
+  unidad_id: number;
+  numero_orden?: string;
+  boletin?: string;
+  posicion_destino?: string;
+  observaciones?: string;
+}
+
+export interface Reincorporado {
+  retiro_id: string;
+  relacion_laboral: {
+    id: string;
+    fecha_inicio: string;
+    situacion: { codigo: string; denominacion: string };
+  };
+  movimiento_id: string;
+  /** Siempre se abre uno nuevo; `anterior_cerrado` es el que estaba abierto, si había. */
+  destino: { id: string; anterior_cerrado: string | null };
+}
+
+/** Al menos un dato; haber y porcentaje van juntos. */
+export interface ActualizarReincorporacionBody {
+  grado_reincorporacion_id?: number;
+  haber_retiro?: number;
+  porcentaje_progresivo?: number;
 }
 
 /** Elemento de `retiros` en `GET /personas/:id/historial-militar`. */

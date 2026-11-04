@@ -163,4 +163,41 @@ describe('RetirosService', () => {
     });
   });
 
+  describe('previaReincorporacion', () => {
+    it('pide GET /retiros/:retiroId/reincorporacion/previa', () => {
+      service.previaReincorporacion('7').subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/7/reincorporacion/previa`);
+      expect(req.request.method).toBe('GET');
+      req.flush({});
+    });
+  });
+
+  describe('reincorporar', () => {
+    it('pide POST /retiros/:retiroId/reincorporacion envolviendo el body en service_request', () => {
+      const body = {
+        fecha_reincorporacion: '2026-10-01',
+        grado_reincorporacion_id: 3,
+        haber_retiro: 45000.5,
+        porcentaje_progresivo: 0.3,
+        unidad_id: 5,
+        numero_orden: 'O.D. 13001',
+      };
+      service.reincorporar('7', body).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/7/reincorporacion`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ service_request: body });
+      req.flush({});
+    });
+  });
+
+  describe('actualizarReincorporacion', () => {
+    it('pide PATCH /retiros/:retiroId/reincorporacion envolviendo el body en service_request', () => {
+      const body = { haber_retiro: 45000.5, porcentaje_progresivo: 0.3 };
+      service.actualizarReincorporacion('7', body).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/7/reincorporacion`);
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual({ service_request: body });
+      req.flush({});
+    });
+  });
 });

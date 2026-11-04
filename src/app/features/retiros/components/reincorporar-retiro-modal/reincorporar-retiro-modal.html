@@ -1,0 +1,263 @@
+<!-- Sin cierre al click afuera: un resbalón perdía todo lo cargado. -->
+<div class="modal-overlay">
+  <div class="modal modal--ancho">
+    <header class="modal__header">
+      <div>
+        <h3>Reincorporar funcionario</h3>
+        <p class="ri__sub">
+          <strong>{{ previa.persona.primer_nombre }} {{ previa.persona.primer_apellido }}</strong>
+          · C.I. {{ previa.persona.cedula }}
+          <span *ngIf="previa.retiro.fecha_retiro as f"> · retirado el {{ fechaCorta(f) }}</span>
+        </p>
+      </div>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <!-- Paso 1: datos del acto y destino -->
+    <div class="modal__body" *ngIf="paso() === 'datos'" [formGroup]="form">
+      <!-- Arriba: al volver de confirmar, el formulario es largo y abajo no se veía. -->
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+
+      <div class="aviso aviso--peligro" *ngIf="previa.bloqueos.length > 0">
+        <strong>No se puede reincorporar:</strong>
+        <ul>
+          <li *ngFor="let b of previa.bloqueos">{{ b }}</li>
+        </ul>
+      </div>
+
+      <p class="aviso aviso--info" *ngIf="previa.situacion as s">
+        Se abre una relación laboral nueva con situación
+        <strong>{{ s.codigo }} · {{ sinPuntoFinal(s.denominacion) }}</strong>. La relación cerrada y este
+        retiro quedan como están.
+      </p>
+
+      <section class="ri__seccion">
+        <h4>Acto de reincorporación</h4>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="ri-fecha">Fecha de reincorporación *</label>
+            <input
+              id="ri-fecha"
+              type="date"
+              formControlName="fecha_reincorporacion"
+              [min]="minFecha"
+              [max]="hoy"
+            />
+            <p class="field__hint" *ngIf="previa.retiro.fecha_retiro as f">
+              Posterior al retiro ({{ fechaCorta(f) }}) y no futura.
+            </p>
+            <p
+              class="field__error"
+              *ngIf="form.controls.fecha_reincorporacion.touched && form.controls.fecha_reincorporacion.invalid"
+            >
+              {{
+                form.controls.fecha_reincorporacion.hasError('futura')
+                  ? 'No puede ser futura.'
+                  : form.controls.fecha_reincorporacion.hasError('anteriorAlRetiro')
+                    ? 'Tiene que ser posterior a la fecha del retiro.'
+                    : 'Indicá la fecha.'
+              }}
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="ri-grado">Grado de reincorporación *</label>
+            <select id="ri-grado" formControlName="grado_reincorporacion_id" *ngIf="grados().length; else sinGrados">
+              <option [ngValue]="null">Seleccionar...</option>
+              <option *ngFor="let g of grados()" [ngValue]="g.id">{{ g.denominacion }}</option>
+            </select>
+            <ng-template #sinGrados>
+              <p class="field__error">No hay grados para elegir.</p>
+            </ng-template>
+            <p class="field__hint">
+              El del acto de reincorporación. El grado de carrera sigue siendo
+              {{ previa.se_copia.grado?.denominacion ?? 'el de la relación cerrada' }}.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="ri-haber">Haber de retiro mensual</label>
+            <div class="monto">
+              <span>$</span>
+              <input
+                id="ri-haber"
+                type="number"
+                formControlName="haber_retiro"
+                min="0.01"
+                step="0.01"
+                placeholder="Ej.: 45.000,50"
+              />
+            </div>
+            <p
+              class="field__error"
+              *ngIf="form.controls.haber_retiro.touched && form.controls.haber_retiro.invalid"
+            >
+              Indicá un monto mayor que 0, con hasta 2 decimales.
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="ri-porcentaje">Porcentaje progresivo</label>
+            <div class="monto monto--sufijo">
+              <input
+                id="ri-porcentaje"
+                type="number"
+                formControlName="porcentaje"
+                min="0.01"
+                max="100"
+                step="0.01"
+                placeholder="Ej.: 30"
+              />
+              <span>%</span>
+            </div>
+            <p
+              class="field__error"
+              *ngIf="form.controls.porcentaje.touched && form.controls.porcentaje.invalid"
+            >
+              Indicá un porcentaje mayor que 0 y hasta 100, con hasta 2 decimales.
+            </p>
+          </div>
+        </div>
+        <p class="field__error ri__suelto" *ngIf="faltaPar(); else hintPar">
+          Cargá el haber y el porcentaje juntos, o dejá los dos vacíos.
+        </p>
+        <ng-template #hintPar>
+          <p class="field__hint ri__suelto">Del acto de reincorporación. Se cargan los dos o ninguno.</p>
+        </ng-template>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="ri-orden">Número de orden</label>
+            <input id="ri-orden" type="text" formControlName="numero_orden" maxlength="50" placeholder="O.D. 13001" />
+          </div>
+          <div class="field">
+            <label for="ri-boletin">Boletín</label>
+            <input id="ri-boletin" type="text" formControlName="boletin" maxlength="50" placeholder="B.P. 9012" />
+          </div>
+        </div>
+        <p class="field__error ri__suelto" *ngIf="faltaRespaldo(); else hintRespaldo">
+          Indicá el número de orden o el boletín del acto.
+        </p>
+        <ng-template #hintRespaldo>
+          <p class="field__hint ri__suelto">Al menos uno de los dos.</p>
+        </ng-template>
+      </section>
+
+      <section class="ri__seccion">
+        <h4>Destino</h4>
+
+        <div class="field">
+          <label>Unidad *</label>
+          <app-select
+            [items]="unidades()"
+            bindLabel="denominacion"
+            bindValue="id"
+            placeholder="Seleccionar unidad"
+            [searchable]="true"
+            formControlName="unidad_id"
+          ></app-select>
+          <p class="field__hint" *ngIf="efectoDestino() as efecto">{{ efecto }}</p>
+          <p
+            class="field__error"
+            *ngIf="form.controls.unidad_id.touched && form.controls.unidad_id.invalid"
+          >
+            Elegí la unidad.
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="ri-posicion">Posición en el destino</label>
+          <input id="ri-posicion" type="text" formControlName="posicion_destino" maxlength="200" />
+        </div>
+
+        <div class="field">
+          <label for="ri-obs">Observaciones</label>
+          <textarea id="ri-obs" formControlName="observaciones" rows="2"></textarea>
+        </div>
+      </section>
+
+      <section class="ri__seccion" *ngIf="previa.se_copia as c">
+        <h4>Se copia de la relación cerrada</h4>
+        <p class="field__hint">La relación nueva hereda estos datos tal cual; acá no se editan.</p>
+        <dl class="ri__copia">
+          <div><dt>Régimen</dt><dd>{{ c.regimen?.denominacion ?? '—' }}</dd></div>
+          <div><dt>Programa</dt><dd>{{ c.programa?.denominacion ?? '—' }}</dd></div>
+          <div><dt>Escalafón</dt><dd>{{ c.escalafon?.denominacion ?? '—' }}</dd></div>
+          <div><dt>Grado de carrera</dt><dd>{{ c.grado?.denominacion ?? '—' }}</dd></div>
+          <div>
+            <dt>Tipo de funcionario</dt>
+            <dd>{{ c.tipo_funcionario === 'oficial' ? 'Oficial' : c.tipo_funcionario === 'subalterno' ? 'Subalterno' : '—' }}</dd>
+          </div>
+          <div>
+            <dt>Ascenso a oficial</dt>
+            <dd>{{ c.fecha_ascenso_oficial ? fechaCorta(c.fecha_ascenso_oficial) : '—' }}</dd>
+          </div>
+          <div>
+            <dt>Último ascenso</dt>
+            <dd>{{ c.fecha_ultimo_ascenso ? fechaCorta(c.fecha_ultimo_ascenso) : '—' }}</dd>
+          </div>
+          <div><dt>Años de servicio anterior</dt><dd>{{ c.anios_servicio_anterior }}</dd></div>
+          <div><dt>Años inactivos</dt><dd>{{ c.anios_inactivos ?? '—' }}</dd></div>
+          <div><dt>Riesgo de vuelo</dt><dd>{{ c.riesgo_vuelo === null ? '—' : moneda(c.riesgo_vuelo) }}</dd></div>
+          <div><dt>Categoría de viático</dt><dd>{{ c.categoria_viatico }}</dd></div>
+          <div><dt>FONASA</dt><dd>{{ c.usa_fonasa ? 'Sí' : 'No' }}</dd></div>
+          <div><dt>Superprima</dt><dd>{{ c.superprima ? 'Sí' : 'No' }}</dd></div>
+          <div><dt>Prima técnica</dt><dd>{{ c.prima_tecnica ?? '—' }}</dd></div>
+          <div><dt>Prima solidaria familiar</dt><dd>{{ c.prima_solidaria_familiar ?? '—' }}</dd></div>
+        </dl>
+      </section>
+    </div>
+
+    <!-- Paso 2: confirmación explícita -->
+    <div class="modal__body" *ngIf="paso() === 'confirmar'">
+      <div class="aviso aviso--peligro">
+        <strong>El funcionario vuelve al servicio.</strong> Se abre una relación laboral nueva desde el
+        {{ fechaCorta(form.controls.fecha_reincorporacion.value) }}
+        <ng-container *ngIf="previa.situacion as s">con situación {{ s.codigo }}</ng-container>
+        y grado de reincorporación {{ nombreGrado() }}.
+      </div>
+
+      <ul class="ri__resumen">
+        <li *ngIf="parCargado(); else sinPar">
+          Haber de retiro: $ {{ moneda(form.controls.haber_retiro.value) }} · Porcentaje progresivo:
+          {{ porcentajeIngresado() }}
+        </li>
+        <ng-template #sinPar>
+          <li>Haber de retiro y porcentaje: sin cargar (se pueden cargar después)</li>
+        </ng-template>
+        <li *ngIf="efectoDestino() as efecto">{{ efecto }}</li>
+        <li *ngIf="form.controls.numero_orden.value.trim() as orden">Número de orden: {{ orden }}</li>
+        <li *ngIf="form.controls.boletin.value.trim() as boletin">Boletín: {{ boletin }}</li>
+      </ul>
+    </div>
+
+    <footer class="modal__footer">
+      <ng-container *ngIf="paso() === 'datos'">
+        <button type="button" class="btn" (click)="cerrar()">Cancelar</button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="previa.bloqueos.length > 0"
+          (click)="irAConfirmar()"
+        >
+          Continuar
+        </button>
+      </ng-container>
+
+      <ng-container *ngIf="paso() === 'confirmar'">
+        <button type="button" class="btn" (click)="volverADatos()">Volver</button>
+        <button
+          type="button"
+          class="btn btn--primary"
+          [disabled]="enviando()"
+          (click)="confirmar()"
+        >
+          {{ enviando() ? 'Reincorporando...' : 'Confirmar reincorporación' }}
+        </button>
+      </ng-container>
+    </footer>
+  </div>
+</div>

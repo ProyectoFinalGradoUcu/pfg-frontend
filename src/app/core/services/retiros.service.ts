@@ -3,12 +3,16 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
+  ActualizarReincorporacionBody,
   AnularRetiroBody,
   CorregirRetiroBody,
   CrearRetiroBody,
   ListarRetirosQuery,
   Paginado,
+  PreviaReincorporacion,
   PreviaRetiro,
+  ReincorporarBody,
+  Reincorporado,
   Retiro,
   RetiroAnulado,
   RetiroCreado,
@@ -61,6 +65,30 @@ export class RetirosService {
       body: { service_request: body },
       withCredentials: true,
     });
+  }
+
+  /** Solo lectura: qué heredaría la relación nueva y por qué no se podría reincorporar. */
+  previaReincorporacion(retiroId: string): Observable<PreviaReincorporacion> {
+    return this.http.get<PreviaReincorporacion>(`${this.base}/${retiroId}/reincorporacion/previa`, {
+      withCredentials: true,
+    });
+  }
+
+  reincorporar(retiroId: string, body: ReincorporarBody): Observable<Reincorporado> {
+    return this.http.post<Reincorporado>(
+      `${this.base}/${retiroId}/reincorporacion`,
+      { service_request: body },
+      { withCredentials: true },
+    );
+  }
+
+  /** Devuelve el detalle completo del retiro, igual que `detalle`. */
+  actualizarReincorporacion(retiroId: string, body: ActualizarReincorporacionBody): Observable<RetiroDetalle> {
+    return this.http.patch<RetiroDetalle>(
+      `${this.base}/${retiroId}/reincorporacion`,
+      { service_request: body },
+      { withCredentials: true },
+    );
   }
 
   /** Omite los vacíos; `false` sí viaja, porque `vigentes=false` filtra. */

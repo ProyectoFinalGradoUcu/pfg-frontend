@@ -1,15 +1,30 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { RetiroAnulado, RetiroDetalle } from '../../../../core/models/retiros.models';
+import {
+  PreviaReincorporacion,
+  Reincorporado,
+  RetiroAnulado,
+  RetiroDetalle,
+} from '../../../../core/models/retiros.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { parseError } from '../../../../shared/utils/parse-error';
-import { ETIQUETA_ESTADO, estadoRetiro, nombreFuncionario } from '../../retiro-presentacion';
+import {
+  ETIQUETA_ESTADO,
+  estadoRetiro,
+  motivoNoAnulable,
+  nombreFuncionario,
+} from '../../retiro-presentacion';
 import { mensajeReversion } from '../../components/anular-retiro-modal/anular-retiro-modal';
+import { mensajeReincorporado } from '../../components/reincorporar-retiro-modal/reincorporar-retiro-modal';
+import { formatoMoneda, formatoPorcentaje } from '../../datos-calculo';
 
-type ModalAbierto = 'corregir' | 'anular' | null;
+type ModalAbierto = 'corregir' | 'anular' | 'reincorporar' | 'datos-calculo' | null;
+
+/** La relación posterior al retiro puede haberse abierto sin reincorporar: esas no tienen datos de cálculo. */
+const SITUACIONES_REINCORPORADO = ['SIT16', 'SIT17'];
 
 @Component({
   selector: 'app-retiro-detalle-page',
@@ -30,6 +45,8 @@ export class RetiroDetallePage implements OnInit {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly modalAbierto = signal<ModalAbierto>(null);
+  readonly previaReincorporacion = signal<PreviaReincorporacion | null>(null);
+  readonly previaReincorporacionError = signal<string | null>(null);
 
   private readonly puedeEscribir = this.auth.hasPermiso('retiros.registrar');
 
@@ -48,6 +65,44 @@ export class RetiroDetallePage implements OnInit {
   readonly puedeAnular = computed(() => {
     const r = this.retiro();
     return this.puedeEscribir && !!r && !r.anulado;
+  });
+
+  /** El resto de los 409 los informa el modal. */
+  readonly noAnulable = computed(() => {
+    const r = this.retiro();
+    return r ? motivoNoAnulable(r) : null;
+  });
+
+  /** Ya reincorporado, la tarjeta lo dice y la previa solo traería un bloqueo. */
+  readonly puedeReincorporar = computed(() => {
+    const r = this.retiro();
+    return this.puedeEscribir && !!r && !r.anulado && !r.reincorporacion;
+  });
+
+  readonly bloqueosReincorporacion = computed(() => {
+    const error = this.previaReincorporacionError();
+    if (error) return [`No se pudo verificar si se puede reincorporar. ${error}`];
+    return this.previaReincorporacion()?.bloqueos ?? [];
+  });
+
+  readonly reincorporacionHabilitada = computed(
+    () => !!this.previaReincorporacion() && this.bloqueosReincorporacion().length === 0,
+  );
+
+  readonly conDatosCalculo = computed(() => {
+    const codigo = this.retiro()?.reincorporacion?.situacion?.codigo;
+    return !!codigo && SITUACIONES_REINCORPORADO.includes(codigo);
+  });
+
+  /** Con la relación cerrada o un retiro anulado el backend responde 409. */
+  readonly puedeEditarDatosCalculo = computed(() => {
+    const r = this.retiro();
+    return this.puedeEscribir && !!r && !r.anulado && !!r.reincorporacion?.activa && this.conDatosCalculo();
+  });
+
+  readonly mostrarRelacionCerrada = computed(() => {
+    const r = this.retiro();
+    return this.puedeEscribir && !!r && !r.anulado && r.reincorporacion?.activa === false && this.conDatosCalculo();
   });
 
   /** `cerrado_con_el_retiro` puede venir `{}`: la plantilla no debe defenderse. */
@@ -69,6 +124,8 @@ export class RetiroDetallePage implements OnInit {
 
   readonly etiquetaEstado = ETIQUETA_ESTADO;
   readonly nombreFuncionario = nombreFuncionario;
+  readonly formatoMoneda = formatoMoneda;
+  readonly formatoPorcentaje = formatoPorcentaje;
 
   ngOnInit(): void {
     this.retiroId = this.route.snapshot.paramMap.get('retiroId')!;
@@ -77,10 +134,13 @@ export class RetiroDetallePage implements OnInit {
 
   recargar(): void {
     this.loading.set(true);
+    this.previaReincorporacion.set(null);
+    this.previaReincorporacionError.set(null);
     this.retirosService.detalle(this.retiroId).subscribe({
       next: (r) => {
         this.retiro.set(r);
         this.loading.set(false);
+        if (this.puedeReincorporar()) this.cargarPreviaReincorporacion();
       },
       error: (err: HttpErrorResponse) => {
         this.loading.set(false);
@@ -91,6 +151,13 @@ export class RetiroDetallePage implements OnInit {
         }
         this.error.set(parseError(err));
       },
+    });
+  }
+
+  private cargarPreviaReincorporacion(): void {
+    this.retirosService.previaReincorporacion(this.retiroId).subscribe({
+      next: (p) => this.previaReincorporacion.set(p),
+      error: (err: HttpErrorResponse) => this.previaReincorporacionError.set(parseError(err)),
     });
   }
 
@@ -116,6 +183,18 @@ export class RetiroDetallePage implements OnInit {
   onAnulado(r: RetiroAnulado): void {
     this.toast.success(mensajeReversion(r));
     this.alGuardar();
+  }
+
+  onReincorporado(r: Reincorporado): void {
+    this.toast.success(mensajeReincorporado(r));
+    this.alGuardar();
+  }
+
+  /** El PATCH devuelve el detalle completo: no hace falta volver a pedirlo. */
+  onDatosCalculoGuardados(r: RetiroDetalle): void {
+    this.toast.success('Datos de cálculo guardados.');
+    this.retiro.set(r);
+    this.cerrarModal();
   }
 
   volver(): void {
