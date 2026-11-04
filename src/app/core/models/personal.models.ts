@@ -29,9 +29,11 @@ export interface FindPersonasParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  destino?: number;
+  /** IDs de unidad: trae a quien revista en cualquiera de ellas. */
+  destino?: number[];
   rango?: number;
-  estado?: number;
+  /** IDs de situación: trae a quien tenga cualquiera de ellas. */
+  estado?: number[];
   /** Sin esto los retirados no aparecen: el backend exige relación abierta. */
   incluir_inactivos?: boolean;
   categoria?: 'oficial' | 'subalterno';

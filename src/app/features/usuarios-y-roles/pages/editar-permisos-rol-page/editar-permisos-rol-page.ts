@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
 import { PermisosService } from '../../../../core/services/permisos.service';
 import { RolesService } from '../../../../core/services/roles.service';
@@ -35,6 +36,9 @@ export class EditarPermisosRolPage implements OnInit {
   readonly search = signal('');
   readonly page = signal(1);
   readonly pageSize = 10;
+  /** Última página cargada: si falla un cambio de página, la tabla y el paginador vuelven acá. */
+  private pageCargada = 1;
+  private permisosSub?: Subscription;
 
   readonly puedeGestionarRoles = computed(() =>
     this.auth.hasPermiso('roles.gestionar'),
@@ -70,8 +74,10 @@ export class EditarPermisosRolPage implements OnInit {
   }
 
   private cargarPermisos(): void {
+    // Con clics seguidos o al tipear, una respuesta vieja no debe pisar a la última.
+    this.permisosSub?.unsubscribe();
     this.permisosLoading.set(true);
-    this.permisosService
+    this.permisosSub = this.permisosService
       .findAll({
         page: this.page(),
         pageSize: this.pageSize,
@@ -81,10 +87,12 @@ export class EditarPermisosRolPage implements OnInit {
         next: ({ items, total }) => {
           this.permisos.set(items);
           this.permisosTotal.set(total);
+          this.pageCargada = this.page();
           this.permisosLoading.set(false);
         },
         error: (err: HttpErrorResponse) => {
           this.reportarError(err);
+          this.page.set(this.pageCargada);
           this.permisosLoading.set(false);
         },
       });

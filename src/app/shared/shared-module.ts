@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { PageHeader } from './components/page-header/page-header';
 import { EmptyState } from './components/empty-state/empty-state';
 import { Select } from './components/select/select';
@@ -10,6 +11,9 @@ import { FiltroDerechaNumorComponent } from './components/filtro-derecha-numor/f
 import { SelectorPosicionDerecha } from './components/selector-posicion-derecha/selector-posicion-derecha';
 import { SelectorRango } from './components/selector-rango/selector-rango';
 import { CargaMasivaModal } from './components/carga-masiva-modal/carga-masiva-modal';
+import { SearchInput } from './components/search-input/search-input';
+import { ClearFiltersButton } from './components/clear-filters-button/clear-filters-button';
+import { DateInput } from './components/date-input/date-input';
 
 @NgModule({
   declarations: [
@@ -22,8 +26,11 @@ import { CargaMasivaModal } from './components/carga-masiva-modal/carga-masiva-m
     SelectorPosicionDerecha,
     SelectorRango,
     CargaMasivaModal,
+    SearchInput,
+    ClearFiltersButton,
+    DateInput,
   ],
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule],
   exports: [
     PageHeader,
     EmptyState,
@@ -34,6 +41,9 @@ import { CargaMasivaModal } from './components/carga-masiva-modal/carga-masiva-m
     SelectorPosicionDerecha,
     SelectorRango,
     CargaMasivaModal,
+    SearchInput,
+    ClearFiltersButton,
+    DateInput,
   ],
 })
 export class SharedModule {}

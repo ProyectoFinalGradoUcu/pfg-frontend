@@ -1,18 +1,41 @@
 <div class="fdn">
-  <select aria-label="Escala" (change)="onEscala($event)">
-    <option value="" [selected]="!filtro().escala">Todas las escalas</option>
-    <option *ngFor="let e of escalas" [value]="e.value" [selected]="e.value === filtro().escala">{{ e.label }}</option>
-  </select>
+  <app-select
+    *ngIf="conEscala"
+    class="fdn__select fdn__escala"
+    [items]="escalas"
+    placeholder="Todas las escalas"
+    [clearable]="true"
+    [ngModel]="filtro().escala ?? null"
+    (ngModelChange)="actualizar({ escala: $event })"
+  ></app-select>
 
-  <select aria-label="Grado" (change)="onNumero('gradoId', $event)">
-    <option value="" [selected]="filtro().gradoId == null">Todos los grados</option>
-    <option *ngFor="let g of grados()" [value]="g.id" [selected]="g.id === filtro().gradoId">{{ g.denominacion }}</option>
-  </select>
+  <ng-container *ngIf="conGradoEscalafon">
+    <app-select
+      class="fdn__select fdn__grado"
+      [items]="grados()"
+      bindLabel="denominacion"
+      bindValue="id"
+      placeholder="Todos los grados"
+      [multiple]="true"
+      [searchable]="true"
+      [clearable]="true"
+      [ngModel]="filtro().gradoId ?? []"
+      (ngModelChange)="actualizar({ gradoId: $event })"
+    ></app-select>
 
-  <select aria-label="Escalafón" (change)="onNumero('escalafonId', $event)">
-    <option value="" [selected]="filtro().escalafonId == null">Todos los escalafones</option>
-    <option *ngFor="let e of escalafones()" [value]="e.id" [selected]="e.id === filtro().escalafonId">{{ e.denominacion }}</option>
-  </select>
+    <app-select
+      class="fdn__select fdn__escalafon"
+      [items]="escalafones()"
+      bindLabel="denominacion"
+      bindValue="id"
+      placeholder="Todos los escalafones"
+      [multiple]="true"
+      [searchable]="true"
+      [clearable]="true"
+      [ngModel]="filtro().escalafonId ?? []"
+      (ngModelChange)="actualizar({ escalafonId: $event })"
+    ></app-select>
+  </ng-container>
 
   <app-selector-rango class="fdn__rango" etiqueta="Derecha"
     [desde]="filtro().derechaDesde" [hasta]="filtro().derechaHasta"
@@ -23,11 +46,12 @@
     (rangoChange)="actualizar({ numorDesde: $event.desde, numorHasta: $event.hasta })"></app-selector-rango>
 
   <ng-container *ngIf="conOrden">
-    <select aria-label="Ordenar por" (change)="onOrdenarPor($event)">
-      <option *ngFor="let o of opcionesOrden" [value]="o.value" [selected]="o.value === filtro().ordenarPor">
-        Ordenar por {{ o.label | lowercase }}
-      </option>
-    </select>
+    <app-select
+      class="fdn__select fdn__orden"
+      [items]="opcionesOrden"
+      [ngModel]="filtro().ordenarPor ?? 'derecha'"
+      (ngModelChange)="actualizar({ ordenarPor: $event })"
+    ></app-select>
     <button type="button" class="fdn__dir" (click)="alternarDireccion()"
       [attr.aria-label]="filtro().direccion === 'DESC' ? 'Descendente: cambiar a ascendente' : 'Ascendente: cambiar a descendente'"
       [title]="filtro().direccion === 'DESC' ? 'Descendente' : 'Ascendente'">

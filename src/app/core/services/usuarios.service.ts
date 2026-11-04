@@ -14,10 +14,19 @@ import {
 export class UsuariosService {
   constructor(private readonly http: HttpClient) {}
 
-  findAll(params: { page: number; pageSize: number }): Observable<PaginatedResponse<Usuario>> {
-    const httpParams = new HttpParams()
+  findAll(params: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    rolId?: string | null;
+    estado?: string | null;
+  }): Observable<PaginatedResponse<Usuario>> {
+    let httpParams = new HttpParams()
       .set('page', params.page)
       .set('pageSize', params.pageSize);
+    if (params.search) httpParams = httpParams.set('search', params.search);
+    if (params.rolId) httpParams = httpParams.set('rolId', params.rolId);
+    if (params.estado) httpParams = httpParams.set('estado', params.estado);
     return this.http.get<PaginatedResponse<Usuario>>(`${API_BASE_URL}/usuarios`, {
       params: httpParams,
       withCredentials: true,

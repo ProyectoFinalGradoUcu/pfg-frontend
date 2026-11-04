@@ -80,6 +80,27 @@ describe('PersonalService', () => {
     });
   });
 
+  describe('findPaginado con filtros de lista', () => {
+    it('manda destino, estado, grado y escalafón separados por coma', () => {
+      service
+        .findPaginado({ destino: [3, 4], estado: [2, 5], filtroDerecha: { gradoId: [14, 15], escalafonId: [1] } })
+        .subscribe();
+      const req = http.expectOne((r) => r.url === `${API_BASE_URL}/personas`);
+      expect(req.request.params.get('destino')).toBe('3,4');
+      expect(req.request.params.get('estado')).toBe('2,5');
+      expect(req.request.params.get('gradoId')).toBe('14,15');
+      expect(req.request.params.get('escalafonId')).toBe('1');
+      req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+    });
+
+    it('las listas vacías no se mandan', () => {
+      service.findPaginado({ destino: [], estado: [], filtroDerecha: { gradoId: [], escalafonId: [] } }).subscribe();
+      const req = http.expectOne((r) => r.url === `${API_BASE_URL}/personas`);
+      for (const p of ['destino', 'estado', 'gradoId', 'escalafonId']) expect(req.request.params.has(p)).toBe(false);
+      req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+    });
+  });
+
   describe('quitarFamiliar', () => {
     it('pide DELETE /personas/:id/familiares/:familiarId', () => {
       service.quitarFamiliar(31, 16).subscribe();
