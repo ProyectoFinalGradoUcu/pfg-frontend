@@ -6,7 +6,7 @@ import {
   ReincorporarBody,
   Reincorporado,
 } from '../../../../core/models/retiros.models';
-import { GradoItem, OpcionSelect } from '../../../../core/models/personal.models';
+import { OpcionSelect } from '../../../../core/models/personal.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { parseError } from '../../../../shared/utils/parse-error';
@@ -115,7 +115,7 @@ export class ReincorporarRetiroModal implements OnInit {
   @Output() cerrado = new EventEmitter<void>();
 
   readonly paso = signal<Paso>('datos');
-  readonly grados = signal<GradoItem[]>([]);
+  readonly grados = signal<{ id: number; codigo: string; denominacion: string }[]>([]);
   readonly unidades = signal<OpcionSelect[]>([]);
   readonly enviando = signal(false);
   readonly error = signal<string | null>(null);
@@ -152,13 +152,9 @@ export class ReincorporarRetiroModal implements OnInit {
       unidad_id: unidadSugerida(this.previa),
     });
 
-    const escalafon = this.previa.se_copia.escalafon;
-    this.personalService.getGrados(escalafon ? Number(escalafon.id) : undefined).subscribe({
-      next: (g) => {
-        this.grados.set(g.map((x) => ({ ...x, id: Number(x.id) })));
-        this.descartarSiNoEsta('grado_reincorporacion_id', this.grados());
-      },
-    });
+    // El catálogo por escalafón no sirve acá: deja afuera grados que el backend acepta e incluye cadetes.
+    this.grados.set(this.previa.grados_validos.map((g) => ({ ...g, id: Number(g.id) })));
+    this.descartarSiNoEsta('grado_reincorporacion_id', this.grados());
     this.personalService.getUnidades().subscribe({
       next: (u) => {
         this.unidades.set(u.map((x) => ({ ...x, id: Number(x.id) })));

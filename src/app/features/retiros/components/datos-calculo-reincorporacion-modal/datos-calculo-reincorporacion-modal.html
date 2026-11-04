@@ -16,11 +16,13 @@
 
       <div class="field">
         <label for="dc-grado">Grado de reincorporación</label>
-        <select id="dc-grado" formControlName="grado_reincorporacion_id">
+        <select id="dc-grado" formControlName="grado_reincorporacion_id" *ngIf="grados().length">
           <option [ngValue]="null" disabled>Seleccionar...</option>
           <option *ngFor="let g of grados()" [ngValue]="g.id">{{ g.denominacion }}</option>
         </select>
-        <p class="field__hint">El del acto de reincorporación.</p>
+        <p class="field__error" *ngIf="gradosError() as e">No se pudieron cargar los grados. {{ e }}</p>
+        <p class="field__error" *ngIf="gradosListos() && !grados().length">No hay grados para elegir.</p>
+        <p class="field__hint" *ngIf="grados().length">El del acto de reincorporación.</p>
       </div>
 
       <div class="grid-2">

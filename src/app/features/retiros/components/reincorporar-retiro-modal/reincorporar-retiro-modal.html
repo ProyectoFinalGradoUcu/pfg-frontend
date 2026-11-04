@@ -63,10 +63,13 @@
 
           <div class="field">
             <label for="ri-grado">Grado de reincorporación *</label>
-            <select id="ri-grado" formControlName="grado_reincorporacion_id">
+            <select id="ri-grado" formControlName="grado_reincorporacion_id" *ngIf="grados().length; else sinGrados">
               <option [ngValue]="null">Seleccionar...</option>
               <option *ngFor="let g of grados()" [ngValue]="g.id">{{ g.denominacion }}</option>
             </select>
+            <ng-template #sinGrados>
+              <p class="field__error">No hay grados para elegir.</p>
+            </ng-template>
             <p class="field__hint">
               El del acto de reincorporación. El grado de carrera sigue siendo
               {{ previa.se_copia.grado?.denominacion ?? 'el de la relación cerrada' }}.

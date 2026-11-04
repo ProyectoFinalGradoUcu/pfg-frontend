@@ -5,15 +5,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
-import {
-  DatosCalculoReincorporacionModal,
-  cambiosDatosCalculo,
-  gradosDelEscalafon,
-} from './datos-calculo-reincorporacion-modal';
+import { DatosCalculoReincorporacionModal, cambiosDatosCalculo } from './datos-calculo-reincorporacion-modal';
 import { RetirosService } from '../../../../core/services/retiros.service';
-import { PersonalService } from '../../../../core/services/personal.service';
-import { RetiroDetalle } from '../../../../core/models/retiros.models';
-import { GradoItem } from '../../../../core/models/personal.models';
+import { PreviaReincorporacion, RetiroDetalle } from '../../../../core/models/retiros.models';
 
 type Reincorporacion = NonNullable<RetiroDetalle['reincorporacion']>;
 
@@ -62,10 +56,39 @@ function makeDetalle(reincorporacion: Reincorporacion = makeReincorporacion()): 
   };
 }
 
-const GRADOS: GradoItem[] = [
-  { id: 13, codigo: 'TCNEL', denominacion: 'Teniente Coronel', escalafon_id: 1, orden: 1 },
-  { id: 14, codigo: 'CNEL', denominacion: 'Coronel', escalafon_id: 1, orden: 2 },
-  { id: 30, codigo: 'SG', denominacion: 'Sargento', escalafon_id: 2, orden: 1 },
+/** Después de reincorporar la previa trae un bloqueo: el modal solo usa la lista de grados. */
+function makePrevia(gradosValidos: PreviaReincorporacion['grados_validos']): PreviaReincorporacion {
+  return {
+    retiro: { id: '7', fecha_retiro: '2026-08-28' },
+    persona: { id: '1', cedula: '60000001', primer_nombre: 'Ana', primer_apellido: 'Pereyra' },
+    situacion: { id: '16', codigo: 'SIT16', denominacion: 'Personal Superior reincorporado.' },
+    se_copia: {
+      regimen: null,
+      programa: null,
+      escalafon: null,
+      grado: { id: '14', denominacion: 'Coronel' },
+      tipo_funcionario: 'oficial',
+      fecha_ascenso_oficial: null,
+      fecha_ultimo_ascenso: null,
+      anios_servicio_anterior: 0,
+      anios_inactivos: null,
+      riesgo_vuelo: null,
+      categoria_viatico: 0,
+      usa_fonasa: false,
+      superprima: false,
+      prima_tecnica: null,
+      prima_solidaria_familiar: null,
+    },
+    unidad_anterior: null,
+    grados_validos: gradosValidos,
+    destino_abierto: null,
+    bloqueos: ['El funcionario ya tiene una relación laboral activa.'],
+  };
+}
+
+const GRADOS_VALIDOS = [
+  { id: '13', codigo: 'TCNEL', denominacion: 'Teniente Coronel' },
+  { id: '14', codigo: 'CNEL', denominacion: 'Coronel' },
 ];
 
 describe('cambiosDatosCalculo', () => {
@@ -97,31 +120,19 @@ describe('cambiosDatosCalculo', () => {
   });
 });
 
-describe('gradosDelEscalafon', () => {
-  it('deja los grados del escalafón del grado de carrera', () => {
-    expect(gradosDelEscalafon(GRADOS, 14).map((g) => g.id)).toEqual([13, 14]);
-  });
-
-  it('si el grado de carrera no está en el catálogo los ofrece todos', () => {
-    expect(gradosDelEscalafon(GRADOS, 99)).toHaveLength(3);
-    expect(gradosDelEscalafon(GRADOS, null)).toHaveLength(3);
-  });
-});
-
 describe('DatosCalculoReincorporacionModal', () => {
   let fixture: ComponentFixture<DatosCalculoReincorporacionModal>;
   let component: DatosCalculoReincorporacionModal;
-  let retiros: { actualizarReincorporacion: ReturnType<typeof vi.fn> };
-  let personal: { getGrados: ReturnType<typeof vi.fn> };
+  let retiros: {
+    actualizarReincorporacion: ReturnType<typeof vi.fn>;
+    previaReincorporacion: ReturnType<typeof vi.fn>;
+  };
 
   async function montar(retiro: RetiroDetalle = makeDetalle()): Promise<void> {
     await TestBed.configureTestingModule({
       declarations: [DatosCalculoReincorporacionModal],
       imports: [ReactiveFormsModule],
-      providers: [
-        { provide: RetirosService, useValue: retiros },
-        { provide: PersonalService, useValue: personal },
-      ],
+      providers: [{ provide: RetirosService, useValue: retiros }],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
     }).compileComponents();
 
@@ -133,8 +144,10 @@ describe('DatosCalculoReincorporacionModal', () => {
 
   beforeEach(() => {
     TestBed.resetTestingModule();
-    retiros = { actualizarReincorporacion: vi.fn().mockReturnValue(of(makeDetalle())) };
-    personal = { getGrados: vi.fn().mockReturnValue(of(GRADOS)) };
+    retiros = {
+      actualizarReincorporacion: vi.fn().mockReturnValue(of(makeDetalle())),
+      previaReincorporacion: vi.fn().mockReturnValue(of(makePrevia(GRADOS_VALIDOS))),
+    };
   });
 
   it('precarga los datos actuales, con el porcentaje en %', async () => {
@@ -146,12 +159,30 @@ describe('DatosCalculoReincorporacionModal', () => {
     });
   });
 
-  it('ofrece los grados del escalafón de la relación cerrada', async () => {
+  it('ofrece los grados válidos de la previa del retiro, aunque traiga bloqueos', async () => {
     await montar();
+    expect(retiros.previaReincorporacion).toHaveBeenCalledWith('7');
     expect(component.grados().map((g) => g.id)).toEqual([13, 14]);
+    expect(fixture.nativeElement.textContent).not.toContain('relación laboral activa');
   });
 
-  it('mantiene el grado cargado aunque ya no esté en el catálogo', async () => {
+  it('sin grados válidos ni grado cargado avisa que no hay para elegir', async () => {
+    retiros.previaReincorporacion.mockReturnValue(of(makePrevia([])));
+    await montar(makeDetalle(makeReincorporacion({ grado_reincorporacion: null })));
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('#dc-grado')).toBeNull();
+    expect(el.textContent).toContain('No hay grados para elegir');
+  });
+
+  it('si la previa falla lo avisa en el campo del grado', async () => {
+    retiros.previaReincorporacion.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 0 })));
+    await montar();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('No se pudieron cargar los grados');
+  });
+
+  it('mantiene el grado cargado aunque no esté entre los válidos', async () => {
     await montar(makeDetalle(makeReincorporacion({ grado_reincorporacion: { id: '12', denominacion: 'Mayor' } })));
     expect(component.form.controls.grado_reincorporacion_id.value).toBe(12);
     expect(component.grados().some((g) => g.id === 12 && g.denominacion === 'Mayor')).toBe(true);

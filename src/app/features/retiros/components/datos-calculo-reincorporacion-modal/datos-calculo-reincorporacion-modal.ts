@@ -2,9 +2,7 @@ import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActualizarReincorporacionBody, RetiroDetalle } from '../../../../core/models/retiros.models';
-import { GradoItem } from '../../../../core/models/personal.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
-import { PersonalService } from '../../../../core/services/personal.service';
 import { parseError } from '../../../../shared/utils/parse-error';
 import {
   aFraccion,
@@ -40,12 +38,6 @@ export function cambiosDatosCalculo(
   return body;
 }
 
-/** El escalafón se copia de la relación cerrada: el de su grado. */
-export function gradosDelEscalafon(grados: GradoItem[], gradoCarreraId: number | null): GradoItem[] {
-  const escalafon = grados.find((g) => g.id === gradoCarreraId)?.escalafon_id;
-  return escalafon === undefined ? grados : grados.filter((g) => g.escalafon_id === escalafon);
-}
-
 @Component({
   selector: 'app-datos-calculo-reincorporacion-modal',
   standalone: false,
@@ -55,7 +47,6 @@ export function gradosDelEscalafon(grados: GradoItem[], gradoCarreraId: number |
 export class DatosCalculoReincorporacionModal implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly retirosService = inject(RetirosService);
-  private readonly personalService = inject(PersonalService);
 
   @Input({ required: true }) retiro!: RetiroDetalle;
 
@@ -63,6 +54,8 @@ export class DatosCalculoReincorporacionModal implements OnInit {
   @Output() cerrado = new EventEmitter<void>();
 
   readonly grados = signal<{ id: number; denominacion: string }[]>([]);
+  readonly gradosListos = signal(false);
+  readonly gradosError = signal<string | null>(null);
   readonly enviando = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -93,21 +86,20 @@ export class DatosCalculoReincorporacionModal implements OnInit {
       this.form.updateValueAndValidity();
     }
 
-    const gradoCarrera = this.retiro.relacion_laboral_cerrada?.grado ?? this.retiro.grado;
-    this.personalService.getGrados().subscribe({
-      next: (g) => {
-        const todos = g.map((x) => ({ ...x, id: Number(x.id) }));
-        const opciones: { id: number; denominacion: string }[] = gradosDelEscalafon(
-          todos,
-          gradoCarrera ? Number(gradoCarrera.id) : null,
-        );
-        const actual = re.grado_reincorporacion;
-        // Un grado que ya no está vigente no figura en el catálogo, pero es el que está cargado.
-        if (actual && !opciones.some((o) => o.id === Number(actual.id))) {
-          opciones.push({ id: Number(actual.id), denominacion: actual.denominacion });
-        }
-        this.grados.set(opciones);
+    const actual = re.grado_reincorporacion;
+    const cargado = actual ? [{ id: Number(actual.id), denominacion: actual.denominacion }] : [];
+    this.grados.set(cargado);
+
+    // Ya reincorporado, la previa trae un bloqueo por la relación activa: acá solo importan los grados.
+    this.retirosService.previaReincorporacion(this.retiro.id).subscribe({
+      next: (p) => {
+        const opciones = p.grados_validos.map((g) => ({ id: Number(g.id), denominacion: g.denominacion }));
+        // El cargado puede no estar entre los válidos de hoy, pero es el que tiene la relación.
+        const faltante = cargado.filter((c) => !opciones.some((o) => o.id === c.id));
+        this.grados.set([...opciones, ...faltante]);
+        this.gradosListos.set(true);
       },
+      error: (err: HttpErrorResponse) => this.gradosError.set(parseError(err)),
     });
   }
 

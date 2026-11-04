@@ -41,6 +41,10 @@ function makePrevia(overrides: Partial<PreviaReincorporacion> = {}): PreviaReinc
       prima_solidaria_familiar: null,
     },
     unidad_anterior: { id: '5', denominacion: 'Cuartel General' },
+    grados_validos: [
+      { id: '3', codigo: 'SG', denominacion: 'Sargento' },
+      { id: '4', codigo: 'SG1', denominacion: 'Sargento 1°' },
+    ],
     destino_abierto: null,
     bloqueos: [],
     ...overrides,
@@ -219,15 +223,22 @@ describe('ReincorporarRetiroModal', () => {
     expect(component.form.controls.unidad_id.value).toBe(5);
   });
 
-  it('ofrece los grados del escalafón de la relación cerrada', async () => {
+  it('ofrece los grados válidos de la previa sin pedir el catálogo', async () => {
     await montar();
-    expect(personal.getGrados).toHaveBeenCalledWith(2);
+    expect(component.grados().map((g) => g.id)).toEqual([3, 4]);
+    expect(personal.getGrados).not.toHaveBeenCalled();
   });
 
-  it('si el grado de carrera no está en el catálogo lo deja sin elegir', async () => {
-    personal.getGrados.mockReturnValue(of([{ id: 4, codigo: 'SG1', denominacion: 'Sargento 1°', escalafon_id: 2, orden: 2 }]));
-    await montar();
+  it('si el grado de carrera no está entre los válidos lo deja sin elegir', async () => {
+    await montar(makePrevia({ grados_validos: [{ id: '4', codigo: 'SG1', denominacion: 'Sargento 1°' }] }));
     expect(component.form.controls.grado_reincorporacion_id.value).toBeNull();
+  });
+
+  it('sin grados válidos avisa que no hay para elegir en vez de un combo vacío', async () => {
+    await montar(makePrevia({ grados_validos: [] }));
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('#ri-grado')).toBeNull();
+    expect(el.textContent).toContain('No hay grados para elegir');
   });
 
   it('si la unidad sugerida no está vigente la deja sin elegir', async () => {

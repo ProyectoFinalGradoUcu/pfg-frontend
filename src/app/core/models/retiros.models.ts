@@ -187,6 +187,8 @@ export interface PreviaReincorporacion {
   situacion: { id: string; codigo: string; denominacion: string } | null;
   se_copia: DatosCopiadosReincorporacion;
   unidad_anterior: Ref | null;
+  /** Los que aceptan el POST y el PATCH según la categoría: vigentes, ordenados, sin cadetes, aprendices ni At. 3.ª. */
+  grados_validos: { id: string; codigo: string; denominacion: string }[];
   destino_abierto: { id: string; unidad: Ref | null; fecha_inicio: string | null } | null;
   /** Si trae elementos el POST falla con 409 o 422. Son strings listos para mostrar. */
   bloqueos: string[];
