@@ -184,6 +184,10 @@ export class ComisionesPage {
     this.formAsignacion.controls.cargo.enable({ emitEvent: false });
     this.comisionElegida.set(a?.comision ?? this.comisionDetalle());
     this.formAsignacion.reset({ cargo: a?.cargo ?? '', fecha_inicio: a?.fecha_inicio ?? '', fecha_fin: a?.fecha_fin ?? '', numero_orden: a?.numero_orden ?? '', boletin: a?.boletin ?? '' });
+    // Una importada del Access puede seguir sin fecha desde hasta que la FAU la complete.
+    const fechaDesde = this.formAsignacion.controls.fecha_inicio;
+    if (a?.importada) fechaDesde.clearValidators(); else fechaDesde.setValidators(Validators.required);
+    fechaDesde.updateValueAndValidity({ emitEvent: false });
     this.modal.set('asignacion');
     if (!a) this.buscarPersonas();
     if (!a && !this.comisionElegida()) this.buscarComisiones();
@@ -212,24 +216,27 @@ export class ComisionesPage {
     const tienePersonas = this.seleccionada() ? !!p : this.personasElegidas().length > 0;
     if (!tienePersonas || !c || this.formAsignacion.invalid) { this.modalError.set('Seleccioná al menos una persona, una comisión y una fecha desde válida. El cargo admite hasta 200 caracteres y los documentos hasta 50.'); return; }
     if (!this.seleccionada() && this.personasElegidas().length > 200) { this.modalError.set('Podés asignar hasta 200 personas por lote'); return; }
-    if (!raw.numero_orden.trim() && !raw.boletin.trim()) { this.modalError.set('Ingresá al menos el N.º de orden o el boletín'); return; }
-    if (raw.fecha_fin && raw.fecha_fin < raw.fecha_inicio) { this.modalError.set('La fecha hasta no puede ser anterior a la fecha desde'); return; }
-    const valores = { cargo: this.esLote() ? null : raw.cargo.trim() || null, fecha_inicio: raw.fecha_inicio, fecha_fin: raw.fecha_fin || null, numero_orden: raw.numero_orden.trim() || null, boletin: raw.boletin.trim() || null };
+    const importada = !!this.seleccionada()?.importada;
+    if (!importada && !raw.numero_orden.trim() && !raw.boletin.trim()) { this.modalError.set('Ingresá al menos el N.º de orden o el boletín'); return; }
+    if (raw.fecha_fin && raw.fecha_inicio && raw.fecha_fin < raw.fecha_inicio) { this.modalError.set('La fecha hasta no puede ser anterior a la fecha desde'); return; }
+    const valores = { cargo: this.esLote() ? null : raw.cargo.trim() || null, fecha_inicio: raw.fecha_inicio || null, fecha_fin: raw.fecha_fin || null, numero_orden: raw.numero_orden.trim() || null, boletin: raw.boletin.trim() || null };
     const a = this.seleccionada();
     if (a) {
       const cambios: EditarAsignacionComision = {};
       for (const key of ['cargo', 'fecha_inicio', 'fecha_fin', 'numero_orden', 'boletin'] as const) {
+        // La fecha desde no se borra: el backend la exige una vez cargada.
+        if (key === 'fecha_inicio' && !valores.fecha_inicio) continue;
         if (valores[key] !== a[key]) Object.assign(cambios, { [key]: valores[key] });
       }
       if (!Object.keys(cambios).length) { this.cerrarModal(); return; }
       this.ejecutar(this.service.editarAsignacion(a.id, cambios), 'Asignación actualizada correctamente');
-    } else this.ejecutar(this.service.crearLote({ ...valores, persona_ids: this.personasElegidas().map(p => Number(p.id)), comision_id: Number(c.id) }), `${this.personasElegidas().length} asignación/es registradas correctamente`);
+    } else this.ejecutar(this.service.crearLote({ ...valores, fecha_inicio: raw.fecha_inicio, persona_ids: this.personasElegidas().map(p => Number(p.id)), comision_id: Number(c.id) }), `${this.personasElegidas().length} asignación/es registradas correctamente`);
   }
   abrirAccion(tipo: 'cerrar' | 'reabrir' | 'eliminar', a: AsignacionComision) { this.cerrarMenu(); this.seleccionada.set(a); this.fechaCierre = ''; this.modalError.set(null); this.modal.set(tipo); }
   confirmarAccion() {
     const a = this.seleccionada(); if (!a) return;
     if (this.modal() === 'eliminar') { this.ejecutar(this.service.eliminarAsignacion(a.id), 'Asignación eliminada del historial', true); return; }
-    if (this.modal() === 'cerrar' && (!this.fechaCierre || this.fechaCierre < a.fecha_inicio)) { this.modalError.set('Ingresá una fecha hasta igual o posterior a la fecha desde'); return; }
+    if (this.modal() === 'cerrar' && (!this.fechaCierre || (a.fecha_inicio && this.fechaCierre < a.fecha_inicio))) { this.modalError.set('Ingresá una fecha hasta igual o posterior a la fecha desde'); return; }
     this.ejecutar(this.service.editarAsignacion(a.id, { fecha_fin: this.modal() === 'cerrar' ? this.fechaCierre : null }), 'Asignación actualizada correctamente');
   }
   cerrarModal() { if (!this.guardando()) this.modal.set(null); }

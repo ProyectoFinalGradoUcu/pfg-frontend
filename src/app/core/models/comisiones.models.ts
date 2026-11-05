@@ -6,24 +6,35 @@ export interface Comision {
   vigente: boolean;
   total_integrantes: number;
 }
-export interface AsignacionComision {
+/** Período laboral en que estaba anotada una comisión importada del Access. */
+export interface PeriodoComision {
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+}
+/** Las importadas pueden no tener fecha ni documento: los completa la FAU. */
+interface DatosImportada {
+  importada: boolean;
+  texto_original: string | null;
+  periodo: PeriodoComision | null;
+}
+export interface AsignacionComision extends DatosImportada {
   id: string;
   categoria: 'oficial' | 'subalterno' | 'civil' | null;
   cargo: string | null;
   persona: PersonaRef;
   comision: Pick<Comision, 'id' | 'denominacion' | 'vigente'>;
-  fecha_inicio: string;
+  fecha_inicio: string | null;
   fecha_fin: string | null;
   numero_orden: string | null;
   boletin: string | null;
   activo: boolean;
 }
-export interface ComisionDePersona {
+export interface ComisionDePersona extends DatosImportada {
   id: string;
   cargo: string | null;
   comision_id: string;
   comision: string;
-  fecha_inicio: string;
+  fecha_inicio: string | null;
   fecha_fin: string | null;
   numero_orden: string | null;
   boletin: string | null;
