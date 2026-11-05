@@ -16,7 +16,7 @@ import { Convocatoria, MisionDefinicion } from '../../../../core/models/misiones
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function makeMision(overrides: Partial<MisionDefinicion> = {}): MisionDefinicion {
-  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', total_convocatorias: 0, ...overrides };
+  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0, ...overrides };
 }
 
 function makeConvocatoria(overrides: Partial<Convocatoria> = {}): Convocatoria {

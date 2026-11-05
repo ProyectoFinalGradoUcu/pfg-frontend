@@ -26,6 +26,11 @@ export interface CamposEditablesDestino {
   posicion_destino: string;
   numero_orden: string;
   boletin: string;
+  numero_destino: string;
+  fecha_orden: string;
+  fecha_boletin: string;
+  numero_resolucion: string;
+  fecha_resolucion: string;
   observaciones: string;
 }
 
@@ -37,6 +42,12 @@ export interface CamposEditablesDestino {
  * justamente lo que reabre un destino, así que la ausencia de la clave y la clave en
  * null significan cosas distintas.
  */
+/** Recorta la parte de fecha de un valor ISO; '' si no hay dato. */
+function fechaASlice(fecha: string | Date | null | undefined): string | null {
+  if (!fecha) return null;
+  return String(fecha).slice(0, 10) || null;
+}
+
 export function payloadEdicion(original: Destino, valores: CamposEditablesDestino): EditarDestinoPayload {
   const payload: EditarDestinoPayload = {};
 
@@ -50,6 +61,11 @@ export function payloadEdicion(original: Destino, valores: CamposEditablesDestin
     ['posicion_destino', original.posicion_destino],
     ['numero_orden', original.numero_orden],
     ['boletin', original.boletin],
+    ['numero_destino', original.numero_destino],
+    ['fecha_orden', fechaASlice(original.fecha_orden)],
+    ['fecha_boletin', fechaASlice(original.fecha_boletin)],
+    ['numero_resolucion', original.numero_resolucion],
+    ['fecha_resolucion', fechaASlice(original.fecha_resolucion)],
     ['observaciones', original.observaciones],
   ];
 

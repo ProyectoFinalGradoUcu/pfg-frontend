@@ -161,6 +161,11 @@ export class MisionesPage implements OnInit, OnDestroy {
   readonly misionForm = this.fb.group({
     nombre_mision: ['', [Validators.required, Validators.maxLength(150)]],
     pais: ['', Validators.required],
+    fecha_orden: [''],
+    fecha_boletin: [''],
+    numero_resolucion: [''],
+    fecha_resolucion: [''],
+    resolucion_cje: [''],
   });
 
   readonly editarFuncionarioForm = this.fb.group({
@@ -315,7 +320,15 @@ export class MisionesPage implements OnInit, OnDestroy {
   // ── Modales ──────────────────────────────────────────────────────────────
 
   abrirNuevaMision(): void {
-    this.misionForm.reset({ nombre_mision: '', pais: '' });
+    this.misionForm.reset({
+      nombre_mision: '',
+      pais: '',
+      fecha_orden: '',
+      fecha_boletin: '',
+      numero_resolucion: '',
+      fecha_resolucion: '',
+      resolucion_cje: '',
+    });
     this.modalError.set(null);
     this.misionSeleccionada.set(null);
     this.modal.set('nuevaMision');
@@ -324,7 +337,15 @@ export class MisionesPage implements OnInit, OnDestroy {
   abrirEditar(mision: MisionDefinicion): void {
     this.cerrarMenu();
     this.misionSeleccionada.set(mision);
-    this.misionForm.reset({ nombre_mision: mision.nombre_mision, pais: mision.pais });
+    this.misionForm.reset({
+      nombre_mision: mision.nombre_mision,
+      pais: mision.pais,
+      fecha_orden: mision.fecha_orden ?? '',
+      fecha_boletin: mision.fecha_boletin ?? '',
+      numero_resolucion: mision.numero_resolucion ?? '',
+      fecha_resolucion: mision.fecha_resolucion ?? '',
+      resolucion_cje: mision.resolucion_cje ?? '',
+    });
     this.modalError.set(null);
     this.modal.set('editarMision');
   }
@@ -358,7 +379,15 @@ export class MisionesPage implements OnInit, OnDestroy {
     }
 
     const raw = this.misionForm.getRawValue();
-    const payload = { nombre_mision: raw.nombre_mision!, pais: raw.pais! };
+    const payload = {
+      nombre_mision: raw.nombre_mision!,
+      pais: raw.pais!,
+      fecha_orden: raw.fecha_orden || undefined,
+      fecha_boletin: raw.fecha_boletin || undefined,
+      numero_resolucion: raw.numero_resolucion || undefined,
+      fecha_resolucion: raw.fecha_resolucion || undefined,
+      resolucion_cje: raw.resolucion_cje || undefined,
+    };
 
     this.modalError.set(null);
     this.guardando.set(true);

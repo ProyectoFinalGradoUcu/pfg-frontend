@@ -117,6 +117,12 @@
             class="nf__input" placeholder="Ej: Seccional 14" />
         </div>
 
+        <div class="nf__field">
+          <label class="nf__label" for="credencial_civica">Credencial Cívica</label>
+          <input id="credencial_civica" type="text" formControlName="credencial_civica"
+            class="nf__input" maxlength="20" placeholder="Ej: CC 1.234.567" />
+        </div>
+
         <div class="nf__field nf__field--full nf__field--toggle">
           <label class="nf__toggle-label">
             <input type="checkbox" formControlName="es_civil" class="nf__checkbox" />
@@ -231,6 +237,20 @@
           <label class="nf__label" for="prima_tecnica">Prima técnica</label>
           <input id="prima_tecnica" type="text" formControlName="prima_tecnica"
             class="nf__input" maxlength="10" placeholder="Ej: A" />
+        </div>
+
+        <div class="nf__field" *ngIf="form.get('tipo_funcionario')?.value === 'subalterno'">
+          <label class="nf__label" for="nivel_idoneidad">Nivel de idoneidad</label>
+          <select id="nivel_idoneidad" formControlName="nivel_idoneidad" class="nf__select">
+            <option [ngValue]="null">Seleccionar...</option>
+            <option *ngFor="let n of nivelesIdoneidad" [ngValue]="n">Nivel {{ n }}</option>
+          </select>
+        </div>
+
+        <div class="nf__field" *ngIf="form.get('tipo_funcionario')?.value === 'oficial'">
+          <label class="nf__label" for="codigos_legajo">Códigos</label>
+          <input id="codigos_legajo" type="text" formControlName="codigos_legajo"
+            class="nf__input" maxlength="20" placeholder="Ej: -1-4-7-8-" />
         </div>
 
         <div class="nf__field nf__field--full nf__field--toggle">

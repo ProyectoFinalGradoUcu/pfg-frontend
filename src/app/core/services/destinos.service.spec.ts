@@ -17,6 +17,11 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
     posicion_destino: 'Sub-Jefe de Personal A-1',
     numero_orden: 'O.D. 11760',
     boletin: null,
+    numero_destino: null,
+    fecha_orden: null,
+    fecha_boletin: null,
+    numero_resolucion: null,
+    fecha_resolucion: null,
     observaciones: null,
     activo: true,
     ...overrides,
@@ -206,6 +211,11 @@ describe('DestinosService', () => {
       posicion_destino: 'Sub-Jefe',
       numero_orden: 'O.D. 11760',
       boletin: '',
+      numero_destino: '',
+      fecha_orden: '',
+      fecha_boletin: '',
+      numero_resolucion: '',
+      fecha_resolucion: '',
       observaciones: '',
     };
 

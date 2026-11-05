@@ -6,12 +6,23 @@ export interface MisionDefinicion {
   id: string;
   nombre_mision: string;
   pais: string;
+  /** Acto administrativo (orden, boletín, resolución) generado por C.G. */
+  fecha_orden: string | null;
+  fecha_boletin: string | null;
+  numero_resolucion: string | null;
+  fecha_resolucion: string | null;
+  resolucion_cje: string | null;
   total_convocatorias: number;
 }
 
 export interface CreateMisionDefinicionPayload {
   nombre_mision: string;
   pais: string;
+  fecha_orden?: string;
+  fecha_boletin?: string;
+  numero_resolucion?: string;
+  fecha_resolucion?: string;
+  resolucion_cje?: string;
 }
 
 export type UpdateMisionDefinicionPayload = Partial<CreateMisionDefinicionPayload>;

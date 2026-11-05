@@ -12,6 +12,11 @@ import { DEBOUNCE_MS } from '../../destino-presentacion';
 
 const MIN_CARACTERES_BUSQUEDA = 2;
 
+/** Deja solo la parte YYYY-MM-DD de un valor de fecha que traiga el backend. */
+function fechaTexto(valor: string | null | undefined): string {
+  return valor ? String(valor).slice(0, 10) : '';
+}
+
 /** Resta un día a una fecha `AAAA-MM-DD` en UTC, para no depender del huso del navegador. */
 export function diaAnterior(fecha: string): string {
   const [anio, mes, dia] = fecha.split('-').map(Number);
@@ -59,6 +64,11 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     posicion_destino: ['', Validators.maxLength(200)],
     numero_orden: ['', Validators.maxLength(50)],
     boletin: ['', Validators.maxLength(50)],
+    numero_destino: ['', Validators.maxLength(20)],
+    fecha_orden: [''],
+    fecha_boletin: [''],
+    numero_resolucion: ['', Validators.maxLength(50)],
+    fecha_resolucion: [''],
     observaciones: [''],
     /** Solo se manda si el operador la corrige. */
     fecha_fin_anterior: [''],
@@ -205,6 +215,13 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     if (boletin) payload.boletin = boletin;
     const cargo = (raw.posicion_destino ?? '').trim();
     if (cargo) payload.posicion_destino = cargo;
+    const numeroDestino = (raw.numero_destino ?? '').trim();
+    if (numeroDestino) payload.numero_destino = numeroDestino;
+    if (raw.fecha_orden) payload.fecha_orden = raw.fecha_orden;
+    if (raw.fecha_boletin) payload.fecha_boletin = raw.fecha_boletin;
+    const resolucion = (raw.numero_resolucion ?? '').trim();
+    if (resolucion) payload.numero_resolucion = resolucion;
+    if (raw.fecha_resolucion) payload.fecha_resolucion = raw.fecha_resolucion;
     const observaciones = (raw.observaciones ?? '').trim();
     if (observaciones) payload.observaciones = observaciones;
     const cierre = (raw.fecha_fin_anterior ?? '').trim();
@@ -237,6 +254,11 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       posicion_destino: destino.posicion_destino ?? '',
       numero_orden: destino.numero_orden ?? '',
       boletin: destino.boletin ?? '',
+      numero_destino: destino.numero_destino ?? '',
+      fecha_orden: fechaTexto(destino.fecha_orden),
+      fecha_boletin: fechaTexto(destino.fecha_boletin),
+      numero_resolucion: destino.numero_resolucion ?? '',
+      fecha_resolucion: fechaTexto(destino.fecha_resolucion),
       observaciones: destino.observaciones ?? '',
     });
   }
@@ -258,6 +280,11 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       posicion_destino: raw.posicion_destino ?? '',
       numero_orden: raw.numero_orden ?? '',
       boletin: raw.boletin ?? '',
+      numero_destino: raw.numero_destino ?? '',
+      fecha_orden: raw.fecha_orden ?? '',
+      fecha_boletin: raw.fecha_boletin ?? '',
+      numero_resolucion: raw.numero_resolucion ?? '',
+      fecha_resolucion: raw.fecha_resolucion ?? '',
       observaciones: raw.observaciones ?? '',
     });
 

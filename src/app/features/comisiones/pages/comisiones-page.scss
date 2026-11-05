@@ -1,0 +1,37 @@
+:host { display: block; color: #132744; }
+.comisiones { display: grid; gap: 1.5rem; padding-top: 1.5rem; }
+.comisiones__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; h2 { margin: .3rem 0; font-size: 1.5rem; } p { margin: .4rem 0; color: #475569; } }
+.comisiones__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; article { display: grid; gap: .3rem; background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1rem; } strong { font-size: 1.45rem; } span { font-size: .8rem; color: #64748b; } }
+.comisiones__card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; }
+.comisiones__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.comisiones__filters { display: flex; align-items: flex-end; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem; > label { flex: 1 1 240px; max-width: 360px; margin: 0; } }
+.comisiones__filter-field { display: grid; gap: .4rem; min-width: 0; font-size: .85rem; font-weight: 600; app-select { display: block; width: 100%; } }
+.comisiones__filters > .comisiones__filter-field { flex: 0 1 190px; min-width: 150px; }
+.comisiones__more-filters { position: relative; flex: 0 0 auto; summary { padding: .65rem .8rem; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; font-size: .85rem; } }
+.comisiones__filter-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; display: grid; gap: 1rem; width: min(300px, calc(100vw - 64px)); background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 8px 24px #13274426; padding: 1rem; }
+.comisiones__clear { white-space: nowrap; min-height: 40px; }
+label { display: grid; gap: .4rem; font-size: .85rem; font-weight: 600; margin-bottom: .7rem; }
+input, select { box-sizing: border-box; width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: .65rem; font: inherit; background: white; color: #132744; }
+input:focus, select:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
+.btn { border: 1px solid #cbd5e1; background: white; color: #132744; border-radius: 6px; padding: .5rem .7rem; cursor: pointer; font: inherit; font-size: .85rem; &:disabled { cursor: default; opacity: .5; } }
+.btn--primary { background: #132744; border-color: #132744; color: white; }
+.btn--danger { color: #b91c1c; }
+.comisiones__table-wrapper { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; th, td { text-align: left; padding: .85rem; border-bottom: 1px solid #f1f5f9; } th { background: #132744; color: white; font-size: .8rem; } a { color: #1e40af; } }
+.comisiones__col-actions { width: 64px; text-align: center !important; white-space: nowrap; }
+.comisiones__dots { font-size: 1.4rem; line-height: 1; padding: .35rem .65rem; }
+.comisiones__menu { position: fixed; z-index: 100; min-width: 180px; padding: .35rem; border: 1px solid #e2e8f0; border-radius: 8px; background: white; box-shadow: 0 8px 24px #13274426; button, a { display: block; box-sizing: border-box; width: 100%; border: 0; background: transparent; padding: .65rem .8rem; text-align: left; color: #132744; text-decoration: none; font: inherit; cursor: pointer; border-radius: 4px; &:hover, &:focus-visible { background: #f1f5f9; } } .comisiones__menu-danger { color: #b91c1c; } }
+.comisiones__empty { text-align: center; color: #64748b; padding: 2rem; }
+.comisiones__badge { display: inline-block; border-radius: 999px; padding: .2rem .6rem; font-size: .75rem; background: #dcfce7; color: #166534; }
+.comisiones__badge--closed { background: #f1f5f9; color: #475569; }
+.comisiones__error { background: #fef2f2; color: #b91c1c; padding: .8rem; border-radius: 6px; }
+.comisiones__overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0f172a80; padding: 1rem; }
+.comisiones__modal { background: white; width: min(620px, 100%); box-sizing: border-box; max-height: 90vh; overflow-y: auto; border-radius: 12px; padding: 1.5rem; box-shadow: 0 20px 60px #0003; header, footer { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; } h3 { margin: 0; } footer { margin: 1.5rem 0 0; justify-content: flex-end; } p { color: #475569; font-size: .85rem; line-height: 1.5; } }
+.comisiones__chosen { display: flex; align-items: center; justify-content: space-between; background: #f1f5f9; border-radius: 6px; padding: .7rem; margin-bottom: 1rem; }
+.comisiones__results { display: grid; max-height: 180px; overflow: auto; margin-bottom: .7rem; button { text-align: left; border: 1px solid #e2e8f0; background: white; padding: .65rem; cursor: pointer; &:hover { background: #eff6ff; } } }
+.comisiones__selector-pages { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin: .5rem 0; font-size: .8rem; }
+.comisiones__checkbox { display: flex; align-items: center; input { width: auto; } }
+.comisiones__personas-head { display: flex; justify-content: space-between; margin: .8rem 0; font-size: .85rem; }
+.comisiones__personas-list { max-height: 180px; overflow-y: auto; margin-bottom: 1rem; .comisiones__chosen { margin-bottom: .4rem; } small { display: block; color: #64748b; margin-top: .2rem; } }
+input:disabled { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
+@media (max-width: 600px) { .comisiones__grid { grid-template-columns: 1fr; } .comisiones__modal { padding: 1rem; } }

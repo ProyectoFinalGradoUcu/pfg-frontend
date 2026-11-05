@@ -3,7 +3,13 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, merge, of, switchMap, takeUntil } from 'rxjs';
-import { FamiliarEntry, GradoItem, OpcionSelect, PersonaListItem } from '../../../../core/models/personal.models';
+import {
+  FamiliarEntry,
+  GradoItem,
+  OpcionSelect,
+  PersonaListItem,
+  NIVELES_IDONEIDAD,
+} from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
@@ -86,6 +92,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     { value: 'civil',      label: 'Civil' },
   ];
   readonly tipoRelacionOpciones = ['Cónyuge', 'Padre', 'Madre', 'Hijo/a', 'Hermano/a', 'Otro'];
+  readonly nivelesIdoneidad = NIVELES_IDONEIDAD;
 
   // ─── Formulario ───────────────────────────────────────────────────────────────
   readonly form: FormGroup = this.fb.group({
@@ -101,6 +108,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     etnia:            [''],
     codigo_postal:    [''],
     seccional:        [''],
+    credencial_civica: [''],
     email:            ['', Validators.email],
     telefono:         [''],
     direccion:        [''],
@@ -117,6 +125,9 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     fecha_inicio:     ['', Validators.required],
     prima_tecnica:    [''],
     tiene_mando:      [false],
+    // Datos del subalterno (nivel ETA) y del legajo (oficial)
+    nivel_idoneidad:  [null],
+    codigos_legajo:   [''],
     // Siempre presente
     observaciones:    [''],
   }, { validators: inicioPosteriorANacimiento });
@@ -372,6 +383,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       ...(raw.etnia            && { etnia:            raw.etnia }),
       ...(raw.codigo_postal    && { codigo_postal:    raw.codigo_postal }),
       ...(raw.seccional        && { seccional:        raw.seccional }),
+      ...(raw.credencial_civica && { credencial_civica: raw.credencial_civica }),
       ...(raw.email            && { email:            raw.email }),
       ...(raw.telefono         && { telefono:         raw.telefono }),
       ...(raw.direccion        && { direccion:        raw.direccion }),
@@ -399,6 +411,12 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       if (raw.prima_tecnica) payload['prima_tecnica'] = raw.prima_tecnica;
       if (this.posicionDerecha() !== null) payload['posicion_derecha'] = this.posicionDerecha();
       if (this.posicionNumor() !== null) payload['posicion_numor'] = this.posicionNumor();
+      if (raw.nivel_idoneidad != null && raw.tipo_funcionario === 'subalterno') {
+        payload['nivel_idoneidad'] = raw.nivel_idoneidad;
+      }
+      if (raw.codigos_legajo && raw.tipo_funcionario === 'oficial') {
+        payload['codigos_legajo'] = raw.codigos_legajo;
+      }
     }
 
     this.personalService.crear(payload as never).subscribe({

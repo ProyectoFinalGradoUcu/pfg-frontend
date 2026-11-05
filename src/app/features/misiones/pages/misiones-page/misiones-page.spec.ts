@@ -20,7 +20,7 @@ import {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function makeMision(overrides: Partial<MisionDefinicion> = {}): MisionDefinicion {
-  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', total_convocatorias: 0, ...overrides };
+  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0, ...overrides };
 }
 
 function makeMisionItem(overrides: Partial<FuncionarioMisionItem> = {}): FuncionarioMisionItem {
@@ -256,7 +256,15 @@ describe('MisionesPage', () => {
     it('abrirNuevaMision limpia el formulario y abre el modal', () => {
       component.misionForm.patchValue({ nombre_mision: 'X', pais: 'Y' });
       component.abrirNuevaMision();
-      expect(component.misionForm.value).toEqual({ nombre_mision: '', pais: '' });
+      expect(component.misionForm.value).toEqual({
+        nombre_mision: '',
+        pais: '',
+        fecha_orden: '',
+        fecha_boletin: '',
+        numero_resolucion: '',
+        fecha_resolucion: '',
+        resolucion_cje: '',
+      });
       expect(component.modal()).toBe('nuevaMision');
       expect(component.misionSeleccionada()).toBeNull();
     });
@@ -264,7 +272,15 @@ describe('MisionesPage', () => {
     it('abrirEditar precarga el formulario con los datos de la misión', () => {
       const mision = makeMision({ nombre_mision: 'Haití', pais: 'Haití' });
       component.abrirEditar(mision);
-      expect(component.misionForm.value).toEqual({ nombre_mision: 'Haití', pais: 'Haití' });
+      expect(component.misionForm.value).toEqual({
+        nombre_mision: 'Haití',
+        pais: 'Haití',
+        fecha_orden: '',
+        fecha_boletin: '',
+        numero_resolucion: '',
+        fecha_resolucion: '',
+        resolucion_cje: '',
+      });
       expect(component.modal()).toBe('editarMision');
       expect(component.misionSeleccionada()).toEqual(mision);
     });
