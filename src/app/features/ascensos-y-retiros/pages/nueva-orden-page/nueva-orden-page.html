@@ -132,9 +132,12 @@
               (change)="onFechaAscenso(f.evaluacion.persona.id, $any($event.target).value)" />
           </label>
 
-          <span class="badge" [ngClass]="f.evaluacion.estado === 'PASIBLE' ? 'badge--pasible' : 'badge--' + f.evaluacion.estado.toLowerCase()">
-            {{ f.evaluacion.estado === 'PASIBLE' ? 'Cumple' : etiquetaEstado(f.evaluacion.estado) }}
-          </span>
+          <span class="badge" *ngIf="f.evaluando; else estadoEvaluado" role="status">Evaluando…</span>
+          <ng-template #estadoEvaluado>
+            <span class="badge" [ngClass]="f.evaluacion.estado === 'PASIBLE' ? 'badge--pasible' : 'badge--' + f.evaluacion.estado.toLowerCase()">
+              {{ f.evaluacion.estado === 'PASIBLE' ? 'Cumple' : etiquetaEstado(f.evaluacion.estado) }}
+            </span>
+          </ng-template>
 
           <button type="button" class="btn btn--sm btn--danger-ghost"
             [attr.aria-label]="'Quitar a ' + f.evaluacion.persona.nombre_completo"
@@ -174,7 +177,20 @@
         </div>
 
         <div class="bloqueo" *ngIf="esExcepcion(f)">
-          <p class="bloqueo__titulo">No cumple los requisitos para ascender</p>
+          <p class="bloqueo__titulo">
+            {{ fueraDeCarrera(f) && f.evaluacion.estado === 'PASIBLE'
+              ? 'No asciende al grado siguiente de su escala'
+              : 'No cumple los requisitos para ascender' }}
+          </p>
+
+          <ul class="bloqueo__chips" *ngIf="fueraDeCarrera(f)">
+            <li class="chip-falta">
+              <span class="chip-falta__x" aria-hidden="true">✗</span>
+              {{ f.evaluacion.tipo_ascenso === 'SALTO'
+                ? 'De ' + f.evaluacion.grado_actual.denominacion + ' a ' + f.evaluacion.grado_destino?.denominacion + ' saltea grados'
+                : 'De ' + f.evaluacion.grado_actual.denominacion + ' a ' + f.evaluacion.grado_destino?.denominacion + ' cambia de escala' }}
+            </li>
+          </ul>
 
           <ul class="bloqueo__chips" *ngIf="requisitosFaltantes(f).length; else motivoGeneral">
             <li class="chip-falta" *ngFor="let r of requisitosFaltantes(f)">
