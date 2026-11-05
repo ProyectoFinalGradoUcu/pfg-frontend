@@ -22,6 +22,7 @@ import {
 } from '../models/personal.models';
 import { DestinoDePersona } from '../models/destinos.models';
 import { filtroDerechaNumorParams } from '../models/derecha.models';
+import { ComisionDePersona } from '../models/comisiones.models';
 
 // Re-exportado para que módulos que importaban desde el servicio no rompan.
 export type { PersonaListItem } from '../models/personal.models';
@@ -137,4 +138,9 @@ export class PersonalService {
   getDestinos(id: number): Observable<DestinoDePersona[]> {
     return this.http.get<DestinoDePersona[]>(`${API_BASE_URL}/personas/${id}/destinos`, { withCredentials: true });
   }
+
+  getComisiones(id: number): Observable<ComisionDePersona[]> {
+    return this.http.get<ComisionDePersona[]>(`${API_BASE_URL}/personas/${id}/comisiones`, { withCredentials: true });
+  }
+
 }

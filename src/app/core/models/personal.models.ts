@@ -62,6 +62,8 @@ export const OPCIONES_FILTRO_CATEGORIA: { value: FiltroCategoria; label: string 
   { value: 'subalterno', label: 'Solo subalternos' },
 ];
 
+export const NIVELES_IDONEIDAD = [3, 5, 7, 9] as const;
+
 /** Valor del query param `categoria`; `undefined` cuando el filtro es 'todos'. */
 export function categoriaParam(filtro: FiltroCategoria | null | undefined): 'oficial' | 'subalterno' | undefined {
   return filtro && filtro !== 'todos' ? filtro : undefined;
@@ -99,6 +101,8 @@ export interface RelacionLaboral {
   tiene_mando: boolean;
   prima_tecnica: string | null;
   observaciones: string | null;
+  /** Códigos del legajo (-1-4-7-8-). Solo se carga para oficiales. */
+  codigos_legajo: string | null;
   grado: GradoRef;
   unidad: UnidadRef;
   situacion: SituacionRef;
@@ -159,6 +163,9 @@ export interface PersonaDetalle {
   etnia: string | null;
   codigo_postal: string | null;
   seccional: string | null;
+  credencial_civica: string | null;
+  /** Nivel de pericia/idoneidad 3/5/7/9 del subalterno (ETA). null = sin definir. */
+  nivel_idoneidad: number | null;
   es_civil: boolean;
   /** `null` si no hay relación **abierta**: un retirado cae acá. */
   relacion_laboral: RelacionLaboral | null;
@@ -239,6 +246,9 @@ export interface PatchPersonaPayload {
   etnia?: string | null;
   codigo_postal?: string | null;
   seccional?: string | null;
+  credencial_civica?: string | null;
+  /** Nivel de pericia/idoneidad; null = sin definir. */
+  nivel_idoneidad?: number | null;
   fecha_inicio?: string;
   grado_id?: number;
   unidad_id?: number;
@@ -250,6 +260,7 @@ export interface PatchPersonaPayload {
   prima_tecnica?: string | null;
   tiene_mando?: boolean;
   observaciones_laborales?: string | null;
+  codigos_legajo?: string | null;
   // Legajo militar
   nivel_educativo?: string | null;
   fecha_ingreso_eta?: string | null;
@@ -287,12 +298,16 @@ export interface CrearPersonaPayload {
   fecha_inicio: string;
   sub_unidad_id?: number;
   observaciones?: string;
+  credencial_civica?: string;
+  nivel_idoneidad?: number;
   // Legajo militar (opcional en el alta)
   nivel_educativo?: string;
   fecha_ingreso_eta?: string;
   fecha_egreso_eta?: string;
   numero_orden_egreso_eta?: string;
   mutaciones?: string;
+  /** Códigos del legajo; se guarda en la relación laboral. */
+  codigos_legajo?: string;
 }
 
 export interface CrearPersonaResponse {

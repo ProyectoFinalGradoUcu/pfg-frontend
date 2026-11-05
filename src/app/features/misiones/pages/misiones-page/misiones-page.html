@@ -425,6 +425,31 @@
           </label>
         </div>
 
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>Fecha orden</span>
+            <input type="date" formControlName="fecha_orden" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha boletín</span>
+            <input type="date" formControlName="fecha_boletin" />
+          </label>
+        </div>
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>N.º Resolución</span>
+            <input type="text" formControlName="numero_resolucion" placeholder="R. 412/2026" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Fecha resolución</span>
+            <input type="date" formControlName="fecha_resolucion" />
+          </label>
+        </div>
+        <label class="modal__field">
+          <span>Resolución CJE</span>
+          <input type="text" formControlName="resolucion_cje" placeholder="R.CJE. 120/2026" autocomplete="off" />
+        </label>
+
         <footer class="modal__actions">
           <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
           <button type="submit" class="btn btn--primary" [disabled]="guardando()">

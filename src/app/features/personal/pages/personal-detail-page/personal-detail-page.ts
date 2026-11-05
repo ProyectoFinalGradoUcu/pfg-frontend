@@ -5,10 +5,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, merge, of, switchMap, takeUntil } from 'rxjs';
 import {
   CursoPersona, FamiliarItem, GradoItem, HistorialMilitar,
-  MisionPersona, NIVELES_EDUCATIVOS, OpcionSelect, PatchPersonaPayload,
+  MisionPersona, NIVELES_EDUCATIVOS, NIVELES_IDONEIDAD, OpcionSelect, PatchPersonaPayload,
   PersonaDetalle, PersonaListItem,
 } from '../../../../core/models/personal.models';
 import { DestinoDePersona } from '../../../../core/models/destinos.models';
+import { ComisionDePersona } from '../../../../core/models/comisiones.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -23,7 +24,7 @@ import {
   EstadoElegibilidad,
 } from '../../../../core/models/ascensos.models';
 
-export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'misiones' | 'documentos';
+export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'comisiones' | 'misiones' | 'documentos';
 
 interface TabDef { key: TabKey; label: string }
 
@@ -68,6 +69,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         : [{ key: 'historial' as TabKey, label: 'Historial Militar'   }]),
       { key: 'cursos',         label: 'Cursos'               },
       { key: 'destinos',       label: 'Destinos'             },
+      { key: 'comisiones',     label: 'Comisiones'           },
       { key: 'misiones',       label: 'Misiones'             },
       { key: 'documentos',     label: 'Documentos'           },
     ];
@@ -117,6 +119,14 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     );
   });
   readonly destinos          = signal<DestinoDePersona[]>([]);
+  readonly comisiones = signal<ComisionDePersona[]>([]);
+  readonly loadingComisiones = signal(false);
+  readonly comisionesError = signal<string | null>(null);
+  readonly busquedaComisiones = signal('');
+  readonly comisionesFiltradas = computed(() => {
+    const query = this.busquedaComisiones().trim().toLowerCase();
+    return this.comisiones().filter(c => !query || [c.comision, c.cargo, c.numero_orden, c.boletin].some(v => v?.toLowerCase().includes(query)));
+  });
   readonly loadingDestinos   = signal(false);
   readonly busquedaDestinos  = signal('');
   readonly destinosFiltrados = computed<DestinoDePersona[]>(() => {
@@ -150,6 +160,17 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   /** Datos militares del legajo: los consultan las reglas de ascenso. */
   readonly nivelEducativoOpciones = NIVELES_EDUCATIVOS;
+  readonly nivelesIdoneidad = NIVELES_IDONEIDAD;
+
+  /** El nivel de idoneidad aplica al personal subalterno. */
+  esSubalterno(): boolean {
+    return (this.persona()?.relacion_laboral?.tipo_funcionario ?? '') === 'subalterno';
+  }
+
+  /** Los códigos del legajo los carga el oficial. */
+  esOficial(): boolean {
+    return (this.persona()?.relacion_laboral?.tipo_funcionario ?? '') === 'oficial';
+  }
 
   readonly editForm: FormGroup = this.fb.group({
     primer_nombre:         ['', Validators.required],
@@ -163,6 +184,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     etnia:                 [''],
     codigo_postal:         [''],
     seccional:             [''],
+    credencial_civica:     [''],
     email:                 ['', Validators.email],
     telefono:              [''],
     direccion:             [''],
@@ -176,6 +198,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     prima_tecnica:         [''],
     tiene_mando:           [false],
     observaciones_laborales: [''],
+    // Datos del subalterno (nivel ETA)
+    nivel_idoneidad:         [null],
+    codigos_legajo:          [''],
     // Legajo militar
     nivel_educativo:         [''],
     fecha_ingreso_eta:       [''],
@@ -381,6 +406,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
           error: () => this.loadingDestinos.set(false),
         });
         break;
+      case 'comisiones':
+        this.cargarComisiones();
+        break;
       case 'misiones':
         this.loadingMisiones.set(true);
         this.svc.getMisiones(this.personaId).subscribe({
@@ -389,6 +417,15 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         });
         break;
     }
+  }
+
+  cargarComisiones(): void {
+    this.loadingComisiones.set(true);
+    this.comisionesError.set(null);
+    this.svc.getComisiones(this.personaId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: data => { this.comisiones.set(data); this.loadingComisiones.set(false); },
+      error: err => { this.comisionesError.set(parseError(err)); this.loadingComisiones.set(false); },
+    });
   }
 
   /** La misma evaluación que alimenta el listado de pasibles, para uno solo. */
@@ -558,6 +595,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       etnia:                 p.etnia             ?? '',
       codigo_postal:         p.codigo_postal     ?? '',
       seccional:             p.seccional         ?? '',
+      credencial_civica:     p.credencial_civica ?? '',
       email:                 p.email             ?? '',
       telefono:              p.telefono          ?? '',
       direccion:             p.direccion         ?? '',
@@ -571,6 +609,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       prima_tecnica:         rl?.prima_tecnica   ?? '',
       tiene_mando:           rl?.tiene_mando     ?? false,
       observaciones_laborales: rl?.observaciones ?? '',
+      nivel_idoneidad:         p.nivel_idoneidad     ?? null,
+      codigos_legajo:          rl?.codigos_legajo ?? '',
       nivel_educativo:         lm?.nivel_educativo ?? '',
       fecha_ingreso_eta:       lm?.fecha_ingreso_eta ? lm.fecha_ingreso_eta.split('T')[0] : '',
       fecha_egreso_eta:        lm?.fecha_egreso_eta  ? lm.fecha_egreso_eta.split('T')[0]  : '',
@@ -638,6 +678,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       etnia:                           raw.etnia       || null,
       codigo_postal:                   raw.codigo_postal || null,
       seccional:                       raw.seccional   || null,
+      credencial_civica:               raw.credencial_civica || null,
       ...(raw.email                 && { email:                 raw.email }),
       ...(raw.telefono              && { telefono:              raw.telefono }),
       ...(raw.direccion             && { direccion:             raw.direccion }),
@@ -651,6 +692,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       prima_tecnica:                   raw.prima_tecnica || null,
       tiene_mando:                     raw.tiene_mando,
       observaciones_laborales:         raw.observaciones_laborales || null,
+      nivel_idoneidad:                 raw.nivel_idoneidad ?? null,
+      codigos_legajo:                  raw.codigos_legajo || null,
       // Legajo militar: vacío se manda como null para poder borrar el dato.
       nivel_educativo:                 raw.nivel_educativo || null,
       fecha_ingreso_eta:               raw.fecha_ingreso_eta || null,

@@ -119,6 +119,13 @@
               </div>
 
               <div class="pd__field">
+                <span class="pd__label">Credencial Cívica</span>
+                <span class="pd__value" *ngIf="!editMode()">{{ p.credencial_civica ?? '—' }}</span>
+                <input *ngIf="editMode()" type="text" formControlName="credencial_civica"
+                  class="pd__edit-input" maxlength="20" />
+              </div>
+
+              <div class="pd__field">
                 <span class="pd__label">Fecha de nacimiento</span>
                 <span class="pd__value" *ngIf="!editMode()">{{ formatDate(p.fecha_nacimiento) }}</span>
                 <ng-container *ngIf="editMode()">
@@ -399,6 +406,20 @@
               <div class="pd__field">
                 <span class="pd__label">Observaciones laborales</span>
                 <textarea formControlName="observaciones_laborales" class="pd__edit-textarea" rows="3"></textarea>
+              </div>
+
+              <div class="pd__field">
+                <span class="pd__label">Nivel de idoneidad</span>
+                <select formControlName="nivel_idoneidad" class="pd__edit-select" [disabled]="!esSubalterno()">
+                  <option [ngValue]="null">Sin dato</option>
+                  <option *ngFor="let n of nivelesIdoneidad" [ngValue]="n">Nivel {{ n }}</option>
+                </select>
+                <span class="pd__edit-hint">Nivel de pericia otorgado por la ETA (personal subalterno).</span>
+              </div>
+              <div class="pd__field">
+                <span class="pd__label">Códigos</span>
+                <input type="text" formControlName="codigos_legajo" class="pd__edit-input"
+                  maxlength="20" placeholder="Ej: -1-4-7-8-" [disabled]="!esOficial()" />
               </div>
 
               <!-- Datos militares que consultan las reglas de ascenso -->
@@ -786,6 +807,28 @@
           <span class="pd__destino-card__obs" *ngIf="d.observaciones">{{ d.observaciones }}</span>
         </div>
       </div>
+    </article>
+
+    <article class="pd__card" *ngIf="activeTab() === 'comisiones'">
+      <div class="pd__tab-header">
+        <h3 class="pd__tab-title">Comisiones</h3>
+        <div class="pd__search" *ngIf="comisiones().length">
+          <input type="search" aria-label="Buscar comisiones de la persona" [value]="busquedaComisiones()" (input)="busquedaComisiones.set($any($event.target).value)" placeholder="Buscar por comisión, cargo, orden o boletín..." />
+        </div>
+      </div>
+      <div class="pd__loading" *ngIf="loadingComisiones()">Cargando...</div>
+      <div role="alert" *ngIf="comisionesError()">{{ comisionesError() }} <button type="button" (click)="cargarComisiones()">Reintentar</button></div>
+      <ng-container *ngIf="!loadingComisiones() && !comisionesError()">
+        <p class="pd__empty" *ngIf="!comisiones().length">No hay comisiones registradas para esta persona.</p>
+        <p class="pd__empty" *ngIf="comisiones().length && !comisionesFiltradas().length">No se encontraron comisiones con esa búsqueda.</p>
+        <div class="pd__destinos-list">
+          <div class="pd__destino-card" *ngFor="let c of comisionesFiltradas()">
+            <div class="pd__destino-card__top"><span class="pd__destino-card__unidad">{{ c.comision }}</span><span class="pd__badge" [class.pd__badge--actual]="c.activo">{{ c.activo ? 'Abierta' : 'Cerrada' }}</span></div>
+            <span class="pd__destino-card__cargo">{{ c.cargo || 'Sin cargo' }}</span>
+            <div class="pd__destino-card__meta"><span>{{ formatDate(c.fecha_inicio) }} – {{ c.fecha_fin ? formatDate(c.fecha_fin) : 'Sin fecha de finalización' }}</span><span *ngIf="c.numero_orden">Orden: {{ c.numero_orden }}</span><span *ngIf="c.boletin">Boletín: {{ c.boletin }}</span></div>
+          </div>
+        </div>
+      </ng-container>
     </article>
 
     <!-- ═══════════════════ TAB: MISIONES ═══════════════════ -->

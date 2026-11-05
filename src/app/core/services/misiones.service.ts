@@ -34,9 +34,9 @@ const MOCK_DELAY_MS = 300;
 @Injectable({ providedIn: 'root' })
 export class MisionesService {
   private mockMisiones: MisionDefinicion[] = [
-    { id: '1', nombre_mision: 'Congo (MONUSCO)', pais: 'República Democrática del Congo', total_convocatorias: 0 },
-    { id: '2', nombre_mision: 'Chipre (UNFICYP)', pais: 'Chipre', total_convocatorias: 0 },
-    { id: '3', nombre_mision: 'Sinaí (MFO)', pais: 'Egipto', total_convocatorias: 0 },
+    { id: '1', nombre_mision: 'Congo (MONUSCO)', pais: 'República Democrática del Congo', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
+    { id: '2', nombre_mision: 'Chipre (UNFICYP)', pais: 'Chipre', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
+    { id: '3', nombre_mision: 'Sinaí (MFO)', pais: 'Egipto', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
   ];
 
   private mockConvocatorias: Convocatoria[] = [
@@ -205,6 +205,11 @@ export class MisionesService {
         id: this.nextId(),
         nombre_mision: payload.nombre_mision,
         pais: payload.pais,
+        fecha_orden: payload.fecha_orden ?? null,
+        fecha_boletin: payload.fecha_boletin ?? null,
+        numero_resolucion: payload.numero_resolucion ?? null,
+        fecha_resolucion: payload.fecha_resolucion ?? null,
+        resolucion_cje: payload.resolucion_cje ?? null,
         total_convocatorias: 0,
       };
       this.mockMisiones.push(nueva);
