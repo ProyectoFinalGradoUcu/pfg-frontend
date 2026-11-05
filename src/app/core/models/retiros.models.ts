@@ -35,6 +35,8 @@ export interface PersonaMin {
 export interface CierresAplicados {
   destino_id?: string | null;
   inscripciones_ids?: string[];
+  /** Pertenencias a comisiones cerradas, con la fecha_fin que tenían para poder reabrirlas. */
+  comisiones?: { id: string; fecha_fin_anterior: string | null }[];
   usuario_id?: string | null;
 }
 
@@ -111,6 +113,15 @@ export interface PreviaRetiro {
     fecha_inicio: string | null;
     cerrar_sugerido: boolean;
   }[];
+  /** Abiertas, o que terminan después de la fecha del retiro. */
+  comisiones_abiertas: {
+    id: string;
+    comision: Ref;
+    cargo: string | null;
+    fecha_inicio: string | null;
+    fecha_fin: string | null;
+    cerrar_sugerido: boolean;
+  }[];
   usuario: { id: string; username: string; cerrar_sugerido: boolean } | null;
   /** Informativa: no hay módulo que cierre ocupaciones de vivienda. Sin checkbox. */
   vivienda: { vivienda_id: string; informativo: true } | null;
@@ -128,12 +139,17 @@ export interface CrearRetiroBody {
   boletin?: string;
   observaciones?: string;
   /** Omitirlo fuerza la cascada completa. Mandarlo siempre. */
-  cerrar?: { destino?: boolean; inscripciones?: number[]; usuario?: boolean };
+  cerrar?: { destino?: boolean; inscripciones?: number[]; comisiones?: number[]; usuario?: boolean };
 }
 
 export interface RetiroCreado extends Retiro {
   /** Lo que se cerró de verdad. Mostrar esto, no lo que dijo la previa. */
-  cerrado: { destino: string | null; inscripciones: string[]; usuario: string | null };
+  cerrado: {
+    destino: string | null;
+    inscripciones: string[];
+    comisiones: string[];
+    usuario: string | null;
+  };
 }
 
 export interface CorregirRetiroBody {
@@ -157,7 +173,18 @@ export interface RetiroAnulado {
     movimiento_borrado: string | null;
     destino: string | null;
     inscripciones: string[];
+    comisiones: string[];
     usuario: string | null;
+  };
+}
+
+export interface ReincorporacionAnulada {
+  retiro_id: string;
+  revertido: {
+    relacion_laboral_borrada: string;
+    movimientos_borrados: string[];
+    destino_borrado: string | null;
+    destino_reabierto: string | null;
   };
 }
 

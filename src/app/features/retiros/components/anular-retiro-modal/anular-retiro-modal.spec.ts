@@ -17,6 +17,7 @@ function anulado(revertido: Partial<RetiroAnulado['revertido']> = {}): RetiroAnu
       movimiento_borrado: '8',
       destino: null,
       inscripciones: [],
+      comisiones: [],
       usuario: null,
       ...revertido,
     },
@@ -35,6 +36,12 @@ describe('mensajeReversion', () => {
     const msg = mensajeReversion(anulado({ destino: '3', inscripciones: ['1', '2'] }));
     expect(msg).toContain('se reabrió el destino');
     expect(msg).toContain('2 inscripciones');
+  });
+
+  it('menciona las pertenencias a comisiones que reabrió', () => {
+    expect(mensajeReversion(anulado({ comisiones: ['12', '13'] }))).toContain(
+      'se reabrieron 2 pertenencias a comisiones',
+    );
   });
 
   it('usa el singular con una sola inscripción', () => {

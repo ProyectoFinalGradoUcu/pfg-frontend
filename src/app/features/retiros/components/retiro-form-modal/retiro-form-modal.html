@@ -115,6 +115,18 @@
             <span>Dar de baja en <strong>{{ i.curso.nombre_curso }}</strong></span>
           </label>
 
+          <label class="rf__check" *ngFor="let a of p.comisiones_abiertas">
+            <input
+              type="checkbox"
+              [checked]="comisionesElegidas().includes(a.id)"
+              (change)="toggleComision(a.id)"
+            />
+            <span>
+              Cerrar la pertenencia a <strong>{{ a.comision.denominacion }}</strong
+              ><ng-container *ngIf="a.cargo"> ({{ a.cargo }})</ng-container>
+            </span>
+          </label>
+
           <label class="rf__check" *ngIf="p.usuario as u">
             <input
               type="checkbox"
@@ -124,7 +136,7 @@
             <span>Bloquear la cuenta <strong>{{ u.username }}</strong></span>
           </label>
 
-          <p class="rf__nada" *ngIf="!p.destino_vigente && !p.inscripciones_activas.length && !p.usuario">
+          <p class="rf__nada" *ngIf="!p.destino_vigente && !p.inscripciones_activas.length && !p.comisiones_abiertas.length && !p.usuario">
             Este retiro no arrastra ningún cierre.
           </p>
 

@@ -36,6 +36,10 @@ export function mensajeCierres(c: RetiroCreado['cerrado']): string {
   if (n === 1) partes.push('se dio de baja 1 inscripción');
   if (n > 1) partes.push(`se dieron de baja ${n} inscripciones`);
 
+  const k = c.comisiones?.length ?? 0;
+  if (k === 1) partes.push('se cerró 1 pertenencia a comisión');
+  if (k > 1) partes.push(`se cerraron ${k} pertenencias a comisiones`);
+
   if (c.usuario) partes.push('se bloqueó la cuenta de sistema');
 
   return partes.length
@@ -78,6 +82,7 @@ export class RetiroFormModal implements OnInit, OnDestroy {
   readonly cerrarDestino = signal(false);
   readonly cerrarUsuario = signal(false);
   readonly inscripcionesElegidas = signal<string[]>([]);
+  readonly comisionesElegidas = signal<string[]>([]);
 
   // Paso 0: el padrón completo en un `app-select` con buscador.
   readonly personal = signal<PersonaListItem[]>([]);
@@ -172,6 +177,9 @@ export class RetiroFormModal implements OnInit, OnDestroy {
     this.inscripcionesElegidas.set(
       p.inscripciones_activas.filter((i) => i.cerrar_sugerido).map((i) => i.id),
     );
+    this.comisionesElegidas.set(
+      p.comisiones_abiertas.filter((a) => a.cerrar_sugerido).map((a) => a.id),
+    );
   }
 
   /** El `app-select` emite el id; la persona se resuelve del catálogo ya cargado. */
@@ -196,6 +204,12 @@ export class RetiroFormModal implements OnInit, OnDestroy {
 
   toggleInscripcion(id: string): void {
     this.inscripcionesElegidas.update((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
+  }
+
+  toggleComision(id: string): void {
+    this.comisionesElegidas.update((ids) =>
       ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
     );
   }
@@ -228,6 +242,8 @@ export class RetiroFormModal implements OnInit, OnDestroy {
         destino: this.cerrarDestino(),
         // Ids de inscripción, no de curso.
         inscripciones: this.inscripcionesElegidas().map(Number),
+        // Ids de pertenencia (asignaciones_comision), no de comisión.
+        comisiones: this.comisionesElegidas().map(Number),
         usuario: this.cerrarUsuario(),
       },
     };

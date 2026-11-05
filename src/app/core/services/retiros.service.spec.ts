@@ -29,6 +29,7 @@ function makePrevia(overrides: Partial<PreviaRetiro> = {}): PreviaRetiro {
     relacion_laboral: null,
     destino_vigente: null,
     inscripciones_activas: [],
+    comisiones_abiertas: [],
     usuario: null,
     vivienda: null,
     bloqueos: [],
@@ -157,6 +158,7 @@ describe('RetirosService', () => {
           movimiento_borrado: '8',
           destino: '3',
           inscripciones: [],
+          comisiones: [],
           usuario: '3',
         },
       });

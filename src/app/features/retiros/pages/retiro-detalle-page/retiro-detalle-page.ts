@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   PreviaReincorporacion,
+  ReincorporacionAnulada,
   Reincorporado,
   RetiroAnulado,
   RetiroDetalle,
@@ -18,10 +19,17 @@ import {
   nombreFuncionario,
 } from '../../retiro-presentacion';
 import { mensajeReversion } from '../../components/anular-retiro-modal/anular-retiro-modal';
+import { mensajeReincorporacionAnulada } from '../../components/anular-reincorporacion-modal/anular-reincorporacion-modal';
 import { mensajeReincorporado } from '../../components/reincorporar-retiro-modal/reincorporar-retiro-modal';
 import { formatoMoneda, formatoPorcentaje } from '../../datos-calculo';
 
-type ModalAbierto = 'corregir' | 'anular' | 'reincorporar' | 'datos-calculo' | null;
+type ModalAbierto =
+  | 'corregir'
+  | 'anular'
+  | 'reincorporar'
+  | 'anular-reincorporacion'
+  | 'datos-calculo'
+  | null;
 
 /** La relación posterior al retiro puede haberse abierto sin reincorporar: esas no tienen datos de cálculo. */
 const SITUACIONES_REINCORPORADO = ['SIT16', 'SIT17'];
@@ -70,7 +78,16 @@ export class RetiroDetallePage implements OnInit {
   /** El resto de los 409 los informa el modal. */
   readonly noAnulable = computed(() => {
     const r = this.retiro();
-    return r ? motivoNoAnulable(r) : null;
+    const motivo = r ? motivoNoAnulable(r) : null;
+    return motivo && this.puedeAnularReincorporacion()
+      ? `${motivo} Anulá primero la reincorporación.`
+      : motivo;
+  });
+
+  /** Solo la reincorporación todavía activa: si un retiro posterior la cerró, se anula ese primero. */
+  readonly puedeAnularReincorporacion = computed(() => {
+    const r = this.retiro();
+    return this.puedeEscribir && !!r && !r.anulado && !!r.reincorporacion?.activa && this.conDatosCalculo();
   });
 
   /** Ya reincorporado, la tarjeta lo dice y la previa solo traería un bloqueo. */
@@ -109,11 +126,14 @@ export class RetiroDetallePage implements OnInit {
   readonly cierres = computed(() => {
     const c = this.retiro()?.cerrado_con_el_retiro;
     const inscripciones = c?.inscripciones_ids ?? [];
+    const comisiones = c?.comisiones ?? [];
     return {
       destino: c?.destino_id ?? null,
       inscripciones,
+      comisiones,
       usuario: c?.usuario_id ?? null,
-      ninguno: !c?.destino_id && !c?.usuario_id && inscripciones.length === 0,
+      ninguno:
+        !c?.destino_id && !c?.usuario_id && inscripciones.length === 0 && comisiones.length === 0,
     };
   });
 
@@ -182,6 +202,11 @@ export class RetiroDetallePage implements OnInit {
 
   onAnulado(r: RetiroAnulado): void {
     this.toast.success(mensajeReversion(r));
+    this.alGuardar();
+  }
+
+  onReincorporacionAnulada(r: ReincorporacionAnulada): void {
+    this.toast.success(mensajeReincorporacionAnulada(r));
     this.alGuardar();
   }
 

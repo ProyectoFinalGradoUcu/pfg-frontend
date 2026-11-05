@@ -1,0 +1,48 @@
+<!-- No se cierra al hacer click afuera, para no perder lo cargado. -->
+<div class="modal-overlay">
+  <div class="modal">
+    <header class="modal__header">
+      <h3>Anular reincorporación</h3>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body" [formGroup]="form">
+      <p class="aviso aviso--peligro">
+        <strong>Se deshace la reincorporación completa:</strong> se borra la relación laboral nueva
+        (con su situación de reincorporado y su movimiento), se borra el destino que asignó, se
+        reabre el que cerró y el funcionario sale de la derecha. El retiro vuelve a quedar vigente.
+        <strong>Usalo solo si la reincorporación se cargó por error.</strong>
+      </p>
+
+      <div class="field">
+        <label for="motivo-anulacion-reincorporacion">Motivo de la anulación *</label>
+        <textarea
+          id="motivo-anulacion-reincorporacion"
+          formControlName="motivo_anulacion"
+          rows="3"
+          placeholder="Ej: se reincorporó a la persona equivocada"
+        ></textarea>
+        <p
+          class="field__error"
+          *ngIf="form.controls.motivo_anulacion.touched && form.controls.motivo_anulacion.invalid"
+        >
+          Escribí al menos 5 caracteres.
+        </p>
+      </div>
+
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()">Cancelar</button>
+      <button
+        type="button"
+        class="btn btn--danger"
+        [disabled]="enviando()"
+        (click)="confirmar()"
+      >
+        {{ enviando() ? 'Anulando...' : 'Anular reincorporación' }}
+      </button>
+    </footer>
+  </div>
+</div>
