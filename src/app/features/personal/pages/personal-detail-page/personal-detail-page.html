@@ -825,7 +825,8 @@
           <div class="pd__destino-card" *ngFor="let c of comisionesFiltradas()">
             <div class="pd__destino-card__top"><span class="pd__destino-card__unidad">{{ c.comision }}</span><span class="pd__badge" [class.pd__badge--actual]="c.activo">{{ c.activo ? 'Abierta' : 'Cerrada' }}</span></div>
             <span class="pd__destino-card__cargo">{{ c.cargo || 'Sin cargo' }}</span>
-            <div class="pd__destino-card__meta"><span>{{ formatDate(c.fecha_inicio) }} – {{ c.fecha_fin ? formatDate(c.fecha_fin) : 'Sin fecha de finalización' }}</span><span *ngIf="c.numero_orden">Orden: {{ c.numero_orden }}</span><span *ngIf="c.boletin">Boletín: {{ c.boletin }}</span></div>
+            <span *ngIf="c.importada" class="pd__destino-card__cargo" [title]="c.texto_original || ''">Importada del Access<ng-container *ngIf="c.periodo">, durante el período {{ formatDate(c.periodo.fecha_inicio) }} – {{ c.periodo.fecha_fin ? formatDate(c.periodo.fecha_fin) : 'actual' }}</ng-container></span>
+            <div class="pd__destino-card__meta"><span>{{ c.fecha_inicio ? formatDate(c.fecha_inicio) : 'Sin fecha' }} – {{ c.fecha_fin ? formatDate(c.fecha_fin) : 'Sin fecha de finalización' }}</span><span *ngIf="c.numero_orden">Orden: {{ c.numero_orden }}</span><span *ngIf="c.boletin">Boletín: {{ c.boletin }}</span></div>
           </div>
         </div>
       </ng-container>
