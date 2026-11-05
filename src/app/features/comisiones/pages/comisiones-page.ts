@@ -25,7 +25,8 @@ export class ComisionesPage {
   readonly catalogo = this.route.snapshot.data['catalogo'] === true;
   readonly comisionId = this.route.snapshot.paramMap.get('comisionId');
   readonly comisionDetalle = signal<Comision | null>(null);
-  readonly puedeGestionar = computed(() => this.auth.hasPermiso('comisiones.gestionar'));
+  readonly puedeGestionar = computed(() => this.auth.puedeConAlcance('comisiones.gestionar'));
+  readonly puedeGestionarCatalogo = computed(() => this.auth.hasPermiso('comisiones.gestionar'));
   readonly comisiones = signal<Comision[]>([]);
   readonly asignaciones = signal<AsignacionComision[]>([]);
   readonly stats = signal<ComisionesStats>({ total_asignaciones: 0, asignaciones_activas: 0, comisiones_con_personal: 0 });
@@ -105,7 +106,7 @@ export class ComisionesPage {
     });
     this.buscarTexto.pipe(debounceTime(300), takeUntilDestroyed(this.destroy)).subscribe(() => this.filtrar());
     this.buscarPersona.pipe(debounceTime(300), switchMap(text => {
-      return this.personal.findPaginado({ search: text.trim() || undefined, pageSize: 10, incluir_inactivos: true }).pipe(catchError(err => { this.modalError.set(parseError(err)); return of(null); }));
+      return this.personal.findPaginado({ search: text.trim() || undefined, pageSize: 10, incluir_inactivos: false }).pipe(catchError(err => { this.modalError.set(parseError(err)); return of(null); }));
     }), takeUntilDestroyed(this.destroy)).subscribe(res => { this.personas.set(res?.items ?? []); this.buscandoPersona.set(false); });
     this.selectorPersona.valueChanges.pipe(takeUntilDestroyed(this.destroy)).subscribe(id => {
       const persona = this.personas().find(p => p.id === id);
