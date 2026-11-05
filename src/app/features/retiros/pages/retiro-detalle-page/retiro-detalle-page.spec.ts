@@ -186,6 +186,7 @@ describe('RetiroDetallePage', () => {
     expect(fixture.componentInstance.cierres()).toEqual({
       destino: null,
       inscripciones: [],
+      comisiones: [],
       usuario: null,
       ninguno: true,
     });

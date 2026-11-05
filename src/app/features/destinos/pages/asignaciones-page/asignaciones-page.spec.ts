@@ -292,6 +292,30 @@ describe('AsignacionesPage', () => {
       expect(component.modal()).toBeNull();
     });
 
+    it('en la asignación vigente la acción es "Deshacer pase" y avisa si reabrió la anterior', () => {
+      destinosService.eliminar.mockReturnValue(of({ id: '200', eliminado: true as const, destino_reabierto: '150' }));
+      component.abrirEliminar(makeDestino({ activo: true }));
+      fixture.detectChanges();
+      const modal = (fixture.nativeElement as HTMLElement).querySelector('.modal')!;
+      expect(modal.querySelector('h3')!.textContent).toContain('Deshacer pase');
+      expect(modal.querySelector('.btn--danger')!.textContent).toContain('Deshacer pase');
+
+      component.confirmarEliminar();
+
+      expect(toastService.success).toHaveBeenCalledWith(expect.stringContaining('Pase deshecho. Se reabrió el destino anterior'));
+    });
+
+    it('en una asignación cerrada la acción sigue siendo "Eliminar" del historial', () => {
+      component.abrirEliminar(makeDestino({ activo: false, fecha_fin: '2025-01-01' }));
+      fixture.detectChanges();
+      const modal = (fixture.nativeElement as HTMLElement).querySelector('.modal')!;
+      expect(modal.querySelector('h3')!.textContent).toContain('Eliminar del historial');
+
+      component.confirmarEliminar();
+
+      expect(toastService.success).toHaveBeenCalledWith('Destino eliminado del historial');
+    });
+
     it('al borrar el último item de una página vuelve a la anterior', () => {
       // El estado se fija a mano: un segundo detectChanges() no vuelve a correr ngOnInit,
       // así que recargar el mock no cambiaría lo que ya quedó en la señal.

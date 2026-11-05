@@ -73,14 +73,24 @@
     <article class="retiro-detalle__card retiro-detalle__card--reincorporado" *ngIf="r.reincorporacion as re">
       <div class="retiro-detalle__card-header">
         <h2>El funcionario fue reincorporado</h2>
-        <button
-          type="button"
-          class="btn"
-          *ngIf="puedeEditarDatosCalculo() && !re.faltan_datos_de_calculo"
-          (click)="abrir('datos-calculo')"
-        >
-          Corregir datos de cálculo
-        </button>
+        <div class="retiro-detalle__card-acciones">
+          <button
+            type="button"
+            class="btn"
+            *ngIf="puedeEditarDatosCalculo() && !re.faltan_datos_de_calculo"
+            (click)="abrir('datos-calculo')"
+          >
+            Corregir datos de cálculo
+          </button>
+          <button
+            type="button"
+            class="btn btn--danger"
+            *ngIf="puedeAnularReincorporacion()"
+            (click)="abrir('anular-reincorporacion')"
+          >
+            Anular reincorporación
+          </button>
+        </div>
       </div>
       <p class="retiro-detalle__nota">
         Tiene una relación laboral nueva posterior a este retiro. El retiro queda en el historial.
@@ -177,6 +187,10 @@
           {{ cierres().inscripciones.length }} inscripción(es) dada(s) de baja ·
           <a routerLink="/cursos/inscripciones">ver inscripciones</a>
         </li>
+        <li *ngIf="cierres().comisiones.length">
+          {{ cierres().comisiones.length }} pertenencia(s) a comisiones cerrada(s) ·
+          <a routerLink="/comisiones/asignaciones">ver comisiones</a>
+        </li>
         <li *ngIf="cierres().usuario">Cuenta de sistema bloqueada</li>
         <li *ngIf="cierres().ninguno">No arrastró ningún cierre.</li>
       </ul>
@@ -207,8 +221,9 @@
         Registrado por <strong>{{ por.username }}</strong>
       </span>
       <span *ngIf="!r.registrado_por">Sin autor registrado (carga externa a la aplicación)</span>
+      <!-- Es un timestamp: va en hora local (las fechas de arriba van en UTC). -->
       <span *ngIf="r.registrado_en">
-        · {{ r.registrado_en | date: 'd/M/yyyy HH:mm' : 'UTC' }}
+        · {{ r.registrado_en | date: 'd/M/yyyy HH:mm' }}
       </span>
     </footer>
 
@@ -227,6 +242,13 @@
     (anulado)="onAnulado($event)"
     (cerrado)="cerrarModal()"
   ></app-anular-retiro-modal>
+
+  <app-anular-reincorporacion-modal
+    *ngIf="modalAbierto() === 'anular-reincorporacion' && retiro() as r"
+    [retiroId]="r.id"
+    (anulada)="onReincorporacionAnulada($event)"
+    (cerrado)="cerrarModal()"
+  ></app-anular-reincorporacion-modal>
 
   <app-reincorporar-retiro-modal
     *ngIf="modalAbierto() === 'reincorporar' && previaReincorporacion() as p"

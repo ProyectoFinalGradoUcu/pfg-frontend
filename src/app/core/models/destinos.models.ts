@@ -156,6 +156,8 @@ export interface EditarDestinoPayload {
 export interface DestinoEliminado {
   id: string;
   eliminado: true;
+  /** Si se eliminó el vigente: el destino anterior que se reabrió (el que había cerrado el pase). */
+  destino_reabierto?: string | null;
 }
 
 // ── Query params ──────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import {
   Destino,
+  DestinoEliminado,
   DestinosStats,
   ListarDestinosQuery,
   UnidadConDestinados,
@@ -274,21 +275,35 @@ export class AsignacionesPage implements OnInit, OnDestroy {
     if (!destino) return;
     // Si era el único de la página, la página deja de existir — pero solo si el borrado sale bien.
     const eraUltimoDeLaPagina = this.destinos().length === 1 && this.page() > 1;
-    this.ejecutar(this.destinosService.eliminar(destino.id), 'Destino eliminado del historial', () => {
-      if (eraUltimoDeLaPagina) this.page.update((p) => p - 1);
-    });
+    this.ejecutar(
+      this.destinosService.eliminar(destino.id),
+      // Si era el vigente, el backend deshizo el pase y reabrió el destino anterior.
+      (r: DestinoEliminado) =>
+        r.destino_reabierto
+          ? 'Pase deshecho. Se reabrió el destino anterior y el funcionario vuelve a revistar en esa unidad'
+          : destino.activo
+            ? 'Pase deshecho'
+            : 'Destino eliminado del historial',
+      () => {
+        if (eraUltimoDeLaPagina) this.page.update((p) => p - 1);
+      },
+    );
   }
 
-  private ejecutar(operacion: Observable<unknown>, mensajeExito: string, onExito?: () => void): void {
+  private ejecutar<T>(
+    operacion: Observable<T>,
+    mensajeExito: string | ((resultado: T) => string),
+    onExito?: () => void,
+  ): void {
     this.procesando.set(true);
     this.modalError.set(null);
     operacion.subscribe({
-      next: () => {
+      next: (resultado) => {
         this.procesando.set(false);
         this.modal.set(null);
         this.destinoSeleccionado.set(null);
         onExito?.();
-        this.toast.success(mensajeExito);
+        this.toast.success(typeof mensajeExito === 'function' ? mensajeExito(resultado) : mensajeExito);
         this.cargar();
       },
       error: (err: HttpErrorResponse) => {

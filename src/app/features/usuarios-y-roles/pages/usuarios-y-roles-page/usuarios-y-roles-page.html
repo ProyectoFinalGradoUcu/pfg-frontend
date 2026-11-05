@@ -33,16 +33,19 @@
   <!-- Tabs -->
   <nav class="ur__tabs">
     <button
+      *ngIf="puedeVerUsuarios()"
       class="ur__tab"
       [class.ur__tab--active]="tab() === 'usuarios'"
       (click)="cambiarTab('usuarios')"
     >Usuarios</button>
     <button
+      *ngIf="puedeGestionarUsuarios()"
       class="ur__tab"
       [class.ur__tab--active]="tab() === 'invitaciones'"
       (click)="cambiarTab('invitaciones')"
     >Invitaciones</button>
     <button
+      *ngIf="puedeVerRoles()"
       class="ur__tab"
       [class.ur__tab--active]="tab() === 'roles'"
       (click)="cambiarTab('roles')"
@@ -446,7 +449,7 @@
 
         <label class="modal__field">
           <span>Nueva contraseña <small>(opcional)</small></span>
-          <input type="text" formControlName="nuevaPassword" placeholder="Dejar vacío para no cambiar" autocomplete="off" />
+          <input type="password" formControlName="nuevaPassword" placeholder="Dejar vacío para no cambiar" autocomplete="new-password" />
         </label>
 
         <!-- ── Permisos efectivos (read-only) ────────────────────────────────── -->

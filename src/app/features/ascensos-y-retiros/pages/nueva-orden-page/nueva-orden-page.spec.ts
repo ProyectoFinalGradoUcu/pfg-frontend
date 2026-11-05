@@ -3,7 +3,7 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { NuevaOrdenPage } from './nueva-orden-page';
@@ -242,6 +242,105 @@ describe('NuevaOrdenPage', () => {
       component.agregar(makeElegibilidad({ estado: 'BLOQUEADO', motivo: 'x' }));
       component.onMotivo('100', 'Vacante urgente');
 
+      expect(component.puedeConfirmar()).toBe(false);
+    });
+
+    it('un salto o cambio de escala pide motivo aunque cumpla la regla', async () => {
+      await montar();
+      component.ordenForm.patchValue({ numero_orden: 'O 1', fecha_orden: '2027-02-01' });
+      component.irAFuncionarios();
+      component.agregar(makeElegibilidad({ estado: 'PASIBLE', tipo_ascenso: 'CAMBIO_ESCALA' }));
+
+      expect(component.esExcepcion(component.filas()[0])).toBe(true);
+      expect(component.puedeConfirmar()).toBe(false);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('.bloqueo__titulo')!.textContent).toContain('No asciende al grado siguiente');
+      expect(el.querySelector('#motivo-100')).not.toBeNull();
+
+      component.onMotivo('100', 'Egreso de la Escuela');
+      expect(component.puedeConfirmar()).toBe(true);
+    });
+
+    it('el grado siguiente de la escala no es excepción', async () => {
+      await montar();
+      component.agregar(makeElegibilidad({ estado: 'PASIBLE', tipo_ascenso: 'SIGUIENTE' }));
+
+      expect(component.esExcepcion(component.filas()[0])).toBe(false);
+    });
+  });
+
+  describe('recalcular la elegibilidad al cambiar fechas', () => {
+    const conOrden = () =>
+      component.ordenForm.patchValue({ numero_orden: 'O 1', fecha_orden: '2027-02-01' });
+
+    it('al cambiar la fecha del ascenso vuelve a evaluar con esa fecha', async () => {
+      await montar();
+      conOrden();
+      component.agregar(makeElegibilidad());
+      svc['getElegibilidad'].mockReturnValue(
+        of(makeElegibilidad({ estado: 'PROXIMO', motivo: 'Le faltan 20 días' })),
+      );
+
+      component.onFechaAscenso('100', '2027-01-10');
+
+      expect(svc['getElegibilidad']).toHaveBeenLastCalledWith('100', '2027-01-10');
+      const fila = component.filas()[0];
+      expect(fila.evaluacion.estado).toBe('PROXIMO');
+      expect(fila.fecha_evaluada).toBe('2027-01-10');
+      expect(component.esExcepcion(fila)).toBe(true);
+    });
+
+    it('los precargados sin fecha se reevalúan con la de la orden al pasar al paso 2', async () => {
+      queryParams.set('persona', '100');
+      await montar();
+      expect(svc['getElegibilidad']).toHaveBeenCalledWith('100', undefined);
+      svc['getElegibilidad'].mockReturnValue(of(makeElegibilidad({ estado: 'BLOQUEADO', motivo: 'x' })));
+
+      conOrden();
+      component.irAFuncionarios();
+
+      expect(svc['getElegibilidad']).toHaveBeenLastCalledWith('100', '2027-02-01');
+      expect(component.filas()[0].fecha_ascenso).toBe('2027-02-01');
+      expect(component.filas()[0].evaluacion.estado).toBe('BLOQUEADO');
+    });
+
+    it('si se cambia la fecha de la orden, las fechas no tocadas a mano la siguen y se reevalúan', async () => {
+      await montar();
+      conOrden();
+      component.irAFuncionarios();
+      component.agregar(makeElegibilidad());
+      component.volverAOrden();
+      component.ordenForm.patchValue({ fecha_orden: '2027-03-01' });
+
+      component.irAFuncionarios();
+
+      expect(component.filas()[0].fecha_ascenso).toBe('2027-03-01');
+      expect(svc['getElegibilidad']).toHaveBeenLastCalledWith('100', '2027-03-01');
+    });
+
+    it('una fecha cambiada a mano no la pisa la de la orden', async () => {
+      await montar();
+      conOrden();
+      component.agregar(makeElegibilidad());
+      component.onFechaAscenso('100', '2027-01-15');
+      component.volverAOrden();
+      component.ordenForm.patchValue({ fecha_orden: '2027-03-01' });
+
+      component.irAFuncionarios();
+
+      expect(component.filas()[0].fecha_ascenso).toBe('2027-01-15');
+    });
+
+    it('no deja confirmar mientras se está reevaluando', async () => {
+      await montar();
+      conOrden();
+      component.agregar(makeElegibilidad());
+      svc['getElegibilidad'].mockReturnValue(new Subject<Elegibilidad>());
+
+      component.onFechaAscenso('100', '2027-01-10');
+
+      expect(component.filas()[0].evaluando).toBe(true);
       expect(component.puedeConfirmar()).toBe(false);
     });
   });

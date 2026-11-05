@@ -52,7 +52,15 @@ export class LoginPage implements OnInit {
   }
 
   private parseError(err: HttpErrorResponse): string {
-    if (err.status === 401) return 'Usuario o contraseña incorrectos';
+    if (err.status === 401) {
+      // El backend distingue al usuario bloqueado ("Usuario bloqueado" /
+      // "Usuario bloqueado temporalmente"); ese mensaje se muestra tal cual.
+      const mensaje = err.error?.service_response?.service_status?.http_message;
+      if (typeof mensaje === 'string' && mensaje.startsWith('Usuario bloqueado')) {
+        return mensaje;
+      }
+      return 'Usuario o contraseña incorrectos';
+    }
     if (err.status === 429) return 'Demasiados intentos. Intentá en unos minutos';
     if (err.status === 0) return 'No se pudo conectar con el servidor';
     return 'Error inesperado. Intentá nuevamente';

@@ -216,7 +216,14 @@ export interface Elegibilidad {
   antiguedad_dias: number;
   edad: number | null;
   requisitos: RequisitoEvaluado[];
+  /**
+   * Cómo es el ascenso al `grado_destino` respecto de la escala (null sin destino).
+   * `SALTO` y `CAMBIO_ESCALA` solo se registran por excepción, aunque el estado sea PASIBLE.
+   */
+  tipo_ascenso?: TipoAscenso | null;
 }
+
+export type TipoAscenso = 'SIGUIENTE' | 'SALTO' | 'CAMBIO_ESCALA' | 'NO_SUPERIOR';
 
 export interface ConteoPorEstado {
   PASIBLE: number;

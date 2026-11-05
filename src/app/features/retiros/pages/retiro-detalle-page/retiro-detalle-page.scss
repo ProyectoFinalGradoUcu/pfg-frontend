@@ -91,6 +91,12 @@ $navy-soft: #1e3a5f;
   }
 }
 
+.retiro-detalle__card-acciones {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .retiro-detalle__card-header {
   display: flex;
   align-items: flex-start;

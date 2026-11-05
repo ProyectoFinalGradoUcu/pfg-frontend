@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, Subject, Subscription, debounceTime, forkJoin } from 'rxjs';
+import { Observable, Subject, Subscription, concatMap, debounceTime, from, last, tap } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
 import { InvitacionesService } from '../../../../core/services/invitaciones.service';
 import { RolesService } from '../../../../core/services/roles.service';
@@ -133,6 +133,23 @@ export class UsuariosYRolesPage implements OnInit {
   readonly puedeVerUnidades = computed(() =>
     this.auth.hasPermiso('unidades.ver'),
   );
+  readonly puedeVerUsuarios = computed(() =>
+    this.auth.hasPermiso('usuarios.ver'),
+  );
+  readonly puedeVerRoles = computed(() =>
+    this.auth.hasPermiso('roles.ver'),
+  );
+
+  /** Pestañas en el orden en que se muestran, solo las que el usuario puede abrir. */
+  private tabsVisibles(): Tab[] {
+    const tabs: Tab[] = [];
+    if (this.puedeVerUsuarios()) tabs.push('usuarios');
+    // GET /invitaciones exige usuarios.gestionar.
+    if (this.puedeGestionarUsuarios()) tabs.push('invitaciones');
+    if (this.puedeVerRoles()) tabs.push('roles');
+    if (this.puedeVerUnidades()) tabs.push('unidades');
+    return tabs;
+  }
   readonly currentUserId = computed(() => this.auth.currentUser()?.id ?? '');
 
   readonly estadosOpciones = [
@@ -183,12 +200,25 @@ export class UsuariosYRolesPage implements OnInit {
   }
 
   cargar(): void {
+    // La página se abre con usuarios.ver, roles.ver o unidades.ver: arrancar en la
+    // primera pestaña permitida.
+    const visibles = this.tabsVisibles();
+    if (!visibles.includes(this.tab()) && visibles.length) this.tab.set(visibles[0]);
+
+    // GET /roles exige roles.ver. Sin ese permiso los usuarios se cargan igual; solo
+    // queda vacío el filtro por rol.
+    if (!this.puedeVerRoles()) {
+      this.roles.set([]);
+      if (this.puedeVerUsuarios()) this.cargarUsuarios();
+      return;
+    }
+
     this.loading.set(true);
     this.rolesService.findAll().subscribe({
       next: (roles) => {
         this.roles.set(roles);
         this.loading.set(false);
-        this.cargarUsuarios();
+        if (this.puedeVerUsuarios()) this.cargarUsuarios();
       },
       error: (err: HttpErrorResponse) => {
         this.reportarError(err);
@@ -312,7 +342,17 @@ export class UsuariosYRolesPage implements OnInit {
   crearUsuario(): void {
     if (this.nuevoUsuarioForm.invalid) {
       this.nuevoUsuarioForm.markAllAsTouched();
-      this.modalError.set('Completá todos los campos requeridos');
+      // Mensaje según el campo inválido.
+      const email = this.nuevoUsuarioForm.controls.username.errors;
+      this.modalError.set(
+        email?.['maxlength']
+          ? 'El email no puede tener más de 60 caracteres'
+          : email?.['email']
+            ? 'El email no es válido'
+            : this.nuevoUsuarioForm.controls.roles.invalid && !email
+              ? 'Elegí al menos un rol'
+              : 'Completá todos los campos requeridos',
+      );
       return;
     }
     const { username, roles } = this.nuevoUsuarioForm.getRawValue();
@@ -363,7 +403,8 @@ export class UsuariosYRolesPage implements OnInit {
     }
 
     this.modalError.set(null);
-    const tasks: Observable<unknown>[] = [];
+    // Cada cambio con una descripción, para poder decir cuáles quedaron guardados si uno falla.
+    const tasks: { descripcion: string; request: () => Observable<unknown> }[] = [];
 
     const rolesNuevos = (roles ?? []) as string[];
     const rolesActuales = target.roles.map((r) => r.nombre);
@@ -373,27 +414,42 @@ export class UsuariosYRolesPage implements OnInit {
 
     for (const nombre of aAgregar) {
       const rol = this.roles().find((r) => r.nombre === nombre);
-      if (rol) tasks.push(this.usuariosService.asignarRol(target.id, rol.id));
+      if (rol) {
+        tasks.push({
+          descripcion: `asignar el rol ${rol.nombre}`,
+          request: () => this.usuariosService.asignarRol(target.id, rol.id),
+        });
+      }
     }
     for (const r of aQuitar) {
-      tasks.push(this.usuariosService.quitarRol(target.id, r.id));
+      tasks.push({
+        descripcion: `quitar el rol ${r.nombre}`,
+        request: () => this.usuariosService.quitarRol(target.id, r.id),
+      });
     }
 
     if (estado && estado !== target.estado) {
-      tasks.push(this.usuariosService.update(target.id, { estado }));
+      tasks.push({
+        descripcion: `cambiar el estado a ${estado}`,
+        request: () => this.usuariosService.update(target.id, { estado }),
+      });
     }
 
     // Cambiar las unidades modifica los permisos efectivos del usuario y le cierra la sesión.
     const unidadesActuales = target.unidades.map((u) => u.id).sort().join(',');
     const unidadesNuevas = (unidadIds ?? []).sort().join(',');
     if (unidadesNuevas !== unidadesActuales) {
-      tasks.push(this.usuariosService.asignarUnidades(target.id, unidadIds ?? []));
+      tasks.push({
+        descripcion: 'cambiar las unidades',
+        request: () => this.usuariosService.asignarUnidades(target.id, unidadIds ?? []),
+      });
     }
 
     if (nuevaPassword && nuevaPassword.length >= 8) {
-      tasks.push(
-        this.usuariosService.resetPassword(target.id, { password: nuevaPassword }),
-      );
+      tasks.push({
+        descripcion: 'cambiar la contraseña',
+        request: () => this.usuariosService.resetPassword(target.id, { password: nuevaPassword }),
+      });
     }
 
     if (tasks.length === 0) {
@@ -401,22 +457,44 @@ export class UsuariosYRolesPage implements OnInit {
       return;
     }
 
-    forkJoin(tasks).subscribe({
-      next: () => {
-        const nombre = target.persona?.nombre ?? target.username;
-        this.cerrarModal();
-        this.toast.success(`Cambios guardados para ${nombre}`);
-        this.cargar();
-      },
-      error: (err) => this.modalError.set(parseError(err)),
-    });
+    // Se mandan de a uno y se corta en el primer error, para saber qué se guardó.
+    const hechos: string[] = [];
+    from(tasks)
+      .pipe(
+        concatMap((t) => t.request().pipe(tap(() => hechos.push(t.descripcion)))),
+        last(),
+      )
+      .subscribe({
+        next: () => {
+          const nombre = target.persona?.nombre ?? target.username;
+          this.cerrarModal();
+          this.toast.success(`Cambios guardados para ${nombre}`);
+          this.cargar();
+        },
+        error: (err) => {
+          const pendientes = tasks.map((t) => t.descripcion).filter((d) => !hechos.includes(d));
+          this.modalError.set(
+            hechos.length
+              ? `${parseError(err)}. Se guardó: ${hechos.join(', ')}. No se guardó: ${pendientes.join(', ')}.`
+              : parseError(err),
+          );
+          // La lista tiene que mostrar lo que realmente quedó en el servidor.
+          if (hechos.length) this.cargar();
+        },
+      });
   }
 
   // ── Deshabilitar / Reactivar usuario ──────────────────────────────────────
 
-  deshabilitarUsuario(usuario: Usuario): void {
+  // Modal de la app: confirm() no funciona en algunos navegadores embebidos.
+  async deshabilitarUsuario(usuario: Usuario): Promise<void> {
     const nombre = usuario.persona?.nombre ?? usuario.username;
-    if (!confirm(`¿Deshabilitar a ${nombre}? Ya no podrá acceder a la plataforma.`)) return;
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Deshabilitar usuario',
+      mensaje: `¿Deshabilitar a ${nombre}? Ya no podrá acceder a la plataforma.`,
+      textoConfirmar: 'Deshabilitar',
+    });
+    if (!confirmado) return;
 
     this.usuariosService.remove(usuario.id).subscribe({
       next: () => {
@@ -428,9 +506,14 @@ export class UsuariosYRolesPage implements OnInit {
     });
   }
 
-  reactivarUsuario(usuario: Usuario): void {
+  async reactivarUsuario(usuario: Usuario): Promise<void> {
     const nombre = usuario.persona?.nombre ?? usuario.username;
-    if (!confirm(`¿Reactivar a ${nombre}? Volverá a poder acceder a la plataforma.`)) return;
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Reactivar usuario',
+      mensaje: `¿Reactivar a ${nombre}? Volverá a poder acceder a la plataforma.`,
+      textoConfirmar: 'Reactivar',
+    });
+    if (!confirmado) return;
 
     this.usuariosService.update(usuario.id, { estado: 'activo' }).subscribe({
       next: () => {
@@ -508,15 +591,14 @@ export class UsuariosYRolesPage implements OnInit {
     });
   }
 
-  eliminarRol(rol: Rol): void {
+  async eliminarRol(rol: Rol): Promise<void> {
     this.cerrarMenu();
-    if (
-      !confirm(
-        `¿Eliminar el rol "${rol.nombre}"? Esta acción no se puede deshacer.`,
-      )
-    ) {
-      return;
-    }
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Eliminar rol',
+      mensaje: `¿Eliminar el rol "${rol.nombre}"? Esta acción no se puede deshacer.`,
+      textoConfirmar: 'Eliminar',
+    });
+    if (!confirmado) return;
     this.rolesService.remove(rol.id).subscribe({
       next: () => {
         this.toast.success('Rol eliminado');

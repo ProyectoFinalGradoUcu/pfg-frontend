@@ -15,6 +15,10 @@ export function mensajeReversion(r: RetiroAnulado): string {
   if (n === 1) partes.push('se reactivó 1 inscripción');
   if (n > 1) partes.push(`se reactivaron ${n} inscripciones`);
 
+  const k = r.revertido.comisiones?.length ?? 0;
+  if (k === 1) partes.push('se reabrió 1 pertenencia a comisión');
+  if (k > 1) partes.push(`se reabrieron ${k} pertenencias a comisiones`);
+
   if (r.revertido.usuario) partes.push('se reactivó la cuenta');
 
   return partes.length ? `${partes.join(', ')}.` : 'El retiro fue anulado.';

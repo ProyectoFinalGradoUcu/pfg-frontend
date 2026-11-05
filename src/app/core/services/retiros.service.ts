@@ -14,6 +14,7 @@ import {
   ReincorporarBody,
   Reincorporado,
   Retiro,
+  ReincorporacionAnulada,
   RetiroAnulado,
   RetiroCreado,
   RetiroDetalle,
@@ -89,6 +90,14 @@ export class RetirosService {
       { service_request: body },
       { withCredentials: true },
     );
+  }
+
+  /** Deshace la reincorporación; después el retiro se puede anular. El motivo va en el body del DELETE. */
+  anularReincorporacion(retiroId: string, body: AnularRetiroBody): Observable<ReincorporacionAnulada> {
+    return this.http.delete<ReincorporacionAnulada>(`${this.base}/${retiroId}/reincorporacion`, {
+      body: { service_request: body },
+      withCredentials: true,
+    });
   }
 
   /** Omite los vacíos; `false` sí viaja, porque `vigentes=false` filtra. */

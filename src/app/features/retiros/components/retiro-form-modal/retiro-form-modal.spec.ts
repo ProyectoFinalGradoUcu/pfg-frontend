@@ -18,6 +18,7 @@ function makePrevia(overrides: Partial<PreviaRetiro> = {}): PreviaRetiro {
     relacion_laboral: null,
     destino_vigente: null,
     inscripciones_activas: [],
+    comisiones_abiertas: [],
     usuario: null,
     vivienda: null,
     bloqueos: [],
@@ -76,7 +77,7 @@ describe('RetiroFormModal', () => {
       registrar: vi
         .fn()
         .mockReturnValue(
-          of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], usuario: null } }),
+          of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], comisiones: [], usuario: null } }),
         ),
     };
     catalogos = {
@@ -213,9 +214,46 @@ describe('RetiroFormModal', () => {
     expect(retiros.registrar).toHaveBeenCalledWith(
       expect.objectContaining({
         persona_id: 1,
-        cerrar: { destino: true, inscripciones: [301], usuario: false },
+        cerrar: { destino: true, inscripciones: [301], comisiones: [], usuario: false },
       }),
     );
+  });
+
+  it('ofrece cerrar las pertenencias a comisiones y manda las tildadas', async () => {
+    retiros.previa.mockReturnValue(
+      of(
+        makePrevia({
+          comisiones_abiertas: [
+            {
+              id: '12',
+              comision: { id: '3', denominacion: 'Comisión de Vivienda' },
+              cargo: 'Vocal',
+              fecha_inicio: '2024-01-01',
+              fecha_fin: null,
+              cerrar_sugerido: true,
+            },
+            {
+              id: '13',
+              comision: { id: '4', denominacion: 'Comisión de Deportes' },
+              cargo: null,
+              fecha_inicio: '2024-01-01',
+              fecha_fin: null,
+              cerrar_sugerido: true,
+            },
+          ],
+        }),
+      ),
+    );
+    await montar();
+    component.form.patchValue({ fecha_retiro: '2026-08-28', motivo_baja_id: 5 });
+    await esperarDebounce();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Comisión de Vivienda');
+    component.toggleComision('13'); // el operador la destilda
+    component.confirmar();
+
+    expect(retiros.registrar.mock.calls[0][0].cerrar.comisiones).toEqual([12]);
   });
 
   it('las inscripciones viajan como número, no como string', async () => {
@@ -250,7 +288,7 @@ describe('RetiroFormModal', () => {
       ),
     );
     retiros.registrar.mockReturnValue(
-      of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], usuario: '3' } }),
+      of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], comisiones: [], usuario: '3' } }),
     );
     await montar();
 
@@ -263,6 +301,7 @@ describe('RetiroFormModal', () => {
     expect(emitido.mock.calls[0][0].cerrado).toEqual({
       destino: null,
       inscripciones: [],
+      comisiones: [],
       usuario: '3',
     });
   });
@@ -355,20 +394,20 @@ describe('RetiroFormModal', () => {
 
 describe('mensajeCierres', () => {
   it('nombra solo lo que se cerró de verdad', () => {
-    expect(mensajeCierres({ destino: '3', inscripciones: [], usuario: null })).toBe(
+    expect(mensajeCierres({ destino: '3', inscripciones: [], comisiones: [], usuario: null })).toBe(
       'Retiro registrado: se cerró el destino.',
     );
   });
 
   it('usa el plural con más de una inscripción', () => {
-    const msg = mensajeCierres({ destino: null, inscripciones: ['1', '2'], usuario: '4' });
+    const msg = mensajeCierres({ destino: null, inscripciones: ['1', '2'], comisiones: ['9'], usuario: '4' });
     expect(msg).toContain('se dieron de baja 2 inscripciones');
     expect(msg).toContain('se bloqueó la cuenta de sistema');
     expect(msg).not.toContain('destino');
   });
 
   it('lo dice igual cuando no arrastró nada', () => {
-    expect(mensajeCierres({ destino: null, inscripciones: [], usuario: null })).toBe(
+    expect(mensajeCierres({ destino: null, inscripciones: [], comisiones: [], usuario: null })).toBe(
       'Retiro registrado. No arrastró ningún cierre.',
     );
   });

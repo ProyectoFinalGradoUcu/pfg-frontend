@@ -7,9 +7,13 @@
     </header>
 
     <div class="modal__body" [formGroup]="form">
-      <p class="aviso aviso--info">
+      <p class="aviso aviso--info" *ngIf="!retiro.reincorporacion">
         Se corrigen los datos del retiro. El retiro sigue existiendo y el funcionario sigue
         retirado.
+      </p>
+      <p class="aviso aviso--info" *ngIf="retiro.reincorporacion">
+        Se corrigen los datos del retiro. El funcionario ya fue reincorporado: la fecha del
+        retiro tiene que ser anterior a la reincorporación.
       </p>
 
       <div class="grid-2">

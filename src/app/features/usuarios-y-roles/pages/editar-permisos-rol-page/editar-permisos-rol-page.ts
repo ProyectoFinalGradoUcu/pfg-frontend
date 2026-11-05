@@ -7,6 +7,7 @@ import { PermisosService } from '../../../../core/services/permisos.service';
 import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
 import { Permiso, Rol } from '../../../../core/models/auth.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 
@@ -24,6 +25,7 @@ export class EditarPermisosRolPage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
+  private readonly confirmModal = inject(ConfirmModalService);
 
   private rolId = '';
 
@@ -117,16 +119,20 @@ export class EditarPermisosRolPage implements OnInit {
    * Tocar un permiso desloguea a todos los que tienen el rol, directo o por su unidad.
    * Se avisa cuántos son antes; si se cancela, el checkbox vuelve a como estaba.
    */
-  togglePermiso(permiso: Permiso, checkbox: HTMLInputElement): void {
+  async togglePermiso(permiso: Permiso, checkbox: HTMLInputElement): Promise<void> {
     const activar = checkbox.checked;
     const afectados = this.rol()?.cantidadUsuariosAfectados ?? 0;
     if (afectados > 0) {
-      const confirmado = confirm(
+      // Modal de la app: confirm() no funciona en algunos navegadores embebidos.
+      const confirmado = await this.confirmModal.confirmar({
+        titulo: `${activar ? 'Activar' : 'Desactivar'} permiso`,
+        textoConfirmar: activar ? 'Activar' : 'Desactivar',
+        mensaje:
         `${afectados} ${afectados === 1 ? 'usuario tiene' : 'usuarios tienen'} este rol, ` +
           'asignado directamente o a través de su unidad. ' +
           `Al ${activar ? 'activar' : 'desactivar'} el permiso se les va a cerrar la sesión activa ` +
-          'y van a tener que volver a ingresar.\n\n¿Confirmás?',
-      );
+          'y van a tener que volver a ingresar. ¿Confirmás?',
+      });
       if (!confirmado) {
         checkbox.checked = !activar;
         return;
@@ -141,7 +147,11 @@ export class EditarPermisosRolPage implements OnInit {
         this.rol.set(actualizado);
         this.toast.success(`Permiso ${activar ? 'activado' : 'desactivado'}`);
       },
-      error: (err: HttpErrorResponse) => this.reportarError(err),
+      error: (err: HttpErrorResponse) => {
+        // Si el backend lo rechaza, el checkbox vuelve a su estado anterior.
+        checkbox.checked = !activar;
+        this.reportarError(err);
+      },
     });
   }
 

@@ -30,6 +30,15 @@ interface FilaDeOrden {
   evaluacion: Elegibilidad;
   grado_destino_id: string | null;
   fecha_ascenso: string;
+  /** true si se la cambió a mano: deja de seguir a la fecha de la orden. */
+  fecha_manual: boolean;
+  /**
+   * Fecha con la que se calculó `evaluacion`. El backend evalúa con `fecha_ascenso`
+   * (o la de la orden), así que si difieren la pantalla puede mostrar algo que el
+   * backend después rechaza.
+   */
+  fecha_evaluada: string;
+  evaluando: boolean;
   motivo_excepcion: string;
   /** null = al final del grado destino / del grupo de numor. */
   posicion_derecha: number | null;
@@ -144,6 +153,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   readonly puedeConfirmar = computed(
     () =>
       this.filas().length > 0 &&
+      // Con una evaluación en curso todavía no se sabe si hace falta motivo.
+      this.filas().every((f) => !f.evaluando && f.fecha_evaluada === f.fecha_ascenso) &&
       !this.hayExcepcionSinMotivo() &&
       (this.porExcepcion() === 0 || this.puedeExcepcion()) &&
       this.filas().every((f) => !!f.grado_destino_id),
@@ -194,9 +205,15 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       return;
     }
     const fecha = this.ordenForm.get('fecha_orden')!.value as string;
+    // Las fechas que no se tocaron a mano siguen a la de la orden (también si se volvió
+    // al paso 1 y se la cambió). Las que venían precargadas desde el listado o el perfil
+    // se evaluaron sin fecha: se las vuelve a evaluar con la que corresponde.
     this.filas.update((filas) =>
-      filas.map((f) => ({ ...f, fecha_ascenso: f.fecha_ascenso || fecha })),
+      filas.map((f) => (f.fecha_manual ? f : { ...f, fecha_ascenso: fecha })),
     );
+    for (const f of this.filas()) {
+      if (f.fecha_evaluada !== f.fecha_ascenso) this.reevaluar(f.evaluacion.persona.id);
+    }
     this.paso.set(2);
     // Se precarga para que al abrir el combobox la lista ya esté.
     this.mostrarIniciales();
@@ -296,21 +313,30 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   }
 
   private agregarPorId(personaId: string): void {
-    this.svc.getElegibilidad(personaId, this.fechaDeLaOrden() || undefined).subscribe({
-      next: (e) => this.agregar(e),
+    const fecha = this.fechaDeLaOrden();
+    this.svc.getElegibilidad(personaId, fecha || undefined).subscribe({
+      next: (e) => this.agregar(e, fecha),
       error: (err: HttpErrorResponse) => this.toast.error(parseError(err)),
     });
   }
 
-  agregar(evaluacion: Elegibilidad): void {
+  /**
+   * `fechaEvaluada`: con qué fecha se calculó `evaluacion`. Los candidatos del combobox
+   * se evalúan con la fecha de la orden, que es la que toma la fila al agregarse.
+   */
+  agregar(evaluacion: Elegibilidad, fechaEvaluada = this.fechaDeLaOrden()): void {
     if (this.filas().some((f) => f.evaluacion.persona.id === evaluacion.persona.id)) return;
 
+    const fecha = this.fechaDeLaOrden();
     this.filas.update((filas) => [
       ...filas,
       {
         evaluacion,
         grado_destino_id: evaluacion.grado_destino?.id ?? null,
-        fecha_ascenso: this.fechaDeLaOrden(),
+        fecha_ascenso: fecha,
+        fecha_manual: false,
+        fecha_evaluada: fechaEvaluada,
+        evaluando: false,
         motivo_excepcion: '',
         posicion_derecha: null,
         derecha_elegida: null,
@@ -322,6 +348,41 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       },
     ]);
     this.resultados.update((r) => r.filter((i) => i.persona.id !== evaluacion.persona.id));
+    // Agregado con otra fecha (p. ej. precargado antes de completar el paso 1).
+    if (fecha && fechaEvaluada !== fecha) this.reevaluar(evaluacion.persona.id);
+  }
+
+  /** Vuelve a evaluar la elegibilidad de una fila con su `fecha_ascenso` vigente. */
+  private reevaluar(personaId: string): void {
+    const fila = this.filas().find((f) => f.evaluacion.persona.id === personaId);
+    if (!fila) return;
+    const fecha = fila.fecha_ascenso;
+    this.actualizarFila(personaId, { evaluando: true });
+    this.svc.getElegibilidad(personaId, fecha || undefined).subscribe({
+      next: (evaluacion) => {
+        const actual = this.filas().find((f) => f.evaluacion.persona.id === personaId);
+        // Se la quitó o se volvió a cambiar la fecha mientras tanto: esta respuesta no aplica.
+        if (!actual || actual.fecha_ascenso !== fecha) return;
+        const destino = evaluacion.grado_destino?.id ?? null;
+        const cambioDestino = destino !== actual.grado_destino_id;
+        this.actualizarFila(personaId, {
+          evaluacion,
+          fecha_evaluada: fecha,
+          evaluando: false,
+          grado_destino_id: destino,
+          // La posición elegida era en el grado destino anterior.
+          ...(cambioDestino
+            ? { posicion_derecha: null, derecha_elegida: null, posicion_numor: null, impacto: null }
+            : {}),
+        });
+        if (actual.verDerecha && destino) this.calcularImpacto(personaId);
+      },
+      error: (err: HttpErrorResponse) => {
+        const actual = this.filas().find((f) => f.evaluacion.persona.id === personaId);
+        if (actual?.fecha_ascenso === fecha) this.actualizarFila(personaId, { evaluando: false });
+        this.toast.error(parseError(err));
+      },
+    });
   }
 
   quitar(personaId: string): void {
@@ -329,11 +390,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   }
 
   onFechaAscenso(personaId: string, fecha: string): void {
-    this.filas.update((filas) =>
-      filas.map((f) =>
-        f.evaluacion.persona.id === personaId ? { ...f, fecha_ascenso: fecha } : f,
-      ),
-    );
+    this.actualizarFila(personaId, { fecha_ascenso: fecha, fecha_manual: true });
+    this.reevaluar(personaId);
   }
 
   onMotivo(personaId: string, motivo: string): void {
@@ -411,9 +469,21 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
     return fila.evaluacion.requisitos.filter((r) => r.aplica && !r.cumple);
   }
 
-  /** Tiene regla evaluable y el motor no lo dio por pasible. */
+  /**
+   * Mismo criterio que el backend: es excepción si tiene regla evaluable y
+   * el motor no lo dio por pasible, o si el destino no es el grado siguiente de su
+   * escala (salto de grados, cambio de escala, desde cadete/aprendiz o desde el tope).
+   */
   esExcepcion(fila: FilaDeOrden): boolean {
-    return !!fila.evaluacion.regla && fila.evaluacion.estado !== 'PASIBLE';
+    return (
+      this.fueraDeCarrera(fila) ||
+      (!!fila.evaluacion.regla && fila.evaluacion.estado !== 'PASIBLE')
+    );
+  }
+
+  fueraDeCarrera(fila: FilaDeOrden): boolean {
+    const tipo = fila.evaluacion.tipo_ascenso;
+    return tipo === 'SALTO' || tipo === 'CAMBIO_ESCALA';
   }
 
   etiquetaEstado(estado: EstadoElegibilidad): string {

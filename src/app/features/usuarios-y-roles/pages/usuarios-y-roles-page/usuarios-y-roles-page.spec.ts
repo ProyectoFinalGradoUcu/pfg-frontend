@@ -3,6 +3,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { Subject, of, throwError } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
 import { vi } from 'vitest';
 
 import { UsuariosYRolesPage } from './usuarios-y-roles-page';
@@ -432,5 +433,140 @@ describe('UsuariosYRolesPage: paginación', () => {
       component.rolesPage.set(2);
       expect(component.invitacionesPage()).toBe(3);
     });
+  });
+});
+
+describe('UsuariosYRolesPage: pestañas según permisos', () => {
+  let fixture: ComponentFixture<UsuariosYRolesPage>;
+  let rolesFindAll: ReturnType<typeof vi.fn>;
+  let usuariosFindAll: ReturnType<typeof vi.fn>;
+
+  async function setup(permisos: string[]) {
+    rolesFindAll = vi.fn().mockReturnValue(of([rol(1)]));
+    usuariosFindAll = vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 }));
+
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      declarations: [UsuariosYRolesPage, Paginator, Select, SearchInput, ClearFiltersButton],
+      imports: [FormsModule, ReactiveFormsModule],
+      schemas: [NO_ERRORS_SCHEMA],
+      providers: [
+        { provide: AuthService, useValue: { hasPermiso: (p: string) => permisos.includes(p), currentUser: () => ({ id: '1' }) } },
+        { provide: InvitacionesService, useValue: { findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })) } },
+        { provide: RolesService, useValue: { findAll: rolesFindAll } },
+        { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
+        { provide: ConfirmModalService, useValue: { confirmar: vi.fn() } },
+        { provide: ErrorModalService, useValue: { show: vi.fn() } },
+        { provide: UsuariosService, useValue: { findAll: usuariosFindAll } },
+        { provide: PersonalService, useValue: { getUnidades: vi.fn().mockReturnValue(of([])) } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(UsuariosYRolesPage);
+    fixture.detectChanges();
+  }
+
+  const pestanas = () =>
+    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.ur__tab')).map((b) => b.textContent?.trim());
+
+  it('con solo usuarios.ver carga los usuarios sin pedir /roles y no muestra Invitaciones', async () => {
+    await setup(['usuarios.ver']);
+
+    expect(rolesFindAll).not.toHaveBeenCalled();
+    expect(usuariosFindAll).toHaveBeenCalled();
+    expect(pestanas()).toEqual(['Usuarios']);
+  });
+
+  it('con usuarios.gestionar aparece la pestaña Invitaciones', async () => {
+    await setup(['usuarios.ver', 'usuarios.gestionar', 'roles.ver']);
+
+    expect(rolesFindAll).toHaveBeenCalled();
+    expect(usuariosFindAll).toHaveBeenCalled();
+    expect(pestanas()).toEqual(['Usuarios', 'Invitaciones', 'Roles y Permisos']);
+  });
+
+  it('con solo roles.ver arranca en Roles y no pide usuarios', async () => {
+    await setup(['roles.ver']);
+
+    expect(usuariosFindAll).not.toHaveBeenCalled();
+    expect(pestanas()).toEqual(['Roles y Permisos']);
+    expect(fixture.componentInstance.tab()).toBe('roles');
+  });
+});
+
+describe('UsuariosYRolesPage: guardar la edición de un usuario', () => {
+  let fixture: ComponentFixture<UsuariosYRolesPage>;
+  let component: UsuariosYRolesPage;
+  let usuariosSvc: Record<string, ReturnType<typeof vi.fn>>;
+
+  const usuario = {
+    id: '5',
+    username: 'admin2@fau.mil.uy',
+    estado: 'activo',
+    bloqueadoHasta: null,
+    unidades: [],
+    persona: null,
+    roles: [{ id: '1', nombre: 'Administrador del sistema' }],
+  } as any;
+
+  beforeEach(async () => {
+    usuariosSvc = {
+      findAll: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
+      asignarRol: vi.fn().mockReturnValue(of(usuario)),
+      quitarRol: vi.fn().mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 403, error: { message: 'No podés quitarle el rol' } })),
+      ),
+      update: vi.fn().mockReturnValue(of(usuario)),
+      findOne: vi.fn().mockReturnValue(of(usuario)),
+    };
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      declarations: [UsuariosYRolesPage, Paginator, Select, SearchInput, ClearFiltersButton],
+      imports: [FormsModule, ReactiveFormsModule],
+      schemas: [NO_ERRORS_SCHEMA],
+      providers: [
+        { provide: AuthService, useValue: { hasPermiso: () => true, currentUser: () => ({ id: '2' }) } },
+        { provide: InvitacionesService, useValue: { findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })) } },
+        { provide: RolesService, useValue: { findAll: vi.fn().mockReturnValue(of([rol(1), rol(7)])) } },
+        { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
+        { provide: ConfirmModalService, useValue: { confirmar: vi.fn() } },
+        { provide: ErrorModalService, useValue: { show: vi.fn() } },
+        { provide: UsuariosService, useValue: usuariosSvc },
+        { provide: PersonalService, useValue: { getUnidades: vi.fn().mockReturnValue(of([])) } },
+        { provide: Router, useValue: { navigate: vi.fn() } },
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(UsuariosYRolesPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('si un cambio falla, frena ahí y dice qué se guardó y qué no', () => {
+    component.abrirEditar(usuario);
+    // Agrega "Rol 7" y quita "Administrador del sistema"; quitarlo da 403.
+    component.editForm.patchValue({ roles: ['Rol 7'] });
+
+    component.guardarEdicion();
+
+    expect(usuariosSvc['asignarRol']).toHaveBeenCalledWith('5', '7');
+    expect(usuariosSvc['quitarRol']).toHaveBeenCalledWith('5', '1');
+    const error = component.modalError()!;
+    expect(error).toContain('Se guardó: asignar el rol Rol 7');
+    expect(error).toContain('No se guardó: quitar el rol Administrador del sistema');
+  });
+
+  it('los cambios se mandan de a uno: si el primero falla, no se manda el resto', () => {
+    usuariosSvc['asignarRol'].mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 403, error: { message: 'No podés asignar' } })),
+    );
+    component.abrirEditar(usuario);
+    component.editForm.patchValue({ roles: ['Rol 7'], estado: 'bloqueado' });
+
+    component.guardarEdicion();
+
+    expect(usuariosSvc['quitarRol']).not.toHaveBeenCalled();
+    expect(usuariosSvc['update']).not.toHaveBeenCalled();
+    expect(component.modalError()).not.toContain('Se guardó');
   });
 });
