@@ -5,11 +5,18 @@ import { DestinosRoutingModule } from './destinos-routing-module';
 import { AsignacionesPage } from './pages/asignaciones-page/asignaciones-page';
 import { UnidadesPage } from './pages/unidades-page/unidades-page';
 import { UnidadDetallePage } from './pages/unidad-detalle-page/unidad-detalle-page';
-import { DestinoFormModal } from './components/destino-form-modal/destino-form-modal';
+import { DestinoFormModalModule } from './components/destino-form-modal/destino-form-modal-module';
 import { SharedModule } from '../../shared/shared-module';
 
 @NgModule({
-  declarations: [AsignacionesPage, UnidadesPage, UnidadDetallePage, DestinoFormModal],
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, SharedModule, DestinosRoutingModule],
+  declarations: [AsignacionesPage, UnidadesPage, UnidadDetallePage],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    SharedModule,
+    DestinoFormModalModule,
+    DestinosRoutingModule,
+  ],
 })
 export class DestinosModule {}

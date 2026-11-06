@@ -452,3 +452,88 @@ describe('DestinoFormModal (editar)', () => {
     expect(component.error()).toBe('El destino debe conservar al menos el N° de orden o el boletín.');
   });
 });
+
+describe('DestinoFormModal (desde el perfil de la persona)', () => {
+  let component: DestinoFormModal;
+  let fixture: ComponentFixture<DestinoFormModal>;
+  let destinosService: {
+    crear: ReturnType<typeof vi.fn>;
+    editar: ReturnType<typeof vi.fn>;
+    listar: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
+  };
+  let personalService: { findPaginado: ReturnType<typeof vi.fn> };
+
+  const persona = { id: '42', nombre: 'José Pérez', cedula: '50000001' };
+
+  // Igual que en edición: los inputs van antes del primer detectChanges, que corre ngOnInit.
+  function crearFixture(inputs: { persona?: typeof persona; destino?: Destino }): void {
+    destinosService = {
+      crear: vi.fn().mockReturnValue(of(makeDestino())),
+      editar: vi.fn().mockReturnValue(of(makeDestino())),
+      listar: vi.fn().mockReturnValue(of(makeLista([makeDestino()]))),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+    };
+    personalService = { findPaginado: vi.fn() };
+
+    TestBed.configureTestingModule({
+      declarations: [DestinoFormModal, Select],
+      imports: [FormsModule, ReactiveFormsModule],
+      providers: [
+        { provide: DestinosService, useValue: destinosService },
+        { provide: PersonalService, useValue: personalService },
+      ],
+      schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    });
+
+    fixture = TestBed.createComponent(DestinoFormModal);
+    component = fixture.componentInstance;
+    if (inputs.persona) component.persona = inputs.persona;
+    if (inputs.destino) component.destino = inputs.destino;
+    fixture.detectChanges();
+  }
+
+  const botonCambiar = () =>
+    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Cambiar',
+    );
+
+  it('arranca con la persona ya elegida y busca su destino activo', () => {
+    crearFixture({ persona });
+
+    expect(component.personaElegida()).toEqual(persona);
+    expect(destinosService.listar).toHaveBeenCalledWith({ query: '50000001', activo: true, pageSize: 50 });
+    expect(component.destinoActual()!.id).toBe('200');
+  });
+
+  it('no deja cambiar la persona', () => {
+    crearFixture({ persona });
+
+    expect(botonCambiar()).toBeUndefined();
+  });
+
+  it('sin persona fija, después de elegir una sí se puede cambiar', () => {
+    crearFixture({});
+    component.elegirPersona(persona);
+    fixture.detectChanges();
+
+    expect(botonCambiar()).toBeDefined();
+  });
+
+  it('guarda el pase con la persona que vino del perfil', () => {
+    crearFixture({ persona });
+    component.form.patchValue({ sub_unidad_id: '7', fecha_inicio: '2026-09-01', numero_orden: 'O.D. 1' });
+
+    component.guardar();
+
+    expect(destinosService.crear).toHaveBeenCalledWith(expect.objectContaining({ persona_id: 42, sub_unidad_id: 7 }));
+  });
+
+  it('si además viene un destino para editar, edita y no preselecciona la persona', () => {
+    crearFixture({ persona, destino: makeDestino() });
+
+    expect(component.editando()).toBe(true);
+    expect(component.personaElegida()).toBeNull();
+    expect(destinosService.listar).not.toHaveBeenCalled();
+  });
+});

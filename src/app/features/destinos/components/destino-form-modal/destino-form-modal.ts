@@ -12,6 +12,8 @@ import { DEBOUNCE_MS, etiquetaSubUnidad, nombreDestino } from '../../destino-pre
 
 const MIN_CARACTERES_BUSQUEDA = 2;
 
+export type PersonaDelPase = Pick<PersonaListItem, 'id' | 'nombre' | 'cedula'>;
+
 /** Deja solo la parte YYYY-MM-DD de un valor de fecha que traiga el backend. */
 function fechaTexto(valor: string | null | undefined): string {
   return valor ? String(valor).slice(0, 10) : '';
@@ -39,6 +41,9 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   /** `null` crea un destino; con un destino, lo edita. */
   @Input() destino: Destino | null = null;
 
+  /** Al registrar desde el perfil la persona ya viene elegida y no se puede cambiar. */
+  @Input() persona: PersonaDelPase | null = null;
+
   @Output() guardado = new EventEmitter<Destino>();
   @Output() cerrado = new EventEmitter<void>();
 
@@ -54,7 +59,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   readonly terminoBusqueda = signal('');
   readonly buscando = signal(false);
   readonly resultados = signal<PersonaListItem[]>([]);
-  readonly personaElegida = signal<PersonaListItem | null>(null);
+  readonly personaElegida = signal<PersonaDelPase | null>(null);
 
   // ── Preview del pase ────────────────────────────────────────────────────────
   readonly destinoActual = signal<Destino | null>(null);
@@ -128,6 +133,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     this.form.get('sub_unidad_id')!.valueChanges.subscribe((v) => this.subUnidadElegida.set(v ? String(v) : ''));
 
     if (this.destino) this.precargarEdicion(this.destino);
+    else if (this.persona) this.elegirPersona(this.persona);
   }
 
   ngOnDestroy(): void {
@@ -161,7 +167,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     });
   }
 
-  elegirPersona(persona: PersonaListItem): void {
+  elegirPersona(persona: PersonaDelPase): void {
     this.personaElegida.set(persona);
     this.resultados.set([]);
     this.terminoBusqueda.set('');
@@ -177,7 +183,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
    * (`pageSize: 50`) y se filtra en el cliente por `persona.id` en vez de asumir `items[0]`.
    * No hay filtro `persona_id` en ese endpoint, así que la guarda tiene que ser acá.
    */
-  private buscarDestinoActual(persona: PersonaListItem): void {
+  private buscarDestinoActual(persona: PersonaDelPase): void {
     const personaId = persona.id;
     this.errorDestinoActual.set(null);
     this.buscandoDestinoActual.set(true);

@@ -259,12 +259,10 @@ export interface PatchPersonaPayload {
   nivel_idoneidad?: number | null;
   fecha_inicio?: string;
   grado_id?: number;
-  unidad_id?: number;
   situacion_id?: number;
   regimen_id?: number;
   programa_id?: number;
   escalafon_id?: number;
-  sub_unidad_id?: number | null;
   prima_tecnica?: string | null;
   tiene_mando?: boolean;
   observaciones_laborales?: string | null;

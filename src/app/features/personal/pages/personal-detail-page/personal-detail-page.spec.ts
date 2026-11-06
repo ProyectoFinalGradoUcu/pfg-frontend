@@ -10,7 +10,7 @@ import { PersonalDetailPage } from './personal-detail-page';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { FamiliarItem, PersonaDetalle, PersonaListItem } from '../../../../core/models/personal.models';
+import { FamiliarItem, PersonaDetalle, PersonaListItem, RelacionLaboral } from '../../../../core/models/personal.models';
 
 function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDetalle {
   return {
@@ -49,6 +49,32 @@ function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDet
   };
 }
 
+function makeRelacion(overrides: Partial<RelacionLaboral> = {}): RelacionLaboral {
+  return {
+    id: 7,
+    estado: 'activo',
+    derecha: null,
+    numor: null,
+    tipo_funcionario: 'subalterno',
+    fecha_inicio: '2020-03-01',
+    fecha_ultimo_ascenso: null,
+    fecha_ascenso_oficial: null,
+    mutaciones: null,
+    tiene_mando: false,
+    prima_tecnica: null,
+    observaciones: null,
+    codigos_legajo: null,
+    grado: { id: 4, codigo: 'CBO1', denominacion: 'Cabo de 1ra' },
+    unidad: { id: 3, codigo: 'CAO', denominacion: 'C.A.O.' },
+    situacion: { id: 1, codigo: 'ACT', denominacion: 'Actividad' },
+    regimen: { id: 1, denominacion: 'General' },
+    programa: { id: 1, denominacion: 'Programa 1' },
+    escalafon: { id: 2, denominacion: 'Personal Subalterno' },
+    sub_unidad: { id: 12, denominacion: 'B.A.I.' },
+    ...overrides,
+  };
+}
+
 function makeFamiliarItem(overrides: Partial<FamiliarItem> = {}): FamiliarItem {
   return { id: 16, cedula: '60000016', nombre_completo: 'Laura Acosta', tipo_relacion: 'Madre', grado: null, unidad: null, ...overrides };
 }
@@ -75,7 +101,6 @@ describe('PersonalDetailPage', () => {
     getRegimenes: ReturnType<typeof vi.fn>;
     getProgramas: ReturnType<typeof vi.fn>;
     getEscalafones: ReturnType<typeof vi.fn>;
-    getSubUnidades: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
@@ -96,7 +121,6 @@ describe('PersonalDetailPage', () => {
       getRegimenes: vi.fn().mockReturnValue(of([])),
       getProgramas: vi.fn().mockReturnValue(of([])),
       getEscalafones: vi.fn().mockReturnValue(of([])),
-      getSubUnidades: vi.fn().mockReturnValue(of([])),
       update: vi.fn().mockReturnValue(of(makePersonaDetalle())),
     };
     toastService = { success: vi.fn(), error: vi.fn() };
@@ -327,6 +351,130 @@ describe('PersonalDetailPage', () => {
 
     it('tieneRelacionLaboral es false', () => {
       expect(component.tieneRelacionLaboral()).toBe(false);
+    });
+  });
+
+  describe('base y registro de destino', () => {
+    // Recrea la página con un funcionario en actividad y los permisos pedidos.
+    function conMilitar(relacion: Partial<RelacionLaboral> = {}, permisos: string[] = ['destinos.gestionar']): void {
+      vi.spyOn(TestBed.inject(AuthService), 'hasPermiso').mockImplementation((p: string) => permisos.includes(p));
+      svc.getById.mockReturnValue(of(makePersonaDetalle({ es_civil: false, relacion_laboral: makeRelacion(relacion) })));
+      svc.getById.mockClear();
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    }
+
+    const botonRegistrar = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector('.pd__registrar-destino');
+
+    it('muestra la base con su comando', () => {
+      conMilitar();
+      expect(component.baseActual()).toBe('B.A.I. (C.A.O.)');
+      expect(fixture.nativeElement.textContent).toContain('B.A.I. (C.A.O.)');
+    });
+
+    it('si la relación no tiene base muestra solo el comando', () => {
+      conMilitar({ sub_unidad: null });
+      expect(component.baseActual()).toBe('Sin base (C.A.O.)');
+    });
+
+    it('sin relación laboral no hay base', () => {
+      expect(component.baseActual()).toBe('—');
+    });
+
+    it('con destinos.gestionar y relación activa ofrece registrar un destino', () => {
+      conMilitar();
+      expect(botonRegistrar()).not.toBeNull();
+    });
+
+    it('sin el permiso no aparece el botón', () => {
+      conMilitar({}, []);
+      expect(botonRegistrar()).toBeNull();
+    });
+
+    it('con la relación no activa no aparece el botón', () => {
+      conMilitar({ estado: 'suspendido' });
+      expect(botonRegistrar()).toBeNull();
+    });
+
+    it('el botón abre el modal de destino con la persona ya elegida', () => {
+      conMilitar();
+      botonRegistrar()!.click();
+      fixture.detectChanges();
+
+      const modal = fixture.nativeElement.querySelector('app-destino-form-modal');
+      expect(component.registrandoDestino()).toBe(true);
+      expect(modal).not.toBeNull();
+      expect(modal.persona).toEqual({ id: '31', nombre: 'Sofía Guerrico', cedula: '12345678' });
+    });
+
+    it('cerrar el modal no recarga nada', () => {
+      conMilitar();
+      component.abrirRegistrarDestino();
+      component.cerrarRegistrarDestino();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-destino-form-modal')).toBeNull();
+      expect(svc.getById).toHaveBeenCalledTimes(1);
+    });
+
+    it('al registrar el destino cierra el modal, avisa y recarga la persona', () => {
+      conMilitar();
+      component.abrirRegistrarDestino();
+      svc.getById.mockReturnValue(
+        of(makePersonaDetalle({ es_civil: false, relacion_laboral: makeRelacion({ sub_unidad: { id: 13, denominacion: 'B.A.II' } }) })),
+      );
+
+      component.onDestinoRegistrado();
+
+      expect(component.registrandoDestino()).toBe(false);
+      expect(toastService.success).toHaveBeenCalledWith('Destino registrado');
+      expect(svc.getById).toHaveBeenCalledTimes(2);
+      expect(component.baseActual()).toBe('B.A.II (C.A.O.)');
+    });
+
+    it('si la pestaña Destinos está abierta la vuelve a pedir enseguida', () => {
+      conMilitar();
+      component.switchTab('destinos');
+      expect(svc.getDestinos).toHaveBeenCalledTimes(1);
+
+      component.onDestinoRegistrado();
+
+      expect(svc.getDestinos).toHaveBeenCalledTimes(2);
+    });
+
+    it('si la pestaña Destinos ya se había cargado, la pide de nuevo al volver a abrirla', () => {
+      conMilitar();
+      component.switchTab('destinos');
+      component.switchTab('personal');
+
+      component.onDestinoRegistrado();
+      expect(svc.getDestinos).toHaveBeenCalledTimes(1);
+
+      component.switchTab('destinos');
+      expect(svc.getDestinos).toHaveBeenCalledTimes(2);
+    });
+
+    it('guardar la edición no manda ni base ni comando', () => {
+      conMilitar();
+      component.openEdit();
+      component.saveEdit();
+
+      expect(svc.update).toHaveBeenCalled();
+      const payload = svc.update.mock.calls[0][1];
+      expect('sub_unidad_id' in payload).toBe(false);
+      expect('unidad_id' in payload).toBe(false);
+    });
+
+    it('el drawer de edición ya no tiene selector de base', () => {
+      conMilitar();
+      component.openEdit();
+      fixture.detectChanges();
+
+      expect(component.editForm.get('sub_unidad_id')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[formControlName="sub_unidad_id"]')).toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('La base no se edita acá');
     });
   });
 });

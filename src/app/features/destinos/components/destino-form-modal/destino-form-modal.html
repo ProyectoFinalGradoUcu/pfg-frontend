@@ -32,7 +32,7 @@
             <strong>{{ personaElegida()!.nombre }}</strong>
             <span>{{ personaElegida()!.cedula }}</span>
           </div>
-          <button type="button" class="btn btn--ghost btn--sm" (click)="limpiarPersona()">Cambiar</button>
+          <button *ngIf="!persona" type="button" class="btn btn--ghost btn--sm" (click)="limpiarPersona()">Cambiar</button>
         </div>
       </div>
 
