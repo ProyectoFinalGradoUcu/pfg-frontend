@@ -4,6 +4,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { PersonalService } from './personal.service';
 import { API_BASE_URL } from '../api.config';
 import { DestinoDePersona } from '../models/destinos.models';
+import { BaseOpcion } from '../models/personal.models';
 
 describe('PersonalService', () => {
   let service: PersonalService;
@@ -101,6 +102,22 @@ describe('PersonalService', () => {
       const req = http.expectOne((r) => r.url === `${API_BASE_URL}/personas`);
       for (const p of ['destino', 'estado', 'gradoId', 'escalafonId']) expect(req.request.params.has(p)).toBe(false);
       req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+    });
+  });
+
+  describe('getBases', () => {
+    it('pide el catálogo de sub-unidades y arma la etiqueta con el comando', () => {
+      let bases: BaseOpcion[] | undefined;
+      service.getBases().subscribe((r) => (bases = r));
+
+      const req = http.expectOne(`${API_BASE_URL}/catalogos/sub-unidades`);
+      expect(req.request.method).toBe('GET');
+      req.flush([
+        { id: 12, codigo: 'BAI', denominacion: 'B.A.I.', unidad_id: 3, comando: { id: 3, codigo: 'CAO', denominacion: 'C.A.O.' } },
+      ]);
+
+      expect(bases![0].etiqueta).toBe('B.A.I. (C.A.O.)');
+      expect(bases![0].unidad_id).toBe(3);
     });
   });
 

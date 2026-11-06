@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
+  BaseOpcion,
   CrearPersonaPayload,
   CrearPersonaResponse,
   CursoPersona,
@@ -91,6 +92,17 @@ export class PersonalService {
 
   getSubUnidades(): Observable<OpcionSelect[]> {
     return this.http.get<OpcionSelect[]>(`${this.catalogos}/sub-unidades`, { withCredentials: true });
+  }
+
+  /** Las bases vigentes, ordenadas por comando, con la etiqueta "B.A.I. (C.A.O.)". */
+  getBases(): Observable<BaseOpcion[]> {
+    return this.http
+      .get<Omit<BaseOpcion, 'etiqueta'>[]>(`${this.catalogos}/sub-unidades`, { withCredentials: true })
+      .pipe(
+        map((bases) =>
+          bases.map((b) => ({ ...b, etiqueta: `${b.denominacion} (${b.comando.denominacion})` })),
+        ),
+      );
   }
 
   getById(id: number): Observable<PersonaDetalle> {

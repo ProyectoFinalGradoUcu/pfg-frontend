@@ -46,6 +46,14 @@ export interface OpcionSelect {
   denominacion: string;
 }
 
+/** Una base (sub-unidad) vigente con su comando, para los selectores. */
+export interface BaseOpcion extends OpcionSelect {
+  unidad_id: number;
+  comando: OpcionSelect;
+  /** "B.A.I. (C.A.O.)" */
+  etiqueta: string;
+}
+
 export interface GradoItem extends OpcionSelect {
   escalafon_id: number;
   orden: number;

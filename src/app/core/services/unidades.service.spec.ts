@@ -6,10 +6,11 @@ import { API_BASE_URL } from '../api.config';
 import { UnidadDetalle, PaginatedUnidadesResponse } from '../models/unidades.models';
 
 const detalle: UnidadDetalle = {
-  id: '1',
-  codigo: 'CG',
-  denominacion: 'Cuartel General',
+  id: '12',
+  codigo: 'ETA',
+  denominacion: 'E.T.A.',
   vigente: true,
+  comando: { id: '2', codigo: 'CAP', denominacion: 'C.A.P.' },
   roles: [
     {
       id: '3',
@@ -71,6 +72,24 @@ describe('UnidadesService', () => {
 
       const req = http.expectOne((r) => r.url === `${API_BASE_URL}/unidades`);
       expect(req.request.params.get('vigente')).toBe('false');
+
+      req.flush({ items: [], total: 0, page: 1, pageSize: 20 });
+    });
+
+    it('filtra por comando mandando unidad_id', () => {
+      service.findAll({ unidad_id: '4' }).subscribe();
+
+      const req = http.expectOne((r) => r.url === `${API_BASE_URL}/unidades`);
+      expect(req.request.params.get('unidad_id')).toBe('4');
+
+      req.flush({ items: [], total: 0, page: 1, pageSize: 20 });
+    });
+
+    it('sin comando elegido no manda unidad_id', () => {
+      service.findAll({ unidad_id: '' }).subscribe();
+
+      const req = http.expectOne((r) => r.url === `${API_BASE_URL}/unidades`);
+      expect(req.request.params.has('unidad_id')).toBe(false);
 
       req.flush({ items: [], total: 0, page: 1, pageSize: 20 });
     });
