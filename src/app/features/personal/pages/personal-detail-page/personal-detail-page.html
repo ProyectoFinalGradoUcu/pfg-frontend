@@ -229,7 +229,7 @@
                 <span class="pd__value">{{ rl.estado === 'activo' ? (rl.numor ?? '—') : '—' }}</span>
               </div>
               <div class="pd__field">
-                <span class="pd__label">Destino / Unidad</span>
+                <span class="pd__label">Comando</span>
                 <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
               </div>
               <div class="pd__field">
@@ -357,9 +357,9 @@
                 </ng-template>
               </ng-container>
               <div class="pd__field">
-                <span class="pd__label">Unidad</span>
+                <span class="pd__label">Comando</span>
                 <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
-                <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
+                <span class="pd__edit-hint">El comando se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Situación</span>
@@ -454,9 +454,9 @@
             <!-- Edit view: civiles -->
             <div class="pd__field-list" *ngIf="editMode() && p.es_civil && p.relacion_laboral as rl">
               <div class="pd__field">
-                <span class="pd__label">Unidad</span>
+                <span class="pd__label">Comando</span>
                 <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
-                <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
+                <span class="pd__edit-hint">El comando se cambia registrando un destino, desde Destinos → Asignaciones.</span>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Situación</span>
@@ -764,7 +764,7 @@
             type="text"
             [value]="busquedaDestinos()"
             (input)="onBusquedaDestinosInput($any($event.target).value)"
-            placeholder="Buscar por unidad o cargo..."
+            placeholder="Buscar por destino, comando o cargo..."
             autocomplete="off"
           />
           <button
@@ -794,7 +794,9 @@
       <div class="pd__destinos-list" *ngIf="!loadingDestinos() && destinosFiltrados().length > 0">
         <div class="pd__destino-card" *ngFor="let d of destinosFiltrados()">
           <div class="pd__destino-card__top">
-            <span class="pd__destino-card__unidad">{{ d.unidad || '—' }}</span>
+            <span class="pd__destino-card__unidad">
+              {{ d.sub_unidad || d.unidad || '—' }}<small *ngIf="d.sub_unidad && (d.codigo_unidad || d.unidad)"> · {{ d.codigo_unidad || d.unidad }}</small>
+            </span>
             <span class="pd__badge" [class.pd__badge--actual]="d.activo">
               {{ d.activo ? 'Vigente' : 'Cerrado' }}
             </span>

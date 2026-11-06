@@ -41,8 +41,8 @@
       <span class="asignaciones__stat-label">Destinos vigentes</span>
     </div>
     <div class="asignaciones__stat asignaciones__stat--orange">
-      <strong class="asignaciones__stat-value">{{ stats().unidades_con_personal }}</strong>
-      <span class="asignaciones__stat-label">Unidades con personal</span>
+      <strong class="asignaciones__stat-value">{{ stats().sub_unidades_con_personal }}</strong>
+      <span class="asignaciones__stat-label">Sub-unidades con personal</span>
     </div>
   </div>
 
@@ -72,14 +72,21 @@
 
         <app-select
           class="asignaciones__filter-select"
-          [items]="unidades()"
-          bindLabel="denominacion"
-          bindValue="id"
-          placeholder="Todas las unidades"
+          [items]="comandoOpciones()"
+          placeholder="Todos los comandos"
+          [clearable]="true"
+          [ngModel]="filtroComandoId()"
+          (ngModelChange)="onComandoChange($any($event))"
+        ></app-select>
+
+        <app-select
+          class="asignaciones__filter-select"
+          [items]="subUnidadOpciones()"
+          placeholder="Todas las sub-unidades"
           [searchable]="true"
           [clearable]="true"
-          [ngModel]="filtroUnidadId()"
-          (ngModelChange)="onUnidadChange($any($event))"
+          [ngModel]="filtroSubUnidadId()"
+          (ngModelChange)="onSubUnidadChange($any($event))"
         ></app-select>
 
         <app-select
@@ -121,7 +128,7 @@
           <tr>
             <th>Funcionario</th>
             <th>Cédula</th>
-            <th>Unidad</th>
+            <th>Destino</th>
             <th>Cargo</th>
             <th>Desde</th>
             <th>Hasta</th>
@@ -134,7 +141,10 @@
           <tr *ngFor="let d of destinos(); trackBy: trackDestino">
             <td><strong>{{ nombreFuncionario(d) }}</strong></td>
             <td>{{ d.persona?.cedula || '—' }}</td>
-            <td>{{ d.unidad?.denominacion || '—' }}</td>
+            <td>
+              {{ nombreDestino(d) }}
+              <small class="asignaciones__comando" *ngIf="comandoDestino(d)">{{ comandoDestino(d) }}</small>
+            </td>
             <td>{{ d.posicion_destino || '—' }}</td>
             <td>{{ d.fecha_inicio ? (d.fecha_inicio | date:'d/M/yyyy':'UTC') : '—' }}</td>
             <td>{{ d.fecha_fin ? (d.fecha_fin | date:'d/M/yyyy':'UTC') : '—' }}</td>
@@ -215,7 +225,7 @@
       <div class="modal__body">
         <p>
           Se va a cerrar el destino de <strong>{{ nombreFuncionario(destinoSeleccionado()!) }}</strong>
-          en {{ destinoSeleccionado()!.unidad?.denominacion || '—' }}.
+          en {{ nombreDestino(destinoSeleccionado()!) }}.
         </p>
         <p>Después de cerrarlo, el funcionario queda sin destino activo hasta que se le registre otro. Es un estado válido.</p>
         <label>
@@ -261,7 +271,7 @@
             <strong>{{ nombreFuncionario(destinoSeleccionado()!) }}</strong>. Es para corregir un pase cargado por error.
           </p>
           <p>
-            Se borra esta asignación y el funcionario vuelve a la unidad de su destino anterior; si este
+            Se borra esta asignación y el funcionario vuelve a la sub-unidad de su destino anterior; si este
             pase lo había cerrado, ese destino se reabre.
           </p>
           <p>Si lo que querés es dar de baja el destino, cerralo con una fecha de fin en vez de deshacerlo.</p>

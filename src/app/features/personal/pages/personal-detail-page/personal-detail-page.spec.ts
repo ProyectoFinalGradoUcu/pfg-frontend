@@ -322,7 +322,7 @@ describe('PersonalDetailPage', () => {
       component.openEdit();
       fixture.detectChanges();
       const texto: string = fixture.nativeElement.textContent ?? '';
-      expect(texto).not.toContain('La unidad se cambia registrando un destino');
+      expect(texto).not.toContain('El comando se cambia registrando un destino');
     });
 
     it('tieneRelacionLaboral es false', () => {

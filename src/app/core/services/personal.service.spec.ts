@@ -35,10 +35,12 @@ describe('PersonalService', () => {
       http.expectOne(`${API_BASE_URL}/personas/42/destinos`).flush([
         {
           id: '200',
-          unidad_id: '5',
-          unidad: 'E.M.G.F.A.',
-          codigo_unidad: 'EMGFA',
-          tipo_unidad: 'Organismo',
+          unidad_id: '4',
+          unidad: 'Comando General',
+          codigo_unidad: 'C.G.',
+          sub_unidad_id: '12',
+          sub_unidad: 'Estado Mayor Aéreo',
+          codigo_sub_unidad: 'E.M.A.',
           posicion_destino: 'Sub-Jefe de Personal A-1',
           fecha_inicio: '2024-04-30',
           fecha_fin: null,
@@ -49,7 +51,8 @@ describe('PersonalService', () => {
         },
       ]);
       expect(result!.length).toBe(1);
-      expect(result![0].unidad).toBe('E.M.G.F.A.');
+      expect(result![0].sub_unidad).toBe('Estado Mayor Aéreo');
+      expect(result![0].unidad).toBe('Comando General');
       expect(result![0].activo).toBe(true);
     });
   });

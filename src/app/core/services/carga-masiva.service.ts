@@ -30,7 +30,10 @@ export const CARGAS_MASIVAS = {
     urlPlantilla: `${API_BASE_URL}/destinos/carga-masiva/plantilla`,
     urlCarga: `${API_BASE_URL}/destinos/carga-masiva`,
     nombrePlantilla: 'plantilla_destinos.xlsx',
-    notas: ['Fila sin fecha de fin = destino actual. Fila con fecha de fin = historial.'],
+    notas: [
+      'Fila sin fecha de fin = destino actual. Fila con fecha de fin = historial.',
+      'En la columna Destino va la sub-unidad (por ejemplo "B.A.I. (C.A.O.)"); el comando sale de ella.',
+    ],
   },
   misiones: {
     titulo: 'Importar misiones y participantes',

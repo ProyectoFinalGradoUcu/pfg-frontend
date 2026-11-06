@@ -134,6 +134,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     if (!q) return this.destinos();
     return this.destinos().filter(
       (d) =>
+        (d.sub_unidad ?? '').toLowerCase().includes(q) ||
+        (d.codigo_sub_unidad ?? '').toLowerCase().includes(q) ||
         (d.unidad ?? '').toLowerCase().includes(q) ||
         (d.posicion_destino ?? '').toLowerCase().includes(q),
     );

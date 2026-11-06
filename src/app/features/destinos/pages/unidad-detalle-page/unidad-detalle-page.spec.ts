@@ -9,13 +9,14 @@ import { vi } from 'vitest';
 import { UnidadDetallePage } from './unidad-detalle-page';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { Destino, FuncionarioUnidad, UnidadConDestinados } from '../../../../core/models/destinos.models';
+import { Destino, FuncionarioUnidad, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
 
 function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
     id: '200',
     persona: { id: '42', cedula: '50000001', primer_nombre: 'José', primer_apellido: 'Pérez' },
-    unidad: { id: '5', codigo: 'EMGFA', denominacion: 'E.M.G.F.A.', tipo: 'Organismo' },
+    unidad: { id: '4', codigo: 'C.G.', denominacion: 'Comando General' },
+    sub_unidad: { id: '5', codigo: 'E.M.A.', denominacion: 'Estado Mayor Aéreo' },
     fecha_inicio: '2024-04-30',
     fecha_fin: null,
     posicion_destino: 'Sub-Jefe',
@@ -36,24 +37,31 @@ function makeFuncionario(overrides: Partial<FuncionarioUnidad> = {}): Funcionari
   return { ...makeDestino(), relacion_estado: 'activo', ...overrides };
 }
 
-function makeUnidad(): UnidadConDestinados {
-  return { id: '5', codigo: 'EMGFA', denominacion: 'E.M.G.F.A.', tipo: 'Organismo', vigente: true, total_destinados: 3 };
+function makeSubUnidad(): SubUnidadConDestinados {
+  return {
+    id: '5',
+    codigo: 'E.M.A.',
+    denominacion: 'Estado Mayor Aéreo',
+    vigente: true,
+    unidad: { id: '4', codigo: 'C.G.', denominacion: 'Comando General' },
+    total_destinados: 3,
+  };
 }
 
 describe('UnidadDetallePage', () => {
   let component: UnidadDetallePage;
   let fixture: ComponentFixture<UnidadDetallePage>;
   let destinosService: {
-    listarFuncionariosUnidad: ReturnType<typeof vi.fn>;
-    listarUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    listarFuncionariosSubUnidad: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
   };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     destinosService = {
-      listarFuncionariosUnidad: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
-      listarUnidadesParaSelector: vi.fn().mockReturnValue(of([makeUnidad()])),
+      listarFuncionariosSubUnidad: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of([makeSubUnidad()])),
     };
     toastService = { success: vi.fn(), error: vi.fn() };
     router = { navigate: vi.fn() };
@@ -79,7 +87,7 @@ describe('UnidadDetallePage', () => {
   it('arranca mostrando solo la dotación actual', () => {
     fixture.detectChanges();
     expect(component.soloVigentes()).toBe(true);
-    expect(destinosService.listarFuncionariosUnidad).toHaveBeenCalledWith('5', {
+    expect(destinosService.listarFuncionariosSubUnidad).toHaveBeenCalledWith('5', {
       page: 1,
       pageSize: 10,
       activo: true,
@@ -89,16 +97,18 @@ describe('UnidadDetallePage', () => {
   it('al pedir el historial saca el filtro activo', () => {
     fixture.detectChanges();
     component.onToggleVigentes(false);
-    expect(destinosService.listarFuncionariosUnidad).toHaveBeenLastCalledWith('5', { page: 1, pageSize: 10 });
+    expect(destinosService.listarFuncionariosSubUnidad).toHaveBeenLastCalledWith('5', { page: 1, pageSize: 10 });
   });
 
-  it('resuelve los datos de la unidad para el header', () => {
+  it('resuelve los datos de la sub-unidad y su comando para el header', () => {
     fixture.detectChanges();
-    expect(component.unidad()!.denominacion).toBe('E.M.G.F.A.');
+    expect(component.subUnidad()!.denominacion).toBe('Estado Mayor Aéreo');
+    expect(component.subUnidad()!.unidad.codigo).toBe('C.G.');
+    expect(fixture.nativeElement.textContent).toContain('Comando: C.G.');
   });
 
   it('guarda los funcionarios y el total', () => {
-    destinosService.listarFuncionariosUnidad.mockReturnValue(
+    destinosService.listarFuncionariosSubUnidad.mockReturnValue(
       of({ items: [makeDestino()], total: 1, page: 1, pageSize: 10 }),
     );
     fixture.detectChanges();
@@ -107,7 +117,7 @@ describe('UnidadDetallePage', () => {
   });
 
   it('vuelve al catálogo si la unidad no existe', () => {
-    destinosService.listarFuncionariosUnidad.mockReturnValue(
+    destinosService.listarFuncionariosSubUnidad.mockReturnValue(
       throwError(() => new HttpErrorResponse({ status: 404, error: { message: 'No existe unidad con id 5' } })),
     );
     fixture.detectChanges();
@@ -120,10 +130,10 @@ describe('UnidadDetallePage', () => {
     vi.useFakeTimers();
     component.page.set(2);
     component.onQueryInput('Pérez');
-    expect(destinosService.listarFuncionariosUnidad).toHaveBeenCalledTimes(1); // solo la carga inicial
+    expect(destinosService.listarFuncionariosSubUnidad).toHaveBeenCalledTimes(1); // solo la carga inicial
     vi.advanceTimersByTime(400);
     expect(component.page()).toBe(1);
-    expect(destinosService.listarFuncionariosUnidad).toHaveBeenLastCalledWith('5', {
+    expect(destinosService.listarFuncionariosSubUnidad).toHaveBeenLastCalledWith('5', {
       page: 1,
       pageSize: 10,
       activo: true,
@@ -133,7 +143,7 @@ describe('UnidadDetallePage', () => {
 
   describe('retirado fantasma', () => {
     it('marca al que conserva la plaza con la relación inactiva', () => {
-      destinosService.listarFuncionariosUnidad.mockReturnValue(
+      destinosService.listarFuncionariosSubUnidad.mockReturnValue(
         of({
           items: [makeFuncionario({ activo: true, relacion_estado: 'inactivo' })],
           total: 1,
@@ -147,7 +157,7 @@ describe('UnidadDetallePage', () => {
     });
 
     it('no lo marca cuando la relación está activa', () => {
-      destinosService.listarFuncionariosUnidad.mockReturnValue(
+      destinosService.listarFuncionariosSubUnidad.mockReturnValue(
         of({
           items: [makeFuncionario({ activo: true, relacion_estado: 'activo' })],
           total: 1,

@@ -11,9 +11,9 @@ import {
   ListaDestinos,
   ListarDestinosQuery,
   ListarFuncionariosUnidadQuery,
-  ListarUnidadesQuery,
+  ListarSubUnidadesQuery,
   Paginado,
-  UnidadConDestinados,
+  SubUnidadConDestinados,
 } from '../models/destinos.models';
 
 /** Máximo que acepta el backend; si se pide más, lo recorta en silencio. */
@@ -106,23 +106,26 @@ export class DestinosService {
     return this.http.delete<DestinoEliminado>(`${this.base}/${destinoId}`, { withCredentials: true });
   }
 
-  listarUnidades(query: ListarUnidadesQuery = {}): Observable<Paginado<UnidadConDestinados>> {
-    return this.http.get<Paginado<UnidadConDestinados>>(`${this.base}/unidades${this.qs(query)}`, {
+  /** Sub-unidades (los destinos) con su comando y dotación actual. Catálogo de solo lectura. */
+  listarSubUnidades(query: ListarSubUnidadesQuery = {}): Observable<Paginado<SubUnidadConDestinados>> {
+    return this.http.get<Paginado<SubUnidadConDestinados>>(`${this.base}/sub-unidades${this.qs(query)}`, {
       withCredentials: true,
     });
   }
 
-  /** Catálogo completo para poblar selectores, en una sola llamada. */
-  listarUnidadesParaSelector(): Observable<UnidadConDestinados[]> {
-    return this.listarUnidades({ page: 1, pageSize: PAGE_SIZE_MAXIMO }).pipe(map((res) => res.items));
+  /** Catálogo completo para poblar selectores, en una sola llamada. Viene ordenado por comando. */
+  listarSubUnidadesParaSelector(
+    filtros: Pick<ListarSubUnidadesQuery, 'unidad_id' | 'vigente'> = {},
+  ): Observable<SubUnidadConDestinados[]> {
+    return this.listarSubUnidades({ ...filtros, page: 1, pageSize: PAGE_SIZE_MAXIMO }).pipe(map((res) => res.items));
   }
 
-  listarFuncionariosUnidad(
-    unidadId: string,
+  listarFuncionariosSubUnidad(
+    subUnidadId: string,
     query: ListarFuncionariosUnidadQuery = {},
   ): Observable<Paginado<FuncionarioUnidad>> {
     return this.http.get<Paginado<FuncionarioUnidad>>(
-      `${this.base}/unidades/${unidadId}/funcionarios${this.qs(query)}`,
+      `${this.base}/sub-unidades/${subUnidadId}/funcionarios${this.qs(query)}`,
       { withCredentials: true },
     );
   }

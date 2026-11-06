@@ -16,7 +16,8 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
     id: '200',
     persona: { id: '42', cedula: '50000001', primer_nombre: 'José', primer_apellido: 'Pérez' },
-    unidad: { id: '5', codigo: 'EMGFA', denominacion: 'E.M.G.F.A.', tipo: 'Organismo' },
+    unidad: { id: '4', codigo: 'C.G.', denominacion: 'Comando General' },
+    sub_unidad: { id: '5', codigo: 'E.M.A.', denominacion: 'Estado Mayor Aéreo' },
     fecha_inicio: '2024-04-30',
     fecha_fin: null,
     posicion_destino: 'Sub-Jefe',
@@ -34,7 +35,7 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
 }
 
 function makePersona(overrides: Partial<PersonaListItem> = {}): PersonaListItem {
-  return { id: '42', nombre: 'José Pérez', cedula: '50000001', rango: 'Cnel.', destino: 'E.M.G.F.A.', estado: 'Activo', relacion_estado: 'activo', ...overrides };
+  return { id: '42', nombre: 'José Pérez', cedula: '50000001', rango: 'Cnel.', destino: 'Estado Mayor Aéreo', estado: 'Activo', relacion_estado: 'activo', ...overrides };
 }
 
 function makeLista(items: Destino[] = []) {
@@ -43,7 +44,7 @@ function makeLista(items: Destino[] = []) {
     total: items.length,
     page: 1,
     pageSize: 10,
-    stats: { total_destinos: items.length, destinos_activos: 0, unidades_con_personal: 0 },
+    stats: { total_destinos: items.length, destinos_activos: 0, sub_unidades_con_personal: 0 },
   };
 }
 
@@ -54,7 +55,7 @@ describe('DestinoFormModal (crear)', () => {
     crear: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     listar: ReturnType<typeof vi.fn>;
-    listarUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
   };
   let personalService: { findPaginado: ReturnType<typeof vi.fn> };
 
@@ -63,7 +64,7 @@ describe('DestinoFormModal (crear)', () => {
       crear: vi.fn().mockReturnValue(of(makeDestino())),
       editar: vi.fn().mockReturnValue(of(makeDestino())),
       listar: vi.fn().mockReturnValue(of(makeLista())),
-      listarUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
     };
     personalService = {
       findPaginado: vi.fn().mockReturnValue(of({ items: [makePersona()], total: 1, page: 1, pageSize: 10 })),
@@ -105,6 +106,38 @@ describe('DestinoFormModal (crear)', () => {
     });
   });
 
+  describe('selector de sub-unidad', () => {
+    it('pide solo las sub-unidades vigentes y las rotula con su comando', () => {
+      expect(destinosService.listarSubUnidadesParaSelector).toHaveBeenCalledWith({ vigente: true });
+      component.subUnidades.set([
+        {
+          // Como en el catálogo de liquidación: código y denominación casi iguales.
+          id: '1',
+          codigo: 'BAI',
+          denominacion: 'B.A.I.',
+          vigente: true,
+          unidad: { id: '1', codigo: 'CAO', denominacion: 'C.A.O.' },
+          total_destinados: 0,
+        },
+      ]);
+      expect(component.opcionesSubUnidad()).toEqual([{ value: '1', label: 'B.A.I. (C.A.O.)' }]);
+    });
+
+    it('marca las sub-unidades dadas de baja', () => {
+      component.subUnidades.set([
+        {
+          id: '2',
+          codigo: 'BAII',
+          denominacion: 'B.A.II.',
+          vigente: false,
+          unidad: { id: '1', codigo: 'CAO', denominacion: 'C.A.O.' },
+          total_destinados: 0,
+        },
+      ]);
+      expect(component.opcionesSubUnidad()).toEqual([{ value: '2', label: 'B.A.II. (C.A.O.) — de baja' }]);
+    });
+  });
+
   describe('editando', () => {
     it('refleja un destino asignado después de la primera lectura', () => {
       // Si `editando` fuera un `computed()` sin dependencias de señal, esta segunda
@@ -128,7 +161,7 @@ describe('DestinoFormModal (crear)', () => {
     it('guarda el destino activo encontrado', () => {
       destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
       component.elegirPersona(makePersona());
-      expect(component.destinoActual()!.unidad!.denominacion).toBe('E.M.G.F.A.');
+      expect(component.destinoActual()!.sub_unidad!.denominacion).toBe('Estado Mayor Aéreo');
       expect(component.buscandoDestinoActual()).toBe(false);
     });
 
@@ -227,7 +260,7 @@ describe('DestinoFormModal (crear)', () => {
   describe('validación', () => {
     beforeEach(() => {
       component.elegirPersona(makePersona());
-      component.form.patchValue({ unidad_id: '7', fecha_inicio: '2026-09-01' });
+      component.form.patchValue({ sub_unidad_id: '7', fecha_inicio: '2026-09-01' });
     });
 
     it('exige número de orden o boletín', () => {
@@ -236,8 +269,8 @@ describe('DestinoFormModal (crear)', () => {
       expect(component.error()).toBe('Ingresá al menos el N° de orden o el boletín.');
     });
 
-    it('exige persona, unidad y fecha de inicio', () => {
-      component.form.patchValue({ unidad_id: '', numero_orden: 'O.D. 1' });
+    it('exige persona, sub-unidad y fecha de inicio', () => {
+      component.form.patchValue({ sub_unidad_id: '', numero_orden: 'O.D. 1' });
       component.guardar();
       expect(destinosService.crear).not.toHaveBeenCalled();
       expect(component.error()).toBe('Completá los campos requeridos.');
@@ -249,7 +282,7 @@ describe('DestinoFormModal (crear)', () => {
       destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
       component.elegirPersona(makePersona());
       component.form.patchValue({
-        unidad_id: '7',
+        sub_unidad_id: '7',
         fecha_inicio: '2026-09-01',
         numero_orden: 'O.D. 12455',
         posicion_destino: 'Jefe de Sección',
@@ -260,11 +293,32 @@ describe('DestinoFormModal (crear)', () => {
       component.guardar();
       expect(destinosService.crear).toHaveBeenCalledWith({
         persona_id: 42,
-        unidad_id: 7,
+        sub_unidad_id: 7,
         fecha_inicio: '2026-09-01',
         numero_orden: 'O.D. 12455',
         posicion_destino: 'Jefe de Sección',
       });
+    });
+
+    it('no manda unidad_id: el comando lo deduce el backend de la sub-unidad', () => {
+      component.guardar();
+      expect('unidad_id' in destinosService.crear.mock.calls[0][0]).toBe(false);
+    });
+
+    it('bloquea un pase a la misma sub-unidad en la que ya revista', () => {
+      // makeDestino() revista en la sub-unidad '5'.
+      component.form.patchValue({ sub_unidad_id: '5' });
+      expect(component.mismoDestinoQueElActual()).toBe(true);
+      component.guardar();
+      expect(destinosService.crear).not.toHaveBeenCalled();
+      expect(component.error()).toBe('El funcionario ya revista en esa sub-unidad. Elegí otro destino.');
+    });
+
+    it('permite pasar a otra sub-unidad del mismo comando', () => {
+      component.form.patchValue({ sub_unidad_id: '7' });
+      expect(component.mismoDestinoQueElActual()).toBe(false);
+      component.guardar();
+      expect(destinosService.crear).toHaveBeenCalled();
     });
 
     it('no manda fecha_fin_anterior si no se tocó la fecha de cierre', () => {
@@ -294,7 +348,7 @@ describe('DestinoFormModal (crear)', () => {
               status: 409,
               error: {
                 service_response: {
-                  service_status: { http_status: '409', http_message: 'El funcionario 42 ya tiene un destino activo en esa unidad' },
+                  service_status: { http_status: '409', http_message: 'El funcionario 42 ya tiene un destino activo en esa sub-unidad' },
                   service_data: null,
                 },
               },
@@ -304,7 +358,7 @@ describe('DestinoFormModal (crear)', () => {
       const emitido: Destino[] = [];
       component.guardado.subscribe((d) => emitido.push(d));
       component.guardar();
-      expect(component.error()).toBe('El funcionario 42 ya tiene un destino activo en esa unidad');
+      expect(component.error()).toBe('El funcionario 42 ya tiene un destino activo en esa sub-unidad');
       expect(component.guardando()).toBe(false);
       expect(emitido.length).toBe(0);
     });
@@ -318,7 +372,7 @@ describe('DestinoFormModal (editar)', () => {
     crear: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     listar: ReturnType<typeof vi.fn>;
-    listarUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
   };
   let personalService: { findPaginado: ReturnType<typeof vi.fn> };
 
@@ -333,7 +387,7 @@ describe('DestinoFormModal (editar)', () => {
       crear: vi.fn().mockReturnValue(of(makeDestino())),
       editar: vi.fn().mockReturnValue(of(makeDestino())),
       listar: vi.fn().mockReturnValue(of(makeLista())),
-      listarUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
     };
     personalService = {
       findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
@@ -363,7 +417,7 @@ describe('DestinoFormModal (editar)', () => {
     });
     crearFixtureEditando(destino);
 
-    expect(component.form.get('unidad_id')!.value).toBe('5');
+    expect(component.form.get('sub_unidad_id')!.value).toBe('5');
     expect(component.form.get('fecha_inicio')!.value).toBe('2024-04-30');
     expect(component.form.get('fecha_fin')!.value).toBe('2025-01-15');
     expect(component.form.get('posicion_destino')!.value).toBe('Sub-Jefe');
