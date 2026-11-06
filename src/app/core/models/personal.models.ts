@@ -298,13 +298,13 @@ export interface CrearPersonaPayload {
   familiares?: FamiliarPayload[];
   tipo_funcionario?: TipoFuncionario;
   regimen_id: number;
-  unidad_id: number;
   programa_id: number;
   situacion_id: number;
   escalafon_id: number;
   grado_id: number;
   fecha_inicio: string;
-  sub_unidad_id?: number;
+  /** Base del funcionario; el comando lo completa el backend. */
+  sub_unidad_id: number;
   observaciones?: string;
   credencial_civica?: string;
   nivel_idoneidad?: number;

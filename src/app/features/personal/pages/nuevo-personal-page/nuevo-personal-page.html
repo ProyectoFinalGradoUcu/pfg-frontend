@@ -173,13 +173,13 @@
         </div>
 
         <div class="nf__field">
-          <label class="nf__label" for="unidad_id">Unidad <span class="nf__req">*</span></label>
-          <select id="unidad_id" formControlName="unidad_id" class="nf__select"
-            [class.nf__select--error]="hasError('unidad_id')">
+          <label class="nf__label" for="sub_unidad_id">Base <span class="nf__req">*</span></label>
+          <select id="sub_unidad_id" formControlName="sub_unidad_id" class="nf__select"
+            [class.nf__select--error]="hasError('sub_unidad_id')">
             <option [ngValue]="null">Seleccionar...</option>
-            <option *ngFor="let u of unidades()" [ngValue]="u.id">{{ u.denominacion }}</option>
+            <option *ngFor="let b of bases()" [ngValue]="b.id">{{ b.etiqueta }}</option>
           </select>
-          <span class="nf__error" *ngIf="hasError('unidad_id')">{{ getError('unidad_id') }}</span>
+          <span class="nf__error" *ngIf="hasError('sub_unidad_id')">{{ getError('sub_unidad_id') }}</span>
         </div>
 
         <div class="nf__field">
@@ -223,14 +223,6 @@
             <option *ngFor="let s of situaciones()" [ngValue]="s.id">{{ s.denominacion }}</option>
           </select>
           <span class="nf__error" *ngIf="hasError('situacion_id')">{{ getError('situacion_id') }}</span>
-        </div>
-
-        <div class="nf__field">
-          <label class="nf__label" for="sub_unidad_id">Sub-unidad</label>
-          <select id="sub_unidad_id" formControlName="sub_unidad_id" class="nf__select">
-            <option [ngValue]="null">Seleccionar...</option>
-            <option *ngFor="let c of subUnidades()" [ngValue]="c.id">{{ c.denominacion }}</option>
-          </select>
         </div>
 
         <div class="nf__field">
