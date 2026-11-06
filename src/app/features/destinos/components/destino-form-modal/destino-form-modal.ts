@@ -5,12 +5,14 @@ import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { DestinosService, payloadEdicion } from '../../../../core/services/destinos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
-import { CrearDestinoPayload, Destino, UnidadConDestinados } from '../../../../core/models/destinos.models';
+import { CrearDestinoPayload, Destino, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
-import { DEBOUNCE_MS } from '../../destino-presentacion';
+import { DEBOUNCE_MS, etiquetaSubUnidad, nombreDestino } from '../../destino-presentacion';
 
 const MIN_CARACTERES_BUSQUEDA = 2;
+
+export type PersonaDelPase = Pick<PersonaListItem, 'id' | 'nombre' | 'cedula'>;
 
 /** Deja solo la parte YYYY-MM-DD de un valor de fecha que traiga el backend. */
 function fechaTexto(valor: string | null | undefined): string {
@@ -39,18 +41,25 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   /** `null` crea un destino; con un destino, lo edita. */
   @Input() destino: Destino | null = null;
 
+  /** Al registrar desde el perfil la persona ya viene elegida y no se puede cambiar. */
+  @Input() persona: PersonaDelPase | null = null;
+
   @Output() guardado = new EventEmitter<Destino>();
   @Output() cerrado = new EventEmitter<void>();
 
   readonly error = signal<string | null>(null);
   readonly guardando = signal(false);
-  readonly unidades = signal<UnidadConDestinados[]>([]);
+  /** Los destinos posibles: sub-unidades vigentes, ya ordenadas por comando desde el backend. */
+  readonly subUnidades = signal<SubUnidadConDestinados[]>([]);
+  readonly opcionesSubUnidad = computed(() =>
+    this.subUnidades().map((s) => ({ value: s.id, label: etiquetaSubUnidad(s) })),
+  );
 
   // ── Búsqueda de persona (solo en modo crear) ────────────────────────────────
   readonly terminoBusqueda = signal('');
   readonly buscando = signal(false);
   readonly resultados = signal<PersonaListItem[]>([]);
-  readonly personaElegida = signal<PersonaListItem | null>(null);
+  readonly personaElegida = signal<PersonaDelPase | null>(null);
 
   // ── Preview del pase ────────────────────────────────────────────────────────
   readonly destinoActual = signal<Destino | null>(null);
@@ -59,7 +68,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   readonly errorDestinoActual = signal<string | null>(null);
 
   readonly form = this.fb.group({
-    unidad_id: ['', Validators.required],
+    sub_unidad_id: ['', Validators.required],
     fecha_inicio: ['', Validators.required],
     posicion_destino: ['', Validators.maxLength(200)],
     numero_orden: ['', Validators.maxLength(50)],
@@ -94,19 +103,37 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     return diaAnterior(inicio);
   });
 
+  readonly subUnidadElegida = signal('');
+  /**
+   * Un pase a la misma sub-unidad en la que ya revista no es un pase: el backend lo
+   * rechaza. Se compara por sub-unidad (el destino), no por comando: moverse entre dos
+   * sub-unidades del mismo comando sí es un pase válido.
+   */
+  readonly mismoDestinoQueElActual = computed(() => {
+    const actual = this.destinoActual()?.sub_unidad?.id;
+    const elegida = this.subUnidadElegida();
+    return !!actual && !!elegida && actual === elegida;
+  });
+
+  nombreDestino(d: Destino): string {
+    return nombreDestino(d);
+  }
+
   private readonly busquedaSubject = new Subject<void>();
 
   ngOnInit(): void {
-    this.destinosService.listarUnidadesParaSelector().subscribe({
-      next: (u) => this.unidades.set(u),
-      error: () => this.unidades.set([]),
+    this.destinosService.listarSubUnidadesParaSelector({ vigente: true }).subscribe({
+      next: (s) => this.subUnidades.set(s),
+      error: () => this.subUnidades.set([]),
     });
 
     this.busquedaSubject.pipe(debounceTime(DEBOUNCE_MS)).subscribe(() => this.buscarPersona());
 
     this.form.get('fecha_inicio')!.valueChanges.subscribe((v) => this.fechaInicio.set(v ?? ''));
+    this.form.get('sub_unidad_id')!.valueChanges.subscribe((v) => this.subUnidadElegida.set(v ? String(v) : ''));
 
     if (this.destino) this.precargarEdicion(this.destino);
+    else if (this.persona) this.elegirPersona(this.persona);
   }
 
   ngOnDestroy(): void {
@@ -140,7 +167,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     });
   }
 
-  elegirPersona(persona: PersonaListItem): void {
+  elegirPersona(persona: PersonaDelPase): void {
     this.personaElegida.set(persona);
     this.resultados.set([]);
     this.terminoBusqueda.set('');
@@ -156,7 +183,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
    * (`pageSize: 50`) y se filtra en el cliente por `persona.id` en vez de asumir `items[0]`.
    * No hay filtro `persona_id` en ese endpoint, así que la guarda tiene que ser acá.
    */
-  private buscarDestinoActual(persona: PersonaListItem): void {
+  private buscarDestinoActual(persona: PersonaDelPase): void {
     const personaId = persona.id;
     this.errorDestinoActual.set(null);
     this.buscandoDestinoActual.set(true);
@@ -197,7 +224,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.personaElegida() || !raw.unidad_id || !raw.fecha_inicio) {
+    if (!this.personaElegida() || !raw.sub_unidad_id || !raw.fecha_inicio) {
       this.error.set('Completá los campos requeridos.');
       return;
     }
@@ -205,10 +232,14 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       this.error.set('Ingresá al menos el N° de orden o el boletín.');
       return;
     }
+    if (this.mismoDestinoQueElActual()) {
+      this.error.set('El funcionario ya revista en esa sub-unidad. Elegí otro destino.');
+      return;
+    }
 
     const payload: CrearDestinoPayload = {
       persona_id: Number(this.personaElegida()!.id),
-      unidad_id: Number(raw.unidad_id),
+      sub_unidad_id: Number(raw.sub_unidad_id),
       fecha_inicio: raw.fecha_inicio!,
     };
     if (numeroOrden) payload.numero_orden = numeroOrden;
@@ -248,7 +279,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
 
   private precargarEdicion(destino: Destino): void {
     this.form.patchValue({
-      unidad_id: destino.unidad?.id ?? '',
+      sub_unidad_id: destino.sub_unidad?.id ?? '',
       fecha_inicio: destino.fecha_inicio ?? '',
       fecha_fin: destino.fecha_fin ?? '',
       posicion_destino: destino.posicion_destino ?? '',

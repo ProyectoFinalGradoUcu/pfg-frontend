@@ -4,6 +4,7 @@ import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators }
 import { Router } from '@angular/router';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, merge, of, switchMap, takeUntil } from 'rxjs';
 import {
+  BaseOpcion,
   FamiliarEntry,
   GradoItem,
   OpcionSelect,
@@ -53,10 +54,17 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   readonly regimenes   = signal<OpcionSelect[]>([]);
   readonly escalafones = signal<OpcionSelect[]>([]);
   readonly grados      = signal<GradoItem[]>([]);
-  readonly unidades    = signal<OpcionSelect[]>([]);
   readonly programas   = signal<OpcionSelect[]>([]);
   readonly situaciones = signal<OpcionSelect[]>([]);
-  readonly subUnidades = signal<OpcionSelect[]>([]);
+  private readonly todasLasBases = signal<BaseOpcion[]>([]);
+
+  /** Con alcance de unidad solo se puede dar de alta en las bases propias. */
+  readonly bases = computed(() => {
+    const todas = this.todasLasBases();
+    if (this.auth.alcanceDe('personas.crear') !== 'unidad') return todas;
+    const propias = new Set(this.auth.currentUser()?.unidades.map((u) => u.id) ?? []);
+    return todas.filter((b) => propias.has(String(b.id)));
+  });
 
   // ─── Derecha y numor ─────────────────────────────────────────────────────────
   readonly puedeElegirPosicion = computed(() => this.auth.hasPermiso('derecha.gestionar'));
@@ -118,10 +126,9 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     regimen_id:       [null, Validators.required],
     escalafon_id:     [null, Validators.required],
     grado_id:         [{ value: null, disabled: true }, Validators.required],
-    unidad_id:        [null, Validators.required],
     programa_id:      [null, Validators.required],
     situacion_id:     [null, Validators.required],
-    sub_unidad_id:    [null],
+    sub_unidad_id:    [null, Validators.required],
     fecha_inicio:     ['', Validators.required],
     prima_tecnica:    [''],
     tiene_mando:      [false],
@@ -153,10 +160,9 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   private loadDropdowns(): void {
     this.personalService.getRegimenes().subscribe({ next: d => this.regimenes.set(d) });
     this.personalService.getEscalafones().subscribe({ next: d => this.escalafones.set(d) });
-    this.personalService.getUnidades().subscribe({ next: d => this.unidades.set(d) });
     this.personalService.getProgramas().subscribe({ next: d => this.programas.set(d) });
     this.personalService.getSituaciones().subscribe({ next: d => this.situaciones.set(d) });
-    this.personalService.getSubUnidades().subscribe({ next: d => this.subUnidades.set(d) });
+    this.personalService.getBases().subscribe({ next: d => this.todasLasBases.set(d) });
   }
 
   private setupEscalafonCascade(): void {
@@ -258,7 +264,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   private toggleCivilMode(esCivil: boolean): void {
     const laboralRequired = [
       'tipo_funcionario', 'regimen_id', 'escalafon_id',
-      'unidad_id', 'programa_id', 'situacion_id', 'fecha_inicio',
+      'sub_unidad_id', 'programa_id', 'situacion_id', 'fecha_inicio',
     ];
     if (esCivil) {
       laboralRequired.forEach(f => {
@@ -402,12 +408,11 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       payload['regimen_id']       = Number(raw.regimen_id);
       payload['escalafon_id']     = Number(raw.escalafon_id);
       payload['grado_id']         = Number(raw.grado_id);
-      payload['unidad_id']        = Number(raw.unidad_id);
       payload['programa_id']      = Number(raw.programa_id);
       payload['situacion_id']     = Number(raw.situacion_id);
       payload['fecha_inicio']     = raw.fecha_inicio;
       payload['tiene_mando']      = !!raw.tiene_mando;
-      if (raw.sub_unidad_id) payload['sub_unidad_id'] = Number(raw.sub_unidad_id);
+      payload['sub_unidad_id']    = Number(raw.sub_unidad_id);
       if (raw.prima_tecnica) payload['prima_tecnica'] = raw.prima_tecnica;
       if (this.posicionDerecha() !== null) payload['posicion_derecha'] = this.posicionDerecha();
       if (this.posicionNumor() !== null) payload['posicion_numor'] = this.posicionNumor();
@@ -431,7 +436,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
           this.form.get('cedula')!.markAsTouched();
         } else if (err.status === 400 || err.status === 403) {
           // 400 acá no es solo validación de formulario: incluye reglas de negocio como
-          // "solo podés dar de alta personal en tus propias unidades".
+          // "solo podés dar de alta personal en tus propias bases".
           this.errorModal.show(parseError(err));
         } else {
           this.toast.error(parseError(err));

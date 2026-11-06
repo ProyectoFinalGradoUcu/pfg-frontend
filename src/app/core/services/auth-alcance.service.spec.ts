@@ -79,7 +79,7 @@ describe('AuthService — alcance por unidad', () => {
       cargarSesion(
         makeUser({
           permisos: ['personas.ver.unidad'],
-          unidades: [{ id: '7', denominacion: 'Escuela de Formación' }],
+          unidades: [{ id: '7', denominacion: 'E.T.A.', comando: { id: '2', denominacion: 'C.A.P.' } }],
         }),
       );
 
@@ -90,7 +90,7 @@ describe('AuthService — alcance por unidad', () => {
       cargarSesion(
         makeUser({
           permisos: ['personas.ver', 'personas.ver.unidad'],
-          unidades: [{ id: '7', denominacion: 'Escuela de Formación' }],
+          unidades: [{ id: '7', denominacion: 'E.T.A.', comando: { id: '2', denominacion: 'C.A.P.' } }],
         }),
       );
 
@@ -112,18 +112,18 @@ describe('AuthService — alcance por unidad', () => {
       cargarSesion(
         makeUser({
           permisos: ['personas.ver.unidad'],
-          unidades: [{ id: '7', denominacion: 'Escuela de Formación' }],
+          unidades: [{ id: '7', denominacion: 'E.T.A.', comando: { id: '2', denominacion: 'C.A.P.' } }],
         }),
       );
 
-      expect(service.unidadDeAlcance()).toBe('Escuela de Formación');
+      expect(service.unidadDeAlcance()).toBe('E.T.A.');
     });
 
     it('devuelve null si todos sus permisos son globales, aunque tenga unidad', () => {
       cargarSesion(
         makeUser({
           permisos: ['personas.ver'],
-          unidades: [{ id: '7', denominacion: 'Escuela de Formación' }],
+          unidades: [{ id: '7', denominacion: 'E.T.A.', comando: { id: '2', denominacion: 'C.A.P.' } }],
         }),
       );
 
@@ -133,6 +133,34 @@ describe('AuthService — alcance por unidad', () => {
 
     it('devuelve null si no hay sesión', () => {
       expect(service.unidadDeAlcance()).toBeNull();
+    });
+
+    const base = (id: number, denominacion: string) => ({
+      id: String(id),
+      denominacion,
+      comando: { id: '2', denominacion: 'C.A.O.' },
+    });
+
+    it('con hasta tres bases las muestra todas separadas por coma', () => {
+      cargarSesion(
+        makeUser({
+          permisos: ['personas.ver.unidad'],
+          unidades: [base(1, 'B.A.I.'), base(2, 'B.A.II'), base(3, 'E.T.A.')],
+        }),
+      );
+
+      expect(service.unidadDeAlcance()).toBe('B.A.I., B.A.II, E.T.A.');
+    });
+
+    it('con más de tres muestra las primeras y cuántas quedan', () => {
+      cargarSesion(
+        makeUser({
+          permisos: ['personas.ver.unidad'],
+          unidades: [base(1, 'B.A.I.'), base(2, 'B.A.II'), base(3, 'E.T.A.'), base(4, 'E.M.A.'), base(5, 'C.G.')],
+        }),
+      );
+
+      expect(service.unidadDeAlcance()).toBe('B.A.I., B.A.II, E.T.A. y 2 más');
     });
   });
 });

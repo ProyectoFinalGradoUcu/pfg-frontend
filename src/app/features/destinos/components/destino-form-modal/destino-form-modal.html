@@ -32,7 +32,7 @@
             <strong>{{ personaElegida()!.nombre }}</strong>
             <span>{{ personaElegida()!.cedula }}</span>
           </div>
-          <button type="button" class="btn btn--ghost btn--sm" (click)="limpiarPersona()">Cambiar</button>
+          <button *ngIf="!persona" type="button" class="btn btn--ghost btn--sm" (click)="limpiarPersona()">Cambiar</button>
         </div>
       </div>
 
@@ -49,7 +49,7 @@
           <ng-container *ngIf="destinoActual() as actual; else sinDestinoActual">
             <p class="destino-form__pase-title">Este registro es un pase</p>
             <p>
-              Sale de <strong>{{ actual.unidad?.denominacion || 'unidad sin dato' }}</strong>,
+              Sale de <strong>{{ actual.sub_unidad || actual.unidad ? nombreDestino(actual) : 'destino sin dato' }}</strong><span *ngIf="actual.sub_unidad && actual.unidad"> ({{ actual.unidad.codigo }})</span>,
               donde revista desde {{ actual.fecha_inicio || 'fecha sin dato' }}.
             </p>
             <p *ngIf="fechaCierreCalculada()">
@@ -75,19 +75,22 @@
       <!-- ── Campos del destino ─────────────────────────────────────────── -->
       <div class="destino-form__grid">
         <div class="destino-form__field">
-          <label>Unidad *</label>
+          <label>Destino (sub-unidad) *</label>
           <app-select
             *ngIf="!editando()"
-            [items]="unidades()"
-            bindLabel="denominacion"
-            bindValue="id"
-            placeholder="Seleccionar unidad..."
+            [items]="opcionesSubUnidad()"
+            placeholder="Seleccionar sub-unidad..."
             [searchable]="true"
-            formControlName="unidad_id"
+            formControlName="sub_unidad_id"
           ></app-select>
+          <small *ngIf="!editando()">El comando sale de la sub-unidad elegida.</small>
+          <small class="destino-form__pase-error" *ngIf="!editando() && mismoDestinoQueElActual()">
+            Ya revista en esa sub-unidad: elegí otro destino.
+          </small>
           <div class="destino-form__readonly" *ngIf="editando()">
-            <strong>{{ destino!.unidad?.denominacion || '—' }}</strong>
-            <small>Para corregir la unidad hay que eliminar este destino y registrarlo de nuevo.</small>
+            <strong>{{ nombreDestino(destino!) }}</strong>
+            <span *ngIf="destino!.sub_unidad && destino!.unidad">Comando: {{ destino!.unidad!.codigo }}</span>
+            <small>Para corregir el destino hay que eliminar este registro y cargarlo de nuevo.</small>
           </div>
         </div>
 

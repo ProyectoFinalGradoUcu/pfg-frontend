@@ -4,15 +4,17 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
+import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import {
+  Comando,
   Destino,
   DestinoEliminado,
   DestinosStats,
   ListarDestinosQuery,
-  UnidadConDestinados,
+  SubUnidadConDestinados,
 } from '../../../../core/models/destinos.models';
 import {
   FiltroCategoria,
@@ -22,6 +24,9 @@ import {
 import { parseError } from '../../../../shared/utils/parse-error';
 import {
   DEBOUNCE_MS,
+  comandoDestino as comandoDestinoDe,
+  etiquetaSubUnidad,
+  nombreDestino as nombreDestinoDe,
   nombreFuncionario as nombreFuncionarioDe,
   ordenOBoletin as ordenOBoletinDe,
   trackDestino as trackDestinoDe,
@@ -39,6 +44,7 @@ export type ModalKind = 'form' | 'cerrar' | 'reabrir' | 'eliminar' | null;
 })
 export class AsignacionesPage implements OnInit, OnDestroy {
   private readonly destinosService = inject(DestinosService);
+  private readonly catalogosService = inject(CatalogosService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
 
@@ -48,24 +54,39 @@ export class AsignacionesPage implements OnInit, OnDestroy {
   readonly page = signal(1);
   readonly pageSize = 10;
 
-  /** Globales: `destinos_activos` y `unidades_con_personal` ignoran los filtros. */
+  /** Globales: `destinos_activos` y `sub_unidades_con_personal` ignoran los filtros. */
   readonly stats = signal<DestinosStats>({
     total_destinos: 0,
     destinos_activos: 0,
-    unidades_con_personal: 0,
+    sub_unidades_con_personal: 0,
   });
 
-  readonly unidades = signal<UnidadConDestinados[]>([]);
+  readonly comandos = signal<Comando[]>([]);
+  readonly subUnidades = signal<SubUnidadConDestinados[]>([]);
+
+  readonly comandoOpciones = computed(() =>
+    this.comandos().map((c) => ({ value: c.id, label: c.codigo || c.denominacion })),
+  );
+  /** Con un comando elegido, solo se ofrecen sus sub-unidades. */
+  readonly subUnidadOpciones = computed(() => {
+    const comando = this.filtroComandoId();
+    return this.subUnidades()
+      .filter((s) => !comando || s.unidad?.id === comando)
+      .map((s) => ({ value: s.id, label: etiquetaSubUnidad(s) }));
+  });
 
   readonly filtroQuery = signal('');
-  readonly filtroUnidadId = signal<string>('');
+  /** Filtro por comando (`unidad_id` en el backend). */
+  readonly filtroComandoId = signal<string>('');
+  readonly filtroSubUnidadId = signal<string>('');
   readonly filtroEstado = signal<EstadoFiltro>('');
   readonly filtroCategoria = signal<FiltroCategoria>('todos');
   readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly hayFiltros = computed(
     () =>
       !!this.filtroQuery() ||
-      !!this.filtroUnidadId() ||
+      !!this.filtroComandoId() ||
+      !!this.filtroSubUnidadId() ||
       !!this.filtroEstado() ||
       this.filtroCategoria() !== 'todos',
   );
@@ -101,9 +122,13 @@ export class AsignacionesPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.cargar();
-    this.destinosService.listarUnidadesParaSelector().subscribe({
-      next: (u) => this.unidades.set(u),
-      error: () => this.unidades.set([]),
+    this.catalogosService.getComandos().subscribe({
+      next: (c) => this.comandos.set(c),
+      error: () => this.comandos.set([]),
+    });
+    this.destinosService.listarSubUnidadesParaSelector().subscribe({
+      next: (s) => this.subUnidades.set(s),
+      error: () => this.subUnidades.set([]),
     });
 
     this.querySubject.pipe(debounceTime(DEBOUNCE_MS)).subscribe(() => {
@@ -136,7 +161,8 @@ export class AsignacionesPage implements OnInit, OnDestroy {
     const q: ListarDestinosQuery = { page: this.page(), pageSize: this.pageSize };
     const texto = this.filtroQuery().trim();
     if (texto) q.query = texto;
-    if (this.filtroUnidadId()) q.unidad_id = Number(this.filtroUnidadId());
+    if (this.filtroComandoId()) q.unidad_id = Number(this.filtroComandoId());
+    if (this.filtroSubUnidadId()) q.sub_unidad_id = Number(this.filtroSubUnidadId());
     const estado = this.filtroEstado();
     if (estado) q.activo = estado === 'vigentes';
     q.categoria = categoriaParam(this.filtroCategoria());
@@ -148,8 +174,18 @@ export class AsignacionesPage implements OnInit, OnDestroy {
     this.querySubject.next();
   }
 
-  onUnidadChange(value: string | null): void {
-    this.filtroUnidadId.set(value ?? '');
+  onComandoChange(value: string | null): void {
+    const comando = value ?? '';
+    this.filtroComandoId.set(comando);
+    // Una sub-unidad de otro comando daría siempre cero resultados: se suelta.
+    const sub = this.subUnidades().find((s) => s.id === this.filtroSubUnidadId());
+    if (comando && sub && sub.unidad?.id !== comando) this.filtroSubUnidadId.set('');
+    this.page.set(1);
+    this.cargar();
+  }
+
+  onSubUnidadChange(value: string | null): void {
+    this.filtroSubUnidadId.set(value ?? '');
     this.page.set(1);
     this.cargar();
   }
@@ -168,7 +204,8 @@ export class AsignacionesPage implements OnInit, OnDestroy {
 
   limpiarFiltros(): void {
     this.filtroQuery.set('');
-    this.filtroUnidadId.set('');
+    this.filtroComandoId.set('');
+    this.filtroSubUnidadId.set('');
     this.filtroEstado.set('');
     this.filtroCategoria.set('todos');
     this.page.set(1);
@@ -186,6 +223,14 @@ export class AsignacionesPage implements OnInit, OnDestroy {
 
   ordenOBoletin(d: Destino): string {
     return ordenOBoletinDe(d);
+  }
+
+  nombreDestino(d: Destino): string {
+    return nombreDestinoDe(d);
+  }
+
+  comandoDestino(d: Destino): string {
+    return comandoDestinoDe(d);
   }
 
   trackDestino = (_: number, d: Destino) => trackDestinoDe(_, d);
@@ -280,7 +325,7 @@ export class AsignacionesPage implements OnInit, OnDestroy {
       // Si era el vigente, el backend deshizo el pase y reabrió el destino anterior.
       (r: DestinoEliminado) =>
         r.destino_reabierto
-          ? 'Pase deshecho. Se reabrió el destino anterior y el funcionario vuelve a revistar en esa unidad'
+          ? 'Pase deshecho. Se reabrió el destino anterior y el funcionario vuelve a revistar en esa sub-unidad'
           : destino.activo
             ? 'Pase deshecho'
             : 'Destino eliminado del historial',

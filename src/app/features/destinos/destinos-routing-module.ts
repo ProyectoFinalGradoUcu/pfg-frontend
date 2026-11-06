@@ -7,6 +7,7 @@ import { UnidadDetallePage } from './pages/unidad-detalle-page/unidad-detalle-pa
 const routes: Routes = [
   { path: '', redirectTo: 'asignaciones', pathMatch: 'full' },
   { path: 'asignaciones', component: AsignacionesPage },
+  // Las rutas conservan el nombre `unidades`, pero listan sub-unidades (los destinos).
   { path: 'unidades', component: UnidadesPage },
   { path: 'unidades/:unidadId', component: UnidadDetallePage },
 ];

@@ -8,8 +8,9 @@ import { vi } from 'vitest';
 import { AsignacionesPage } from './asignaciones-page';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { Destino, ListaDestinos } from '../../../../core/models/destinos.models';
+import { Destino, ListaDestinos, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
 import { Select } from '../../../../shared/components/select/select';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -18,7 +19,8 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
     id: '200',
     persona: { id: '42', cedula: '50000001', primer_nombre: 'José', primer_apellido: 'Pérez' },
-    unidad: { id: '5', codigo: 'EMGFA', denominacion: 'E.M.G.F.A.', tipo: 'Organismo' },
+    unidad: { id: '4', codigo: 'CG', denominacion: 'C.G.' },
+    sub_unidad: { id: '12', codigo: 'DCG', denominacion: 'D.C.G.' },
     fecha_inicio: '2024-04-30',
     fecha_fin: null,
     posicion_destino: 'Sub-Jefe',
@@ -41,29 +43,55 @@ function makeLista(items: Destino[] = [], overrides: Partial<ListaDestinos> = {}
     total: items.length,
     page: 1,
     pageSize: 10,
-    stats: { total_destinos: items.length, destinos_activos: 31, unidades_con_personal: 6 },
+    stats: { total_destinos: items.length, destinos_activos: 31, sub_unidades_con_personal: 6 },
     ...overrides,
   };
 }
+
+function makeSubUnidad(id: string, codigo: string, comandoId: string, comandoCodigo: string): SubUnidadConDestinados {
+  return {
+    id,
+    codigo,
+    denominacion: codigo,
+    vigente: true,
+    unidad: { id: comandoId, codigo: comandoCodigo, denominacion: comandoCodigo },
+    total_destinados: 1,
+  };
+}
+
+const SUB_UNIDADES = [
+  makeSubUnidad('1', 'B.A.I.', '1', 'C.A.O.'),
+  makeSubUnidad('2', 'B.A.II.', '1', 'C.A.O.'),
+  makeSubUnidad('12', 'E.M.A.', '4', 'C.G.'),
+];
 
 describe('AsignacionesPage', () => {
   let component: AsignacionesPage;
   let fixture: ComponentFixture<AsignacionesPage>;
   let destinosService: {
     listar: ReturnType<typeof vi.fn>;
-    listarUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     eliminar: ReturnType<typeof vi.fn>;
   };
+  let catalogosService: { getComandos: ReturnType<typeof vi.fn> };
   let authService: { hasPermiso: ReturnType<typeof vi.fn> };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     destinosService = {
       listar: vi.fn().mockReturnValue(of(makeLista())),
-      listarUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of(SUB_UNIDADES)),
       editar: vi.fn().mockReturnValue(of(makeDestino())),
       eliminar: vi.fn().mockReturnValue(of({ id: '200', eliminado: true as const })),
+    };
+    catalogosService = {
+      getComandos: vi.fn().mockReturnValue(
+        of([
+          { id: '1', codigo: 'C.A.O.', denominacion: 'Comando Aéreo de Operaciones' },
+          { id: '4', codigo: 'CG', denominacion: 'C.G.' },
+        ]),
+      ),
     };
     authService = { hasPermiso: vi.fn().mockReturnValue(true) };
     toastService = { success: vi.fn(), error: vi.fn() };
@@ -78,6 +106,7 @@ describe('AsignacionesPage', () => {
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: DestinosService, useValue: destinosService },
+        { provide: CatalogosService, useValue: catalogosService },
         { provide: AuthService, useValue: authService },
         { provide: ToastService, useValue: toastService },
       ],
@@ -91,10 +120,32 @@ describe('AsignacionesPage', () => {
   afterEach(() => vi.useRealTimers());
 
   describe('carga inicial', () => {
-    it('pide la primera página y el catálogo de unidades', () => {
+    it('pide la primera página, los comandos y las sub-unidades', () => {
       fixture.detectChanges();
       expect(destinosService.listar).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
-      expect(destinosService.listarUnidadesParaSelector).toHaveBeenCalled();
+      expect(catalogosService.getComandos).toHaveBeenCalled();
+      expect(destinosService.listarSubUnidadesParaSelector).toHaveBeenCalled();
+    });
+
+    it('muestra la stat de sub-unidades con personal', () => {
+      destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
+      fixture.detectChanges();
+      expect(component.stats().sub_unidades_con_personal).toBe(6);
+      expect(fixture.nativeElement.textContent).toContain('Sub-unidades con personal');
+    });
+
+    it('muestra la sub-unidad como destino y el comando como dato secundario', () => {
+      destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
+      fixture.detectChanges();
+      const fila = fixture.nativeElement.querySelector('tbody tr').textContent;
+      expect(fila).toContain('D.C.G.');
+      expect(fila).toContain('C.G.');
+    });
+
+    it('en un histórico viejo sin sub-unidad cae al comando', () => {
+      const viejo = makeDestino({ sub_unidad: null });
+      expect(component.nombreDestino(viejo)).toBe('C.G.');
+      expect(component.comandoDestino(viejo)).toBe('');
     });
 
     it('guarda items, total y stats', () => {
@@ -129,9 +180,27 @@ describe('AsignacionesPage', () => {
       expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, query: 'Pérez' });
     });
 
-    it('filtra por unidad', () => {
-      component.onUnidadChange('5');
-      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, unidad_id: 5 });
+    it('filtra por comando con unidad_id', () => {
+      component.onComandoChange('4');
+      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, unidad_id: 4 });
+    });
+
+    it('filtra por sub-unidad con sub_unidad_id', () => {
+      component.onSubUnidadChange('12');
+      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, sub_unidad_id: 12 });
+    });
+
+    it('con un comando elegido solo ofrece sus sub-unidades', () => {
+      expect(component.subUnidadOpciones().length).toBe(3);
+      component.onComandoChange('1');
+      expect(component.subUnidadOpciones().map((o) => o.value)).toEqual(['1', '2']);
+    });
+
+    it('al cambiar a otro comando suelta la sub-unidad que no le pertenece', () => {
+      component.onSubUnidadChange('12');
+      component.onComandoChange('1');
+      expect(component.filtroSubUnidadId()).toBe('');
+      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, unidad_id: 1 });
     });
 
     it('traduce el estado vigentes a activo=true', () => {
@@ -152,7 +221,7 @@ describe('AsignacionesPage', () => {
 
     it('hayFiltros refleja si hay alguno aplicado', () => {
       expect(component.hayFiltros()).toBe(false);
-      component.onUnidadChange('5');
+      component.onSubUnidadChange('12');
       expect(component.hayFiltros()).toBe(true);
       component.limpiarFiltros();
       expect(component.hayFiltros()).toBe(false);
@@ -163,9 +232,9 @@ describe('AsignacionesPage', () => {
   describe('paginación', () => {
     it('pide la página nueva sin resetear los filtros', () => {
       fixture.detectChanges();
-      component.onUnidadChange('5');
+      component.onComandoChange('4');
       component.onPageChange(3);
-      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 3, pageSize: 10, unidad_id: 5 });
+      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 3, pageSize: 10, unidad_id: 4 });
     });
   });
 

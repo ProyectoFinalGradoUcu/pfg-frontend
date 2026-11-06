@@ -9,6 +9,7 @@ import { PersonalDetailPage } from './pages/personal-detail-page/personal-detail
 import { FamiliarDetalleModal } from './components/familiar-detalle-modal/familiar-detalle-modal';
 import { CargarDocumentoModal } from './components/cargar-documento-modal/cargar-documento-modal';
 import { DocumentosPersonal } from './components/documentos-personal/documentos-personal';
+import { DestinoFormModalModule } from '../destinos/components/destino-form-modal/destino-form-modal-module';
 
 @NgModule({
   declarations: [
@@ -19,6 +20,13 @@ import { DocumentosPersonal } from './components/documentos-personal/documentos-
     CargarDocumentoModal,
     DocumentosPersonal,
   ],
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, SharedModule, PersonalRoutingModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    SharedModule,
+    DestinoFormModalModule,
+    PersonalRoutingModule,
+  ],
 })
 export class PersonalModule {}

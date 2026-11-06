@@ -4,6 +4,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { PersonalService } from './personal.service';
 import { API_BASE_URL } from '../api.config';
 import { DestinoDePersona } from '../models/destinos.models';
+import { BaseOpcion } from '../models/personal.models';
 
 describe('PersonalService', () => {
   let service: PersonalService;
@@ -35,10 +36,12 @@ describe('PersonalService', () => {
       http.expectOne(`${API_BASE_URL}/personas/42/destinos`).flush([
         {
           id: '200',
-          unidad_id: '5',
-          unidad: 'E.M.G.F.A.',
-          codigo_unidad: 'EMGFA',
-          tipo_unidad: 'Organismo',
+          unidad_id: '4',
+          unidad: 'Comando General',
+          codigo_unidad: 'C.G.',
+          sub_unidad_id: '12',
+          sub_unidad: 'Estado Mayor Aéreo',
+          codigo_sub_unidad: 'E.M.A.',
           posicion_destino: 'Sub-Jefe de Personal A-1',
           fecha_inicio: '2024-04-30',
           fecha_fin: null,
@@ -49,7 +52,8 @@ describe('PersonalService', () => {
         },
       ]);
       expect(result!.length).toBe(1);
-      expect(result![0].unidad).toBe('E.M.G.F.A.');
+      expect(result![0].sub_unidad).toBe('Estado Mayor Aéreo');
+      expect(result![0].unidad).toBe('Comando General');
       expect(result![0].activo).toBe(true);
     });
   });
@@ -98,6 +102,22 @@ describe('PersonalService', () => {
       const req = http.expectOne((r) => r.url === `${API_BASE_URL}/personas`);
       for (const p of ['destino', 'estado', 'gradoId', 'escalafonId']) expect(req.request.params.has(p)).toBe(false);
       req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+    });
+  });
+
+  describe('getBases', () => {
+    it('pide el catálogo de sub-unidades y arma la etiqueta con el comando', () => {
+      let bases: BaseOpcion[] | undefined;
+      service.getBases().subscribe((r) => (bases = r));
+
+      const req = http.expectOne(`${API_BASE_URL}/catalogos/sub-unidades`);
+      expect(req.request.method).toBe('GET');
+      req.flush([
+        { id: 12, codigo: 'BAI', denominacion: 'B.A.I.', unidad_id: 3, comando: { id: 3, codigo: 'CAO', denominacion: 'C.A.O.' } },
+      ]);
+
+      expect(bases![0].etiqueta).toBe('B.A.I. (C.A.O.)');
+      expect(bases![0].unidad_id).toBe(3);
     });
   });
 
