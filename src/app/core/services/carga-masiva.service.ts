@@ -12,6 +12,10 @@ export const CARGAS_MASIVAS = {
     urlPlantilla: `${API_BASE_URL}/personas/plantilla`,
     urlCarga: `${API_BASE_URL}/personas/carga-masiva`,
     nombrePlantilla: 'plantilla_personal.xlsx',
+    notas: [
+      'Oficiales y subalternos llevan la Base (por ejemplo "B.A.I. (C.A.O.)"); el comando sale de ella.',
+      'Cada uno queda con su destino actual en esa base. Una fila sin base se rechaza y el resto se carga igual.',
+    ],
   },
   historialCursos: {
     titulo: 'Importar historial de cursos',
