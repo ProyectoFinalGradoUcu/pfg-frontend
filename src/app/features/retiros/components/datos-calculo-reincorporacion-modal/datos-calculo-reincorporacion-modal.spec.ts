@@ -39,6 +39,7 @@ function makeDetalle(reincorporacion: Reincorporacion = makeReincorporacion()): 
     vigente: false,
     numero_orden: 'O.D. 12455',
     boletin: null,
+    documentos: { orden: null, boletin: null },
     observaciones: null,
     relacion_laboral_cerrada: {
       id: '3',

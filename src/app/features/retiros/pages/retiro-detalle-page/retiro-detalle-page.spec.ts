@@ -9,6 +9,9 @@ import { RetiroDetallePage } from './retiro-detalle-page';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { DocumentoAdjunto } from '../../../../shared/components/documento-adjunto/documento-adjunto';
 import {
   PreviaReincorporacion,
   Reincorporado,
@@ -43,6 +46,7 @@ function makeDetalle(overrides: Partial<RetiroDetalle> = {}): RetiroDetalle {
     registrado_en: '2026-08-28T13:04:22.117Z',
     anulacion: null,
     reincorporacion: null,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
@@ -99,14 +103,23 @@ function makePreviaReincorporacion(overrides: Partial<PreviaReincorporacion> = {
 
 describe('RetiroDetallePage', () => {
   let fixture: ComponentFixture<RetiroDetallePage>;
-  let retiros: { detalle: ReturnType<typeof vi.fn>; previaReincorporacion: ReturnType<typeof vi.fn> };
+  let retiros: {
+    detalle: ReturnType<typeof vi.fn>;
+    previaReincorporacion: ReturnType<typeof vi.fn>;
+    subirDocumento: ReturnType<typeof vi.fn>;
+    quitarDocumento: ReturnType<typeof vi.fn>;
+    inspeccionarDocumento: ReturnType<typeof vi.fn>;
+    urlDocumento: ReturnType<typeof vi.fn>;
+  };
+  let errorModal: { show: ReturnType<typeof vi.fn> };
+  let confirmModal: { confirmar: ReturnType<typeof vi.fn> };
   let auth: { hasPermiso: ReturnType<typeof vi.fn> };
   let router: { navigate: MockInstance };
   let toast: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
   async function montar(): Promise<void> {
     await TestBed.configureTestingModule({
-      declarations: [RetiroDetallePage],
+      declarations: [RetiroDetallePage, DocumentoAdjunto],
       // El template enlaza [routerLink]: sin RouterModule el render falla.
       imports: [RouterModule],
       providers: [
@@ -114,6 +127,8 @@ describe('RetiroDetallePage', () => {
         { provide: RetirosService, useValue: retiros },
         { provide: AuthService, useValue: auth },
         { provide: ToastService, useValue: toast },
+        { provide: ConfirmModalService, useValue: confirmModal },
+        { provide: ErrorModalService, useValue: errorModal },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => '7' } } } },
       ],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
@@ -134,7 +149,16 @@ describe('RetiroDetallePage', () => {
     retiros = {
       detalle: vi.fn().mockReturnValue(of(makeDetalle())),
       previaReincorporacion: vi.fn().mockReturnValue(of(makePreviaReincorporacion())),
+      subirDocumento: vi.fn().mockReturnValue(of({})),
+      quitarDocumento: vi.fn().mockReturnValue(of(null)),
+      inspeccionarDocumento: vi.fn().mockReturnValue(of(undefined)),
+      urlDocumento: vi.fn(
+        (id: string, slot: string, o?: { descarga?: boolean }) =>
+          `/api/retiros/${id}/documentos/${slot}${o?.descarga ? '?download=1' : ''}`,
+      ),
     };
+    confirmModal = { confirmar: vi.fn().mockResolvedValue(true) };
+    errorModal = { show: vi.fn() };
     auth = { hasPermiso: vi.fn().mockReturnValue(true) };
     toast = { success: vi.fn(), error: vi.fn() };
   });
@@ -373,5 +397,219 @@ describe('RetiroDetallePage', () => {
     await montar();
     expect(toast.error).toHaveBeenCalled();
     expect(router.navigate).toHaveBeenCalledWith(['/retiros']);
+  });
+
+  describe('respaldo documental', () => {
+    const documento = {
+      nombre_original: 'orden.pdf',
+      content_type: 'application/pdf',
+      tamanio_bytes: '2048',
+      subido_en: '2026-11-06T12:00:00.000Z',
+    };
+    const conOrden = (overrides: Partial<RetiroDetalle> = {}) =>
+      makeDetalle({ numero_orden: 'O.D. 12455', documentos: { orden: documento, boletin: null }, ...overrides });
+    const texto = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const accion = (titulo: string) =>
+      ((fixture.nativeElement as HTMLElement).querySelector(`[title="${titulo}"]`) as HTMLElement | null) ??
+      undefined;
+    const botonQueContiene = (t: string) =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) =>
+        b.textContent?.includes(t),
+      ) as HTMLButtonElement | undefined;
+    const pdf = () => new File(['%PDF-1.4'], 'boletin.pdf', { type: 'application/pdf' });
+
+    it('con documento de orden muestra el nombre, Ver y el link de Descargar', async () => {
+      retiros.detalle.mockReturnValue(of(conOrden()));
+      await montar();
+
+      expect(texto()).toContain('orden.pdf');
+      expect(accion('Ver vista previa')).toBeDefined();
+      expect(accion('Descargar')?.getAttribute('href')).toBe('/api/retiros/7/documentos/orden?download=1');
+    });
+
+    describe('vista previa', () => {
+      const foto = {
+        ...documento,
+        nombre_original: 'boletin.png',
+        content_type: 'image/png',
+      };
+      const visor = () => (fixture.nativeElement as HTMLElement).querySelector('embed, img');
+      const clic = (t: string) => {
+        accion(t)!.click();
+        fixture.detectChanges();
+      };
+
+      it('Ver confirma que el documento exista y lo muestra en la página', async () => {
+        retiros.detalle.mockReturnValue(of(conOrden()));
+        await montar();
+
+        clic('Ver vista previa');
+
+        expect(retiros.inspeccionarDocumento).toHaveBeenCalledWith('7', 'orden');
+        expect(visor()?.tagName).toBe('EMBED');
+        expect(visor()?.getAttribute('src')).toBe('/api/retiros/7/documentos/orden');
+        expect(accion('Ocultar vista previa')).toBeDefined();
+      });
+
+      it('Ocultar cierra la vista previa', async () => {
+        retiros.detalle.mockReturnValue(of(conOrden()));
+        await montar();
+
+        clic('Ver vista previa');
+        clic('Ocultar vista previa');
+
+        expect(visor()).toBeNull();
+        expect(accion('Ver vista previa')).toBeDefined();
+      });
+
+      it('muestra un documento por vez', async () => {
+        retiros.detalle.mockReturnValue(
+          of(conOrden({ boletin: 'B.P. 8891', documentos: { orden: documento, boletin: foto } })),
+        );
+        await montar();
+
+        fixture.componentInstance.alternarVisor('orden');
+        fixture.detectChanges();
+        fixture.componentInstance.alternarVisor('boletin');
+        fixture.detectChanges();
+
+        const visores = (fixture.nativeElement as HTMLElement).querySelectorAll('embed, img');
+        expect(visores.length).toBe(1);
+        expect(visores[0].tagName).toBe('IMG');
+      });
+
+      it('si el documento ya no existe, avisa, no lo muestra y recarga', async () => {
+        retiros.detalle.mockReturnValue(of(conOrden()));
+        retiros.inspeccionarDocumento.mockReturnValue(
+          throwError(() => new HttpErrorResponse({ status: 404 })),
+        );
+        await montar();
+
+        clic('Ver vista previa');
+
+        expect(visor()).toBeNull();
+        expect(toast.error).toHaveBeenCalledWith('El documento ya no existe.');
+        expect(retiros.detalle).toHaveBeenCalledTimes(2);
+      });
+
+      it('un 403 abre el modal de error y no lo muestra', async () => {
+        retiros.detalle.mockReturnValue(of(conOrden()));
+        retiros.inspeccionarDocumento.mockReturnValue(
+          throwError(() => new HttpErrorResponse({ status: 403 })),
+        );
+        await montar();
+
+        clic('Ver vista previa');
+
+        expect(errorModal.show).toHaveBeenCalledWith('No tenés permiso para realizar esta acción.');
+        expect(visor()).toBeNull();
+      });
+
+      it('quitar el documento que se está viendo cierra la vista previa', async () => {
+        retiros.detalle.mockReturnValue(of(conOrden()));
+        await montar();
+        clic('Ver vista previa');
+
+        await fixture.componentInstance.quitar('orden');
+        fixture.detectChanges();
+
+        expect(visor()).toBeNull();
+      });
+    });
+
+    it('sin número ni documento no se muestra la fila ni Adjuntar', async () => {
+      await montar();
+
+      const etiquetas = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('dt')).map((d) =>
+        d.textContent?.trim(),
+      );
+      expect(etiquetas).toContain('Número de orden');
+      expect(etiquetas).not.toContain('Boletín');
+      const adjuntar = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).filter((b) =>
+        b.textContent?.includes('Adjuntar'),
+      );
+      expect(adjuntar.length).toBe(1);
+    });
+
+    it('sin respaldo muestra el mensaje vacío aunque se pueda adjuntar', async () => {
+      retiros.detalle.mockReturnValue(of(makeDetalle({ numero_orden: null })));
+      await montar();
+
+      expect(texto()).toContain('No se cargó número de orden, boletín ni observaciones.');
+      expect(botonQueContiene('Adjuntar')).toBeUndefined();
+    });
+
+    it('el documento se muestra aunque el número esté vacío', async () => {
+      retiros.detalle.mockReturnValue(of(conOrden({ numero_orden: null })));
+      await montar();
+
+      expect(texto()).toContain('orden.pdf');
+      expect(accion('Ver vista previa')).toBeDefined();
+      expect(accion('Quitar')).toBeDefined();
+    });
+
+    it('adjuntar sube al slot, avisa y recarga el detalle', async () => {
+      await montar();
+      const archivo = pdf();
+
+      fixture.componentInstance.adjuntar('boletin', archivo);
+
+      expect(retiros.subirDocumento).toHaveBeenCalledWith('7', 'boletin', archivo);
+      expect(toast.success).toHaveBeenCalledWith('Documento adjuntado.');
+      expect(retiros.detalle).toHaveBeenCalledTimes(2);
+    });
+
+    it('si adjuntar falla, muestra el error y no recarga', async () => {
+      retiros.subirDocumento.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
+      await montar();
+
+      fixture.componentInstance.adjuntar('boletin', pdf());
+
+      expect(toast.error).toHaveBeenCalledWith('El archivo supera el tamaño máximo de 10 MB.');
+      expect(retiros.detalle).toHaveBeenCalledTimes(1);
+    });
+
+    it('quitar pide confirmación y, si se confirma, quita y recarga', async () => {
+      retiros.detalle.mockReturnValue(of(conOrden()));
+      await montar();
+
+      await fixture.componentInstance.quitar('orden');
+
+      expect(confirmModal.confirmar).toHaveBeenCalledWith(
+        expect.objectContaining({ textoConfirmar: 'Quitar', mensaje: expect.stringContaining('orden.pdf') }),
+      );
+      expect(retiros.quitarDocumento).toHaveBeenCalledWith('7', 'orden');
+      expect(toast.success).toHaveBeenCalledWith('Documento quitado.');
+      expect(retiros.detalle).toHaveBeenCalledTimes(2);
+    });
+
+    it('quitar sin confirmar no llama al servicio', async () => {
+      retiros.detalle.mockReturnValue(of(conOrden()));
+      confirmModal.confirmar.mockResolvedValue(false);
+      await montar();
+
+      await fixture.componentInstance.quitar('orden');
+
+      expect(retiros.quitarDocumento).not.toHaveBeenCalled();
+    });
+
+    it('retiro anulado: no muestra Adjuntar ni Quitar', async () => {
+      retiros.detalle.mockReturnValue(of(conOrden({ anulado: true, boletin: 'B.P. 8891' })));
+      await montar();
+
+      expect(texto()).toContain('orden.pdf');
+      expect(botonQueContiene('Adjuntar')).toBeUndefined();
+      expect(accion('Quitar')).toBeUndefined();
+    });
+
+    it('sin retiros.registrar: no muestra Adjuntar ni Quitar', async () => {
+      auth.hasPermiso.mockReturnValue(false);
+      retiros.detalle.mockReturnValue(of(conOrden({ boletin: 'B.P. 8891' })));
+      await montar();
+
+      expect(accion('Ver vista previa')).toBeDefined();
+      expect(botonQueContiene('Adjuntar')).toBeUndefined();
+      expect(accion('Quitar')).toBeUndefined();
+    });
   });
 });

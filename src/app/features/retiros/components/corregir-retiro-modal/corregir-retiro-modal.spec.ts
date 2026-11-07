@@ -31,6 +31,7 @@ function makeDetalle(overrides: Partial<RetiroDetalle> = {}): RetiroDetalle {
     registrado_en: null,
     anulacion: null,
     reincorporacion: null,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
