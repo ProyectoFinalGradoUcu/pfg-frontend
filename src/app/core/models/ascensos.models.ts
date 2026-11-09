@@ -204,6 +204,7 @@ export interface Elegibilidad {
     nombre_completo: string;
     apellido: string;
     unidad: { id: string; denominacion: string } | null;
+    sub_unidad?: { id: string; denominacion: string } | null;
     escalafon: { id: string; denominacion: string } | null;
     situacion: { id: string; codigo: string; denominacion: string } | null;
   };

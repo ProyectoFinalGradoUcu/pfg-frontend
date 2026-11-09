@@ -102,7 +102,7 @@
               (change)="cerrarDestino.set($any($event.target).checked)"
             />
             <span>
-              Cerrar destino en <strong>{{ d.unidad?.denominacion ?? 'unidad sin nombre' }}</strong>
+              Cerrar destino en <strong>{{ d.sub_unidad?.denominacion ?? d.unidad?.denominacion ?? 'unidad sin nombre' }}</strong>
             </span>
           </label>
 

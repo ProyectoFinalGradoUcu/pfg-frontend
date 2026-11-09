@@ -187,6 +187,7 @@ export interface FamiliarItem {
   tipo_relacion: string;
   grado: string | null;
   unidad: string | null;
+  sub_unidad?: string | null;
 }
 
 export interface HistorialRango {

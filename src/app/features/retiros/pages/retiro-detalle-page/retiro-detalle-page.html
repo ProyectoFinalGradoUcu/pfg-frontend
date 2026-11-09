@@ -203,7 +203,8 @@
       </p>
       <dl class="retiro-detalle__campos">
         <div><dt>Grado</dt><dd>{{ rl.grado?.denominacion ?? '—' }}</dd></div>
-        <div><dt>Unidad</dt><dd>{{ rl.unidad?.denominacion ?? '—' }}</dd></div>
+        <div><dt>Base</dt><dd>{{ rl.sub_unidad?.denominacion ?? '—' }}</dd></div>
+        <div><dt>Comando</dt><dd>{{ rl.unidad?.denominacion ?? '—' }}</dd></div>
         <div>
           <dt>Inicio</dt>
           <dd>{{ rl.fecha_inicio ? (rl.fecha_inicio | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd>

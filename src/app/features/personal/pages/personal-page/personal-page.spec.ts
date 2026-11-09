@@ -14,7 +14,7 @@ describe('PersonalPage · filtros', () => {
   let component: PersonalPage;
   let personalService: {
     findPaginado: ReturnType<typeof vi.fn>;
-    getUnidades: ReturnType<typeof vi.fn>;
+    getBases: ReturnType<typeof vi.fn>;
     getSituaciones: ReturnType<typeof vi.fn>;
     getGrados: ReturnType<typeof vi.fn>;
     getEscalafones: ReturnType<typeof vi.fn>;
@@ -23,7 +23,7 @@ describe('PersonalPage · filtros', () => {
   async function setup() {
     personalService = {
       findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
-      getUnidades: vi.fn().mockReturnValue(of([])),
+      getBases: vi.fn().mockReturnValue(of([])),
       getSituaciones: vi.fn().mockReturnValue(of([])),
       getGrados: vi.fn().mockReturnValue(of([{ id: 14, denominacion: 'Brig. Gral.', escalafon_id: 1, orden: 1 }])),
       getEscalafones: vi.fn().mockReturnValue(of([{ id: 1, denominacion: 'AV' }])),
@@ -204,6 +204,20 @@ describe('PersonalPage · filtros', () => {
       const selects = fixture.debugElement.queryAll((d) => d.name === 'app-select');
       expect(selects.map((d) => !!d.properties['multiple'])).toEqual([false, true, true, true, true]);
       expect(selects.map((d) => !!d.properties['searchable'])).toEqual([false, true, true, true, true]);
+    });
+
+    it('el filtro Destino ofrece las bases con su comando, no los comandos', async () => {
+      await setup();
+      personalService.getBases.mockReturnValue(
+        of([{ id: 1, denominacion: 'B.A.I.', unidad_id: 1, comando: { id: 1, denominacion: 'C.A.O.' }, etiqueta: 'B.A.I. (C.A.O.)' }]),
+      );
+      (component as any).loadFilterOptions();
+      fixture.detectChanges();
+
+      const destino = fixture.debugElement.queryAll((d) => d.name === 'app-select')
+        .find((d) => d.attributes['placeholder'] === 'Destino')!;
+      expect(destino.attributes['bindLabel']).toBe('etiqueta');
+      expect(destino.properties['items']).toEqual([expect.objectContaining({ id: 1, etiqueta: 'B.A.I. (C.A.O.)' })]);
     });
 
     it('vaciar grados no deja filtro activo', async () => {

@@ -46,6 +46,7 @@ export interface Retiro {
   /** Al momento del retiro, no los actuales. */
   grado: Ref | null;
   unidad: Ref | null;
+  sub_unidad?: Ref | null;
   fecha_retiro: string;
   hora_retiro: string | null;
   motivo_baja: MotivoBaja;
@@ -64,6 +65,7 @@ export interface RetiroDetalle extends Retiro {
     fecha_inicio: string | null;
     fecha_fin: string | null;
     unidad: Ref | null;
+    sub_unidad?: Ref | null;
     grado: Ref | null;
   } | null;
   /** `null` si el retiro fue anulado o es importado o histórico. `tipo` dice "Retiro" o "Baja" según el motivo. */
@@ -99,11 +101,13 @@ export interface PreviaRetiro {
     fecha_inicio: string | null;
     tipo_funcionario: 'oficial' | 'subalterno' | null;
     unidad: Ref | null;
+    sub_unidad?: Ref | null;
     situacion: { id: string; codigo: string } | null;
   } | null;
   destino_vigente: {
     id: string;
     unidad: Ref | null;
+    sub_unidad?: Ref | null;
     fecha_inicio: string | null;
     cerrar_sugerido: boolean;
   } | null;

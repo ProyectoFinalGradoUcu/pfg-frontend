@@ -561,9 +561,9 @@
             <span class="pd__familiar-cedula">{{ f.cedula }}</span>
           </div>
           <span class="pd__familiar-relacion" *ngIf="f.tipo_relacion">{{ f.tipo_relacion }}</span>
-          <div class="pd__familiar-destino" *ngIf="f.grado || f.unidad">
+          <div class="pd__familiar-destino" *ngIf="f.grado || f.sub_unidad || f.unidad">
             <span *ngIf="f.grado">{{ f.grado }}</span>
-            <span *ngIf="f.unidad" class="pd__familiar-unidad">{{ f.unidad }}</span>
+            <span *ngIf="f.sub_unidad || f.unidad" class="pd__familiar-unidad">{{ f.sub_unidad ? f.sub_unidad + ' (' + f.unidad + ')' : f.unidad }}</span>
           </div>
           <button type="button" class="pd__familiar-remove" *ngIf="editMode()"
             (click)="$event.stopPropagation(); quitarFamiliar(f)" aria-label="Quitar familiar">
