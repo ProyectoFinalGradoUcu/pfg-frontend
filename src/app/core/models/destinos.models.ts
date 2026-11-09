@@ -68,6 +68,38 @@ export interface Comando {
   denominacion: string;
 }
 
+/** `GET /catalogos/unidades?incluir_bajas=true` — el comando con su vigencia y bases vigentes. */
+export interface ComandoCatalogo extends Comando {
+  vigente: boolean;
+  total_bases: number;
+}
+
+/** `POST /catalogos/unidades`. El código no se puede cambiar después. */
+export interface CrearComandoPayload {
+  codigo: string;
+  denominacion: string;
+}
+
+/** `PATCH /catalogos/unidades/:id`. */
+export interface EditarComandoPayload {
+  denominacion?: string;
+  vigente?: boolean;
+}
+
+/** `POST /catalogos/sub-unidades`: la base siempre pertenece a un comando. */
+export interface CrearBasePayload {
+  unidad_id: number;
+  codigo: string;
+  denominacion: string;
+}
+
+/** `PATCH /catalogos/sub-unidades/:id`. Cambiar `unidad_id` solo vale si la base nunca se usó. */
+export interface EditarBasePayload {
+  denominacion?: string;
+  unidad_id?: number;
+  vigente?: boolean;
+}
+
 /** `GET /personas/:id/destinos` — array plano, sin paginar y aplanado. No es un `Destino`. */
 export interface DestinoDePersona {
   id: string;
