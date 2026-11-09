@@ -170,7 +170,14 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly designando = signal(false);
 
   // ── Computed ───────────────────────────────────────────────────────────────
-  readonly puedeGestionar = computed(() => this.auth.hasPermiso('cursos.gestionar'));
+  // Con `.unidad` también gestiona: los cursos de sus bases.
+  readonly puedeGestionar = computed(() => this.auth.puedeConAlcance('cursos.gestionar'));
+
+  /** Gestiona solo los cursos de sus bases: no puede crear cursos generales. */
+  readonly gestionaPorBase = computed(() => this.auth.alcanceDe('cursos.gestionar') === 'unidad');
+
+  /** Bases que se ofrecen al crear un curso: las propias con alcance de unidad, todas con alcance global. */
+  readonly basesCurso = signal<{ id: number; etiqueta: string }[]>([]);
 
   readonly cursoTieneDesignados = computed(() => {
     const curso = this.cursoSeleccionado();
@@ -235,6 +242,8 @@ export class CursosPage implements OnInit, OnDestroy {
     nombre_curso: ['', [Validators.required, Validators.maxLength(150)]],
     institucion: ['', [Validators.required, Validators.maxLength(100)]],
     es_obligatorio: [false],
+    // Vacío = curso general (solo alcance global).
+    sub_unidad_id: [null as number | null],
     // Designar ahora (toggle): si está activo, crea el curso y una primera designación.
     designar_ahora: [false],
     numero_orden: [''],
@@ -410,11 +419,13 @@ export class CursosPage implements OnInit, OnDestroy {
 
   abrirNuevoCurso(): void {
     this.nuevoCursoForm.reset({
-      nombre_curso: '', institucion: '', es_obligatorio: false,
+      nombre_curso: '', institucion: '', es_obligatorio: false, sub_unidad_id: null,
       designar_ahora: false, numero_orden: '', boletin: '',
       fecha_inicio: '', fecha_fin: '', persona_ids: [],
     });
     this.modalError.set(null);
+    // Después del reset: con una sola base propia la deja elegida.
+    this.cargarBasesCurso();
     this.modal.set('nuevoCurso');
   }
 
@@ -605,6 +616,34 @@ export class CursosPage implements OnInit, OnDestroy {
       });
   }
 
+  /** Con alcance de unidad la base es obligatoria; si tiene una sola, va esa. */
+  private cargarBasesCurso(): void {
+    const control = this.nuevoCursoForm.controls.sub_unidad_id;
+    if (this.gestionaPorBase()) {
+      const propias = (this.auth.currentUser()?.unidades ?? []).map((u) => ({
+        id: Number(u.id),
+        etiqueta: `${u.denominacion} (${u.comando.denominacion})`,
+      }));
+      this.basesCurso.set(propias);
+      control.setValidators(Validators.required);
+      if (propias.length === 1) control.setValue(propias[0].id);
+    } else {
+      control.clearValidators();
+      if (this.basesCurso().length === 0) {
+        this.personalService.getBases().subscribe({
+          next: (b) => this.basesCurso.set(b.map((x) => ({ id: Number(x.id), etiqueta: x.etiqueta }))),
+        });
+      }
+    }
+    control.updateValueAndValidity();
+  }
+
+  /** "B.A.I. (C.A.O.)" o "General". */
+  etiquetaBaseCurso(d: CursoDefinicion): string {
+    if (!d.base) return 'General';
+    return d.base.comando ? `${d.base.denominacion} (${d.base.comando})` : d.base.denominacion;
+  }
+
   guardarNuevoCurso(): void {
     if (this.nuevoCursoForm.invalid) {
       this.nuevoCursoForm.markAllAsTouched();
@@ -634,6 +673,7 @@ export class CursosPage implements OnInit, OnDestroy {
         nombre_curso: raw.nombre_curso!,
         institucion: raw.institucion!,
         es_obligatorio: raw.es_obligatorio ?? false,
+        ...(raw.sub_unidad_id ? { sub_unidad_id: Number(raw.sub_unidad_id) } : {}),
       })
       .subscribe({
         next: (nuevo) => {

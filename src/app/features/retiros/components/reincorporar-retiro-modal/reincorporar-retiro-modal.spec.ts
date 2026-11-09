@@ -11,7 +11,7 @@ import {
   armarBodyReincorporacion,
   mensajeReincorporado,
   sinPuntoFinal,
-  unidadSugerida,
+  baseSugerida,
 } from './reincorporar-retiro-modal';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { PersonalService } from '../../../../core/services/personal.service';
@@ -40,7 +40,8 @@ function makePrevia(overrides: Partial<PreviaReincorporacion> = {}): PreviaReinc
       prima_tecnica: 'VACIO',
       prima_solidaria_familiar: null,
     },
-    unidad_anterior: { id: '5', denominacion: 'Cuartel General' },
+    unidad_anterior: { id: '5', denominacion: 'C.A.O.' },
+    sub_unidad_anterior: { id: '50', denominacion: 'B.A.I.' },
     grados_validos: [
       { id: '3', codigo: 'SG', denominacion: 'Sargento' },
       { id: '4', codigo: 'SG1', denominacion: 'Sargento 1°' },
@@ -57,7 +58,7 @@ function valores(overrides: Partial<ValoresReincorporacion> = {}): ValoresReinco
     grado_reincorporacion_id: 3,
     haber_retiro: 45000.5,
     porcentaje: 30,
-    unidad_id: 5,
+    sub_unidad_id: 50,
     numero_orden: 'O.D. 13001',
     boletin: '',
     posicion_destino: '',
@@ -94,7 +95,7 @@ describe('armarBodyReincorporacion', () => {
       grado_reincorporacion_id: 3,
       haber_retiro: 45000.5,
       porcentaje_progresivo: 0.3,
-      unidad_id: 5,
+      sub_unidad_id: 50,
       numero_orden: 'O.D. 13001',
     });
   });
@@ -116,20 +117,25 @@ describe('armarBodyReincorporacion', () => {
   });
 });
 
-describe('unidadSugerida', () => {
-  it('prefiere la unidad del destino abierto', () => {
+describe('baseSugerida', () => {
+  it('prefiere la base del destino abierto', () => {
     const p = makePrevia({
-      destino_abierto: { id: '9', unidad: { id: '8', denominacion: 'Brigada I' }, fecha_inicio: '2025-01-01' },
+      destino_abierto: {
+        id: '9',
+        unidad: { id: '8', denominacion: 'C.A.P.' },
+        sub_unidad: { id: '80', denominacion: 'E.T.A.' },
+        fecha_inicio: '2025-01-01',
+      },
     });
-    expect(unidadSugerida(p)).toBe(8);
+    expect(baseSugerida(p)).toBe(80);
   });
 
-  it('sin destino abierto usa la unidad de la relación cerrada', () => {
-    expect(unidadSugerida(makePrevia())).toBe(5);
+  it('sin destino abierto usa la base de la relación cerrada', () => {
+    expect(baseSugerida(makePrevia())).toBe(50);
   });
 
-  it('sin ninguna de las dos no sugiere nada', () => {
-    expect(unidadSugerida(makePrevia({ unidad_anterior: null }))).toBeNull();
+  it('no sugiere un comando: sin base no sugiere nada', () => {
+    expect(baseSugerida(makePrevia({ sub_unidad_anterior: null }))).toBeNull();
   });
 });
 
@@ -157,11 +163,14 @@ describe('mensajeReincorporado', () => {
   });
 });
 
+const BAI = { id: '50', denominacion: 'B.A.I.', unidad_id: 5, comando: { id: '5', denominacion: 'C.A.O.' }, etiqueta: 'B.A.I. (C.A.O.)' };
+const ETA = { id: '80', denominacion: 'E.T.A.', unidad_id: 8, comando: { id: '8', denominacion: 'C.A.P.' }, etiqueta: 'E.T.A. (C.A.P.)' };
+
 describe('ReincorporarRetiroModal', () => {
   let fixture: ComponentFixture<ReincorporarRetiroModal>;
   let component: ReincorporarRetiroModal;
   let retiros: { reincorporar: ReturnType<typeof vi.fn> };
-  let personal: { getGrados: ReturnType<typeof vi.fn>; getUnidades: ReturnType<typeof vi.fn> };
+  let personal: { getGrados: ReturnType<typeof vi.fn>; getBases: ReturnType<typeof vi.fn> };
 
   async function montar(previa: PreviaReincorporacion = makePrevia()): Promise<void> {
     await TestBed.configureTestingModule({
@@ -200,12 +209,7 @@ describe('ReincorporarRetiroModal', () => {
           { id: 4, codigo: 'SG1', denominacion: 'Sargento 1°', escalafon_id: 2, orden: 2 },
         ]),
       ),
-      getUnidades: vi.fn().mockReturnValue(
-        of([
-          { id: 5, codigo: 'CG', denominacion: 'Cuartel General' },
-          { id: 8, codigo: 'B1', denominacion: 'Brigada I' },
-        ]),
-      ),
+      getBases: vi.fn().mockReturnValue(of([BAI, ETA])),
     };
   });
 
@@ -217,10 +221,10 @@ describe('ReincorporarRetiroModal', () => {
     expect(cerrado).not.toHaveBeenCalled();
   });
 
-  it('propone el grado de carrera y la unidad sugerida', async () => {
+  it('propone el grado de carrera y la base sugerida', async () => {
     await montar();
     expect(component.form.controls.grado_reincorporacion_id.value).toBe(3);
-    expect(component.form.controls.unidad_id.value).toBe(5);
+    expect(component.form.controls.sub_unidad_id.value).toBe(50);
   });
 
   it('ofrece los grados válidos de la previa sin pedir el catálogo', async () => {
@@ -241,10 +245,10 @@ describe('ReincorporarRetiroModal', () => {
     expect(el.textContent).toContain('No hay grados para elegir');
   });
 
-  it('si la unidad sugerida no está vigente la deja sin elegir', async () => {
-    personal.getUnidades.mockReturnValue(of([{ id: 8, codigo: 'B1', denominacion: 'Brigada I' }]));
+  it('si la base sugerida no está vigente la deja sin elegir', async () => {
+    personal.getBases.mockReturnValue(of([ETA]));
     await montar();
-    expect(component.form.controls.unidad_id.value).toBeNull();
+    expect(component.form.controls.sub_unidad_id.value).toBeNull();
   });
 
   it('con los datos del acto completos el formulario es válido', async () => {
@@ -365,30 +369,40 @@ describe('ReincorporarRetiroModal', () => {
 
   it('avisa que abre un destino nuevo cuando no hay destino abierto', async () => {
     await montar();
-    expect(component.efectoDestino()).toContain('Se abre un destino nuevo en Cuartel General');
+    expect(component.efectoDestino()).toContain('Se abre un destino nuevo en B.A.I. (C.A.O.)');
   });
 
-  it('reemplaza el destino abierto aunque se elija su misma unidad', async () => {
+  it('reemplaza el destino abierto aunque se elija su misma base', async () => {
     await montar(
       makePrevia({
-        destino_abierto: { id: '9', unidad: { id: '8', denominacion: 'Brigada I' }, fecha_inicio: '2025-04-01' },
+        destino_abierto: {
+          id: '9',
+          unidad: { id: '8', denominacion: 'C.A.P.' },
+          sub_unidad: { id: '80', denominacion: 'E.T.A.' },
+          fecha_inicio: '2025-04-01',
+        },
       }),
     );
     const efecto = component.efectoDestino()!;
-    expect(efecto).toContain('Se cierra el destino abierto en Brigada I');
-    expect(efecto).toContain('se abre uno nuevo en Brigada I');
+    expect(efecto).toContain('Se cierra el destino abierto en E.T.A.');
+    expect(efecto).toContain('se abre uno nuevo en E.T.A. (C.A.P.)');
   });
 
-  it('avisa que cierra el destino abierto si se elige otra unidad', async () => {
+  it('avisa que cierra el destino abierto si se elige otra base', async () => {
     await montar(
       makePrevia({
-        destino_abierto: { id: '9', unidad: { id: '8', denominacion: 'Brigada I' }, fecha_inicio: '2025-04-01' },
+        destino_abierto: {
+          id: '9',
+          unidad: { id: '8', denominacion: 'C.A.P.' },
+          sub_unidad: { id: '80', denominacion: 'E.T.A.' },
+          fecha_inicio: '2025-04-01',
+        },
       }),
     );
-    component.form.patchValue({ unidad_id: 5 });
+    component.form.patchValue({ sub_unidad_id: 50 });
     const efecto = component.efectoDestino()!;
-    expect(efecto).toContain('Se cierra el destino abierto en Brigada I');
-    expect(efecto).toContain('Cuartel General');
+    expect(efecto).toContain('Se cierra el destino abierto en E.T.A.');
+    expect(efecto).toContain('B.A.I. (C.A.O.)');
   });
 
   it('confirma con el body armado y emite el resultado', async () => {
@@ -405,7 +419,7 @@ describe('ReincorporarRetiroModal', () => {
       grado_reincorporacion_id: 3,
       haber_retiro: 45000.5,
       porcentaje_progresivo: 0.3,
-      unidad_id: 5,
+      sub_unidad_id: 50,
       numero_orden: 'O.D. 13001',
       posicion_destino: 'Jefe de Sección',
     });
@@ -424,10 +438,15 @@ describe('ReincorporarRetiroModal', () => {
     expect(retiros.reincorporar.mock.calls[0][1]).not.toHaveProperty('haber_retiro');
   });
 
-  it('manda la posición aunque la unidad sea la del destino abierto', async () => {
+  it('manda la posición aunque la base sea la del destino abierto', async () => {
     await montar(
       makePrevia({
-        destino_abierto: { id: '9', unidad: { id: '8', denominacion: 'Brigada I' }, fecha_inicio: '2025-04-01' },
+        destino_abierto: {
+          id: '9',
+          unidad: { id: '8', denominacion: 'C.A.P.' },
+          sub_unidad: { id: '80', denominacion: 'E.T.A.' },
+          fecha_inicio: '2025-04-01',
+        },
       }),
     );
     completar({ posicion_destino: 'Jefe de Sección' });

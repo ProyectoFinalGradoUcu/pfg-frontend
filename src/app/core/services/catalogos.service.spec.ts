@@ -41,6 +41,35 @@ describe('CatalogosService', () => {
     });
   });
 
+  describe('listarComandos', () => {
+    it('pide también los dados de baja y pasa los ids a string', () => {
+      let recibido: unknown = null;
+      service.listarComandos().subscribe((r) => (recibido = r));
+
+      const req = http.expectOne((r) => r.url === `${API_BASE_URL}/catalogos/unidades`);
+      expect(req.request.params.get('incluir_bajas')).toBe('true');
+      req.flush([{ id: 1, codigo: 'CAO', denominacion: 'C.A.O.', vigente: false, total_bases: 3 }]);
+
+      expect(recibido).toEqual([{ id: '1', codigo: 'CAO', denominacion: 'C.A.O.', vigente: false, total_bases: 3 }]);
+    });
+  });
+
+  describe('escritura de comandos y bases', () => {
+    it.each([
+      ['crearComando', 'POST', 'unidades', () => service.crearComando({ codigo: 'X', denominacion: 'X' })],
+      ['editarComando', 'PATCH', 'unidades/3', () => service.editarComando('3', { vigente: false })],
+      ['crearBase', 'POST', 'sub-unidades', () => service.crearBase({ unidad_id: 1, codigo: 'B', denominacion: 'B' })],
+      ['editarBase', 'PATCH', 'sub-unidades/9', () => service.editarBase('9', { unidad_id: 2 })],
+    ])('%s manda %s /catalogos/%s envuelto en service_request', (_n, method, path, llamar) => {
+      (llamar as () => ReturnType<CatalogosService['crearComando']>)().subscribe();
+
+      const req = http.expectOne(`${API_BASE_URL}/catalogos/${path}`);
+      expect(req.request.method).toBe(method);
+      expect(req.request.body).toHaveProperty('service_request');
+      req.flush({});
+    });
+  });
+
   describe('getMotivosBaja', () => {
     it('pide GET /catalogos/motivos-baja y devuelve el catálogo', () => {
       const motivos: MotivoBajaCatalogo[] = [

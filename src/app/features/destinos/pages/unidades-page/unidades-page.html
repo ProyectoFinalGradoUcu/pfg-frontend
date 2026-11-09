@@ -9,16 +9,69 @@
   <header class="unidades__header">
     <div>
       <h2>Sub-unidades</h2>
-      <p>Los destinos posibles, agrupados por comando, con su dotación actual</p>
+      <p>Los comandos y sus bases (los destinos posibles), con su dotación actual</p>
       <p class="unidades__nota">
-        Catálogo de solo lectura: las unidades (comandos) y sub-unidades las mantiene el sistema de liquidación.
+        Catálogo compartido con liquidación: las bajas son lógicas, el código no se cambia y cada base pertenece a un comando.
       </p>
+    </div>
+    <div class="unidades__header-actions" *ngIf="puedeGestionar()">
+      <button type="button" class="btn btn--ghost btn--lg" (click)="abrirCrearComando()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Nuevo comando
+      </button>
+      <button type="button" class="btn btn--primary btn--lg" (click)="abrirCrearBase()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Nueva base
+      </button>
     </div>
   </header>
 
   <article class="unidades__card">
+    <h3>Comandos</h3>
+    <div class="unidades__table-wrapper">
+      <table class="unidades__table">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Denominación</th>
+            <th>Bases vigentes</th>
+            <th>Vigente</th>
+            <th *ngIf="puedeGestionar()" class="unidades__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let c of comandos(); trackBy: trackComando">
+            <td><strong>{{ c.codigo }}</strong></td>
+            <td>{{ c.denominacion }}</td>
+            <td><span class="unidades__count-badge">{{ c.total_bases }}</span></td>
+            <td>
+              <span class="unidades__badge" [class.unidades__badge--vigente]="c.vigente">
+                {{ c.vigente ? 'Sí' : 'No' }}
+              </span>
+            </td>
+            <td *ngIf="puedeGestionar()" class="unidades__col-actions">
+              <span class="unidades__acciones">
+                <button type="button" class="btn btn--ghost btn--sm" (click)="abrirEditarComando(c)">Editar</button>
+                <button *ngIf="c.vigente" type="button" class="btn btn--ghost btn--sm unidades__accion-baja" (click)="abrirBajaComando(c)">Dar de baja</button>
+                <button *ngIf="!c.vigente" type="button" class="btn btn--ghost btn--sm" (click)="abrirReactivarComando(c)">Reactivar</button>
+              </span>
+            </td>
+          </tr>
+          <tr *ngIf="comandos().length === 0">
+            <td [attr.colspan]="puedeGestionar() ? 5 : 4" class="unidades__empty">No hay comandos cargados.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="unidades__card">
     <div class="unidades__gestion-header">
-      <h3>Catálogo</h3>
+      <h3>Bases</h3>
 
       <div class="unidades__filters">
         <div class="unidades__search-wrap">
@@ -83,6 +136,7 @@
             <th>Comando</th>
             <th>Destinados hoy</th>
             <th>Vigente</th>
+            <th *ngIf="puedeGestionar()" class="unidades__col-actions">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -96,9 +150,16 @@
                 {{ s.vigente ? 'Sí' : 'No' }}
               </span>
             </td>
+            <td *ngIf="puedeGestionar()" class="unidades__col-actions" (click)="$event.stopPropagation()">
+              <span class="unidades__acciones">
+                <button type="button" class="btn btn--ghost btn--sm" (click)="abrirEditarBase(s)">Editar</button>
+                <button *ngIf="s.vigente" type="button" class="btn btn--ghost btn--sm unidades__accion-baja" (click)="abrirBajaBase(s)">Dar de baja</button>
+                <button *ngIf="!s.vigente" type="button" class="btn btn--ghost btn--sm" (click)="abrirReactivarBase(s)">Reactivar</button>
+              </span>
+            </td>
           </tr>
           <tr *ngIf="subUnidades().length === 0">
-            <td colspan="5" class="unidades__empty">No hay sub-unidades que coincidan con la búsqueda.</td>
+            <td [attr.colspan]="puedeGestionar() ? 6 : 5" class="unidades__empty">No hay sub-unidades que coincidan con la búsqueda.</td>
           </tr>
         </tbody>
       </table>
@@ -112,4 +173,71 @@
       (pageChange)="onPageChange($event)"
     ></app-paginator>
   </article>
+
+  <app-unidad-form-modal
+    *ngIf="modal() === 'form'"
+    [tipo]="formTipo()"
+    [comando]="comandoEnEdicion()"
+    [base]="baseEnEdicion()"
+    [comandos]="comandosVigentes()"
+    (guardado)="onGuardado()"
+    (cerrado)="cerrarModal()"
+  ></app-unidad-form-modal>
+
+  <div class="modal-overlay" *ngIf="modal() === 'baja' && seleccion() as s" (click)="cerrarModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <h3>{{ s.tipo === 'comando' ? 'Dar de baja comando' : 'Dar de baja base' }}</h3>
+      </header>
+
+      <div class="modal__body" *ngIf="motivoBloqueoBaja() as motivo">
+        <p class="modal__warning">
+          No se puede dar de baja <strong>{{ s.item.denominacion }}</strong>: {{ motivo }}
+        </p>
+      </div>
+
+      <div class="modal__body" *ngIf="!motivoBloqueoBaja()">
+        <p>Se va a dar de baja <strong>{{ s.item.denominacion }}</strong> ({{ s.item.codigo }}).</p>
+        <p>
+          Es una baja lógica: sale de los selectores, pero sigue en el historial y en las tablas de
+          liquidación que la referencian. Se puede reactivar en cualquier momento.
+        </p>
+        <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
+      </div>
+
+      <footer class="modal__footer">
+        <button type="button" class="btn" (click)="cerrarModal()" [disabled]="procesando()">
+          {{ motivoBloqueoBaja() ? 'Cerrar' : 'Cancelar' }}
+        </button>
+        <button
+          *ngIf="!motivoBloqueoBaja()"
+          type="button"
+          class="btn btn--primary"
+          (click)="confirmarBaja()"
+          [disabled]="procesando()"
+        >
+          Dar de baja
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="modal-overlay" *ngIf="modal() === 'reactivar' && seleccion() as s" (click)="cerrarModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <h3>{{ s.tipo === 'comando' ? 'Reactivar comando' : 'Reactivar base' }}</h3>
+      </header>
+      <div class="modal__body">
+        <p>
+          Se va a reactivar <strong>{{ s.item.denominacion }}</strong> ({{ s.item.codigo }}), que vuelve a
+          estar disponible en los selectores.
+        </p>
+        <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
+      </div>
+      <footer class="modal__footer">
+        <button type="button" class="btn" (click)="cerrarModal()" [disabled]="procesando()">Cancelar</button>
+        <button type="button" class="btn btn--primary" (click)="confirmarReactivar()" [disabled]="procesando()">Reactivar</button>
+      </footer>
+    </div>
+  </div>
 </section>

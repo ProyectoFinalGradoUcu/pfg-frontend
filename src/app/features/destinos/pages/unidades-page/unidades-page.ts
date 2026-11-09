@@ -1,20 +1,35 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { Comando, ListarSubUnidadesQuery, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
+import { AuthService } from '../../../../core/services/auth.service';
+import {
+  ComandoCatalogo,
+  ListarSubUnidadesQuery,
+  SubUnidadConDestinados,
+} from '../../../../core/models/destinos.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 import { DEBOUNCE_MS } from '../../destino-presentacion';
+import { TipoCatalogo } from '../../components/unidad-form-modal/unidad-form-modal';
+
+/** El comando o la base sobre la que se abrió un modal. */
+type Seleccion =
+  | { tipo: 'comando'; item: ComandoCatalogo }
+  | { tipo: 'base'; item: SubUnidadConDestinados };
+
+type ModalKind = 'form' | 'baja' | 'reactivar' | null;
 
 /**
- * Sub-unidades (los destinos posibles) con su comando y dotación actual.
+ * Comandos (`unidades`) y sub-unidades o bases (`sub_unidades`, los destinos posibles)
+ * con su dotación actual.
  *
- * Solo lectura: unidades y sub-unidades son catálogos del sistema de liquidación,
- * así que acá no hay alta, edición ni baja.
+ * Con `catalogos.gestionar` se pueden crear, editar, dar de baja y reactivar. Son tablas
+ * compartidas con liquidación: la baja es lógica, el código no se edita y una base
+ * siempre se crea dentro de un comando.
  */
 @Component({
   selector: 'app-unidades-page',
@@ -27,6 +42,9 @@ export class UnidadesPage implements OnInit, OnDestroy {
   private readonly catalogosService = inject(CatalogosService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly auth = inject(AuthService);
+
+  readonly puedeGestionar = computed(() => this.auth.hasPermiso('catalogos.gestionar'));
 
   readonly loading = signal(false);
   readonly subUnidades = signal<SubUnidadConDestinados[]>([]);
@@ -34,7 +52,9 @@ export class UnidadesPage implements OnInit, OnDestroy {
   readonly page = signal(1);
   readonly pageSize = 10;
 
-  readonly comandos = signal<Comando[]>([]);
+  /** Todos los comandos, también los dados de baja. */
+  readonly comandos = signal<ComandoCatalogo[]>([]);
+  readonly comandosVigentes = computed(() => this.comandos().filter((c) => c.vigente));
   readonly comandoOpciones = computed(() =>
     this.comandos().map((c) => ({ value: c.id, label: `${c.codigo} · ${c.denominacion}` })),
   );
@@ -52,14 +72,45 @@ export class UnidadesPage implements OnInit, OnDestroy {
     { value: 'false', label: 'Dadas de baja' },
   ];
 
+  // ── Modales ──
+  readonly modal = signal<ModalKind>(null);
+  readonly formTipo = signal<TipoCatalogo>('base');
+  readonly seleccion = signal<Seleccion | null>(null);
+  readonly modalError = signal<string | null>(null);
+  readonly procesando = signal(false);
+
+  readonly comandoEnEdicion = computed(() => {
+    const s = this.seleccion();
+    return s?.tipo === 'comando' ? s.item : null;
+  });
+  readonly baseEnEdicion = computed(() => {
+    const s = this.seleccion();
+    return s?.tipo === 'base' ? s.item : null;
+  });
+
+  /**
+   * Motivo por el que la baja va a fallar, para avisarlo antes de pegarle al backend.
+   * El backend igual valida (también las relaciones laborales activas, que acá no se ven).
+   */
+  readonly motivoBloqueoBaja = computed<string | null>(() => {
+    const s = this.seleccion();
+    if (!s) return null;
+    if (s.tipo === 'base' && s.item.total_destinados > 0) {
+      const n = s.item.total_destinados;
+      return `tiene ${n} ${n === 1 ? 'funcionario' : 'funcionarios'} con destino vigente. Reasignalos antes de darla de baja.`;
+    }
+    if (s.tipo === 'comando' && s.item.total_bases > 0) {
+      const n = s.item.total_bases;
+      return `tiene ${n} ${n === 1 ? 'base vigente' : 'bases vigentes'}. Dalas de baja primero.`;
+    }
+    return null;
+  });
+
   private readonly querySubject = new Subject<void>();
 
   ngOnInit(): void {
     this.cargar();
-    this.catalogosService.getComandos().subscribe({
-      next: (c) => this.comandos.set(c),
-      error: () => this.comandos.set([]),
-    });
+    this.cargarComandos();
     this.querySubject.pipe(debounceTime(DEBOUNCE_MS)).subscribe(() => {
       this.page.set(1);
       this.cargar();
@@ -82,6 +133,13 @@ export class UnidadesPage implements OnInit, OnDestroy {
         this.toast.error(parseError(err));
         this.loading.set(false);
       },
+    });
+  }
+
+  cargarComandos(): void {
+    this.catalogosService.listarComandos().subscribe({
+      next: (c) => this.comandos.set(c),
+      error: () => this.comandos.set([]),
     });
   }
 
@@ -130,5 +188,112 @@ export class UnidadesPage implements OnInit, OnDestroy {
     this.router.navigate(['/destinos/unidades', subUnidad.id]);
   }
 
+  // ── Alta / edición ──
+
+  abrirCrearComando(): void {
+    this.abrirForm('comando', null);
+  }
+
+  abrirCrearBase(): void {
+    this.abrirForm('base', null);
+  }
+
+  abrirEditarComando(comando: ComandoCatalogo): void {
+    this.abrirForm('comando', { tipo: 'comando', item: comando });
+  }
+
+  abrirEditarBase(base: SubUnidadConDestinados): void {
+    this.abrirForm('base', { tipo: 'base', item: base });
+  }
+
+  private abrirForm(tipo: TipoCatalogo, seleccion: Seleccion | null): void {
+    this.formTipo.set(tipo);
+    this.seleccion.set(seleccion);
+    this.modal.set('form');
+  }
+
+  onGuardado(): void {
+    const tipo = this.formTipo();
+    const editando = this.seleccion() !== null;
+    this.toast.success(
+      tipo === 'comando'
+        ? editando ? 'Comando actualizado' : 'Comando creado'
+        : editando ? 'Base actualizada' : 'Base creada',
+    );
+    this.cerrarModal();
+    this.recargarTodo();
+  }
+
+  cerrarModal(): void {
+    this.modal.set(null);
+    this.seleccion.set(null);
+    this.modalError.set(null);
+    this.procesando.set(false);
+  }
+
+  // ── Baja lógica / reactivación ──
+
+  abrirBajaComando(comando: ComandoCatalogo): void {
+    this.abrirConfirmacion('baja', { tipo: 'comando', item: comando });
+  }
+
+  abrirBajaBase(base: SubUnidadConDestinados): void {
+    this.abrirConfirmacion('baja', { tipo: 'base', item: base });
+  }
+
+  abrirReactivarComando(comando: ComandoCatalogo): void {
+    this.abrirConfirmacion('reactivar', { tipo: 'comando', item: comando });
+  }
+
+  abrirReactivarBase(base: SubUnidadConDestinados): void {
+    this.abrirConfirmacion('reactivar', { tipo: 'base', item: base });
+  }
+
+  private abrirConfirmacion(kind: 'baja' | 'reactivar', seleccion: Seleccion): void {
+    this.seleccion.set(seleccion);
+    this.modalError.set(null);
+    this.modal.set(kind);
+  }
+
+  confirmarBaja(): void {
+    if (this.motivoBloqueoBaja()) return;
+    this.cambiarVigencia(false);
+  }
+
+  confirmarReactivar(): void {
+    this.cambiarVigencia(true);
+  }
+
+  private cambiarVigencia(vigente: boolean): void {
+    const s = this.seleccion();
+    if (!s) return;
+    const op: Observable<unknown> =
+      s.tipo === 'comando'
+        ? this.catalogosService.editarComando(s.item.id, { vigente })
+        : this.catalogosService.editarBase(s.item.id, { vigente });
+    const que = s.tipo === 'comando' ? 'Comando' : 'Base';
+    const hecho = s.tipo === 'comando' ? (vigente ? 'reactivado' : 'dado de baja') : vigente ? 'reactivada' : 'dada de baja';
+
+    this.procesando.set(true);
+    this.modalError.set(null);
+    op.subscribe({
+      next: () => {
+        this.toast.success(`${que} ${hecho}`);
+        this.cerrarModal();
+        this.recargarTodo();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.procesando.set(false);
+        this.modalError.set(parseError(err));
+      },
+    });
+  }
+
+  private recargarTodo(): void {
+    this.cargar();
+    this.cargarComandos();
+  }
+
   trackSubUnidad = (_: number, s: SubUnidadConDestinados) => s.id;
+  trackComando = (_: number, c: ComandoCatalogo) => c.id;
 }

@@ -1,0 +1,65 @@
+<div class="modal-overlay" (click)="cerrar()">
+  <div class="modal unidad-form" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <h3>{{ titulo() }}</h3>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body" [formGroup]="form">
+      <div class="unidad-form__field" *ngIf="esBase()">
+        <label>Comando *</label>
+        <app-select
+          [items]="comandoOpciones()"
+          placeholder="Elegí el comando"
+          formControlName="unidad_id"
+        ></app-select>
+        <p class="unidad-form__hint" *ngIf="!editando()">
+          La base queda dentro de este comando. Si lo que querés cargar es un comando nuevo, crealo primero.
+        </p>
+        <p class="unidad-form__hint" *ngIf="editando()">
+          Solo se puede cambiar si la base nunca tuvo personal, destinos ni cursos: liquidación guarda el
+          comando en cada relación laboral.
+        </p>
+      </div>
+
+      <div class="unidad-form__field">
+        <label>Código *</label>
+        <input
+          *ngIf="!editando()"
+          type="text"
+          formControlName="codigo"
+          maxlength="30"
+          [placeholder]="esBase() ? 'Ej: BAI' : 'Ej: CAO'"
+          autocomplete="off"
+        />
+        <div class="unidad-form__readonly" *ngIf="editando()">
+          <strong>{{ codigoActual() }}</strong>
+          <small>No se puede cambiar: liquidación y los scripts referencian el catálogo por código.</small>
+        </div>
+        <p class="unidad-form__hint" *ngIf="!editando()">
+          Único en todo el catálogo: no puede repetir el de otra base ni el de un comando.
+        </p>
+      </div>
+
+      <div class="unidad-form__field">
+        <label>Denominación *</label>
+        <input
+          type="text"
+          formControlName="denominacion"
+          maxlength="150"
+          [placeholder]="esBase() ? 'Ej: B.A.I.' : 'Ej: C.A.O.'"
+          autocomplete="off"
+        />
+      </div>
+
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()" [disabled]="guardando()">Cancelar</button>
+      <button type="button" class="btn btn--primary" (click)="guardar()" [disabled]="guardando()">
+        {{ guardando() ? 'Guardando...' : (editando() ? 'Guardar cambios' : (esBase() ? 'Crear base' : 'Crear comando')) }}
+      </button>
+    </footer>
+  </div>
+</div>

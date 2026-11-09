@@ -242,6 +242,9 @@
                   [class.pd__status-badge--licencia]="['SIT03','SIT09'].includes(rl.situacion?.codigo ?? '')"
                   [class.pd__status-badge--baja]="rl.situacion?.codigo === 'BAJ'"
                 >{{ rl.situacion?.denominacion ?? '—' }}</span>
+                <button *ngIf="puedeCambiarSituacion() && rl.estado === 'activo' && !p.es_civil" type="button"
+                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
+                  (click)="abrirCambiarSituacion()">Cambiar situación</button>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Tipo de funcionario</span>
@@ -365,10 +368,11 @@
               </div>
               <div class="pd__field">
                 <span class="pd__label">Situación</span>
-                <select formControlName="situacion_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let sit of editSituaciones()" [ngValue]="sit.id">{{ sit.denominacion }}</option>
-                </select>
+                <span class="pd__value">{{ rl.situacion.denominacion }}</span>
+                <span class="pd__edit-hint">La situación no se edita acá: se cambia con "Cambiar situación", como en liquidación.</span>
+                <button *ngIf="puedeCambiarSituacion() && rl.estado === 'activo'" type="button"
+                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
+                  (click)="abrirCambiarSituacion()">Cambiar situación</button>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Régimen</span>
@@ -455,10 +459,8 @@
               </div>
               <div class="pd__field">
                 <span class="pd__label">Situación</span>
-                <select formControlName="situacion_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let sit of editSituaciones()" [ngValue]="sit.id">{{ sit.denominacion }}</option>
-                </select>
+                <span class="pd__value">{{ rl.situacion.denominacion }}</span>
+                <span class="pd__edit-hint">La situación no se edita acá.</span>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Régimen</span>
@@ -903,6 +905,16 @@
       (guardado)="onDestinoRegistrado()"
       (cerrado)="cerrarRegistrarDestino()"
     ></app-destino-form-modal>
+
+    <app-cambiar-situacion-modal
+      *ngIf="cambiandoSituacion() && p.relacion_laboral as rl"
+      [personaId]="personaId"
+      [nombre]="p.primer_nombre + ' ' + p.primer_apellido"
+      [situacion]="rl.situacion"
+      [tipoFuncionario]="rl.tipo_funcionario"
+      (guardado)="onSituacionCambiada($event)"
+      (cerrado)="cerrarCambiarSituacion()"
+    ></app-cambiar-situacion-modal>
 
     <app-familiar-detalle-modal
       *ngIf="familiarSeleccionado() as f"
