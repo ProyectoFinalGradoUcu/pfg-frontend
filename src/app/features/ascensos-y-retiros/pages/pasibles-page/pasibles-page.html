@@ -77,11 +77,11 @@
       </div>
 
       <div class="filtros__campo">
-        <span class="filtros__label">Unidad</span>
+        <span class="filtros__label">Base</span>
         <app-select
-          [items]="unidades()" bindLabel="denominacion" bindValue="id"
+          [items]="bases()" bindLabel="etiqueta" bindValue="id"
           placeholder="Todas" [clearable]="true" [searchable]="true"
-          [ngModel]="filtroUnidad()" (ngModelChange)="onUnidad($event)">
+          [ngModel]="filtroBase()" (ngModelChange)="onBase($event)">
         </app-select>
       </div>
 

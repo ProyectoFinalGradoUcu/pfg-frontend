@@ -4,6 +4,8 @@ import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
   BaseOpcion,
+  CambiarSituacionPayload,
+  CambioSituacionResultado,
   CrearPersonaPayload,
   CrearPersonaResponse,
   CursoPersona,
@@ -111,6 +113,12 @@ export class PersonalService {
 
   update(id: number, payload: PatchPersonaPayload): Observable<PersonaDetalle> {
     return this.http.patch<PersonaDetalle>(`${API_BASE_URL}/personas/${id}`, payload, { withCredentials: true });
+  }
+
+  cambiarSituacion(id: number, payload: CambiarSituacionPayload): Observable<CambioSituacionResultado> {
+    return this.http.post<CambioSituacionResultado>(`${API_BASE_URL}/personas/${id}/situacion`, payload, {
+      withCredentials: true,
+    });
   }
 
   getFamiliares(id: number): Observable<FamiliarItem[]> {

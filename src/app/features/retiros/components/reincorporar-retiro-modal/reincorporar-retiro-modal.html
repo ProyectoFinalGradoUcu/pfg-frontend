@@ -150,21 +150,21 @@
         <h4>Destino</h4>
 
         <div class="field">
-          <label>Unidad *</label>
+          <label>Base *</label>
           <app-select
-            [items]="unidades()"
-            bindLabel="denominacion"
+            [items]="bases()"
+            bindLabel="etiqueta"
             bindValue="id"
-            placeholder="Seleccionar unidad"
+            placeholder="Seleccionar base"
             [searchable]="true"
-            formControlName="unidad_id"
+            formControlName="sub_unidad_id"
           ></app-select>
           <p class="field__hint" *ngIf="efectoDestino() as efecto">{{ efecto }}</p>
           <p
             class="field__error"
-            *ngIf="form.controls.unidad_id.touched && form.controls.unidad_id.invalid"
+            *ngIf="form.controls.sub_unidad_id.touched && form.controls.sub_unidad_id.invalid"
           >
-            Elegí la unidad.
+            Elegí la base.
           </p>
         </div>
 
