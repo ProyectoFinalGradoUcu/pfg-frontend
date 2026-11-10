@@ -23,6 +23,20 @@ type Seleccion =
 
 type ModalKind = 'form' | 'baja' | 'reactivar' | null;
 
+type Tab = 'bases' | 'comandos';
+
+const VIGENCIA_POR_DEFECTO = 'true';
+
+interface MenuAbierto {
+  seleccion: Seleccion;
+  top: number;
+  right: number;
+}
+
+function normalizar(texto: string): string {
+  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 /**
  * Comandos (`unidades`) y sub-unidades o bases (`sub_unidades`, los destinos posibles)
  * con su dotación actual.
@@ -61,16 +75,53 @@ export class UnidadesPage implements OnInit, OnDestroy {
 
   readonly filtroQuery = signal('');
   readonly filtroComandoId = signal('');
-  readonly filtroVigente = signal('');
+  readonly filtroVigente = signal(VIGENCIA_POR_DEFECTO);
   readonly hayFiltros = computed(
-    () => !!this.filtroQuery() || !!this.filtroComandoId() || !!this.filtroVigente(),
+    () => !!this.filtroQuery() || !!this.filtroComandoId() || this.filtroVigente() !== VIGENCIA_POR_DEFECTO,
   );
 
   readonly vigenteOpciones = [
-    { value: '', label: 'Todas' },
     { value: 'true', label: 'Vigentes' },
     { value: 'false', label: 'Dadas de baja' },
+    { value: '', label: 'Todas' },
   ];
+
+  // ── Pestañas ──
+  readonly tab = signal<Tab>('bases');
+
+  // ── Comandos (vienen todos, se filtran y paginan en el front) ──
+  readonly filtroComandoQuery = signal('');
+  readonly filtroComandoVigente = signal(VIGENCIA_POR_DEFECTO);
+  readonly hayFiltrosComandos = computed(
+    () => !!this.filtroComandoQuery() || this.filtroComandoVigente() !== VIGENCIA_POR_DEFECTO,
+  );
+  readonly vigenteComandoOpciones = [
+    { value: 'true', label: 'Vigentes' },
+    { value: 'false', label: 'Dados de baja' },
+    { value: '', label: 'Todos' },
+  ];
+  readonly comandosFiltrados = computed(() => {
+    const texto = normalizar(this.filtroComandoQuery().trim());
+    const vigente = this.filtroComandoVigente();
+    return this.comandos().filter(
+      (c) =>
+        (!texto || normalizar(`${c.codigo} ${c.denominacion}`).includes(texto)) &&
+        (!vigente || c.vigente === (vigente === 'true')),
+    );
+  });
+  readonly comandosPage = signal(1);
+  // Si la página queda vacía, vuelve a la última
+  readonly comandosPageActual = computed(() => {
+    const ultima = Math.max(1, Math.ceil(this.comandosFiltrados().length / this.pageSize));
+    return Math.min(this.comandosPage(), ultima);
+  });
+  readonly comandosDePagina = computed(() => {
+    const desde = (this.comandosPageActual() - 1) * this.pageSize;
+    return this.comandosFiltrados().slice(desde, desde + this.pageSize);
+  });
+
+  // ── Menú de acciones ──
+  readonly menu = signal<MenuAbierto | null>(null);
 
   // ── Modales ──
   readonly modal = signal<ModalKind>(null);
@@ -174,7 +225,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
   limpiarFiltros(): void {
     this.filtroQuery.set('');
     this.filtroComandoId.set('');
-    this.filtroVigente.set('');
+    this.filtroVigente.set(VIGENCIA_POR_DEFECTO);
     this.page.set(1);
     this.cargar();
   }
@@ -182,6 +233,79 @@ export class UnidadesPage implements OnInit, OnDestroy {
   onPageChange(page: number): void {
     this.page.set(page);
     this.cargar();
+  }
+
+  cambiarTab(t: Tab): void {
+    this.cerrarMenu();
+    this.tab.set(t);
+  }
+
+  verBasesDeComando(comando: ComandoCatalogo): void {
+    this.filtroQuery.set('');
+    this.filtroComandoId.set(comando.id);
+    this.filtroVigente.set(VIGENCIA_POR_DEFECTO);
+    this.page.set(1);
+    this.cambiarTab('bases');
+    this.cargar();
+  }
+
+  onComandoQueryInput(value: string): void {
+    this.filtroComandoQuery.set(value);
+    this.comandosPage.set(1);
+  }
+
+  onComandoVigenteChange(value: string | null): void {
+    this.filtroComandoVigente.set(value ?? '');
+    this.comandosPage.set(1);
+  }
+
+  limpiarFiltrosComandos(): void {
+    this.filtroComandoQuery.set('');
+    this.filtroComandoVigente.set(VIGENCIA_POR_DEFECTO);
+    this.comandosPage.set(1);
+  }
+
+  // ── Menú de acciones ──
+
+  toggleMenu(seleccion: Seleccion, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.esMenuAbierto(seleccion.tipo, seleccion.item.id)) {
+      this.cerrarMenu();
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.menu.set({ seleccion, top: rect.bottom + 4, right: window.innerWidth - rect.right });
+  }
+
+  // Un comando y una base pueden tener el mismo id
+  esMenuAbierto(tipo: Seleccion['tipo'], id: string): boolean {
+    const s = this.menu()?.seleccion;
+    return !!s && s.tipo === tipo && s.item.id === id;
+  }
+
+  cerrarMenu(): void {
+    this.menu.set(null);
+  }
+
+  accionVerDetalle(s: Seleccion): void {
+    this.cerrarMenu();
+    if (s.tipo === 'base') this.verDetalle(s.item);
+  }
+
+  accionEditar(s: Seleccion): void {
+    this.cerrarMenu();
+    if (s.tipo === 'comando') this.abrirEditarComando(s.item);
+    else this.abrirEditarBase(s.item);
+  }
+
+  accionBaja(s: Seleccion): void {
+    this.cerrarMenu();
+    this.abrirConfirmacion('baja', s);
+  }
+
+  accionReactivar(s: Seleccion): void {
+    this.cerrarMenu();
+    this.abrirConfirmacion('reactivar', s);
   }
 
   verDetalle(subUnidad: SubUnidadConDestinados): void {
