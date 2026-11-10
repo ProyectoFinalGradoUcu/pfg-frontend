@@ -161,11 +161,39 @@ $transition: 0.2s ease;
   }
 }
 
+// Altura animable sin medir en JS: la fila del grid va de 0fr a 1fr.
 .sidebar__sub {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+
+  &--open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+.sidebar__sub-inner {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 2px 0 4px 0.5rem;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 0 0 0.5rem;
+  transition: padding 0.25s ease;
+
+  .sidebar__sub--open & {
+    padding: 2px 0 4px 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar__sub,
+  .sidebar__sub-inner,
+  .sidebar__chevron {
+    transition: none;
+  }
 }
 
 .sidebar__sub-item {
