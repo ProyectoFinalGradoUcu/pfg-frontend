@@ -131,7 +131,7 @@ describe('AsignacionesPage', () => {
       destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
       fixture.detectChanges();
       expect(component.stats().sub_unidades_con_personal).toBe(6);
-      expect(fixture.nativeElement.textContent).toContain('Sub-unidades con personal');
+      expect(fixture.nativeElement.textContent).toContain('Bases con personal');
     });
 
     it('muestra la sub-unidad como destino y el comando como dato secundario', () => {

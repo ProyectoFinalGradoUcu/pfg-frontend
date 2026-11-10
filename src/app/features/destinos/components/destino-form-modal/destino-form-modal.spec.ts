@@ -311,7 +311,7 @@ describe('DestinoFormModal (crear)', () => {
       expect(component.mismoDestinoQueElActual()).toBe(true);
       component.guardar();
       expect(destinosService.crear).not.toHaveBeenCalled();
-      expect(component.error()).toBe('El funcionario ya revista en esa sub-unidad. Elegí otro destino.');
+      expect(component.error()).toBe('El funcionario ya revista en esa base. Elegí otro destino.');
     });
 
     it('permite pasar a otra sub-unidad del mismo comando', () => {

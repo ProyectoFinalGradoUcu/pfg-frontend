@@ -1,14 +1,14 @@
 <section class="unidad-detalle">
 
   <nav class="breadcrumb">
-    <a class="breadcrumb__item" routerLink="/destinos/unidades">Sub-unidades</a>
+    <a class="breadcrumb__item" routerLink="/destinos/unidades">Bases y comandos</a>
     <span class="breadcrumb__sep">/</span>
-    <span class="breadcrumb__item breadcrumb__item--current">{{ subUnidad()?.denominacion || 'Sub-unidad' }}</span>
+    <span class="breadcrumb__item breadcrumb__item--current">{{ subUnidad()?.denominacion || 'Base' }}</span>
   </nav>
 
   <header class="unidad-detalle__header">
     <div>
-      <h2>{{ subUnidad()?.denominacion || 'Sub-unidad' }}</h2>
+      <h2>{{ subUnidad()?.denominacion || 'Base' }}</h2>
       <p *ngIf="subUnidad() as s">
         {{ s.codigo }}<span *ngIf="s.unidad"> · Comando: {{ s.unidad.codigo }}<span *ngIf="s.unidad.denominacion && s.unidad.denominacion !== s.unidad.codigo"> ({{ s.unidad.denominacion }})</span></span>
         <span *ngIf="!s.vigente"> · dada de baja</span>
@@ -97,7 +97,7 @@
           </tr>
           <tr *ngIf="funcionarios().length === 0">
             <td colspan="7" class="unidad-detalle__empty">
-              {{ soloVigentes() ? 'No hay funcionarios destinados hoy en esta sub-unidad.' : 'No hay registros para esta sub-unidad.' }}
+              {{ soloVigentes() ? 'No hay funcionarios destinados hoy en esta base.' : 'No hay registros para esta base.' }}
             </td>
           </tr>
         </tbody>

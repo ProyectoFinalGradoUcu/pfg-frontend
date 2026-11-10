@@ -233,7 +233,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       return;
     }
     if (this.mismoDestinoQueElActual()) {
-      this.error.set('El funcionario ya revista en esa sub-unidad. Elegí otro destino.');
+      this.error.set('El funcionario ya revista en esa base. Elegí otro destino.');
       return;
     }
 

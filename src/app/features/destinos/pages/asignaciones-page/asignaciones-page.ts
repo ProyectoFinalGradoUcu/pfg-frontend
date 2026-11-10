@@ -325,7 +325,7 @@ export class AsignacionesPage implements OnInit, OnDestroy {
       // Si era el vigente, el backend deshizo el pase y reabrió el destino anterior.
       (r: DestinoEliminado) =>
         r.destino_reabierto
-          ? 'Pase deshecho. Se reabrió el destino anterior y el funcionario vuelve a revistar en esa sub-unidad'
+          ? 'Pase deshecho. Se reabrió el destino anterior y el funcionario vuelve a revistar en esa base'
           : destino.activo
             ? 'Pase deshecho'
             : 'Destino eliminado del historial',

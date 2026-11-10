@@ -42,7 +42,7 @@
     </div>
     <div class="asignaciones__stat asignaciones__stat--orange">
       <strong class="asignaciones__stat-value">{{ stats().sub_unidades_con_personal }}</strong>
-      <span class="asignaciones__stat-label">Sub-unidades con personal</span>
+      <span class="asignaciones__stat-label">Bases con personal</span>
     </div>
   </div>
 
@@ -82,7 +82,7 @@
         <app-select
           class="asignaciones__filter-select"
           [items]="subUnidadOpciones()"
-          placeholder="Todas las sub-unidades"
+          placeholder="Todas las bases"
           [searchable]="true"
           [clearable]="true"
           [ngModel]="filtroSubUnidadId()"
@@ -271,7 +271,7 @@
             <strong>{{ nombreFuncionario(destinoSeleccionado()!) }}</strong>. Es para corregir un pase cargado por error.
           </p>
           <p>
-            Se borra esta asignación y el funcionario vuelve a la sub-unidad de su destino anterior; si este
+            Se borra esta asignación y el funcionario vuelve a la base de su destino anterior; si este
             pase lo había cerrado, ese destino se reabre.
           </p>
           <p>Si lo que querés es dar de baja el destino, cerralo con una fecha de fin en vez de deshacerlo.</p>

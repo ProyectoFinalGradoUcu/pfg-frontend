@@ -75,17 +75,17 @@
       <!-- ── Campos del destino ─────────────────────────────────────────── -->
       <div class="destino-form__grid">
         <div class="destino-form__field">
-          <label>Destino (sub-unidad) *</label>
+          <label>Destino (base) *</label>
           <app-select
             *ngIf="!editando()"
             [items]="opcionesSubUnidad()"
-            placeholder="Seleccionar sub-unidad..."
+            placeholder="Seleccionar base..."
             [searchable]="true"
             formControlName="sub_unidad_id"
           ></app-select>
-          <small *ngIf="!editando()">El comando sale de la sub-unidad elegida.</small>
+          <small *ngIf="!editando()">El comando sale de la base elegida.</small>
           <small class="destino-form__pase-error" *ngIf="!editando() && mismoDestinoQueElActual()">
-            Ya revista en esa sub-unidad: elegí otro destino.
+            Ya revista en esa base: elegí otro destino.
           </small>
           <div class="destino-form__readonly" *ngIf="editando()">
             <strong>{{ nombreDestino(destino!) }}</strong>
