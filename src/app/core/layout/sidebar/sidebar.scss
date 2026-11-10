@@ -12,7 +12,8 @@ $transition: 0.2s ease;
   display: flex;
   flex-direction: column;
   width: $sidebar-width;
-  min-height: 100vh;
+  // Con min-height el sidebar crecía al abrir acordeones y scrolleaba toda la página
+  height: 100vh;
   background-color: $sidebar-bg;
   color: $sidebar-text;
   flex-shrink: 0;
@@ -81,6 +82,8 @@ $transition: 0.2s ease;
   padding: 0.75rem 0.5rem;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: $sidebar-hover transparent;
 }
 
 .sidebar__item {
