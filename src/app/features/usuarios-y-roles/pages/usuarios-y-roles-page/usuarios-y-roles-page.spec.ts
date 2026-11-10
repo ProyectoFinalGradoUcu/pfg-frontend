@@ -406,12 +406,12 @@ describe('UsuariosYRolesPage: paginación', () => {
       expect(filas()[0].textContent).toContain('Rol 11');
     });
 
-    it('con 10 o menos no permite pasar a otra página', async () => {
+    it('con 10 o menos no muestra el paginador', async () => {
       await setup(lista(10).map(rol));
       abrirRoles();
 
       expect(filas().length).toBe(10);
-      expect(el().querySelector<HTMLButtonElement>('[aria-label="Página siguiente"]')?.disabled).toBe(true);
+      expect(el().querySelector('[aria-label="Página siguiente"]')).toBeNull();
     });
 
     it('la lista completa sigue disponible para los modales', async () => {
