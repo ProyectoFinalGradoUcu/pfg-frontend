@@ -8,24 +8,33 @@ export interface PersonaRef {
   primer_apellido: string;
 }
 
+/** El comando (C.A.O., C.A.P., C.A.L., C.G.): la `unidad` del catálogo de liquidación. */
 export interface UnidadRef {
   id: string;
   codigo: string;
   denominacion: string;
-  tipo: string | null;
+}
+
+/** El lugar concreto (B.A.I., E.M.A., ...): lo que la app llama "destino". */
+export interface SubUnidadRef {
+  id: string;
+  codigo: string;
+  denominacion: string;
 }
 
 // ── Recursos ──────────────────────────────────────────────────────────────────
 
 /**
- * Una asignación: la persona está o estuvo en la unidad entre dos fechas.
- * `persona` y `unidad` pueden venir en null en filas cargadas antes del módulo.
- * `activo` lo calcula el backend; no derivarlo de `fecha_fin`.
+ * Una asignación: la persona está o estuvo en la sub-unidad entre dos fechas.
+ * `sub_unidad` es el destino real; `unidad` es su comando. `sub_unidad` viene en
+ * null solo en históricos viejos, y `persona`/`unidad` pueden venir en null en filas
+ * cargadas antes del módulo. `activo` lo calcula el backend; no derivarlo de `fecha_fin`.
  */
 export interface Destino {
   id: string;
   persona: PersonaRef | null;
   unidad: UnidadRef | null;
+  sub_unidad: SubUnidadRef | null;
   fecha_inicio: string | null;
   fecha_fin: string | null;
   posicion_destino: string | null;
@@ -40,44 +49,54 @@ export interface Destino {
   activo: boolean;
 }
 
-export interface UnidadConDestinados extends UnidadRef {
+/**
+ * `GET /destinos/sub-unidades`. Unidades y sub-unidades son catálogos de liquidación:
+ * la app solo los lee, no los crea, edita ni da de baja.
+ */
+export interface SubUnidadConDestinados extends SubUnidadRef {
   vigente: boolean;
+  /** El comando al que pertenece. */
+  unidad: UnidadRef;
   /** Cuenta solo destinos activos, no el histórico. */
   total_destinados: number;
 }
 
-// ── Catálogo de unidades (Task 14) ─────────────────────────────────────────────
-//
-// Estos tres viven bajo `/catalogos/unidades`, no bajo `/destinos`: una unidad no
-// es un destino, y el catálogo lo comparte liquidación a través de
-// `relaciones_laborales`. El listado del módulo sigue viniendo de
-// `GET /destinos/unidades` (ids como string); `GET /catalogos/unidades` devuelve
-// el id como número y sin paginar, así que no se usa para listar.
-
-/** Forma que devuelven los tres endpoints de `/catalogos/unidades`. */
-export interface Unidad {
+/** `GET /catalogos/unidades` — los comandos. El backend manda el id como número; el servicio lo pasa a string. */
+export interface Comando {
   id: string;
   codigo: string;
   denominacion: string;
-  tipo: string | null;
+}
+
+/** `GET /catalogos/unidades?incluir_bajas=true` — el comando con su vigencia y bases vigentes. */
+export interface ComandoCatalogo extends Comando {
   vigente: boolean;
+  total_bases: number;
 }
 
-export interface CrearUnidadPayload {
-  /** Máx 30. Único (ignorando mayúsculas). Inmutable después de crear. */
+/** `POST /catalogos/unidades`. El código no se puede cambiar después. */
+export interface CrearComandoPayload {
   codigo: string;
-  /** Máx 150. Única (ignorando mayúsculas). */
   denominacion: string;
-  /** Máx 100. `Unidad` u `Organismo`. */
-  tipo?: string;
 }
 
-/** `codigo` no es un campo válido acá: mandarlo da 400 (`forbidNonWhitelisted`). */
-export interface EditarUnidadPayload {
+/** `PATCH /catalogos/unidades/:id`. */
+export interface EditarComandoPayload {
   denominacion?: string;
-  /** `null` limpia el tipo. */
-  tipo?: string | null;
-  /** `false` la saca de los selectores, `true` la reactiva. */
+  vigente?: boolean;
+}
+
+/** `POST /catalogos/sub-unidades`: la base siempre pertenece a un comando. */
+export interface CrearBasePayload {
+  unidad_id: number;
+  codigo: string;
+  denominacion: string;
+}
+
+/** `PATCH /catalogos/sub-unidades/:id`. Cambiar `unidad_id` solo vale si la base nunca se usó. */
+export interface EditarBasePayload {
+  denominacion?: string;
+  unidad_id?: number;
   vigente?: boolean;
 }
 
@@ -87,7 +106,10 @@ export interface DestinoDePersona {
   unidad_id: string | null;
   unidad: string | null;
   codigo_unidad: string | null;
-  tipo_unidad: string | null;
+  /** El destino real; null solo en históricos viejos. `unidad*` es el comando. */
+  sub_unidad_id: string | null;
+  sub_unidad: string | null;
+  codigo_sub_unidad: string | null;
   posicion_destino: string | null;
   fecha_inicio: string | null;
   fecha_fin: string | null;
@@ -106,11 +128,11 @@ export interface Paginado<T> {
   pageSize: number;
 }
 
-/** `destinos_activos` y `unidades_con_personal` son globales: ignoran los filtros. */
+/** `destinos_activos` y `sub_unidades_con_personal` son globales: ignoran los filtros. */
 export interface DestinosStats {
   total_destinos: number;
   destinos_activos: number;
-  unidades_con_personal: number;
+  sub_unidades_con_personal: number;
 }
 
 export interface ListaDestinos extends Paginado<Destino> {
@@ -121,7 +143,8 @@ export interface ListaDestinos extends Paginado<Destino> {
 
 export interface CrearDestinoPayload {
   persona_id: number;
-  unidad_id: number;
+  /** El destino. El comando lo deduce el backend. */
+  sub_unidad_id: number;
   fecha_inicio: string;
   /** `numero_orden` o `boletin`: al menos uno es obligatorio. */
   numero_orden?: string;
@@ -166,16 +189,20 @@ export interface ListarDestinosQuery {
   page?: number;
   pageSize?: number;
   query?: string;
+  /** Filtra por comando. */
   unidad_id?: number;
+  sub_unidad_id?: number;
   activo?: boolean;
   categoria?: 'oficial' | 'subalterno';
 }
 
-export interface ListarUnidadesQuery {
+export interface ListarSubUnidadesQuery {
   page?: number;
   pageSize?: number;
+  /** Busca en código o denominación. */
   query?: string;
-  tipo?: 'Unidad' | 'Organismo';
+  /** Filtra por comando. */
+  unidad_id?: number;
   vigente?: boolean;
 }
 

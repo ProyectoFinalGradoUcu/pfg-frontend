@@ -17,9 +17,11 @@ export interface ServiceResponse<T> {
   };
 }
 
+/** Una base (sub-unidad) asignada al usuario, con su comando. */
 export interface UnidadInfo {
   id: string;
   denominacion: string;
+  comando: { id: string; denominacion: string };
 }
 
 export interface AuthenticatedUser {
@@ -27,7 +29,7 @@ export interface AuthenticatedUser {
   username: string;
   roles: string[];
   permisos: string[];
-  /** Unidades asignadas al usuario del sistema. Determinan permisos heredados y alcance de datos. */
+  /** Bases asignadas al usuario del sistema. Determinan permisos heredados y alcance de datos. */
   unidades: UnidadInfo[];
 }
 
@@ -109,6 +111,10 @@ export interface UsuarioPersona {
   relacionLaboral: RelacionLaboralResumen | null;
 }
 
+export interface UnidadDeUsuario extends CatalogoRef {
+  comando: CatalogoRef;
+}
+
 export interface PermisoEfectivo {
   nombre: string;
   alcance: 'global' | 'unidad';
@@ -122,8 +128,8 @@ export interface Usuario {
   username: string;
   estado: 'activo' | 'bloqueado';
   bloqueadoHasta: string | null;
-  /** Unidades asignadas al usuario del sistema (relación N:M). */
-  unidades: CatalogoRef[];
+  /** Bases asignadas al usuario del sistema, con su comando. */
+  unidades: UnidadDeUsuario[];
   persona: UsuarioPersona | null;
   roles: UsuarioRol[];
   /** Solo presente en el detalle (findOne), no en el listado paginado. */

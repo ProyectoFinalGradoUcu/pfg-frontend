@@ -229,8 +229,11 @@
                 <span class="pd__value">{{ rl.estado === 'activo' ? (rl.numor ?? '—') : '—' }}</span>
               </div>
               <div class="pd__field">
-                <span class="pd__label">Destino / Unidad</span>
-                <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
+                <span class="pd__label">Base</span>
+                <span class="pd__value">{{ baseActual() }}</span>
+                <button *ngIf="puedeRegistrarDestino() && rl.estado === 'activo'" type="button"
+                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
+                  (click)="abrirRegistrarDestino()">Registrar destino</button>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Estado</span>
@@ -239,6 +242,9 @@
                   [class.pd__status-badge--licencia]="['SIT03','SIT09'].includes(rl.situacion?.codigo ?? '')"
                   [class.pd__status-badge--baja]="rl.situacion?.codigo === 'BAJ'"
                 >{{ rl.situacion?.denominacion ?? '—' }}</span>
+                <button *ngIf="puedeCambiarSituacion() && rl.estado === 'activo' && !p.es_civil" type="button"
+                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
+                  (click)="abrirCambiarSituacion()">Cambiar situación</button>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Tipo de funcionario</span>
@@ -267,10 +273,6 @@
               <div class="pd__field">
                 <span class="pd__label">Tiene mando</span>
                 <span class="pd__value">{{ rl.tiene_mando ? 'Sí' : 'No' }}</span>
-              </div>
-              <div class="pd__field" *ngIf="rl.sub_unidad">
-                <span class="pd__label">Sub-unidad</span>
-                <span class="pd__value">{{ rl.sub_unidad!.denominacion }}</span>
               </div>
               <div class="pd__field" *ngIf="rl.observaciones">
                 <span class="pd__label">Observaciones</span>
@@ -357,16 +359,20 @@
                 </ng-template>
               </ng-container>
               <div class="pd__field">
-                <span class="pd__label">Unidad</span>
-                <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
-                <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
+                <span class="pd__label">Base</span>
+                <span class="pd__value">{{ baseActual() }}</span>
+                <span class="pd__edit-hint">La base no se edita acá: cambiarla es registrar un destino.</span>
+                <button *ngIf="puedeRegistrarDestino() && rl.estado === 'activo'" type="button"
+                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
+                  (click)="abrirRegistrarDestino()">Registrar destino</button>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Situación</span>
-                <select formControlName="situacion_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let sit of editSituaciones()" [ngValue]="sit.id">{{ sit.denominacion }}</option>
-                </select>
+                <span class="pd__value">{{ rl.situacion.denominacion }}</span>
+                <span class="pd__edit-hint">La situación no se edita acá: se cambia con "Cambiar situación", como en liquidación.</span>
+                <button *ngIf="puedeCambiarSituacion() && rl.estado === 'activo'" type="button"
+                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
+                  (click)="abrirCambiarSituacion()">Cambiar situación</button>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Régimen</span>
@@ -380,13 +386,6 @@
                 <select formControlName="programa_id" class="pd__edit-select">
                   <option [ngValue]="null">Seleccionar...</option>
                   <option *ngFor="let prog of editProgramas()" [ngValue]="prog.id">{{ prog.denominacion }}</option>
-                </select>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Sub-unidad</span>
-                <select formControlName="sub_unidad_id" class="pd__edit-select">
-                  <option [ngValue]="null">Sin sub-unidad</option>
-                  <option *ngFor="let comp of editSubUnidades()" [ngValue]="comp.id">{{ comp.denominacion }}</option>
                 </select>
               </div>
               <div class="pd__field">
@@ -454,16 +453,14 @@
             <!-- Edit view: civiles -->
             <div class="pd__field-list" *ngIf="editMode() && p.es_civil && p.relacion_laboral as rl">
               <div class="pd__field">
-                <span class="pd__label">Unidad</span>
-                <span class="pd__value">{{ rl.unidad?.denominacion ?? '—' }}</span>
-                <span class="pd__edit-hint">La unidad se cambia registrando un destino, desde Destinos → Asignaciones.</span>
+                <span class="pd__label">Base</span>
+                <span class="pd__value">{{ baseActual() }}</span>
+                <span class="pd__edit-hint">La base no se edita acá: cambiarla es registrar un destino.</span>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Situación</span>
-                <select formControlName="situacion_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let sit of editSituaciones()" [ngValue]="sit.id">{{ sit.denominacion }}</option>
-                </select>
+                <span class="pd__value">{{ rl.situacion.denominacion }}</span>
+                <span class="pd__edit-hint">La situación no se edita acá.</span>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Régimen</span>
@@ -566,9 +563,9 @@
             <span class="pd__familiar-cedula">{{ f.cedula }}</span>
           </div>
           <span class="pd__familiar-relacion" *ngIf="f.tipo_relacion">{{ f.tipo_relacion }}</span>
-          <div class="pd__familiar-destino" *ngIf="f.grado || f.unidad">
+          <div class="pd__familiar-destino" *ngIf="f.grado || f.sub_unidad || f.unidad">
             <span *ngIf="f.grado">{{ f.grado }}</span>
-            <span *ngIf="f.unidad" class="pd__familiar-unidad">{{ f.unidad }}</span>
+            <span *ngIf="f.sub_unidad || f.unidad" class="pd__familiar-unidad">{{ f.sub_unidad ? f.sub_unidad + ' (' + f.unidad + ')' : f.unidad }}</span>
           </div>
           <button type="button" class="pd__familiar-remove" *ngIf="editMode()"
             (click)="$event.stopPropagation(); quitarFamiliar(f)" aria-label="Quitar familiar">
@@ -764,7 +761,7 @@
             type="text"
             [value]="busquedaDestinos()"
             (input)="onBusquedaDestinosInput($any($event.target).value)"
-            placeholder="Buscar por unidad o cargo..."
+            placeholder="Buscar por destino, comando o cargo..."
             autocomplete="off"
           />
           <button
@@ -794,7 +791,9 @@
       <div class="pd__destinos-list" *ngIf="!loadingDestinos() && destinosFiltrados().length > 0">
         <div class="pd__destino-card" *ngFor="let d of destinosFiltrados()">
           <div class="pd__destino-card__top">
-            <span class="pd__destino-card__unidad">{{ d.unidad || '—' }}</span>
+            <span class="pd__destino-card__unidad">
+              {{ d.sub_unidad || d.unidad || '—' }}<small *ngIf="d.sub_unidad && (d.codigo_unidad || d.unidad)"> · {{ d.codigo_unidad || d.unidad }}</small>
+            </span>
             <span class="pd__badge" [class.pd__badge--actual]="d.activo">
               {{ d.activo ? 'Vigente' : 'Cerrado' }}
             </span>
@@ -899,6 +898,23 @@
     <article class="pd__card" *ngIf="activeTab() === 'documentos'">
       <app-documentos-personal [personaId]="personaId" [puedeEditar]="puedeEditarDocumentos()" />
     </article>
+
+    <app-destino-form-modal
+      *ngIf="registrandoDestino() && personaDelPase() as persona"
+      [persona]="persona"
+      (guardado)="onDestinoRegistrado()"
+      (cerrado)="cerrarRegistrarDestino()"
+    ></app-destino-form-modal>
+
+    <app-cambiar-situacion-modal
+      *ngIf="cambiandoSituacion() && p.relacion_laboral as rl"
+      [personaId]="personaId"
+      [nombre]="p.primer_nombre + ' ' + p.primer_apellido"
+      [situacion]="rl.situacion"
+      [tipoFuncionario]="rl.tipo_funcionario"
+      (guardado)="onSituacionCambiada($event)"
+      (cerrado)="cerrarCambiarSituacion()"
+    ></app-cambiar-situacion-modal>
 
     <app-familiar-detalle-modal
       *ngIf="familiarSeleccionado() as f"

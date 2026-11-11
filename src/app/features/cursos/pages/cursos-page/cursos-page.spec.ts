@@ -69,8 +69,16 @@ describe('CursosPage', () => {
   let component: CursosPage;
   let fixture: ComponentFixture<CursosPage>;
   let cursosService: ReturnType<typeof makeCursosServiceSpy>;
-  let personalService: { findAll: ReturnType<typeof vi.fn> };
-  let authService: { hasPermiso: ReturnType<typeof vi.fn> };
+  let personalService: { findAll: ReturnType<typeof vi.fn>; getBases: ReturnType<typeof vi.fn> };
+  let authService: {
+    hasPermiso: ReturnType<typeof vi.fn>;
+    puedeConAlcance: ReturnType<typeof vi.fn>;
+    alcanceDe: ReturnType<typeof vi.fn>;
+    currentUser: () => { unidades: { id: string; denominacion: string; comando: { id: string; denominacion: string } }[] };
+  };
+
+  const BAI = { id: '7', denominacion: 'B.A.I.', comando: { id: '1', denominacion: 'C.A.O.' } };
+  const ETA = { id: '9', denominacion: 'E.T.A.', comando: { id: '2', denominacion: 'C.A.P.' } };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
 
   function makeCursosServiceSpy() {
@@ -88,10 +96,26 @@ describe('CursosPage', () => {
     };
   }
 
-  async function setup(routeSection: 'catalogo' | 'inscripciones' = 'catalogo', hasPermiso = true) {
+  /** `hasPermiso` = gestión con alcance global; `basesPropias` = gestión solo con `.unidad` sobre esas bases. */
+  async function setup(
+    routeSection: 'catalogo' | 'inscripciones' = 'catalogo',
+    hasPermiso = true,
+    basesPropias: (typeof BAI)[] | null = null,
+  ) {
     cursosService = makeCursosServiceSpy();
-    personalService = { findAll: vi.fn().mockReturnValue(of([])) };
-    authService = { hasPermiso: vi.fn().mockReturnValue(hasPermiso) };
+    personalService = {
+      findAll: vi.fn().mockReturnValue(of([])),
+      getBases: vi.fn().mockReturnValue(
+        of([BAI, ETA].map((b) => ({ ...b, unidad_id: Number(b.comando.id), etiqueta: `${b.denominacion} (${b.comando.denominacion})` }))),
+      ),
+    };
+    const alcance = basesPropias ? 'unidad' : hasPermiso ? 'global' : null;
+    authService = {
+      hasPermiso: vi.fn().mockReturnValue(hasPermiso),
+      puedeConAlcance: vi.fn().mockReturnValue(alcance !== null),
+      alcanceDe: vi.fn().mockReturnValue(alcance),
+      currentUser: () => ({ unidades: basesPropias ?? [] }),
+    };
     toastService = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
 
     TestBed.resetTestingModule();
@@ -116,6 +140,32 @@ describe('CursosPage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
+  });
+
+  describe('nuevo curso con alcance por base', () => {
+    it('con una sola base la propone y no deja crear cursos generales', async () => {
+      await setup('catalogo', false, [BAI]);
+      component.abrirNuevoCurso();
+      expect(component.nuevoCursoForm.controls.sub_unidad_id.value).toBe(7);
+      expect(personalService.getBases).not.toHaveBeenCalled();
+    });
+
+    it('con varias bases ofrece solo las propias y exige elegir una', async () => {
+      await setup('catalogo', false, [BAI, ETA]);
+      component.abrirNuevoCurso();
+      expect(component.basesCurso().map((b) => b.id)).toEqual([7, 9]);
+      component.nuevoCursoForm.patchValue({ nombre_curso: 'Mi Curso', institucion: 'UCU' });
+      component.guardarNuevoCurso();
+      expect(cursosService.createDefinicion).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('etiquetaBaseCurso', () => {
+    it('muestra la base con su comando, o General', async () => {
+      await setup();
+      expect(component.etiquetaBaseCurso({ id: '1', nombre_curso: 'X', institucion: 'Y', base: { id: '7', denominacion: 'B.A.I.', comando: 'C.A.O.' } })).toBe('B.A.I. (C.A.O.)');
+      expect(component.etiquetaBaseCurso({ id: '1', nombre_curso: 'X', institucion: 'Y', base: null })).toBe('General');
+    });
   });
 
   // ── Init ───────────────────────────────────────────────────────────────────
@@ -359,6 +409,21 @@ describe('CursosPage', () => {
         institucion: 'UCU',
         es_obligatorio: true,
       });
+    });
+
+    it('con alcance global la base es opcional (curso general) y ofrece todas', () => {
+      component.abrirNuevoCurso();
+      expect(component.nuevoCursoForm.controls.sub_unidad_id.valid).toBe(true);
+      expect(component.basesCurso().map((b) => b.etiqueta)).toEqual(['B.A.I. (C.A.O.)', 'E.T.A. (C.A.P.)']);
+    });
+
+    it('guardarNuevoCurso manda la base elegida', () => {
+      component.abrirNuevoCurso();
+      component.nuevoCursoForm.patchValue({ nombre_curso: 'Mi Curso', institucion: 'UCU', sub_unidad_id: 9 });
+      component.guardarNuevoCurso();
+      expect(cursosService.createDefinicion).toHaveBeenCalledWith(
+        expect.objectContaining({ sub_unidad_id: 9 }),
+      );
     });
 
     it('guardarNuevoCurso cierra el modal y emite toast tras éxito', () => {
@@ -1110,10 +1175,15 @@ describe('CursosPage', () => {
       expect(component.puedeGestionar()).toBe(false);
     });
 
-    it('puedeGestionar llama a hasPermiso con "cursos.gestionar"', async () => {
+    it('puedeGestionar acepta "cursos.gestionar" global o por base', async () => {
       await setup();
       component.puedeGestionar();
-      expect(authService.hasPermiso).toHaveBeenCalledWith('cursos.gestionar');
+      expect(authService.puedeConAlcance).toHaveBeenCalledWith('cursos.gestionar');
+    });
+
+    it('con alcance por base también puede gestionar', async () => {
+      await setup('catalogo', false, [BAI]);
+      expect(component.puedeGestionar()).toBe(true);
     });
 
     function celdaResultado(): HTMLElement {

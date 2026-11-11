@@ -11,10 +11,15 @@ $navy-soft: #1e3a5f;
 
 .unidades__header {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+
+  > div:first-child {
+    flex: 1 1 18rem;
+    min-width: 0;
+  }
 
   h2 {
     margin: 0 0 0.25rem;
@@ -26,6 +31,12 @@ $navy-soft: #1e3a5f;
   p {
     margin: 0;
     color: #475569;
+  }
+
+  .unidades__nota {
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    color: #64748b;
   }
 }
 
@@ -93,7 +104,26 @@ $navy-soft: #1e3a5f;
   cursor: pointer;
 }
 
-// Rojo por defecto (dada de baja); el verde lo pone `--vigente`, igual que en asignaciones.
+// Nombre con el código abajo
+.unidades__nombre {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.unidades__codigo {
+  display: block;
+  margin-top: 0.1rem;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.unidades__row--baja td:not(.unidades__col-actions) {
+  color: #64748b;
+}
+
 .unidades__badge {
   display: inline-flex;
   align-items: center;
@@ -105,73 +135,7 @@ $navy-soft: #1e3a5f;
   letter-spacing: 0.03em;
   background-color: #fee2e2;
   color: #b91c1c;
-
-  &--vigente { background-color: #dcfce7; color: #15803d; }
 }
-
-// Menú (kebab)
-
-.unidades__col-actions {
-  text-align: right !important;
-  white-space: nowrap;
-}
-
-.unidades__menu-btn {
-  border-color: transparent !important;
-
-  &:hover:not(:disabled),
-  &--open {
-    border-color: #e2e8f0 !important;
-    background-color: #f1f5f9 !important;
-  }
-}
-
-.unidades__menu {
-  position: fixed;
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
-  min-width: 140px;
-  z-index: 200;
-  overflow: hidden;
-
-  button {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.6rem 0.85rem;
-    border: none;
-    background: transparent;
-    font-size: 0.875rem;
-    font-family: inherit;
-    color: #334155;
-    cursor: pointer;
-    text-align: left;
-    white-space: nowrap;
-
-    svg { width: 15px; height: 15px; flex-shrink: 0; }
-
-    &:hover { background-color: #f8fafc; }
-  }
-}
-
-.unidades__count-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  background-color: #e0e7ef;
-  color: $navy;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-// Botones
 
 .btn {
   display: inline-flex;
@@ -211,6 +175,160 @@ $navy-soft: #1e3a5f;
   &:hover:not(:disabled) {
     background-color: $navy-soft;
     border-color: $navy-soft;
+  }
+}
+
+// Pestañas
+
+.unidades__tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.unidades__tab {
+  padding: 0.65rem 1.25rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s ease, border-color 0.15s ease;
+
+  &:hover { color: $navy; }
+
+  &.unidades__tab--active {
+    color: $navy;
+    border-bottom-color: $navy;
+    font-weight: 600;
+  }
+}
+
+// Filtros
+
+.unidades__filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.unidades__filtros-busqueda {
+  flex: 2 1 12rem;
+  width: auto;
+}
+
+.unidades__filtros-select {
+  flex: 1 1 9rem;
+  width: auto;
+  min-width: 0;
+}
+
+// Gestión de comandos y bases
+
+.unidades__header-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.unidades__table .unidades__col-num {
+  width: 10rem;
+  text-align: center;
+}
+
+.unidades__table .unidades__col-actions {
+  width: 6rem;
+}
+
+.unidades__col-actions {
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+// Menú de acciones
+
+.unidades__menu-btn {
+  border-color: transparent !important;
+
+  &:hover:not(:disabled),
+  &--open {
+    border-color: #e2e8f0 !important;
+    background-color: #f1f5f9 !important;
+  }
+}
+
+.unidades__dropdown {
+  position: fixed;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  min-width: 170px;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.unidades__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: none;
+  background: transparent;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #334155;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+
+  svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  &:hover { background-color: #f8fafc; }
+
+  &--danger {
+    color: #dc2626;
+
+    &:hover { background-color: #fff1f2; }
+  }
+}
+
+.unidades__count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background-color: #e0e7ef;
+  color: $navy;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.unidades__count-link {
+  border: 1px solid transparent;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    background-color: #ffffff;
+    border-color: $navy;
+    outline: none;
   }
 }
 
@@ -275,82 +393,4 @@ $navy-soft: #1e3a5f;
   color: #b91c1c;
   font-size: 0.875rem;
   border-left: 3px solid #dc2626;
-}
-
-// Encabezado con filtros / búsqueda
-
-.unidades__gestion-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-
-  h3 { margin: 0; }
-}
-
-.unidades__filters {
-  display: flex;
-  align-items: stretch;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.unidades__search-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.unidades__filter-select {
-  flex: 0 0 220px;
-  width: 220px;
-}
-
-.unidades__search-icon {
-  position: absolute;
-  left: 0.75rem;
-  width: 16px;
-  height: 16px;
-  color: #94a3b8;
-  pointer-events: none;
-}
-
-.unidades__search-input {
-  height: 2.5rem;
-  padding: 0 2.2rem 0 2.25rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  width: 220px;
-  background-color: #ffffff;
-  color: #0f172a;
-
-  &:focus { outline: none; border-color: $navy; }
-  &::placeholder { color: #94a3b8; }
-}
-
-.unidades__search-clear {
-  position: absolute;
-  right: 0.6rem;
-  display: inline-flex;
-  border: none;
-  background: transparent;
-  color: #94a3b8;
-  cursor: pointer;
-  padding: 0.15rem;
-
-  svg { width: 14px; height: 14px; }
-  &:hover { color: #475569; }
-}
-
-.unidades__clear-btn {
-  padding: 0.5rem;
-  flex-shrink: 0;
-  border: 1.5px solid #e2e8f0;
-  color: #64748b;
-
-  &:hover:not(:disabled) { background-color: #f1f5f9; }
 }

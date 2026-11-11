@@ -2,6 +2,7 @@ import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } 
 import { Router } from '@angular/router';
 import { Subject, switchMap, takeUntil, debounceTime, filter } from 'rxjs';
 import {
+  BaseOpcion,
   FiltroCategoria,
   GradoItem,
   OPCIONES_FILTRO_CATEGORIA,
@@ -65,7 +66,7 @@ export class PersonalPage implements OnInit, OnDestroy {
   readonly total   = signal(0);
   readonly loading = signal(false);
 
-  readonly unidades    = signal<OpcionSelect[]>([]);
+  readonly bases       = signal<BaseOpcion[]>([]);
   readonly situaciones = signal<OpcionSelect[]>([]);
   readonly grados      = signal<GradoItem[]>([]);
   readonly escalafones = signal<OpcionSelect[]>([]);
@@ -154,7 +155,7 @@ export class PersonalPage implements OnInit, OnDestroy {
   }
 
   private loadFilterOptions(): void {
-    this.personalService.getUnidades().subscribe({ next: d => this.unidades.set(d) });
+    this.personalService.getBases().subscribe({ next: d => this.bases.set(d) });
     this.personalService.getSituaciones().subscribe({ next: d => this.situaciones.set(d) });
     this.personalService.getGrados().subscribe({ next: d => this.grados.set(d) });
     this.personalService.getEscalafones().subscribe({ next: d => this.escalafones.set(d) });

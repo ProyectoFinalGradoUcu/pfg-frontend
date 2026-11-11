@@ -5,7 +5,7 @@
 
   <!-- Expandido: trigger con chevron -->
   <button *ngIf="!collapsed" type="button" class="sidebar__item sidebar__item--trigger"
-    [class.sidebar__item--open]="expanded()" (click)="toggle()">
+    [class.sidebar__item--open]="expanded()" [attr.aria-expanded]="expanded()" (click)="toggle()">
     <ng-container *ngTemplateOutlet="iconTemplate"></ng-container>
     <span class="sidebar__label sidebar__label--flex">{{ label }}</span>
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
@@ -14,8 +14,10 @@
     </svg>
   </button>
 
-  <!-- Sub-items -->
-  <div *ngIf="expanded() && !collapsed" class="sidebar__sub">
+  <!-- Sub-items: siempre en el DOM para animar la altura; cerrado queda inert (fuera del tab). -->
+  <div *ngIf="!collapsed" class="sidebar__sub" [class.sidebar__sub--open]="expanded()"
+    [attr.inert]="expanded() ? null : ''">
+    <div class="sidebar__sub-inner">
     <ng-container *ngFor="let child of children">
       <a *ngIf="!child.excluir" class="sidebar__sub-item"
         [routerLink]="child.route" routerLinkActive="sidebar__sub-item--active">
@@ -28,5 +30,6 @@
         {{ child.label }}
       </a>
     </ng-container>
+    </div>
   </div>
 </div>

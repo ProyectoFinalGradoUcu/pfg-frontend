@@ -347,6 +347,7 @@
             <tr>
               <th>Nombre del Curso</th>
               <th>Institución</th>
+              <th>Base</th>
               <th>Tipo</th>
               <th class="cursos__col-actions">Acciones</th>
             </tr>
@@ -355,6 +356,7 @@
             <tr *ngFor="let d of definiciones(); trackBy: trackDefinicion">
               <td><strong>{{ d.nombre_curso }}</strong></td>
               <td>{{ d.institucion }}</td>
+              <td>{{ etiquetaBaseCurso(d) }}</td>
               <td>
                 <span
                   class="cursos__obligatorio-badge"
@@ -379,7 +381,7 @@
               </td>
             </tr>
             <tr *ngIf="!loadingDef() && definiciones().length === 0">
-              <td colspan="4" class="cursos__empty">
+              <td colspan="5" class="cursos__empty">
                 {{ hayFiltrosDef() ? 'No se encontraron cursos con esos filtros' : 'No hay cursos creados' }}
               </td>
             </tr>
@@ -558,6 +560,22 @@
             <input type="text" formControlName="institucion" placeholder="ej: Escuela Militar de Aeronáutica" autocomplete="off" />
           </label>
         </div>
+
+        <label class="modal__field">
+          <span>Base <em *ngIf="gestionaPorBase()">*</em></span>
+          <app-select
+            formControlName="sub_unidad_id"
+            [items]="basesCurso()"
+            bindLabel="etiqueta"
+            bindValue="id"
+            [placeholder]="gestionaPorBase() ? 'Seleccioná la base' : 'General (toda la fuerza)'"
+            [clearable]="!gestionaPorBase()"
+            [searchable]="true"
+          ></app-select>
+          <small class="modal__hint">
+            {{ gestionaPorBase() ? 'Lo ven y lo gestionan quienes tienen esa base.' : 'Vacío = curso general, visible para todos.' }}
+          </small>
+        </label>
 
         <label class="cursos__toggle-row">
           <div class="cursos__toggle-info">

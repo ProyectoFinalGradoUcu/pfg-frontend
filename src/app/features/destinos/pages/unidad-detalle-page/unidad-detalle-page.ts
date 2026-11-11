@@ -9,7 +9,7 @@ import {
   Destino,
   FuncionarioUnidad,
   ListarFuncionariosUnidadQuery,
-  UnidadConDestinados,
+  SubUnidadConDestinados,
 } from '../../../../core/models/destinos.models';
 import { FiltroCategoria, categoriaParam } from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
@@ -32,10 +32,10 @@ export class UnidadDetallePage implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
-  private unidadId = '';
+  private subUnidadId = '';
 
   readonly loading = signal(false);
-  readonly unidad = signal<UnidadConDestinados | null>(null);
+  readonly subUnidad = signal<SubUnidadConDestinados | null>(null);
   readonly funcionarios = signal<FuncionarioUnidad[]>([]);
   readonly total = signal(0);
   readonly page = signal(1);
@@ -54,10 +54,10 @@ export class UnidadDetallePage implements OnInit, OnDestroy {
       this.router.navigate(['/destinos/unidades']);
       return;
     }
-    this.unidadId = id;
+    this.subUnidadId = id;
 
     this.cargar();
-    this.cargarUnidad();
+    this.cargarSubUnidad();
 
     this.querySubject.pipe(debounceTime(DEBOUNCE_MS)).subscribe(() => {
       this.page.set(1);
@@ -69,17 +69,17 @@ export class UnidadDetallePage implements OnInit, OnDestroy {
     this.querySubject.complete();
   }
 
-  /** El endpoint de funcionarios no devuelve los datos de la unidad; salen del catálogo. */
-  private cargarUnidad(): void {
-    this.destinosService.listarUnidadesParaSelector().subscribe({
-      next: (unidades) => this.unidad.set(unidades.find((u) => u.id === this.unidadId) ?? null),
-      error: () => this.unidad.set(null),
+  /** El endpoint de funcionarios no devuelve los datos de la sub-unidad ni su comando; salen del catálogo. */
+  private cargarSubUnidad(): void {
+    this.destinosService.listarSubUnidadesParaSelector().subscribe({
+      next: (subUnidades) => this.subUnidad.set(subUnidades.find((s) => s.id === this.subUnidadId) ?? null),
+      error: () => this.subUnidad.set(null),
     });
   }
 
   cargar(): void {
     this.loading.set(true);
-    this.destinosService.listarFuncionariosUnidad(this.unidadId, this.query()).subscribe({
+    this.destinosService.listarFuncionariosSubUnidad(this.subUnidadId, this.query()).subscribe({
       next: (res) => {
         this.funcionarios.set(res.items);
         this.total.set(res.total);

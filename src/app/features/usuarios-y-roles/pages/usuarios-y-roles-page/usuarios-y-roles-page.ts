@@ -13,7 +13,6 @@ import { ErrorModalService } from '../../../../core/services/error-modal.service
 import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { Invitacion, PermisoEfectivo, Rol, Usuario } from '../../../../core/models/auth.models';
-import { OpcionSelect } from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 
 type Tab = 'usuarios' | 'invitaciones' | 'roles' | 'unidades';
@@ -171,8 +170,8 @@ export class UsuariosYRolesPage implements OnInit {
     nuevaPassword: [''],
   });
 
-  /** Catálogo de unidades vigentes para el selector del detalle de usuario. */
-  readonly unidadesCatalogo = signal<OpcionSelect[]>([]);
+  /** Bases vigentes para el selector del detalle de usuario; el id va como string. */
+  readonly unidadesCatalogo = signal<{ id: string; etiqueta: string }[]>([]);
 
   readonly rolForm = this.fb.group({
     nombre: ['', [Validators.required, Validators.maxLength(60)]],
@@ -190,12 +189,11 @@ export class UsuariosYRolesPage implements OnInit {
 
     this.cargar();
 
-    // El selector de unidad del detalle de usuario usa el catálogo de solo lectura,
+    // El selector de bases del detalle de usuario usa el catálogo de solo lectura,
     // que no requiere el permiso `unidades.ver`.
-    this.personalService.getUnidades().subscribe({
-      next: (unidades) => this.unidadesCatalogo.set(
-        unidades.map((u) => ({ ...u, id: String(u.id) })) as any,
-      ),
+    this.personalService.getBases().subscribe({
+      next: (bases) =>
+        this.unidadesCatalogo.set(bases.map((b) => ({ id: String(b.id), etiqueta: b.etiqueta }))),
     });
   }
 

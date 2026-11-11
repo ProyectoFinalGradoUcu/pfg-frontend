@@ -1,7 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, ContentChild, Input, OnInit, TemplateRef, ViewEncapsulation, inject, signal } from '@angular/core';
+import { Component, ContentChild, DestroyRef, Input, OnInit, TemplateRef, ViewEncapsulation, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { filter } from 'rxjs';
+import { SidebarAccordionState } from './sidebar-accordion-state';
 
 export interface AccordionChild {
   label: string;
@@ -25,20 +27,25 @@ export class SidebarAccordionItem implements OnInit {
 
   @ContentChild(TemplateRef) iconTemplate!: TemplateRef<unknown>;
 
-  readonly expanded = signal(false);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly state = inject(SidebarAccordionState);
   readonly url = signal(this.router.url);
+  readonly expanded = computed(() => this.state.abierto() === this.route);
 
   ngOnInit(): void {
     if (this.router.url.startsWith(this.route)) {
-      this.expanded.set(true);
+      this.state.abierto.set(this.route);
     }
     this.router.events
-      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe((e) => {
         this.url.set(e.urlAfterRedirects);
         if (e.urlAfterRedirects.startsWith(this.route)) {
-          this.expanded.set(true);
+          this.state.abierto.set(this.route);
         }
       });
   }
@@ -50,6 +57,6 @@ export class SidebarAccordionItem implements OnInit {
   }
 
   toggle(): void {
-    this.expanded.update((v) => !v);
+    this.state.abierto.set(this.expanded() ? null : this.route);
   }
 }

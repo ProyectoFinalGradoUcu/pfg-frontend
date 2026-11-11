@@ -77,11 +77,11 @@
       </div>
 
       <div class="filtros__campo">
-        <span class="filtros__label">Unidad</span>
+        <span class="filtros__label">Base</span>
         <app-select
-          [items]="unidades()" bindLabel="denominacion" bindValue="id"
+          [items]="bases()" bindLabel="etiqueta" bindValue="id"
           placeholder="Todas" [clearable]="true" [searchable]="true"
-          [ngModel]="filtroUnidad()" (ngModelChange)="onUnidad($event)">
+          [ngModel]="filtroBase()" (ngModelChange)="onBase($event)">
         </app-select>
       </div>
 
@@ -171,7 +171,7 @@
                 aria-label="Seleccionar todos los de la página" />
             </th>
             <th>Funcionario</th>
-            <th>Unidad</th>
+            <th>Base</th>
             <th>Grado</th>
             <th>Antigüedad</th>
             <th>Edad</th>
@@ -191,7 +191,7 @@
               <span class="tabla__nombre">{{ f.persona.nombre_completo }}</span>
               <small class="tabla__cedula">{{ f.persona.cedula }}</small>
             </td>
-            <td data-label="Unidad">{{ f.persona.unidad?.denominacion ?? '—' }}</td>
+            <td data-label="Base" [title]="f.persona.unidad?.denominacion ?? ''">{{ f.persona.sub_unidad?.denominacion ?? f.persona.unidad?.denominacion ?? '—' }}</td>
             <td data-label="Grado">
               {{ f.grado_actual.denominacion }}
               <span class="tabla__flecha" *ngIf="f.grado_destino">→ {{ f.grado_destino.denominacion }}</span>
@@ -256,7 +256,8 @@
       <p class="panel__motivo" *ngIf="sel.motivo">{{ sel.motivo }}</p>
 
       <dl class="panel__datos">
-        <dt>Unidad</dt><dd>{{ sel.persona.unidad?.denominacion ?? '—' }}</dd>
+        <dt>Base</dt><dd>{{ sel.persona.sub_unidad?.denominacion ?? '—' }}</dd>
+        <dt>Comando</dt><dd>{{ sel.persona.unidad?.denominacion ?? '—' }}</dd>
         <dt>Escalafón</dt><dd>{{ sel.persona.escalafon?.denominacion ?? '—' }}</dd>
         <dt>Situación</dt><dd>{{ sel.persona.situacion?.denominacion ?? '—' }}</dd>
         <dt>Antigüedad en el grado</dt><dd>{{ antiguedadLegible(sel.antiguedad_dias) }}</dd>

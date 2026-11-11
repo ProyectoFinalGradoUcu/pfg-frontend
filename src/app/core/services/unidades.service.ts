@@ -20,6 +20,7 @@ export class UnidadesService {
     if (query.pageSize !== undefined) params = params.set('pageSize', query.pageSize);
     if (query.search) params = params.set('search', query.search);
     if (query.vigente !== undefined) params = params.set('vigente', query.vigente);
+    if (query.unidad_id) params = params.set('unidad_id', query.unidad_id);
 
     return this.http.get<PaginatedUnidadesResponse>(`${API_BASE_URL}/unidades`, {
       params,

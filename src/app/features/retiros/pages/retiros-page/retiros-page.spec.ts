@@ -50,7 +50,7 @@ describe('RetirosPage', () => {
       providers: [
         { provide: RetirosService, useValue: retiros },
         { provide: CatalogosService, useValue: { getMotivosBaja: vi.fn().mockReturnValue(of([])) } },
-        { provide: PersonalService, useValue: { getUnidades: vi.fn().mockReturnValue(of([])) } },
+        { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of([])) } },
         { provide: AuthService, useValue: { hasPermiso: vi.fn().mockReturnValue(true) } },
         { provide: ToastService, useValue: toast },
         { provide: Router, useValue: { navigate: vi.fn() } },
@@ -97,11 +97,11 @@ describe('RetirosPage', () => {
     );
   });
 
-  it('cambiar de unidad reinicia el paginado', () => {
+  it('cambiar de base reinicia el paginado', () => {
     component.currentPage.set(4);
-    component.setUnidad(5);
+    component.setBase(5);
     expect(retiros.listar).toHaveBeenLastCalledWith(
-      expect.objectContaining({ unidad_id: 5, page: 1 }),
+      expect.objectContaining({ sub_unidad_id: 5, page: 1 }),
     );
   });
 

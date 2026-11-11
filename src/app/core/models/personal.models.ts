@@ -46,6 +46,14 @@ export interface OpcionSelect {
   denominacion: string;
 }
 
+/** Una base (sub-unidad) vigente con su comando, para los selectores. */
+export interface BaseOpcion extends OpcionSelect {
+  unidad_id: number;
+  comando: OpcionSelect;
+  /** "B.A.I. (C.A.O.)" */
+  etiqueta: string;
+}
+
 export interface GradoItem extends OpcionSelect {
   escalafon_id: number;
   orden: number;
@@ -179,6 +187,7 @@ export interface FamiliarItem {
   tipo_relacion: string;
   grado: string | null;
   unidad: string | null;
+  sub_unidad?: string | null;
 }
 
 export interface HistorialRango {
@@ -231,6 +240,34 @@ export interface MisionPersona {
   finalizada: boolean;
 }
 
+/**
+ * Cambio de situación como lo hace liquidación: se cierra la relación activa y se abre otra.
+ * Licencia sin goce y No Disponible dejan de cobrar en el próximo cálculo de liquidación.
+ */
+export type CambioSituacion = 'LICENCIA_SIN_GOCE' | 'NO_DISPONIBLE' | 'VOLVER_A_ACTIVIDAD';
+
+export interface CambiarSituacionPayload {
+  cambio: CambioSituacion;
+  fecha: string;
+  numero_orden?: string;
+  boletin?: string;
+  observaciones?: string;
+}
+
+export interface CambioSituacionResultado {
+  persona_id: number;
+  relacion_anterior_id: number;
+  relacion_nueva_id: number;
+  fecha: string;
+  situacion_anterior: SituacionRef;
+  situacion: SituacionRef;
+}
+
+/** Sin cobro en liquidación: se entra y se sale con "Cambiar situación". */
+export const SITUACIONES_FUERA_DE_ACTIVIDAD = ['SIT03', 'SIT04', 'SIT09'];
+/** Desde las que se puede pedir licencia sin goce o No Disponible (incluye reincorporados). */
+export const SITUACIONES_DE_ACTIVIDAD = ['SIT01', 'SIT07', 'SIT16', 'SIT17'];
+
 export interface PatchPersonaPayload {
   primer_nombre?: string;
   segundo_nombre?: string | null;
@@ -251,12 +288,9 @@ export interface PatchPersonaPayload {
   nivel_idoneidad?: number | null;
   fecha_inicio?: string;
   grado_id?: number;
-  unidad_id?: number;
-  situacion_id?: number;
   regimen_id?: number;
   programa_id?: number;
   escalafon_id?: number;
-  sub_unidad_id?: number | null;
   prima_tecnica?: string | null;
   tiene_mando?: boolean;
   observaciones_laborales?: string | null;
@@ -290,13 +324,13 @@ export interface CrearPersonaPayload {
   familiares?: FamiliarPayload[];
   tipo_funcionario?: TipoFuncionario;
   regimen_id: number;
-  unidad_id: number;
   programa_id: number;
   situacion_id: number;
   escalafon_id: number;
   grado_id: number;
   fecha_inicio: string;
-  sub_unidad_id?: number;
+  /** Base del funcionario; el comando lo completa el backend. */
+  sub_unidad_id: number;
   observaciones?: string;
   credencial_civica?: string;
   nivel_idoneidad?: number;

@@ -80,6 +80,7 @@ function makePrevia(gradosValidos: PreviaReincorporacion['grados_validos']): Pre
       prima_solidaria_familiar: null,
     },
     unidad_anterior: null,
+    sub_unidad_anterior: null,
     grados_validos: gradosValidos,
     destino_abierto: null,
     bloqueos: ['El funcionario ya tiene una relación laboral activa.'],

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { Subject, of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { vi } from 'vitest';
@@ -20,6 +21,7 @@ import { ErrorModalService } from '../../../../core/services/error-modal.service
 import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { Invitacion, Rol } from '../../../../core/models/auth.models';
+import { BaseOpcion } from '../../../../core/models/personal.models';
 
 const invitacion = (id: number): Invitacion =>
   ({
@@ -33,6 +35,11 @@ const invitacion = (id: number): Invitacion =>
 
 const rol = (id: number): Rol =>
   ({ id: String(id), nombre: `Rol ${id}`, descripcion: null, permisos: [], cantidadUsuarios: 0 }) as unknown as Rol;
+
+const bases: BaseOpcion[] = [
+  { id: 12, codigo: 'BAI', denominacion: 'B.A.I.', unidad_id: 3, comando: { id: 3, codigo: 'CAO', denominacion: 'C.A.O.' }, etiqueta: 'B.A.I. (C.A.O.)' },
+  { id: 13, codigo: 'BAII', denominacion: 'B.A.II', unidad_id: 3, comando: { id: 3, codigo: 'CAO', denominacion: 'C.A.O.' }, etiqueta: 'B.A.II (C.A.O.)' },
+];
 
 const lista = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
@@ -66,7 +73,7 @@ describe('UsuariosYRolesPage: paginación', () => {
         { provide: ConfirmModalService, useValue: confirmModal },
         { provide: ErrorModalService, useValue: { show: vi.fn() } },
         { provide: UsuariosService, useValue: { findAll: usuariosFindAll } },
-        { provide: PersonalService, useValue: { getUnidades: vi.fn().mockReturnValue(of([])) } },
+        { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of(bases)) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
       ],
     }).compileComponents();
@@ -399,12 +406,12 @@ describe('UsuariosYRolesPage: paginación', () => {
       expect(filas()[0].textContent).toContain('Rol 11');
     });
 
-    it('con 10 o menos no permite pasar a otra página', async () => {
+    it('con 10 o menos no muestra el paginador', async () => {
       await setup(lista(10).map(rol));
       abrirRoles();
 
       expect(filas().length).toBe(10);
-      expect(el().querySelector<HTMLButtonElement>('[aria-label="Página siguiente"]')?.disabled).toBe(true);
+      expect(el().querySelector('[aria-label="Página siguiente"]')).toBeNull();
     });
 
     it('la lista completa sigue disponible para los modales', async () => {
@@ -458,7 +465,7 @@ describe('UsuariosYRolesPage: pestañas según permisos', () => {
         { provide: ConfirmModalService, useValue: { confirmar: vi.fn() } },
         { provide: ErrorModalService, useValue: { show: vi.fn() } },
         { provide: UsuariosService, useValue: { findAll: usuariosFindAll } },
-        { provide: PersonalService, useValue: { getUnidades: vi.fn().mockReturnValue(of([])) } },
+        { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of(bases)) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
       ],
     }).compileComponents();
@@ -533,13 +540,28 @@ describe('UsuariosYRolesPage: guardar la edición de un usuario', () => {
         { provide: ConfirmModalService, useValue: { confirmar: vi.fn() } },
         { provide: ErrorModalService, useValue: { show: vi.fn() } },
         { provide: UsuariosService, useValue: usuariosSvc },
-        { provide: PersonalService, useValue: { getUnidades: vi.fn().mockReturnValue(of([])) } },
+        { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of(bases)) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(UsuariosYRolesPage);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  it('el selector de bases muestra cada base con su comando y usa el id como string', () => {
+    component.abrirEditar(usuario);
+    fixture.detectChanges();
+
+    const selector = fixture.debugElement
+      .queryAll(By.directive(Select))
+      .find((d) => d.attributes['formControlName'] === 'unidadIds');
+    expect(selector).toBeDefined();
+    expect((selector!.componentInstance as Select).items).toEqual([
+      { id: '12', etiqueta: 'B.A.I. (C.A.O.)' },
+      { id: '13', etiqueta: 'B.A.II (C.A.O.)' },
+    ]);
+    expect(TestBed.inject(PersonalService).getBases).toHaveBeenCalled();
   });
 
   it('si un cambio falla, frena ahí y dice qué se guardó y qué no', () => {

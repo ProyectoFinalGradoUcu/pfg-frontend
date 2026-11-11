@@ -90,6 +90,7 @@ function makePreviaReincorporacion(overrides: Partial<PreviaReincorporacion> = {
       prima_solidaria_familiar: null,
     },
     unidad_anterior: { id: '5', denominacion: 'E.M.G.F.A.' },
+    sub_unidad_anterior: null,
     grados_validos: [{ id: '14', codigo: 'CNEL', denominacion: 'Coronel' }],
     destino_abierto: null,
     bloqueos: [],

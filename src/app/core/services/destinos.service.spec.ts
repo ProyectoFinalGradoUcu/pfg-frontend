@@ -3,7 +3,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 
 import { DestinosService, payloadEdicion } from './destinos.service';
 import { API_BASE_URL } from '../api.config';
-import { Destino, ListaDestinos, Paginado, UnidadConDestinados } from '../models/destinos.models';
+import { Destino, ListaDestinos, Paginado, SubUnidadConDestinados } from '../models/destinos.models';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -11,7 +11,8 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
     id: '200',
     persona: { id: '42', cedula: '50000001', primer_nombre: 'José', primer_apellido: 'Pérez' },
-    unidad: { id: '5', codigo: 'EMGFA', denominacion: 'E.M.G.F.A.', tipo: 'Organismo' },
+    unidad: { id: '4', codigo: 'C.G.', denominacion: 'Comando General' },
+    sub_unidad: { id: '12', codigo: 'E.M.A.', denominacion: 'Estado Mayor Aéreo' },
     fecha_inicio: '2024-04-30',
     fecha_fin: null,
     posicion_destino: 'Sub-Jefe de Personal A-1',
@@ -34,11 +35,11 @@ function makeLista(items: Destino[] = []): ListaDestinos {
     total: items.length,
     page: 1,
     pageSize: 10,
-    stats: { total_destinos: items.length, destinos_activos: 0, unidades_con_personal: 0 },
+    stats: { total_destinos: items.length, destinos_activos: 0, sub_unidades_con_personal: 0 },
   };
 }
 
-function makeUnidades(items: UnidadConDestinados[] = []): Paginado<UnidadConDestinados> {
+function makeSubUnidades(items: SubUnidadConDestinados[] = []): Paginado<SubUnidadConDestinados> {
   return { items, total: items.length, page: 1, pageSize: 200 };
 }
 
@@ -66,12 +67,13 @@ describe('DestinosService', () => {
       req.flush(makeLista());
     });
 
-    it('manda page, pageSize, query, unidad_id y activo', () => {
-      service.listar({ page: 2, pageSize: 25, query: 'Pérez', unidad_id: 5, activo: true }).subscribe();
+    it('manda page, pageSize, query, unidad_id, sub_unidad_id y activo', () => {
+      service.listar({ page: 2, pageSize: 25, query: 'Pérez', unidad_id: 4, sub_unidad_id: 12, activo: true }).subscribe();
       const req = http.expectOne((r) => r.url.startsWith(`${API_BASE_URL}/destinos?`));
       expect(req.request.url).toContain('page=2');
       expect(req.request.url).toContain('pageSize=25');
-      expect(req.request.url).toContain('unidad_id=5');
+      expect(req.request.url).toContain('&unidad_id=4');
+      expect(req.request.url).toContain('sub_unidad_id=12');
       expect(req.request.url).toContain('activo=true');
       expect(decodeURIComponent(req.request.url)).toContain('query=Pérez');
       req.flush(makeLista());
@@ -112,18 +114,18 @@ describe('DestinosService', () => {
 
   describe('crear', () => {
     it('envuelve el payload en service_request', () => {
-      service.crear({ persona_id: 42, unidad_id: 5, fecha_inicio: '2026-09-01', numero_orden: 'O.D. 12455' }).subscribe();
+      service.crear({ persona_id: 42, sub_unidad_id: 12, fecha_inicio: '2026-09-01', numero_orden: 'O.D. 12455' }).subscribe();
       const req = http.expectOne(`${API_BASE_URL}/destinos`);
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual({
-        service_request: { persona_id: 42, unidad_id: 5, fecha_inicio: '2026-09-01', numero_orden: 'O.D. 12455' },
+        service_request: { persona_id: 42, sub_unidad_id: 12, fecha_inicio: '2026-09-01', numero_orden: 'O.D. 12455' },
       });
       req.flush(makeDestino());
     });
 
     it('manda fecha_fin_anterior cuando se la pasa', () => {
       service
-        .crear({ persona_id: 42, unidad_id: 5, fecha_inicio: '2026-09-01', boletin: 'B-1', fecha_fin_anterior: '2026-08-15' })
+        .crear({ persona_id: 42, sub_unidad_id: 12, fecha_inicio: '2026-09-01', boletin: 'B-1', fecha_fin_anterior: '2026-08-15' })
         .subscribe();
       const req = http.expectOne(`${API_BASE_URL}/destinos`);
       expect(req.request.body.service_request.fecha_fin_anterior).toBe('2026-08-15');
@@ -160,36 +162,47 @@ describe('DestinosService', () => {
     });
   });
 
-  describe('listarUnidades', () => {
-    it('pide GET /destinos/unidades con tipo y vigente', () => {
-      service.listarUnidades({ query: 'aérea', tipo: 'Unidad', vigente: true }).subscribe();
-      const req = http.expectOne((r) => r.url.startsWith(`${API_BASE_URL}/destinos/unidades?`));
-      expect(req.request.url).toContain('tipo=Unidad');
+  describe('listarSubUnidades', () => {
+    it('pide GET /destinos/sub-unidades con query, unidad_id y vigente', () => {
+      service.listarSubUnidades({ query: 'B.A.', unidad_id: 1, vigente: true }).subscribe();
+      const req = http.expectOne((r) => r.url.startsWith(`${API_BASE_URL}/destinos/sub-unidades?`));
+      expect(req.request.method).toBe('GET');
+      expect(req.request.url).toContain('unidad_id=1');
       expect(req.request.url).toContain('vigente=true');
-      req.flush(makeUnidades());
+      expect(req.request.url).toContain('query=B.A.');
+      expect(req.request.url).not.toContain('tipo=');
+      req.flush(makeSubUnidades());
     });
   });
 
-  describe('listarUnidadesParaSelector', () => {
+  describe('listarSubUnidadesParaSelector', () => {
     it('pide el máximo pageSize del backend y devuelve solo los items', () => {
-      let result: UnidadConDestinados[] | undefined;
-      service.listarUnidadesParaSelector().subscribe((r) => (result = r));
-      const req = http.expectOne((r) => r.url.startsWith(`${API_BASE_URL}/destinos/unidades?`));
+      let result: SubUnidadConDestinados[] | undefined;
+      service.listarSubUnidadesParaSelector().subscribe((r) => (result = r));
+      const req = http.expectOne((r) => r.url.startsWith(`${API_BASE_URL}/destinos/sub-unidades?`));
       expect(req.request.url).toContain('pageSize=200');
       req.flush(
-        makeUnidades([
-          { id: '5', codigo: 'EMGFA', denominacion: 'E.M.G.F.A.', tipo: 'Organismo', vigente: true, total_destinados: 3 },
+        makeSubUnidades([
+          {
+            id: '1',
+            codigo: 'B.A.I.',
+            denominacion: 'Base Aérea I',
+            vigente: true,
+            unidad: { id: '1', codigo: 'C.A.O.', denominacion: 'Comando Aéreo de Operaciones' },
+            total_destinados: 3,
+          },
         ]),
       );
       expect(result!.length).toBe(1);
-      expect(result![0].denominacion).toBe('E.M.G.F.A.');
+      expect(result![0].codigo).toBe('B.A.I.');
+      expect(result![0].unidad.codigo).toBe('C.A.O.');
     });
   });
 
-  describe('listarFuncionariosUnidad', () => {
-    it('pide GET /destinos/unidades/:id/funcionarios con activo', () => {
-      service.listarFuncionariosUnidad('5', { activo: true, page: 1, pageSize: 10 }).subscribe();
-      const req = http.expectOne((r) => r.url.startsWith(`${API_BASE_URL}/destinos/unidades/5/funcionarios?`));
+  describe('listarFuncionariosSubUnidad', () => {
+    it('pide GET /destinos/sub-unidades/:id/funcionarios con activo', () => {
+      service.listarFuncionariosSubUnidad('12', { activo: true, page: 1, pageSize: 10 }).subscribe();
+      const req = http.expectOne((r) => r.url.startsWith(`${API_BASE_URL}/destinos/sub-unidades/12/funcionarios?`));
       expect(req.request.url).toContain('activo=true');
       req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
     });

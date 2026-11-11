@@ -251,6 +251,7 @@ export class CursosService {
       nombre_curso: raw.nombre_curso,
       institucion: raw.institucion,
       es_obligatorio: raw.es_obligatorio ?? false,
+      base: raw.base ?? null,
       modulos: modulosRaw.map((m) => this.mapModulo(m)),
     };
   }

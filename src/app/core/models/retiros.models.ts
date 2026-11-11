@@ -46,6 +46,7 @@ export interface Retiro {
   /** Al momento del retiro, no los actuales. */
   grado: Ref | null;
   unidad: Ref | null;
+  sub_unidad?: Ref | null;
   fecha_retiro: string;
   hora_retiro: string | null;
   motivo_baja: MotivoBaja;
@@ -64,6 +65,7 @@ export interface RetiroDetalle extends Retiro {
     fecha_inicio: string | null;
     fecha_fin: string | null;
     unidad: Ref | null;
+    sub_unidad?: Ref | null;
     grado: Ref | null;
   } | null;
   /** `null` si el retiro fue anulado o es importado o histórico. `tipo` dice "Retiro" o "Baja" según el motivo. */
@@ -99,11 +101,13 @@ export interface PreviaRetiro {
     fecha_inicio: string | null;
     tipo_funcionario: 'oficial' | 'subalterno' | null;
     unidad: Ref | null;
+    sub_unidad?: Ref | null;
     situacion: { id: string; codigo: string } | null;
   } | null;
   destino_vigente: {
     id: string;
     unidad: Ref | null;
+    sub_unidad?: Ref | null;
     fecha_inicio: string | null;
     cerrar_sugerido: boolean;
   } | null;
@@ -214,9 +218,11 @@ export interface PreviaReincorporacion {
   situacion: { id: string; codigo: string; denominacion: string } | null;
   se_copia: DatosCopiadosReincorporacion;
   unidad_anterior: Ref | null;
+  /** Base (sub-unidad) de la relación cerrada. */
+  sub_unidad_anterior: Ref | null;
   /** Los que aceptan el POST y el PATCH según la categoría: vigentes, ordenados, sin cadetes, aprendices ni At. 3.ª. */
   grados_validos: { id: string; codigo: string; denominacion: string }[];
-  destino_abierto: { id: string; unidad: Ref | null; fecha_inicio: string | null } | null;
+  destino_abierto: { id: string; unidad: Ref | null; sub_unidad: Ref | null; fecha_inicio: string | null } | null;
   /** Si trae elementos el POST falla con 409 o 422. Son strings listos para mostrar. */
   bloqueos: string[];
 }
@@ -228,7 +234,8 @@ export interface ReincorporarBody {
   haber_retiro?: number;
   /** Fracción, no porcentaje: 0.3 es un 30 %. Va junto con el haber. */
   porcentaje_progresivo?: number;
-  unidad_id: number;
+  /** Base a la que vuelve; el comando sale de ella. */
+  sub_unidad_id: number;
   numero_orden?: string;
   boletin?: string;
   posicion_destino?: string;
@@ -268,7 +275,8 @@ export interface ListarRetirosQuery {
   page?: number;
   pageSize?: number;
   query?: string;
-  unidad_id?: string | number;
+  /** Base (sub-unidad) de la relación laboral cerrada. */
+  sub_unidad_id?: string | number;
   motivo_baja_id?: string | number;
   desde?: string;
   hasta?: string;
