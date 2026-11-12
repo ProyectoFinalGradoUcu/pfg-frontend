@@ -216,6 +216,22 @@ describe('CursosService', () => {
 
   // ── registrarCalificacion ─────────────────────────────────────────────────
 
+  describe('registrarCalificacionesMasivas', () => {
+    it('hace un único PATCH a /cursos/:cursoId/designaciones con todos los resultados', () => {
+      let result: any;
+      const resultados = [
+        { designacionId: 11, aprobado: true, calificacion: 8 },
+        { designacionId: 12, aprobado: false },
+      ];
+      service.registrarCalificacionesMasivas('c1', resultados).subscribe((r) => (result = r));
+      const req = http.expectOne(`${API_BASE_URL}/cursos/c1/designaciones`);
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual({ resultados });
+      req.flush([{ id: '11', curso_id: 'c1', persona_id: 'p1', aprobado: true, calificacion: 8, observacion: null }]);
+      expect(result).toHaveLength(1);
+    });
+  });
+
   describe('registrarCalificacion', () => {
     it('hace PATCH a /cursos/:cursoId/designaciones/:designacionId con el resultado', () => {
       service.registrarCalificacion('c1', 'd1', { aprobado: true, calificacion: 9 }).subscribe();

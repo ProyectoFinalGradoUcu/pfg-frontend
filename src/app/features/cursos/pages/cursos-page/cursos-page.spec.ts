@@ -93,6 +93,7 @@ describe('CursosPage', () => {
       deleteModulo: vi.fn().mockReturnValue(of(undefined)),
       crearDesignacion: vi.fn().mockReturnValue(of({ personas_designadas: 1 })),
       registrarCalificacion: vi.fn().mockReturnValue(of({ id: 'x', curso_id: 'c1', persona_id: 'f1', aprobado: true, calificacion: 8, observacion: null })),
+      registrarCalificacionesMasivas: vi.fn().mockReturnValue(of([])),
     };
   }
 
@@ -1019,11 +1020,24 @@ describe('CursosPage', () => {
       expect(component.calificacionesMasivas()['dt1'].calificacion).toBeNull();
     });
 
-    it('guardarCalificacionMasiva no llama al service si ninguna fila tiene resultado', () => {
+    it('guardarCalificacionMasiva no llama al service si ninguna fila tiene resultado ni nota', () => {
+      component.onCursoMasivoChange('ct1');
+      component.guardarCalificacionMasiva();
+      expect(cursosService.registrarCalificacionesMasivas).not.toHaveBeenCalled();
+    });
+
+    it('filasMasivasIncompletas detecta las filas con nota pero sin resultado', () => {
+      component.onCursoMasivoChange('ct1');
+      component.setCalificacionMasiva('dt1', '8');
+      expect(component.filasMasivasIncompletas().map((f) => f.curso.designacionId)).toEqual(['dt1']);
+    });
+
+    it('guardarCalificacionMasiva bloquea y nombra las filas con nota pero sin resultado', () => {
       component.onCursoMasivoChange('ct1');
       component.setCalificacionMasiva('dt1', '8');
       component.guardarCalificacionMasiva();
-      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(component.modalError()).toContain('Juan Pérez');
+      expect(cursosService.registrarCalificacionesMasivas).not.toHaveBeenCalled();
     });
 
     it('guardarCalificacionMasiva setea error si una nota está fuera del rango', () => {
@@ -1032,46 +1046,57 @@ describe('CursosPage', () => {
       component.setCalificacionMasiva('dt1', '0');
       component.guardarCalificacionMasiva();
       expect(component.modalError()).toBeTruthy();
-      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(cursosService.registrarCalificacionesMasivas).not.toHaveBeenCalled();
     });
 
-    it('guardarCalificacionMasiva llama al service con el resultado y la nota', () => {
+    it('guardarCalificacionMasiva envía todas las filas en un solo request', () => {
+      const hoy = new Date();
+      const pasado = new Date(hoy.getFullYear() - 1, 0, 1).toISOString().split('T')[0];
+      component.funcionarios.set([
+        makeFuncionario({ cursos: [makeCursoFuncionario({ id: 'ct1', designacionId: '11', fechaFin: pasado })] }),
+        makeFuncionario({ id: 'f2', nombre: 'Ana Gómez', cursos: [makeCursoFuncionario({ id: 'ct1', designacionId: '12', fechaFin: pasado })] }),
+      ]);
       component.onCursoMasivoChange('ct1');
-      component.setAprobadoMasivo('dt1', true);
-      component.setCalificacionMasiva('dt1', '8');
+      component.setAprobadoMasivo('11', true);
+      component.setCalificacionMasiva('11', '8');
+      component.setAprobadoMasivo('12', false);
       component.guardarCalificacionMasiva();
-      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('ct1', 'dt1', { aprobado: true, calificacion: 8 });
+      expect(cursosService.registrarCalificacionesMasivas).toHaveBeenCalledTimes(1);
+      expect(cursosService.registrarCalificacionesMasivas).toHaveBeenCalledWith('ct1', [
+        { designacionId: 11, aprobado: true, calificacion: 8 },
+        { designacionId: 12, aprobado: false },
+      ]);
     });
 
-    it('guardarCalificacionMasiva omite la nota cuando no se cargó', () => {
-      component.onCursoMasivoChange('ct1');
-      component.setAprobadoMasivo('dt1', false);
-      component.guardarCalificacionMasiva();
-      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('ct1', 'dt1', { aprobado: false });
-    });
-
-    it('guardarCalificacionMasiva cierra el modal tras éxito', () => {
+    it('guardarCalificacionMasiva aplica los resultados devueltos y cierra el modal', () => {
+      cursosService.registrarCalificacionesMasivas.mockReturnValue(
+        of([{ id: 'dt1', curso_id: 'ct1', persona_id: 'f1', aprobado: true, calificacion: 9, observacion: null }]),
+      );
       component.onCursoMasivoChange('ct1');
       component.setAprobadoMasivo('dt1', true);
       component.setCalificacionMasiva('dt1', '9');
       component.guardarCalificacionMasiva();
+      expect(component.funcionarios()[0].cursos[0]).toMatchObject({ aprobado: true, calificacion: 9 });
       expect(component.modal()).toBeNull();
+      expect(toastService.success).toHaveBeenCalled();
     });
 
-    it('guardarCalificacionMasiva muestra error si el backend falla', () => {
-      cursosService.registrarCalificacion.mockReturnValue(throwError(() => makeHttpError('fallo')));
+    it('guardarCalificacionMasiva avisa que no se guardó nada si el backend falla', () => {
+      cursosService.registrarCalificacionesMasivas.mockReturnValue(throwError(() => makeHttpError('fallo')));
       component.onCursoMasivoChange('ct1');
       component.setAprobadoMasivo('dt1', true);
       component.setCalificacionMasiva('dt1', '9');
       component.guardarCalificacionMasiva();
-      expect(component.modalError()).toBeTruthy();
+      expect(component.modalError()).toContain('No se guardó ningún resultado');
       expect(component.modal()).toBe('calificacionMasiva');
+      expect(component.funcionarios()[0].cursos[0].aprobado).toBeNull();
+      expect(component.calificacionesMasivas()['dt1']).toEqual({ aprobado: true, calificacion: 9 });
     });
 
     it('cancelar (cerrarModal) cierra sin guardar', () => {
       component.onCursoMasivoChange('ct1');
       component.cerrarModal();
-      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(cursosService.registrarCalificacionesMasivas).not.toHaveBeenCalled();
       expect(component.modal()).toBeNull();
     });
   });

@@ -118,6 +118,10 @@ export interface RegistrarCalificacionPayload {
   observacion?: string;
 }
 
+export interface CalificacionMasivaItem extends RegistrarCalificacionPayload {
+  designacionId: number;
+}
+
 export interface CalificacionResponse {
   id: string;
   curso_id: string;

@@ -1282,6 +1282,9 @@ $navy-soft: #1e3a5f;
   tbody tr:last-child td { border-bottom: none; }
 
   tbody tr:hover { background: #f8fafc; }
+
+  tbody tr.cursos__cal-masiva-row--incompleta,
+  tbody tr.cursos__cal-masiva-row--incompleta:hover { background: #fef9c3; }
 }
 
 .cursos__cal-masiva-th-nota,
