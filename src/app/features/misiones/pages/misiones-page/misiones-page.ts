@@ -2,8 +2,8 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, of } from 'rxjs';
-import { catchError, debounceTime } from 'rxjs/operators';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
@@ -15,8 +15,8 @@ import {
   categoriaParam,
 } from '../../../../core/models/personal.models';
 import {
-  FuncionarioConMisiones,
-  FuncionarioMisionItem,
+  FilaPersonalMision,
+  FiltrosPersonalMision,
   MisionDefinicion,
   MisionesStats,
   MisionOpcion,
@@ -32,12 +32,7 @@ type ModalKind =
   | null;
 type EstadoFiltro = '' | 'activa' | 'finalizada';
 
-interface FilaPersonal {
-  funcionarioId: string;
-  cedula: string;
-  nombre: string;
-  mision: FuncionarioMisionItem;
-}
+type FilaPersonal = FilaPersonalMision;
 
 @Component({
   selector: 'app-misiones-page',
@@ -80,7 +75,9 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   // ── Personal en misión ───────────────────────────────────────────────────
   readonly loadingPersonal = signal(false);
-  readonly funcionarios = signal<FuncionarioConMisiones[]>([]);
+  readonly filasPersonal = signal<FilaPersonal[]>([]);
+  readonly personalTotal = signal(0);
+  readonly errorPersonal = signal(false);
   readonly misionesOpciones = signal<MisionOpcion[]>([]);
   readonly personalPage = signal(1);
   readonly personalPageSize = 10;
@@ -93,7 +90,6 @@ export class MisionesPage implements OnInit, OnDestroy {
   readonly misionesFiltroIds = signal<string[]>([]);
   readonly ordenBoletinFiltroPersonal = signal('');
   readonly estadoFiltroPersonal = signal<EstadoFiltro>('');
-  /** Se filtra en el backend: cambiarla vuelve a pedir el listado. */
   readonly categoriaFiltroPersonal = signal<FiltroCategoria>('todos');
   readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly hayFiltrosPersonal = computed(
@@ -105,35 +101,8 @@ export class MisionesPage implements OnInit, OnDestroy {
       !!this.estadoFiltroPersonal(),
   );
 
-  readonly filasFlat = computed<FilaPersonal[]>(() => {
-    const q = this.busquedaPersonal().trim().toLowerCase();
-    const orden = this.ordenBoletinFiltroPersonal().trim().toLowerCase();
-    const misionIds = this.misionesFiltroIds();
-    const estado = this.estadoFiltroPersonal();
-
-    return this.funcionarios().flatMap((f) =>
-      f.misiones
-        .filter((m) => {
-          if (q && !(f.cedula.toLowerCase().includes(q) || f.nombre.toLowerCase().includes(q))) return false;
-          if (misionIds.length > 0 && !misionIds.includes(m.id)) return false;
-          if (
-            orden &&
-            !((m.numero_orden ?? '').toLowerCase().includes(orden) || (m.boletin ?? '').toLowerCase().includes(orden))
-          ) {
-            return false;
-          }
-          if (estado === 'activa' && m.finalizada) return false;
-          if (estado === 'finalizada' && !m.finalizada) return false;
-          return true;
-        })
-        .map((m) => ({ funcionarioId: f.id, cedula: f.cedula, nombre: f.nombre, mision: m })),
-    );
-  });
-
-  readonly filasPaginadas = computed<FilaPersonal[]>(() => {
-    const start = (this.personalPage() - 1) * this.personalPageSize;
-    return this.filasFlat().slice(start, start + this.personalPageSize);
-  });
+  private readonly personalTextSubject = new Subject<void>();
+  private personalSub?: Subscription;
 
   // ── Menú de acciones (kebab) ─────────────────────────────────────────────
   readonly openMenuId = signal<string | null>(null);
@@ -191,10 +160,14 @@ export class MisionesPage implements OnInit, OnDestroy {
       this.defPage.set(1);
       this.cargarDefiniciones();
     });
+
+    this.personalTextSubject.pipe(debounceTime(350)).subscribe(() => this.recargarPersonalDesdeInicio());
   }
 
   ngOnDestroy(): void {
     this.defTextSubject.complete();
+    this.personalTextSubject.complete();
+    this.personalSub?.unsubscribe();
   }
 
   // ── Carga ────────────────────────────────────────────────────────────────
@@ -224,13 +197,49 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   cargarPersonal(): void {
     this.loadingPersonal.set(true);
-    this.misionesService
-      .findFuncionariosConMisiones(1, 200, categoriaParam(this.categoriaFiltroPersonal()))
-      .pipe(catchError(() => of([])))
-      .subscribe((funcionarios) => {
-        this.funcionarios.set(funcionarios);
-        this.loadingPersonal.set(false);
+    this.errorPersonal.set(false);
+    // Cancela el pedido anterior para que una respuesta lenta no pise filtros más nuevos.
+    this.personalSub?.unsubscribe();
+    this.personalSub = this.misionesService
+      .findPersonalEnMision(this.personalPage(), this.personalPageSize, this.filtrosPersonal())
+      .subscribe({
+        next: (res) => {
+          // La página quedó vacía (se quitó o editó su última fila): ir a la última con datos.
+          const ultimaPagina = Math.ceil(res.total / this.personalPageSize);
+          if (res.items.length === 0 && this.personalPage() > ultimaPagina && ultimaPagina > 0) {
+            this.personalPage.set(ultimaPagina);
+            this.cargarPersonal();
+            return;
+          }
+          this.filasPersonal.set(res.items);
+          this.personalTotal.set(res.total);
+          this.loadingPersonal.set(false);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.filasPersonal.set([]);
+          this.personalTotal.set(0);
+          this.errorPersonal.set(true);
+          this.loadingPersonal.set(false);
+          this.toast.error(this.parseError(err));
+        },
       });
+  }
+
+  private filtrosPersonal(): FiltrosPersonalMision {
+    const estado = this.estadoFiltroPersonal();
+    const misionIds = this.misionesFiltroIds();
+    return {
+      query: this.busquedaPersonal().trim() || undefined,
+      misionIds: misionIds.length > 0 ? misionIds : undefined,
+      orden: this.ordenBoletinFiltroPersonal().trim() || undefined,
+      finalizada: estado ? estado === 'finalizada' : undefined,
+      categoria: categoriaParam(this.categoriaFiltroPersonal()),
+    };
+  }
+
+  private recargarPersonalDesdeInicio(): void {
+    this.personalPage.set(1);
+    this.cargarPersonal();
   }
 
   onNombreInput(value: string): void {
@@ -255,41 +264,43 @@ export class MisionesPage implements OnInit, OnDestroy {
     this.cargarDefiniciones();
   }
 
+  onPersonalPageChange(page: number): void {
+    this.personalPage.set(page);
+    this.cargarPersonal();
+  }
+
   onBusquedaPersonalInput(value: string): void {
     this.busquedaPersonal.set(value);
-    this.personalPage.set(1);
+    this.personalTextSubject.next();
   }
 
   onMisionFiltroChange(value: string[] | null): void {
     this.misionesFiltroIds.set(value ?? []);
-    this.personalPage.set(1);
+    this.recargarPersonalDesdeInicio();
   }
 
   onOrdenBoletinPersonalInput(value: string): void {
     this.ordenBoletinFiltroPersonal.set(value);
-    this.personalPage.set(1);
+    this.personalTextSubject.next();
   }
 
   onEstadoFiltroPersonalChange(value: string): void {
     this.estadoFiltroPersonal.set(value as EstadoFiltro);
-    this.personalPage.set(1);
+    this.recargarPersonalDesdeInicio();
   }
 
   onCategoriaFiltroPersonalChange(value: string): void {
     this.categoriaFiltroPersonal.set(value as FiltroCategoria);
-    this.personalPage.set(1);
-    this.cargarPersonal();
+    this.recargarPersonalDesdeInicio();
   }
 
   limpiarFiltrosPersonal(): void {
-    const recargar = this.categoriaFiltroPersonal() !== 'todos';
     this.busquedaPersonal.set('');
     this.misionesFiltroIds.set([]);
     this.ordenBoletinFiltroPersonal.set('');
     this.estadoFiltroPersonal.set('');
     this.categoriaFiltroPersonal.set('todos');
-    this.personalPage.set(1);
-    if (recargar) this.cargarPersonal();
+    this.recargarPersonalDesdeInicio();
   }
 
   // ── Navegación ───────────────────────────────────────────────────────────
