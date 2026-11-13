@@ -507,6 +507,22 @@ export class MisionesService {
 
   // ── Personal en misión (agrupado por persona) ────────────────────────────
 
+  findPersonalPaginado(page: number, pageSize: number, filtros: { categoria?: string; query?: string; documento?: string; estado?: string; mision_ids?: string[] } = {}): Observable<PaginatedResponse<FuncionarioConMisiones>> {
+    const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    for (const [key, value] of Object.entries(filtros)) {
+      if (Array.isArray(value)) { if (value.length) qs.set(key, value.join(',')); }
+      else if (value) qs.set(key, value);
+    }
+    return this.http.get<PaginatedResponse<any>>(`${API_BASE_URL}/misiones/funcionarios?${qs}`, { withCredentials: true }).pipe(map(res => ({
+      ...res,
+      items: res.items.map(row => ({
+        id: String(row.persona.id), cedula: row.persona.cedula,
+        nombre: [row.persona.primer_nombre, row.persona.primer_apellido].filter(Boolean).join(' '),
+        misiones: [this.mapFuncionarioMisionItem(row)],
+      })),
+    })));
+  }
+
   findFuncionariosConMisiones(
     page = 1,
     pageSize = 200,

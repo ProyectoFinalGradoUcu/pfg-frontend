@@ -295,8 +295,9 @@
       </div>
 
       <div *ngIf="loadingPersonal()" class="misiones__placeholder">Cargando...</div>
+      <div *ngIf="errorPersonal()" role="alert">{{ errorPersonal() }} <button type="button" (click)="cargarPersonal()">Reintentar</button></div>
 
-      <div *ngIf="!loadingPersonal()" class="misiones__table-wrapper">
+      <div *ngIf="!loadingPersonal() && !errorPersonal()" class="misiones__table-wrapper">
         <table class="misiones__table">
           <thead>
             <tr>
@@ -354,10 +355,10 @@
 
       <app-paginator
         *ngIf="!loadingPersonal()"
-        [totalItems]="filasFlat().length"
+        [totalItems]="personalTotal()"
         [pageSize]="personalPageSize"
         [currentPage]="personalPage()"
-        (pageChange)="personalPage.set($event)"
+        (pageChange)="onPersonalPageChange($event)"
       ></app-paginator>
     </article>
 
@@ -405,6 +406,8 @@
       </header>
 
       <form [formGroup]="misionForm" (ngSubmit)="guardarMision()" novalidate>
+        <label class="modal__field"><span>N.º de orden</span><input formControlName="numero_orden" maxlength="50" /></label>
+        <label class="modal__field"><span>Boletín</span><input formControlName="boletin" maxlength="50" /></label>
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
         <div class="modal__grid-2">

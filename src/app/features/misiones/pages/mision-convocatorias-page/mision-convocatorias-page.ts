@@ -226,8 +226,8 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
         .editarConvocatoria(this.misionId, editando.id, {
           numero_orden: raw.numero_orden || undefined,
           boletin: raw.boletin || undefined,
-          fecha_salida: raw.fecha_salida || undefined,
-          fecha_llegada: raw.fecha_llegada || undefined,
+          fecha_salida: raw.fecha_salida || null,
+          fecha_llegada: raw.fecha_llegada || null,
           observaciones: raw.observaciones || undefined,
         })
         .subscribe({

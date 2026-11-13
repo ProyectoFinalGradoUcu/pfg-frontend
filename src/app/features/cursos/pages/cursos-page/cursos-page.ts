@@ -3,7 +3,7 @@ import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
-import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { catchError, debounceTime, distinctUntilChanged, map, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
@@ -139,10 +139,12 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly cursoMasivoId        = signal<string | null>(null);
   readonly calificacionesMasivas = signal<Record<string, ResultadoMasivo>>({});
   readonly guardandoMasivo       = signal(false);
+  readonly erroresMasivos = signal<Record<string, string>>({});
 
   readonly filasMasivasConResultado = computed(
     () => this.filasCursoMasivo().filter((f) => this.calificacionesMasivas()[f.curso.designacionId]?.aprobado != null),
   );
+  readonly hayNotasMasivas = computed(() => this.filasCursoMasivo().some(f => this.calificacionesMasivas()[f.curso.designacionId]?.calificacion != null));
 
   readonly cursosAptos = computed(() => {
     const hoy = new Date();
@@ -150,6 +152,7 @@ export class CursosPage implements OnInit, OnDestroy {
     const vistos = new Set<string>();
     const result: { id: string; nombre: string; institucion: string }[] = [];
     for (const fila of this.filasFlat()) {
+      if (fila.curso.dadoDeBaja) continue;
       if (!fila.curso.fechaFin) continue;
       if (new Date(fila.curso.fechaFin) >= hoy) continue;
       if (fila.curso.aprobado !== null) continue;
@@ -163,7 +166,7 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly filasCursoMasivo = computed<FilaHistorial[]>(() => {
     const id = this.cursoMasivoId();
     if (!id) return [];
-    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.aprobado === null);
+    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.aprobado === null && !f.curso.dadoDeBaja && this.cursoTerminado(f.curso));
   });
 
   // ── Designar ────────────────────────────────────────────────────────────────
@@ -229,6 +232,7 @@ export class CursosPage implements OnInit, OnDestroy {
 
   // ── Formularios ────────────────────────────────────────────────────────────
   readonly registrarForm = this.fb.group({
+    sub_unidad_id: [null as number | null],
     personaId: ['', Validators.required],
     nombre: ['', [Validators.required, Validators.maxLength(100)]],
     institucion: ['', [Validators.required, Validators.maxLength(100)]],
@@ -411,7 +415,9 @@ export class CursosPage implements OnInit, OnDestroy {
   abrirRegistrar(): void {
     this.registrarForm.reset({
       personaId: '', nombre: '', institucion: '', tipo: '', fechaInicio: '', fechaFin: '', estado: '',
+      sub_unidad_id: null,
     });
+    this.cargarBasesCurso(this.registrarForm.controls.sub_unidad_id);
     this.archivoCertificado.set(null);
     this.modalError.set(null);
     this.modal.set('registrarCurso');
@@ -438,6 +444,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   cerrarModal(): void {
+    if (this.guardandoMasivo()) return;
     this.modal.set(null);
     this.modalError.set(null);
     this.archivoCertificado.set(null);
@@ -589,7 +596,7 @@ export class CursosPage implements OnInit, OnDestroy {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { personaId, nombre, institucion, tipo, fechaInicio, fechaFin, estado } =
+    const { personaId, nombre, institucion, tipo, fechaInicio, fechaFin, estado, sub_unidad_id } =
       this.registrarForm.getRawValue();
 
     this.modalError.set(null);
@@ -597,6 +604,7 @@ export class CursosPage implements OnInit, OnDestroy {
       .createHistorial(
         {
           personaId: personaId!,
+          ...(sub_unidad_id != null ? { sub_unidad_id: Number(sub_unidad_id) } : {}),
           nombre: nombre!,
           institucion: institucion!,
           tipo: tipo as TipoCurso,
@@ -617,8 +625,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   /** Con alcance de unidad la base es obligatoria; si tiene una sola, va esa. */
-  private cargarBasesCurso(): void {
-    const control = this.nuevoCursoForm.controls.sub_unidad_id;
+  private cargarBasesCurso(control = this.nuevoCursoForm.controls.sub_unidad_id): void {
     if (this.gestionaPorBase()) {
       const propias = (this.auth.currentUser()?.unidades ?? []).map((u) => ({
         id: Number(u.id),
@@ -879,6 +886,7 @@ export class CursosPage implements OnInit, OnDestroy {
   // ── Calificaciones ────────────────────────────────────────────────────────
 
   abrirCalificacionMasiva(): void {
+    this.erroresMasivos.set({});
     this.cursoMasivoId.set(null);
     this.calificacionesMasivas.set({});
     this.modalError.set(null);
@@ -886,6 +894,8 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   onCursoMasivoChange(cursoId: string): void {
+    if (this.guardandoMasivo()) return;
+    this.erroresMasivos.set({});
     this.cursoMasivoId.set(cursoId);
     const inicial: Record<string, ResultadoMasivo> = {};
     for (const fila of this.filasCursoMasivo()) {
@@ -895,6 +905,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   setAprobadoMasivo(designacionId: string, aprobado: boolean): void {
+    if (this.guardandoMasivo()) return;
     this.calificacionesMasivas.update((prev) => ({
       ...prev,
       [designacionId]: { ...prev[designacionId], aprobado },
@@ -902,6 +913,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   setAprobadoMasivoTodos(aprobado: boolean): void {
+    if (this.guardandoMasivo()) return;
     this.calificacionesMasivas.update((prev) => {
       const next = { ...prev };
       for (const fila of this.filasCursoMasivo()) {
@@ -912,7 +924,8 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   setCalificacionMasiva(designacionId: string, valor: string): void {
-    const nota = valor.trim() === '' ? null : Math.round(Number(valor));
+    if (this.guardandoMasivo()) return;
+    const nota = valor.trim() === '' ? null : Number(valor);
     this.calificacionesMasivas.update((prev) => ({
       ...prev,
       [designacionId]: { ...prev[designacionId], calificacion: nota },
@@ -920,8 +933,17 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   guardarCalificacionMasiva(): void {
+    if (this.guardandoMasivo()) return;
     const filas = this.filasMasivasConResultado();
     const resultados = this.calificacionesMasivas();
+    const incompleta = this.filasCursoMasivo().find(f => {
+      const r = resultados[f.curso.designacionId];
+      return r?.calificacion != null && r.aprobado == null;
+    });
+    if (incompleta) {
+      this.modalError.set(`Indicá aprobado o desaprobado para ${incompleta.nombre}; tiene una nota cargada sin resultado.`);
+      return;
+    }
     if (filas.length === 0) return;
 
     for (const fila of filas) {
@@ -940,12 +962,17 @@ export class CursosPage implements OnInit, OnDestroy {
       return this.cursosService.registrarCalificacion(fila.curso.id, fila.curso.designacionId, {
         aprobado: resultado.aprobado!,
         ...(resultado.calificacion !== null ? { calificacion: resultado.calificacion } : {}),
-      });
+      }).pipe(
+        map(res => ({ fila, res, error: null as string | null })),
+        catchError((err: HttpErrorResponse) => of({ fila, res: null, error: this.parseError(err) })),
+      );
     });
 
     forkJoin(requests).subscribe({
       next: (results) => {
-        const porDesignacion = new Map(filas.map((f, i) => [f.curso.designacionId, results[i]]));
+        const guardados = results.filter(r => r.res !== null);
+        const fallidos = results.filter(r => r.res === null);
+        const porDesignacion = new Map(guardados.map(r => [r.fila.curso.designacionId, r.res!]));
         this.funcionarios.update((lista) =>
           lista.map((f) => ({
             ...f,
@@ -958,8 +985,13 @@ export class CursosPage implements OnInit, OnDestroy {
           })),
         );
         this.guardandoMasivo.set(false);
-        this.cerrarModal();
-        this.toast.success(`${filas.length} resultado(s) registrado(s) correctamente`);
+        this.erroresMasivos.set(Object.fromEntries(fallidos.map(r => [r.fila.curso.designacionId, r.error!])));
+        if (guardados.length) this.toast.success(`${guardados.length} resultado(s) registrado(s) correctamente`);
+        if (fallidos.length) {
+          this.modalError.set(`${guardados.length} guardado(s), ${fallidos.length} fallido(s). Los guardados ya fueron actualizados; el reintento enviará solo los pendientes. ${fallidos.map(r => `${r.fila.nombre}: ${r.error}`).join('; ')}`);
+        } else {
+          this.cerrarModal();
+        }
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoMasivo.set(false);
@@ -976,6 +1008,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   iniciarCalificacion(fila: FilaHistorial): void {
+    if (fila.curso.dadoDeBaja) return;
     this.aprobadoValor.set(null);
     this.calificacionValor.set(null);
     this.observacionValor.set('');
@@ -985,12 +1018,17 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   setCalificacionValor(valor: string): void {
-    this.calificacionValor.set(valor.trim() === '' ? null : Math.round(Number(valor)));
+    this.calificacionValor.set(valor.trim() === '' ? null : Number(valor));
   }
 
   guardarCalificacion(): void {
+    if (this.guardandoCalificacion()) return;
     const fila = this.filaCalificando();
     if (!fila) return;
+    if (fila.curso.dadoDeBaja) {
+      this.modalError.set('La inscripción está dada de baja; reactivala antes de calificar');
+      return;
+    }
 
     const aprobado = this.aprobadoValor();
     if (aprobado === null) {

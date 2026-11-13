@@ -39,9 +39,9 @@ export class CursosService {
   ): Observable<HistorialCurso> {
     if (documento) {
       const form = new FormData();
-      (Object.keys(payload) as (keyof CreateHistorialCursoPayload)[]).forEach((key) =>
-        form.append(key, payload[key]),
-      );
+      (Object.keys(payload) as (keyof CreateHistorialCursoPayload)[]).forEach((key) => {
+        if (payload[key] !== undefined) form.append(key, String(payload[key]));
+      });
       form.append('documento', documento);
       return this.http.post<HistorialCurso>(`${API_BASE_URL}/historial-cursos`, form, {
         withCredentials: true,

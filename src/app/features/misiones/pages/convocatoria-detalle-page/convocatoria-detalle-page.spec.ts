@@ -281,8 +281,8 @@ describe('ConvocatoriaDetallePage', () => {
       expect(misionesService.editarConvocatoria).toHaveBeenCalledWith('1', 'c9', {
         numero_orden: 'ORD-NEW',
         boletin: undefined,
-        fecha_salida: undefined,
-        fecha_llegada: undefined,
+        fecha_salida: null,
+        fecha_llegada: null,
         observaciones: 'nota',
       });
     });

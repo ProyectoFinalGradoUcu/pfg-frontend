@@ -2,8 +2,8 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, of } from 'rxjs';
-import { catchError, debounceTime } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
@@ -83,6 +83,10 @@ export class MisionesPage implements OnInit, OnDestroy {
   readonly funcionarios = signal<FuncionarioConMisiones[]>([]);
   readonly misionesOpciones = signal<MisionOpcion[]>([]);
   readonly personalPage = signal(1);
+  readonly personalTotal = signal(0);
+  readonly errorPersonal = signal<string | null>(null);
+  private readonly personalTexto = new Subject<void>();
+  private personalPeticion = 0;
   readonly personalPageSize = 10;
   readonly filaAQuitar = signal<FilaPersonal | null>(null);
   readonly quitando = signal(false);
@@ -106,33 +110,14 @@ export class MisionesPage implements OnInit, OnDestroy {
   );
 
   readonly filasFlat = computed<FilaPersonal[]>(() => {
-    const q = this.busquedaPersonal().trim().toLowerCase();
-    const orden = this.ordenBoletinFiltroPersonal().trim().toLowerCase();
-    const misionIds = this.misionesFiltroIds();
-    const estado = this.estadoFiltroPersonal();
-
     return this.funcionarios().flatMap((f) =>
       f.misiones
-        .filter((m) => {
-          if (q && !(f.cedula.toLowerCase().includes(q) || f.nombre.toLowerCase().includes(q))) return false;
-          if (misionIds.length > 0 && !misionIds.includes(m.id)) return false;
-          if (
-            orden &&
-            !((m.numero_orden ?? '').toLowerCase().includes(orden) || (m.boletin ?? '').toLowerCase().includes(orden))
-          ) {
-            return false;
-          }
-          if (estado === 'activa' && m.finalizada) return false;
-          if (estado === 'finalizada' && !m.finalizada) return false;
-          return true;
-        })
         .map((m) => ({ funcionarioId: f.id, cedula: f.cedula, nombre: f.nombre, mision: m })),
     );
   });
 
   readonly filasPaginadas = computed<FilaPersonal[]>(() => {
-    const start = (this.personalPage() - 1) * this.personalPageSize;
-    return this.filasFlat().slice(start, start + this.personalPageSize);
+    return this.filasFlat();
   });
 
   // ── Menú de acciones (kebab) ─────────────────────────────────────────────
@@ -159,6 +144,8 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   // ── Formularios ──────────────────────────────────────────────────────────
   readonly misionForm = this.fb.group({
+    numero_orden: ['', Validators.maxLength(50)],
+    boletin: ['', Validators.maxLength(50)],
     nombre_mision: ['', [Validators.required, Validators.maxLength(150)]],
     pais: ['', Validators.required],
     fecha_orden: [''],
@@ -191,10 +178,13 @@ export class MisionesPage implements OnInit, OnDestroy {
       this.defPage.set(1);
       this.cargarDefiniciones();
     });
+    this.personalTexto.pipe(debounceTime(350)).subscribe(() => this.cargarPersonal());
   }
 
   ngOnDestroy(): void {
     this.defTextSubject.complete();
+    this.personalTexto.complete();
+    this.personalPeticion++;
   }
 
   // ── Carga ────────────────────────────────────────────────────────────────
@@ -223,14 +213,35 @@ export class MisionesPage implements OnInit, OnDestroy {
   }
 
   cargarPersonal(): void {
+    const peticion = ++this.personalPeticion;
+    this.errorPersonal.set(null);
     this.loadingPersonal.set(true);
     this.misionesService
-      .findFuncionariosConMisiones(1, 200, categoriaParam(this.categoriaFiltroPersonal()))
-      .pipe(catchError(() => of([])))
-      .subscribe((funcionarios) => {
-        this.funcionarios.set(funcionarios);
+      .findPersonalPaginado(this.personalPage(), this.personalPageSize, {
+        categoria: categoriaParam(this.categoriaFiltroPersonal()), query: this.busquedaPersonal().trim(),
+        documento: this.ordenBoletinFiltroPersonal().trim(), estado: this.estadoFiltroPersonal(), mision_ids: this.misionesFiltroIds(),
+      })
+      .subscribe({ next: res => {
+        if (peticion !== this.personalPeticion) return;
+        if (!res.items.length && res.total > 0 && this.personalPage() > Math.ceil(res.total / this.personalPageSize)) {
+          this.personalPage.set(Math.ceil(res.total / this.personalPageSize));
+          this.cargarPersonal();
+          return;
+        }
+        this.funcionarios.set(res.items);
+        this.personalTotal.set(res.total);
         this.loadingPersonal.set(false);
+      }, error: err => {
+        if (peticion !== this.personalPeticion) return;
+        this.errorPersonal.set(this.parseError(err));
+        this.loadingPersonal.set(false);
+      },
       });
+  }
+
+  onPersonalPageChange(page: number): void {
+    this.personalPage.set(page);
+    this.cargarPersonal();
   }
 
   onNombreInput(value: string): void {
@@ -258,21 +269,25 @@ export class MisionesPage implements OnInit, OnDestroy {
   onBusquedaPersonalInput(value: string): void {
     this.busquedaPersonal.set(value);
     this.personalPage.set(1);
+    this.personalTexto.next();
   }
 
   onMisionFiltroChange(value: string[] | null): void {
     this.misionesFiltroIds.set(value ?? []);
     this.personalPage.set(1);
+    this.cargarPersonal();
   }
 
   onOrdenBoletinPersonalInput(value: string): void {
     this.ordenBoletinFiltroPersonal.set(value);
     this.personalPage.set(1);
+    this.personalTexto.next();
   }
 
   onEstadoFiltroPersonalChange(value: string): void {
     this.estadoFiltroPersonal.set(value as EstadoFiltro);
     this.personalPage.set(1);
+    this.cargarPersonal();
   }
 
   onCategoriaFiltroPersonalChange(value: string): void {
@@ -282,14 +297,13 @@ export class MisionesPage implements OnInit, OnDestroy {
   }
 
   limpiarFiltrosPersonal(): void {
-    const recargar = this.categoriaFiltroPersonal() !== 'todos';
     this.busquedaPersonal.set('');
     this.misionesFiltroIds.set([]);
     this.ordenBoletinFiltroPersonal.set('');
     this.estadoFiltroPersonal.set('');
     this.categoriaFiltroPersonal.set('todos');
     this.personalPage.set(1);
-    if (recargar) this.cargarPersonal();
+    this.cargarPersonal();
   }
 
   // ── Navegación ───────────────────────────────────────────────────────────
@@ -322,6 +336,7 @@ export class MisionesPage implements OnInit, OnDestroy {
   abrirNuevaMision(): void {
     this.misionForm.reset({
       nombre_mision: '',
+      numero_orden: '', boletin: '',
       pais: '',
       fecha_orden: '',
       fecha_boletin: '',
@@ -339,6 +354,7 @@ export class MisionesPage implements OnInit, OnDestroy {
     this.misionSeleccionada.set(mision);
     this.misionForm.reset({
       nombre_mision: mision.nombre_mision,
+      numero_orden: mision.numero_orden ?? '', boletin: mision.boletin ?? '',
       pais: mision.pais,
       fecha_orden: mision.fecha_orden ?? '',
       fecha_boletin: mision.fecha_boletin ?? '',
@@ -381,6 +397,7 @@ export class MisionesPage implements OnInit, OnDestroy {
     const raw = this.misionForm.getRawValue();
     const payload = {
       nombre_mision: raw.nombre_mision!,
+      numero_orden: raw.numero_orden?.trim() ?? '', boletin: raw.boletin?.trim() ?? '',
       pais: raw.pais!,
       fecha_orden: raw.fecha_orden || undefined,
       fecha_boletin: raw.fecha_boletin || undefined,

@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { vi } from 'vitest';
 
@@ -963,6 +963,14 @@ describe('CursosPage', () => {
   // ── CalificacionMasivaModal ────────────────────────────────────────────────
 
   describe('CalificacionMasivaModal', () => {
+    it('el historial permite seleccionar una base cuando el usuario tiene varias', async () => {
+      await setup('catalogo', false, [BAI, ETA]);
+      component.abrirRegistrar();
+      expect(component.basesCurso().map(b => b.id)).toEqual([7, 9]);
+      expect(component.registrarForm.controls.sub_unidad_id.invalid).toBe(true);
+      component.registrarForm.controls.sub_unidad_id.setValue(8);
+      expect(component.registrarForm.controls.sub_unidad_id.valid).toBe(true);
+    });
     beforeEach(async () => {
       await setup();
       // Cargar funcionarios con cursos terminados y sin resultado
@@ -1024,6 +1032,70 @@ describe('CursosPage', () => {
       component.setCalificacionMasiva('dt1', '8');
       component.guardarCalificacionMasiva();
       expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(component.modalError()).toContain('sin resultado');
+    });
+
+    it('actualiza éxitos parciales y reintenta solo la fila fallida conservando su nota', () => {
+      const curso = component.funcionarios()[0].cursos[0];
+      component.funcionarios.set([
+        makeFuncionario({ id: 'f1', cursos: [{ ...curso, designacionId: 'dt1' }] }),
+        makeFuncionario({ id: 'f2', cursos: [{ ...curso, designacionId: 'dt2' }] }),
+      ]);
+      component.onCursoMasivoChange('ct1');
+      component.setAprobadoMasivoTodos(true);
+      component.setCalificacionMasiva('dt2', '7');
+      cursosService.registrarCalificacion.mockImplementation((_curso: string, id: string) => id === 'dt1'
+        ? of({ id, aprobado: true, calificacion: 8, observacion: null })
+        : throwError(() => makeHttpError('Fallo de dt2')));
+      component.guardarCalificacionMasiva();
+      expect(component.funcionarios()[0].cursos[0].aprobado).toBe(true);
+      expect(component.funcionarios()[1].cursos[0].aprobado).toBeNull();
+      expect(component.modal()).toBe('calificacionMasiva');
+      expect(component.modalError()).toContain('1 guardado(s), 1 fallido(s)');
+      expect(component.calificacionesMasivas()['dt2'].calificacion).toBe(7);
+      cursosService.registrarCalificacion.mockClear();
+      cursosService.registrarCalificacion.mockReturnValue(of({ id: 'dt2', aprobado: true, calificacion: 7, observacion: null }));
+      component.guardarCalificacionMasiva();
+      expect(cursosService.registrarCalificacion).toHaveBeenCalledTimes(1);
+      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('ct1', 'dt2', { aprobado: true, calificacion: 7 });
+      expect(component.modal()).toBeNull();
+    });
+
+    it('no envía ninguna fila si hay otra con nota pero sin aprobado/desaprobado', () => {
+      const curso = component.funcionarios()[0].cursos[0];
+      component.funcionarios.set([makeFuncionario({ cursos: [curso, { ...curso, designacionId: 'dt2' }] })]);
+      component.onCursoMasivoChange('ct1');
+      component.setAprobadoMasivo('dt1', true);
+      component.setCalificacionMasiva('dt2', '8');
+      component.guardarCalificacionMasiva();
+      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(component.modalError()).toContain('sin resultado');
+    });
+
+    it('excluye las inscripciones dadas de baja aunque se muestren en el historial', () => {
+      const curso = component.funcionarios()[0].cursos[0];
+      component.funcionarios.set([makeFuncionario({ cursos: [{ ...curso, dadoDeBaja: true }] })]);
+      component.onCursoMasivoChange('ct1');
+      expect(component.cursosAptos()).toEqual([]);
+      expect(component.filasCursoMasivo()).toEqual([]);
+      component.iniciarCalificacion(component.filasFlat()[0]);
+      expect(component.modal()).toBe('calificacionMasiva');
+    });
+
+    it('no duplica envíos ni permite cerrar o cambiar curso mientras se guarda', () => {
+      const pendiente = new Subject<any>();
+      cursosService.registrarCalificacion.mockReturnValue(pendiente);
+      component.onCursoMasivoChange('ct1');
+      component.setAprobadoMasivoTodos(true);
+      component.guardarCalificacionMasiva();
+      component.guardarCalificacionMasiva();
+      component.cerrarModal();
+      component.onCursoMasivoChange('otro');
+      expect(cursosService.registrarCalificacion).toHaveBeenCalledTimes(1);
+      expect(component.modal()).toBe('calificacionMasiva');
+      expect(component.cursoMasivoId()).toBe('ct1');
+      pendiente.next({ aprobado: true, calificacion: null, observacion: null });
+      pendiente.complete();
     });
 
     it('guardarCalificacionMasiva setea error si una nota está fuera del rango', () => {

@@ -57,6 +57,7 @@ export interface FuncionarioConCursos {
 }
 
 export interface CreateHistorialCursoPayload {
+  sub_unidad_id?: number;
   personaId: string;
   nombre: string;
   institucion: string;
@@ -114,8 +115,9 @@ export interface UpdateCursoPayload {
 
 export interface RegistrarCalificacionPayload {
   aprobado: boolean;
-  calificacion?: number;
-  observacion?: string;
+  /** Omitir conserva el valor anterior; null lo limpia explícitamente. */
+  calificacion?: number | null;
+  observacion?: string | null;
 }
 
 export interface CalificacionResponse {
