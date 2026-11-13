@@ -3,6 +3,8 @@ import { PaginatedResponse } from './auth.models';
 // ── Misión (catálogo / definición reutilizable) ──────────────────────────────
 
 export interface MisionDefinicion {
+  numero_orden?: string | null;
+  boletin?: string | null;
   id: string;
   nombre_mision: string;
   pais: string;
@@ -16,6 +18,8 @@ export interface MisionDefinicion {
 }
 
 export interface CreateMisionDefinicionPayload {
+  numero_orden?: string;
+  boletin?: string;
   nombre_mision: string;
   pais: string;
   fecha_orden?: string;
@@ -61,11 +65,11 @@ export interface CreateConvocatoriaPayload {
 }
 
 export interface UpdateConvocatoriaPayload {
-  numero_orden?: string;
-  boletin?: string;
-  fecha_salida?: string;
-  fecha_llegada?: string;
-  observaciones?: string;
+  numero_orden?: string | null;
+  boletin?: string | null;
+  fecha_salida?: string | null;
+  fecha_llegada?: string | null;
+  observaciones?: string | null;
 }
 
 // ── Funcionarios asignados a una convocatoria ────────────────────────────────

@@ -346,6 +346,17 @@ describe('MisionesService', () => {
     });
 
     describe('findFuncionariosConMisiones', () => {
+      it('la consulta paginada conserva el total y envía filtros al servidor', () => {
+        let resultado: any;
+        service.findPersonalPaginado(22, 10, { query: 'Ana', mision_ids: ['1', '2'], estado: 'activa' }).subscribe(r => resultado = r);
+        const req = http.expectOne(r => r.url.includes('/misiones/funcionarios?'));
+        expect(req.request.url).toContain('page=22');
+        expect(req.request.url).toContain('mision_ids=1%2C2');
+        expect(req.request.url).toContain('query=Ana');
+        req.flush({ items: [], total: 250, page: 22, pageSize: 10 });
+        expect(resultado.total).toBe(250);
+        expect(resultado.page).toBe(22);
+      });
       const matchAll = (r: { url: string }) => r.url.startsWith(`${API_BASE_URL}/misiones/funcionarios?`);
 
       it('construye la URL con page=1 y pageSize=200 por defecto', () => {

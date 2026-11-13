@@ -73,6 +73,7 @@ describe('MisionesPage', () => {
       findAllDefiniciones: vi.fn().mockReturnValue(of(makeCatalogo())),
       findMisionesOpciones: vi.fn().mockReturnValue(of([])),
       findFuncionariosConMisiones: vi.fn().mockReturnValue(of([])),
+      findPersonalPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
       createDefinicion: vi.fn().mockReturnValue(of(makeMision())),
       editarDefinicion: vi.fn().mockReturnValue(of(makeMision())),
       deleteDefinicion: vi.fn().mockReturnValue(of(undefined)),
@@ -117,6 +118,23 @@ describe('MisionesPage', () => {
     TestBed.resetTestingModule();
   });
 
+  it('solicita páginas posteriores a 200 y usa el total del servidor', async () => {
+    await setup('personal-en-mision');
+    misionesService.findPersonalPaginado.mockReturnValue(of({ items: [makeFuncionario({ misiones: [makeMisionItem()] })], total: 250, page: 22, pageSize: 10 }));
+    component.onPersonalPageChange(22);
+    expect(component.personalTotal()).toBe(250);
+    expect(component.filasPaginadas()).toHaveLength(1);
+    expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(22, 10, expect.any(Object));
+  });
+
+  it('presenta el error de carga en vez de aparentar una lista vacía', async () => {
+    await setup('personal-en-mision');
+    misionesService.findPersonalPaginado.mockReturnValue(throwError(() => makeHttpError('Sin conexión')));
+    component.cargarPersonal();
+    expect(component.errorPersonal()).toContain('Sin conexión');
+    expect(component.loadingPersonal()).toBe(false);
+  });
+
   // ── Inicialización ─────────────────────────────────────────────────────────
 
   describe('inicialización', () => {
@@ -144,7 +162,7 @@ describe('MisionesPage', () => {
 
     it('en tab personal-en-mision, carga el personal y las opciones de misión (no el catálogo)', async () => {
       await setup('personal-en-mision');
-      expect(misionesService.findFuncionariosConMisiones).toHaveBeenCalled();
+      expect(misionesService.findPersonalPaginado).toHaveBeenCalled();
       expect(misionesService.findMisionesOpciones).toHaveBeenCalled();
       expect(misionesService.findAllDefiniciones).not.toHaveBeenCalled();
     });
@@ -257,6 +275,7 @@ describe('MisionesPage', () => {
       component.misionForm.patchValue({ nombre_mision: 'X', pais: 'Y' });
       component.abrirNuevaMision();
       expect(component.misionForm.value).toEqual({
+        numero_orden: '', boletin: '',
         nombre_mision: '',
         pais: '',
         fecha_orden: '',
@@ -273,6 +292,7 @@ describe('MisionesPage', () => {
       const mision = makeMision({ nombre_mision: 'Haití', pais: 'Haití' });
       component.abrirEditar(mision);
       expect(component.misionForm.value).toEqual({
+        numero_orden: '', boletin: '',
         nombre_mision: 'Haití',
         pais: 'Haití',
         fecha_orden: '',
@@ -306,7 +326,7 @@ describe('MisionesPage', () => {
       component.abrirNuevaMision();
       component.misionForm.patchValue({ nombre_mision: 'Líbano', pais: 'Líbano' });
       component.guardarMision();
-      expect(misionesService.createDefinicion).toHaveBeenCalledWith({ nombre_mision: 'Líbano', pais: 'Líbano' });
+      expect(misionesService.createDefinicion).toHaveBeenCalledWith(expect.objectContaining({ nombre_mision: 'Líbano', pais: 'Líbano', numero_orden: '', boletin: '' }));
     });
 
     it('guardarMision (creación) cierra el modal y muestra toast tras éxito', () => {
@@ -331,7 +351,7 @@ describe('MisionesPage', () => {
       component.abrirEditar(mision);
       component.misionForm.patchValue({ nombre_mision: 'Nuevo', pais: 'Y' });
       component.guardarMision();
-      expect(misionesService.editarDefinicion).toHaveBeenCalledWith('42', { nombre_mision: 'Nuevo', pais: 'Y' });
+      expect(misionesService.editarDefinicion).toHaveBeenCalledWith('42', expect.objectContaining({ nombre_mision: 'Nuevo', pais: 'Y' }));
     });
 
     it('guardarMision (edición) cierra el modal, muestra toast y recarga', () => {
@@ -436,55 +456,57 @@ describe('MisionesPage', () => {
 
     it('filtra por búsqueda de cédula', () => {
       component.busquedaPersonal.set('1111');
-      expect(component.filasFlat()).toHaveLength(2);
-      expect(component.filasFlat().every((f) => f.cedula === '11111111')).toBe(true);
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ query: '1111' }));
     });
 
     it('filtra por búsqueda de nombre (case-insensitive)', () => {
       component.busquedaPersonal.set('ana');
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].nombre).toBe('Ana García');
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ query: 'ana' }));
     });
 
     it('filtra por misión seleccionada (multiselect)', () => {
       component.misionesFiltroIds.set(['m2']);
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].mision.nombre_mision).toBe('Chipre');
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ mision_ids: ['m2'] }));
     });
 
     it('filtra por varias misiones a la vez', () => {
       component.misionesFiltroIds.set(['m1', 'm2']);
-      expect(component.filasFlat()).toHaveLength(3);
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ mision_ids: ['m1', 'm2'] }));
     });
 
     it('filtra por número de orden', () => {
       component.ordenBoletinFiltroPersonal.set('ORD-100');
-      expect(component.filasFlat()).toHaveLength(1);
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ documento: 'ORD-100' }));
     });
 
     it('filtra por boletín', () => {
       component.ordenBoletinFiltroPersonal.set('bol-9');
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].mision.boletin).toBe('BOL-9');
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ documento: 'bol-9' }));
     });
 
     it('filtra por estado activa', () => {
       component.estadoFiltroPersonal.set('activa');
-      expect(component.filasFlat().every((f) => !f.mision.finalizada)).toBe(true);
-      expect(component.filasFlat()).toHaveLength(2);
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ estado: 'activa' }));
     });
 
     it('filtra por estado finalizada', () => {
       component.estadoFiltroPersonal.set('finalizada');
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].mision.finalizada).toBe(true);
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ estado: 'finalizada' }));
     });
 
     it('combina varios filtros a la vez', () => {
       component.busquedaPersonal.set('juan');
       component.estadoFiltroPersonal.set('activa');
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].mision.nombre_mision).toBe('Congo');
+      component.cargarPersonal();
+      expect(misionesService.findPersonalPaginado).toHaveBeenLastCalledWith(1, 10, expect.objectContaining({ query: 'juan', estado: 'activa' }));
     });
 
     it('hayFiltrosPersonal es true si hay algún filtro activo', () => {
@@ -553,7 +575,7 @@ describe('MisionesPage', () => {
       component.confirmarQuitarPersonal();
       expect(component.modal()).toBeNull();
       expect(toastService.success).toHaveBeenCalled();
-      expect(misionesService.findFuncionariosConMisiones).toHaveBeenCalled();
+      expect(misionesService.findPersonalPaginado).toHaveBeenCalled();
     });
 
     it('confirmarQuitarPersonal muestra toast de error si falla', () => {
@@ -612,7 +634,7 @@ describe('MisionesPage', () => {
       component.guardarEdicionFuncionarioPersonal();
       expect(component.modal()).toBeNull();
       expect(toastService.success).toHaveBeenCalled();
-      expect(misionesService.findFuncionariosConMisiones).toHaveBeenCalled();
+      expect(misionesService.findPersonalPaginado).toHaveBeenCalled();
     });
 
     it('guardarEdicionFuncionarioPersonal muestra error si el backend falla', () => {
