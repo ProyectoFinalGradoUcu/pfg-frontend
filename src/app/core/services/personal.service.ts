@@ -3,6 +3,9 @@ import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
+  BaseOpcion,
+  CambiarSituacionPayload,
+  CambioSituacionResultado,
   CrearPersonaPayload,
   CrearPersonaResponse,
   CursoPersona,
@@ -93,12 +96,29 @@ export class PersonalService {
     return this.http.get<OpcionSelect[]>(`${this.catalogos}/sub-unidades`, { withCredentials: true });
   }
 
+  /** Las bases vigentes, ordenadas por comando, con la etiqueta "B.A.I. (C.A.O.)". */
+  getBases(): Observable<BaseOpcion[]> {
+    return this.http
+      .get<Omit<BaseOpcion, 'etiqueta'>[]>(`${this.catalogos}/sub-unidades`, { withCredentials: true })
+      .pipe(
+        map((bases) =>
+          bases.map((b) => ({ ...b, etiqueta: `${b.denominacion} (${b.comando.denominacion})` })),
+        ),
+      );
+  }
+
   getById(id: number): Observable<PersonaDetalle> {
     return this.http.get<PersonaDetalle>(`${API_BASE_URL}/personas/${id}`, { withCredentials: true });
   }
 
   update(id: number, payload: PatchPersonaPayload): Observable<PersonaDetalle> {
     return this.http.patch<PersonaDetalle>(`${API_BASE_URL}/personas/${id}`, payload, { withCredentials: true });
+  }
+
+  cambiarSituacion(id: number, payload: CambiarSituacionPayload): Observable<CambioSituacionResultado> {
+    return this.http.post<CambioSituacionResultado>(`${API_BASE_URL}/personas/${id}/situacion`, payload, {
+      withCredentials: true,
+    });
   }
 
   getFamiliares(id: number): Observable<FamiliarItem[]> {

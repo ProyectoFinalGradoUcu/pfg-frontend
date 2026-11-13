@@ -89,7 +89,7 @@ export class AscensosService {
     if (query.estado?.length) params['estado'] = query.estado.join(',');
     if (query.escalafon_id) params['escalafon_id'] = String(query.escalafon_id);
     if (query.grado_id) params['grado_id'] = String(query.grado_id);
-    if (query.unidad_id) params['unidad_id'] = String(query.unidad_id);
+    if (query.sub_unidad_id) params['sub_unidad_id'] = String(query.sub_unidad_id);
     if (query.query) params['query'] = query.query;
     if (query.fecha_referencia) params['fecha_referencia'] = query.fecha_referencia;
     if (query.horizonte_meses) params['horizonte_meses'] = String(query.horizonte_meses);
@@ -130,7 +130,7 @@ export class AscensosService {
     if (query.hasta) params['hasta'] = query.hasta;
     if (query.numero_orden) params['numero_orden'] = query.numero_orden;
     if (query.grado_destino_id) params['grado_destino_id'] = String(query.grado_destino_id);
-    if (query.unidad_id) params['unidad_id'] = String(query.unidad_id);
+    if (query.sub_unidad_id) params['sub_unidad_id'] = String(query.sub_unidad_id);
     if (query.registrado_por) params['registrado_por'] = String(query.registrado_por);
     if (query.anuladas !== undefined) params['anuladas'] = String(query.anuladas);
     if (query.con_excepciones) params['con_excepciones'] = 'true';

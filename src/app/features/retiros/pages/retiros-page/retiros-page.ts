@@ -10,7 +10,6 @@ import {
 import {
   FiltroCategoria,
   OPCIONES_FILTRO_CATEGORIA,
-  OpcionSelect,
   categoriaParam,
 } from '../../../../core/models/personal.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
@@ -48,7 +47,7 @@ export class RetirosPage implements OnInit, OnDestroy {
   readonly pageSize = PAGE_SIZE;
 
   readonly busqueda = signal('');
-  readonly unidadId = signal<number | null>(null);
+  readonly baseId = signal<number | null>(null);
   readonly motivoBajaId = signal<number | null>(null);
   readonly desde = signal('');
   readonly hasta = signal('');
@@ -56,7 +55,8 @@ export class RetirosPage implements OnInit, OnDestroy {
   readonly categoria = signal<FiltroCategoria>('todos');
   readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
 
-  readonly unidades = signal<OpcionSelect[]>([]);
+  /** Bases con su comando: "B.A.I. (C.A.O.)". */
+  readonly bases = signal<{ id: number; etiqueta: string }[]>([]);
   readonly motivos = signal<MotivoBajaCatalogo[]>([]);
 
   readonly puedeRegistrar = this.auth.hasPermiso('retiros.registrar');
@@ -64,7 +64,7 @@ export class RetirosPage implements OnInit, OnDestroy {
   readonly hayFiltrosActivos = computed(
     () =>
       !!this.busqueda() ||
-      this.unidadId() !== null ||
+      this.baseId() !== null ||
       this.motivoBajaId() !== null ||
       this.categoria() !== 'todos' ||
       !!this.desde() ||
@@ -77,7 +77,7 @@ export class RetirosPage implements OnInit, OnDestroy {
   readonly etiquetaEstado = ETIQUETA_ESTADO;
 
   ngOnInit(): void {
-    this.personal.getUnidades().subscribe({ next: (u) => this.unidades.set(u) });
+    this.personal.getBases().subscribe({ next: (b) => this.bases.set(b.map((x) => ({ id: Number(x.id), etiqueta: x.etiqueta }))) });
     this.catalogos.getMotivosBaja().subscribe({ next: (m) => this.motivos.set(m) });
 
     this.busqueda$
@@ -120,7 +120,7 @@ export class RetirosPage implements OnInit, OnDestroy {
       vigentes: !this.incluirAnulados(),
     };
     if (this.busqueda().trim()) q.query = this.busqueda().trim();
-    if (this.unidadId()) q.unidad_id = this.unidadId()!;
+    if (this.baseId()) q.sub_unidad_id = this.baseId()!;
     if (this.motivoBajaId()) q.motivo_baja_id = this.motivoBajaId()!;
     if (this.desde()) q.desde = this.desde();
     if (this.hasta()) q.hasta = this.hasta();
@@ -139,8 +139,8 @@ export class RetirosPage implements OnInit, OnDestroy {
     this.reiniciarPaginado();
   }
 
-  setUnidad(id: number | null): void {
-    this.unidadId.set(id);
+  setBase(id: number | null): void {
+    this.baseId.set(id);
     this.reiniciarPaginado();
   }
 
@@ -162,7 +162,7 @@ export class RetirosPage implements OnInit, OnDestroy {
 
   limpiarFiltros(): void {
     this.busqueda.set('');
-    this.unidadId.set(null);
+    this.baseId.set(null);
     this.motivoBajaId.set(null);
     this.categoria.set('todos');
     this.desde.set('');

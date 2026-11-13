@@ -6,7 +6,6 @@ import {
   ReincorporarBody,
   Reincorporado,
 } from '../../../../core/models/retiros.models';
-import { OpcionSelect } from '../../../../core/models/personal.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { parseError } from '../../../../shared/utils/parse-error';
@@ -28,7 +27,8 @@ export interface ValoresReincorporacion {
   haber_retiro: number | null;
   /** En %, como figura en el acto. */
   porcentaje: number | null;
-  unidad_id: number | null;
+  /** Base (sub-unidad) a la que vuelve. */
+  sub_unidad_id: number | null;
   numero_orden: string;
   boletin: string;
   posicion_destino: string;
@@ -55,7 +55,7 @@ export function armarBodyReincorporacion(v: ValoresReincorporacion): Reincorpora
   const body: ReincorporarBody = {
     fecha_reincorporacion: v.fecha_reincorporacion,
     grado_reincorporacion_id: Number(v.grado_reincorporacion_id),
-    unidad_id: Number(v.unidad_id),
+    sub_unidad_id: Number(v.sub_unidad_id),
   };
   if (v.haber_retiro !== null && v.porcentaje !== null) {
     body.haber_retiro = redondearHaber(Number(v.haber_retiro));
@@ -69,9 +69,9 @@ export function armarBodyReincorporacion(v: ValoresReincorporacion): Reincorpora
   return body;
 }
 
-/** Donde revista hoy y, si no, donde revistaba al retirarse. */
-export function unidadSugerida(p: PreviaReincorporacion): number | null {
-  const id = p.destino_abierto?.unidad?.id ?? p.unidad_anterior?.id;
+/** La base donde revista hoy y, si no, donde revistaba al retirarse. */
+export function baseSugerida(p: PreviaReincorporacion): number | null {
+  const id = p.destino_abierto?.sub_unidad?.id ?? p.sub_unidad_anterior?.id;
   return id ? Number(id) : null;
 }
 
@@ -116,7 +116,8 @@ export class ReincorporarRetiroModal implements OnInit {
 
   readonly paso = signal<Paso>('datos');
   readonly grados = signal<{ id: number; codigo: string; denominacion: string }[]>([]);
-  readonly unidades = signal<OpcionSelect[]>([]);
+  /** Bases con su comando: "B.A.I. (C.A.O.)". */
+  readonly bases = signal<{ id: number; etiqueta: string }[]>([]);
   readonly enviando = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -132,7 +133,7 @@ export class ReincorporarRetiroModal implements OnInit {
       grado_reincorporacion_id: [null as number | null, Validators.required],
       haber_retiro: [null as number | null, validadoresHaber],
       porcentaje: [null as number | null, validadoresPorcentaje],
-      unidad_id: [null as number | null, Validators.required],
+      sub_unidad_id: [null as number | null, Validators.required],
       numero_orden: ['', Validators.maxLength(50)],
       boletin: ['', Validators.maxLength(50)],
       posicion_destino: ['', Validators.maxLength(200)],
@@ -149,22 +150,22 @@ export class ReincorporarRetiroModal implements OnInit {
     const grado = this.previa.se_copia.grado;
     this.form.patchValue({
       grado_reincorporacion_id: grado ? Number(grado.id) : null,
-      unidad_id: unidadSugerida(this.previa),
+      sub_unidad_id: baseSugerida(this.previa),
     });
 
     // El catálogo por escalafón no sirve acá: deja afuera grados que el backend acepta e incluye cadetes.
     this.grados.set(this.previa.grados_validos.map((g) => ({ ...g, id: Number(g.id) })));
     this.descartarSiNoEsta('grado_reincorporacion_id', this.grados());
-    this.personalService.getUnidades().subscribe({
-      next: (u) => {
-        this.unidades.set(u.map((x) => ({ ...x, id: Number(x.id) })));
-        this.descartarSiNoEsta('unidad_id', this.unidades());
+    this.personalService.getBases().subscribe({
+      next: (b) => {
+        this.bases.set(b.map((x) => ({ id: Number(x.id), etiqueta: x.etiqueta })));
+        this.descartarSiNoEsta('sub_unidad_id', this.bases());
       },
     });
   }
 
   /** Un valor por defecto que no está en el catálogo (no vigente) daría 422: mejor que lo elijan. */
-  private descartarSiNoEsta(control: 'grado_reincorporacion_id' | 'unidad_id', opciones: { id: number }[]): void {
+  private descartarSiNoEsta(control: 'grado_reincorporacion_id' | 'sub_unidad_id', opciones: { id: number }[]): void {
     const actual = this.form.controls[control].value;
     if (actual !== null && !opciones.some((o) => o.id === actual)) {
       this.form.controls[control].setValue(null);
@@ -186,21 +187,22 @@ export class ReincorporarRetiroModal implements OnInit {
     return this.grados().find((g) => g.id === id)?.denominacion ?? '—';
   }
 
-  nombreUnidad(): string {
-    const id = this.form.controls.unidad_id.value;
-    return this.unidades().find((u) => u.id === id)?.denominacion ?? 'la unidad elegida';
+  nombreBase(): string {
+    const id = this.form.controls.sub_unidad_id.value;
+    return this.bases().find((b) => b.id === id)?.etiqueta ?? 'la base elegida';
   }
 
-  /** El backend siempre abre un destino con la orden del acto, aunque sea la misma unidad. */
+  /** El backend siempre abre un destino con la orden del acto, aunque sea la misma base. */
   efectoDestino(): string | null {
-    if (this.form.controls.unidad_id.value === null) return null;
+    if (this.form.controls.sub_unidad_id.value === null) return null;
     const d = this.previa.destino_abierto;
-    const unidad = this.nombreUnidad();
+    const base = this.nombreBase();
 
     if (d) {
-      return `Se cierra el destino abierto en ${d.unidad?.denominacion ?? 'su unidad'} el día anterior a la reincorporación y se abre uno nuevo en ${unidad}.`;
+      const anterior = d.sub_unidad?.denominacion ?? d.unidad?.denominacion ?? 'su base';
+      return `Se cierra el destino abierto en ${anterior} el día anterior a la reincorporación y se abre uno nuevo en ${base}.`;
     }
-    return `Se abre un destino nuevo en ${unidad}.`;
+    return `Se abre un destino nuevo en ${base}.`;
   }
 
   parCargado(): boolean {

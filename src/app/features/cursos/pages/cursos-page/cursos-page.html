@@ -202,7 +202,7 @@
 
                 <!-- Sin resultado: curso ya terminó → botón cargar -->
                 <button
-                  *ngIf="fila.curso.aprobado === null && cursoTerminado(fila.curso) && puedeGestionar()"
+                  *ngIf="!fila.curso.dadoDeBaja && fila.curso.aprobado === null && cursoTerminado(fila.curso) && puedeGestionar()"
                   type="button"
                   class="btn btn--ghost btn--sm cursos__cal-btn"
                   (click)="iniciarCalificacion(fila)"
@@ -216,7 +216,7 @@
 
                 <!-- Sin resultado: curso activo, o sin permiso para cargarlo -->
                 <span
-                  *ngIf="fila.curso.aprobado === null && (!cursoTerminado(fila.curso) || !puedeGestionar())"
+                  *ngIf="fila.curso.aprobado === null && (fila.curso.dadoDeBaja || !cursoTerminado(fila.curso) || !puedeGestionar())"
                   class="cursos__sin-nota"
                 >—</span>
 
@@ -347,6 +347,7 @@
             <tr>
               <th>Nombre del Curso</th>
               <th>Institución</th>
+              <th>Base</th>
               <th>Tipo</th>
               <th class="cursos__col-actions">Acciones</th>
             </tr>
@@ -355,6 +356,7 @@
             <tr *ngFor="let d of definiciones(); trackBy: trackDefinicion">
               <td><strong>{{ d.nombre_curso }}</strong></td>
               <td>{{ d.institucion }}</td>
+              <td>{{ etiquetaBaseCurso(d) }}</td>
               <td>
                 <span
                   class="cursos__obligatorio-badge"
@@ -379,7 +381,7 @@
               </td>
             </tr>
             <tr *ngIf="!loadingDef() && definiciones().length === 0">
-              <td colspan="4" class="cursos__empty">
+              <td colspan="5" class="cursos__empty">
                 {{ hayFiltrosDef() ? 'No se encontraron cursos con esos filtros' : 'No hay cursos creados' }}
               </td>
             </tr>
@@ -558,6 +560,22 @@
             <input type="text" formControlName="institucion" placeholder="ej: Escuela Militar de Aeronáutica" autocomplete="off" />
           </label>
         </div>
+
+        <label class="modal__field">
+          <span>Base <em *ngIf="gestionaPorBase()">*</em></span>
+          <app-select
+            formControlName="sub_unidad_id"
+            [items]="basesCurso()"
+            bindLabel="etiqueta"
+            bindValue="id"
+            [placeholder]="gestionaPorBase() ? 'Seleccioná la base' : 'General (toda la fuerza)'"
+            [clearable]="!gestionaPorBase()"
+            [searchable]="true"
+          ></app-select>
+          <small class="modal__hint">
+            {{ gestionaPorBase() ? 'Lo ven y lo gestionan quienes tienen esa base.' : 'Vacío = curso general, visible para todos.' }}
+          </small>
+        </label>
 
         <label class="cursos__toggle-row">
           <div class="cursos__toggle-info">
@@ -1018,6 +1036,7 @@
         <span>Curso finalizado pendiente de resultado <em>*</em></span>
         <select
           class="cursos__cal-masiva-select"
+          [disabled]="guardandoMasivo()"
           [value]="cursoMasivoId() ?? ''"
           (change)="onCursoMasivoChange($any($event.target).value)"
         >
@@ -1052,21 +1071,23 @@
             </thead>
             <tbody>
               <tr *ngFor="let fila of filasCursoMasivo(); trackBy: trackFila">
-                <td>{{ fila.nombre }}</td>
+                <td>{{ fila.nombre }}<p *ngIf="erroresMasivos()[fila.curso.designacionId]" role="alert">{{ erroresMasivos()[fila.curso.designacionId] }}</p></td>
                 <td class="cursos__cedula">{{ fila.cedula }}</td>
                 <td>
                   <div class="cursos__resultado-toggle" role="group" attr.aria-label="Resultado de {{ fila.nombre }}">
                     <button
                       type="button"
                       class="cursos__resultado-opt cursos__resultado-opt--aprobado"
-                      [class.is-active]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === true"
+                       [class.is-active]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === true"
+                       [disabled]="guardandoMasivo()"
                       [attr.aria-pressed]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === true"
                       (click)="setAprobadoMasivo(fila.curso.designacionId, true)"
                     >Aprobado</button>
                     <button
                       type="button"
                       class="cursos__resultado-opt cursos__resultado-opt--desaprobado"
-                      [class.is-active]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === false"
+                       [class.is-active]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === false"
+                       [disabled]="guardandoMasivo()"
                       [attr.aria-pressed]="calificacionesMasivas()[fila.curso.designacionId]?.aprobado === false"
                       (click)="setAprobadoMasivo(fila.curso.designacionId, false)"
                     >Desaprobado</button>
@@ -1079,6 +1100,7 @@
                     max="10"
                     step="1"
                     class="cursos__cal-input"
+                    [disabled]="guardandoMasivo()"
                     [value]="calificacionesMasivas()[fila.curso.designacionId]?.calificacion ?? ''"
                     (input)="setCalificacionMasiva(fila.curso.designacionId, $any($event.target).value)"
                     aria-label="Nota de {{ fila.nombre }}"
@@ -1096,7 +1118,7 @@
           *ngIf="filasCursoMasivo().length > 0"
           type="button"
           class="btn btn--primary"
-          [disabled]="guardandoMasivo() || filasMasivasConResultado().length === 0"
+          [disabled]="guardandoMasivo() || (filasMasivasConResultado().length === 0 && !hayNotasMasivas())"
           (click)="guardarCalificacionMasiva()"
         >
           <svg *ngIf="guardandoMasivo()" class="cursos__cal-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

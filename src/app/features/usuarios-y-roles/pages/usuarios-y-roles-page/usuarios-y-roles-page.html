@@ -107,7 +107,7 @@
             <th>Nombre</th>
             <th>Email</th>
             <th>Roles</th>
-            <th>Unidad</th>
+            <th>Bases</th>
             <th>Estado</th>
             <th *ngIf="puedeGestionarUsuarios()" class="ur__col-actions">Acciones</th>
           </tr>
@@ -130,17 +130,13 @@
               <small *ngIf="u.roles.length === 0" class="ur__muted">sin roles</small>
             </td>
             <td>
-              <!--
-                Unidad derivada de la relación laboral activa: es la que determina los permisos
-                heredados y el alcance de datos. No se edita desde acá (spec 002).
-              -->
               <ng-container *ngIf="u.unidades.length > 0; else sinUnidad">
-                <span *ngFor="let unidad of u.unidades; let last = last">
+                <span *ngFor="let unidad of u.unidades; let last = last" [title]="unidad.comando.denominacion">
                   {{ unidad.denominacion }}<ng-container *ngIf="!last">, </ng-container>
                 </span>
               </ng-container>
               <ng-template #sinUnidad>
-                <span class="ur__muted" title="Sin unidad: opera con alcance general">—</span>
+                <span class="ur__muted" title="Sin bases: opera con alcance general">—</span>
               </ng-template>
             </td>
             <td>
@@ -430,20 +426,20 @@
         </label>
 
         <label class="modal__field">
-          <span>Unidad</span>
+          <span>Bases</span>
           <app-select
             formControlName="unidadIds"
             [items]="unidadesCatalogo()"
-            bindLabel="denominacion"
+            bindLabel="etiqueta"
             bindValue="id"
-            placeholder="Sin unidades (ve todo el padrón)"
+            placeholder="Sin bases (ve todo el padrón)"
             [searchable]="true"
             [clearable]="true"
             [multiple]="true"
           ></app-select>
           <small class="modal__hint">
-            Define qué personal ve este usuario y de qué unidades hereda roles. Al cambiarlas se
-            cierra su sesión activa.
+            Define de qué bases ve el personal este usuario y de cuáles hereda roles. Al cambiarlas
+            se cierra su sesión activa.
           </small>
         </label>
 
@@ -477,7 +473,7 @@
                   <code class="permisos-efectivos__nombre">{{ p.nombre }}</code>
                   <span class="permisos-efectivos__origen">
                     <span class="badge" [class.badge--directo]="p.origen === 'directo'" [class.badge--heredado]="p.origen === 'unidad'">
-                      {{ p.origen === 'directo' ? 'Directo' : 'Unidad' }}
+                      {{ p.origen === 'directo' ? 'Directo' : 'Base' }}
                     </span>
                     {{ p.origen === 'unidad' ? p.unidad : p.rol }}
                   </span>
@@ -496,7 +492,7 @@
                   <code class="permisos-efectivos__nombre">{{ p.nombre }}</code>
                   <span class="permisos-efectivos__origen">
                     <span class="badge" [class.badge--directo]="p.origen === 'directo'" [class.badge--heredado]="p.origen === 'unidad'">
-                      {{ p.origen === 'directo' ? 'Directo' : 'Unidad' }}
+                      {{ p.origen === 'directo' ? 'Directo' : 'Base' }}
                     </span>
                     {{ p.origen === 'unidad' ? p.unidad : p.rol }}
                   </span>

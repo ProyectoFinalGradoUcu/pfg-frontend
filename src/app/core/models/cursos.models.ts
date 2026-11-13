@@ -75,11 +75,20 @@ export interface ModuloCurso {
   orden: number;
 }
 
+/** Base (sub-unidad) de un curso, con su comando. */
+export interface BaseCurso {
+  id: string;
+  denominacion: string;
+  comando: string | null;
+}
+
 export interface CursoDefinicion {
   id: string;
   nombre_curso: string;
   institucion: string;
   es_obligatorio?: boolean;
+  /** `null` = curso general de la fuerza. */
+  base?: BaseCurso | null;
   modulos?: ModuloCurso[];
 }
 
@@ -87,6 +96,8 @@ export interface CreateCursoDefinicionPayload {
   nombre_curso: string;
   institucion: string;
   es_obligatorio?: boolean;
+  /** Base del curso; sin base es un curso general (solo alcance global). */
+  sub_unidad_id?: number;
 }
 
 export interface CreateModuloPayload {
@@ -103,8 +114,9 @@ export interface UpdateCursoPayload {
 
 export interface RegistrarCalificacionPayload {
   aprobado: boolean;
-  calificacion?: number;
-  observacion?: string;
+  /** Omitir conserva el valor anterior; null lo limpia explícitamente. */
+  calificacion?: number | null;
+  observacion?: string | null;
 }
 
 export interface CalificacionResponse {

@@ -204,6 +204,7 @@ export interface Elegibilidad {
     nombre_completo: string;
     apellido: string;
     unidad: { id: string; denominacion: string } | null;
+    sub_unidad?: { id: string; denominacion: string } | null;
     escalafon: { id: string; denominacion: string } | null;
     situacion: { id: string; codigo: string; denominacion: string } | null;
   };
@@ -250,7 +251,8 @@ export interface ListarPasiblesQuery {
   estado?: EstadoElegibilidad[];
   escalafon_id?: number;
   grado_id?: number;
-  unidad_id?: number;
+  /** Base (sub-unidad) de la relación laboral. */
+  sub_unidad_id?: number;
   query?: string;
   fecha_referencia?: string;
   horizonte_meses?: number;
@@ -373,7 +375,8 @@ export interface ListarOrdenesQuery {
   hasta?: string;
   numero_orden?: string;
   grado_destino_id?: number;
-  unidad_id?: number;
+  /** Base (sub-unidad) de la relación laboral. */
+  sub_unidad_id?: number;
   registrado_por?: number;
   anuladas?: boolean;
   con_excepciones?: boolean;

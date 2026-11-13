@@ -399,3 +399,11 @@ $navy-soft: #1e3a5f;
 
   &:hover:not(:disabled) { background-color: #f1f5f9; }
 }
+
+// Comando, como dato secundario debajo de la sub-unidad
+
+.asignaciones__comando {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+}

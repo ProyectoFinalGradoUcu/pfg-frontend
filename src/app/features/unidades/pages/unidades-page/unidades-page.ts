@@ -1,10 +1,11 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, takeUntil } from 'rxjs';
 import { UnidadesService } from '../../../../core/services/unidades.service';
 import { RolesService } from '../../../../core/services/roles.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
+import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
@@ -15,11 +16,13 @@ import {
   UnidadListItem,
   UsuarioDeUnidad,
 } from '../../../../core/models/unidades.models';
+import { Comando } from '../../../../core/models/destinos.models';
 
 type Modal = null | 'gestionar' | 'agregarUsuarios';
 type TabDetalle = 'roles' | 'usuarios';
 
-const PAGE_SIZE = 10;
+// Son 18 bases: con 20 entran todas en una página y los grupos por comando no se cortan.
+const PAGE_SIZE = 20;
 
 @Component({
   selector: 'app-unidades-page',
@@ -33,6 +36,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
   private readonly unidadesService = inject(UnidadesService);
   private readonly rolesService = inject(RolesService);
   private readonly usuariosService = inject(UsuariosService);
+  private readonly catalogos = inject(CatalogosService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
@@ -46,6 +50,17 @@ export class UnidadesPage implements OnInit, OnDestroy {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly busqueda = new FormControl('', { nonNullable: true });
+  readonly comandoFiltro = new FormControl('', { nonNullable: true });
+  readonly comandos = signal<Comando[]>([]);
+  private pedidoListado?: Subscription;
+
+  /** El listado viene ordenado por comando: se marca la primera base de cada uno. */
+  readonly filas = computed(() =>
+    this.unidades().map((u, i, todas) => ({
+      unidad: u,
+      empiezaComando: i === 0 || todas[i - 1].comando.id !== u.comando.id,
+    })),
+  );
 
   // ── Modales ────────────────────────────────────────────────────────────────
   readonly modal = signal<Modal>(null);
@@ -74,7 +89,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
     this.auth.hasAllPermisos(['unidades.gestionar', 'usuarios.gestionar']),
   );
 
-  /** Usuarios del sistema que todavía no están en esta unidad, filtrados en el cliente. */
+  /** Usuarios del sistema que todavía no están en esta base, filtrados en el cliente. */
   readonly candidatosFiltrados = computed(() => {
     const termino = this.filtroCandidatos().trim().toLowerCase();
     const unidadId = this.seleccionada()?.id;
@@ -100,34 +115,18 @@ export class UnidadesPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.cargar();
 
-    this.busqueda.valueChanges
-      .pipe(
-        debounceTime(300),
-        distinctUntilChanged(),
-        switchMap((termino) => {
-          this.loading.set(true);
-          this.pagina.set(1);
-          return this.unidadesService.findAll({
-            page: 1,
-            pageSize: PAGE_SIZE,
-            search: termino || undefined,
-          });
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (res) => {
-          this.unidades.set(res.items);
-          this.total.set(res.total);
-          this.loading.set(false);
-          this.error.set(null);
-        },
-        error: () => {
-          this.loading.set(false);
-          this.error.set('No se pudieron cargar las unidades.');
-        },
-      });
+    this.catalogos
+      .getComandos()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({ next: (c) => this.comandos.set(c), error: () => this.comandos.set([]) });
 
+    this.comandoFiltro.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.cargar(1));
+
+    this.busqueda.valueChanges
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(() => this.cargar(1));
   }
 
   ngOnDestroy(): void {
@@ -142,11 +141,15 @@ export class UnidadesPage implements OnInit, OnDestroy {
     this.error.set(null);
     this.pagina.set(pagina);
 
-    this.unidadesService
+    // Búsqueda, filtro de comando y paginador pasan todos por acá: se cancela el pedido
+    // anterior para que una respuesta vieja no pise a la última.
+    this.pedidoListado?.unsubscribe();
+    this.pedidoListado = this.unidadesService
       .findAll({
         page: pagina,
         pageSize: PAGE_SIZE,
         search: this.busqueda.value || undefined,
+        unidad_id: this.comandoFiltro.value || undefined,
       })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
@@ -157,7 +160,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
         },
         error: () => {
           this.loading.set(false);
-          this.error.set('No se pudieron cargar las unidades.');
+          this.error.set('No se pudieron cargar las bases.');
         },
       });
   }
@@ -182,7 +185,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
         },
         error: () => {
           this.detalleLoading.set(false);
-          this.modalError.set('No se pudo cargar el detalle de la unidad.');
+          this.modalError.set('No se pudo cargar el detalle de la base.');
         },
       });
   }
@@ -224,7 +227,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
           this.reportarError(
             err,
             err.status === 409
-              ? 'El rol ya está asignado a esta unidad.'
+              ? 'El rol ya está asignado a esta base.'
               : 'No se pudo asignar el rol.',
           ),
       });
@@ -249,7 +252,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Cambiar los roles de una unidad desloguea a todos sus usuarios. El diálogo cuantifica el
+   * Cambiar los roles de una base desloguea a todos sus usuarios. El diálogo cuantifica el
    * impacto y avisa aparte si quien confirma se va a desloguear a sí mismo.
    */
   private confirmarImpacto(unidad: UnidadDetalle, accion: 'asignar' | 'quitar'): boolean {
@@ -257,17 +260,17 @@ export class UnidadesPage implements OnInit, OnDestroy {
     if (n === 0) return true;
 
     let mensaje =
-      `Esta unidad tiene ${n} ${n === 1 ? 'usuario' : 'usuarios'}. ` +
+      `Esta base tiene ${n} ${n === 1 ? 'usuario' : 'usuarios'}. ` +
       `Al ${accion} este rol, ${n === 1 ? 'va' : 'todos van'} a tener que volver a iniciar sesión.`;
 
     if (this.auth.currentUser()?.unidades.some((u) => u.id === unidad.id)) {
-      mensaje += '\n\nVos pertenecés a esta unidad, así que también se va a cerrar tu sesión.';
+      mensaje += '\n\nVos pertenecés a esta base, así que también se va a cerrar tu sesión.';
     }
 
     return confirm(`${mensaje}\n\n¿Confirmás?`);
   }
 
-  // ── Usuarios del sistema de la unidad ──────────────────────────────────────
+  // ── Usuarios del sistema de la base ────────────────────────────────────────
 
   cargarUsuarios(): void {
     const unidad = this.seleccionada();
@@ -284,7 +287,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
         },
         error: (err: HttpErrorResponse) => {
           this.usuariosLoading.set(false);
-          this.reportarError(err, 'No se pudieron cargar los usuarios de la unidad.');
+          this.reportarError(err, 'No se pudieron cargar los usuarios de la base.');
         },
       });
   }
@@ -346,7 +349,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
               `${res.asignados} ${res.asignados === 1 ? 'usuario asignado' : 'usuarios asignados'}`,
             );
           }
-          if (res.yaEstaban > 0) partes.push(`${res.yaEstaban} ya estaban en la unidad`);
+          if (res.yaEstaban > 0) partes.push(`${res.yaEstaban} ya estaban en la base`);
           this.toast.success(partes.join(' · ') || 'Sin cambios');
 
           this.cargarUsuarios();
@@ -357,14 +360,14 @@ export class UnidadesPage implements OnInit, OnDestroy {
       });
   }
 
-  /** Sacar a un usuario de la unidad le cierra la sesión: pierde los roles heredados. */
+  /** Sacar a un usuario de la base le cierra la sesión: pierde los roles heredados. */
   quitarUsuarioDeUnidad(usuario: UsuarioDeUnidad): void {
     const unidad = this.seleccionada();
     if (!unidad) return;
 
     const confirmado = confirm(
-      `${usuario.username} va a quedar sin unidad y va a operar solo con sus permisos ` +
-        'globales. Se le va a cerrar la sesión activa.\n\n¿Confirmás?',
+      `${usuario.username} va a dejar de pertenecer a esta base: pierde los roles que hereda de ` +
+        'ella y deja de ver su personal. Se le va a cerrar la sesión activa.\n\n¿Confirmás?',
     );
     if (!confirmado) return;
 
@@ -373,7 +376,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
-          this.toast.success('Usuario quitado de la unidad');
+          this.toast.success('Usuario quitado de la base');
           this.cargarUsuarios();
           this.recargarDetalle();
           this.cargar(this.pagina());

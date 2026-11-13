@@ -63,7 +63,7 @@ describe('RetirosService', () => {
 
     it('serializa los filtros, incluido vigentes en false', () => {
       service
-        .listar({ page: 2, pageSize: 25, query: 'Pereyra', unidad_id: 5, vigentes: false })
+        .listar({ page: 2, pageSize: 25, query: 'Pereyra', sub_unidad_id: 5, vigentes: false })
         .subscribe();
       const req = http.expectOne(
         (r) => r.url === `${API_BASE_URL}/retiros` && r.params.get('vigentes') === 'false',
@@ -71,7 +71,7 @@ describe('RetirosService', () => {
       expect(req.request.params.get('page')).toBe('2');
       expect(req.request.params.get('pageSize')).toBe('25');
       expect(req.request.params.get('query')).toBe('Pereyra');
-      expect(req.request.params.get('unidad_id')).toBe('5');
+      expect(req.request.params.get('sub_unidad_id')).toBe('5');
       req.flush({ items: [], total: 0, page: 2, pageSize: 25 });
     });
 
@@ -181,7 +181,7 @@ describe('RetirosService', () => {
         grado_reincorporacion_id: 3,
         haber_retiro: 45000.5,
         porcentaje_progresivo: 0.3,
-        unidad_id: 5,
+        sub_unidad_id: 5,
         numero_orden: 'O.D. 13001',
       };
       service.reincorporar('7', body).subscribe();

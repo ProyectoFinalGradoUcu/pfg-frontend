@@ -4,7 +4,7 @@ import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators }
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, merge, of, switchMap, takeUntil } from 'rxjs';
 import {
-  CursoPersona, FamiliarItem, GradoItem, HistorialMilitar,
+  CambioSituacionResultado, CursoPersona, FamiliarItem, GradoItem, HistorialMilitar,
   MisionPersona, NIVELES_EDUCATIVOS, NIVELES_IDONEIDAD, OpcionSelect, PatchPersonaPayload,
   PersonaDetalle, PersonaListItem,
 } from '../../../../core/models/personal.models';
@@ -100,6 +100,29 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly puedeRegistrarAscenso = computed(() => this.auth.hasPermiso('ascensos.registrar'));
 
   readonly puedeEditarDocumentos = computed(() => this.auth.puedeConAlcance('personas.editar'));
+
+  // ─── Base y destino ──────────────────────────────────────────────────────────
+  // La base no se edita en el perfil. Se cambia registrando un pase, para que el destino
+  // y la relación laboral queden iguales.
+  readonly puedeRegistrarDestino = computed(() => this.auth.hasPermiso('destinos.gestionar'));
+  /** La situación se cambia como en liquidación: cerrando la relación y abriendo otra. */
+  readonly puedeCambiarSituacion = computed(() => this.auth.puedeConAlcance('personas.editar'));
+  readonly cambiandoSituacion = signal(false);
+  readonly registrandoDestino = signal(false);
+
+  /** "B.A.I. (C.A.O.)"; si la relación no tiene base, solo el comando. */
+  readonly baseActual = computed(() => {
+    const rl = this.persona()?.relacion_laboral;
+    if (!rl) return '—';
+    const comando = rl.unidad?.denominacion;
+    if (!rl.sub_unidad) return comando ? `Sin base (${comando})` : '—';
+    return comando ? `${rl.sub_unidad.denominacion} (${comando})` : rl.sub_unidad.denominacion;
+  });
+
+  readonly personaDelPase = computed(() => {
+    const p = this.persona();
+    return p ? { id: String(p.id), nombre: p.nombre_completo, cedula: p.cedula } : null;
+  });
   readonly sortedRangos     = computed(() => {
     const rangos = this.historial()?.historial_rangos ?? [];
     return [...rangos].sort((a, b) =>
@@ -134,6 +157,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     if (!q) return this.destinos();
     return this.destinos().filter(
       (d) =>
+        (d.sub_unidad ?? '').toLowerCase().includes(q) ||
+        (d.codigo_sub_unidad ?? '').toLowerCase().includes(q) ||
         (d.unidad ?? '').toLowerCase().includes(q) ||
         (d.posicion_destino ?? '').toLowerCase().includes(q),
     );
@@ -144,11 +169,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly editLoading = signal(false);
 
   readonly editGrados     = signal<GradoItem[]>([]);
-  readonly editSituaciones= signal<OpcionSelect[]>([]);
   readonly editRegimenes  = signal<OpcionSelect[]>([]);
   readonly editProgramas  = signal<OpcionSelect[]>([]);
   readonly editEscalafones= signal<OpcionSelect[]>([]);
-  readonly editSubUnidades = signal<OpcionSelect[]>([]);
   private catalogsLoaded  = false;
 
   readonly generoOpciones = [
@@ -191,10 +214,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     fecha_inicio:          [''],
     escalafon_id:          [null],
     grado_id:              [{ value: null, disabled: true }],
-    situacion_id:          [null],
     regimen_id:            [null],
     programa_id:           [null],
-    sub_unidad_id:         [null],
     prima_tecnica:         [''],
     tiene_mando:           [false],
     observaciones_laborales: [''],
@@ -372,6 +393,39 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
           gradoCtrl.disable();
         }
       });
+  }
+
+  abrirRegistrarDestino(): void {
+    this.registrandoDestino.set(true);
+  }
+
+  cerrarRegistrarDestino(): void {
+    this.registrandoDestino.set(false);
+  }
+
+  onDestinoRegistrado(): void {
+    this.registrandoDestino.set(false);
+    this.toast.success('Destino registrado');
+    this.loadPersona();
+    // La pestaña Destinos se vuelve a pedir: si está abierta, ahora; si no, cuando se abra.
+    this.loadedTabs.delete('destinos');
+    if (this.activeTab() === 'destinos') this.switchTab('destinos');
+  }
+
+  abrirCambiarSituacion(): void {
+    this.cambiandoSituacion.set(true);
+  }
+
+  cerrarCambiarSituacion(): void {
+    this.cambiandoSituacion.set(false);
+  }
+
+  onSituacionCambiada(r: CambioSituacionResultado): void {
+    this.cambiandoSituacion.set(false);
+    this.toast.success(`Situación cambiada a ${r.situacion.denominacion}`);
+    this.loadPersona();
+    // El historial militar muestra las relaciones: se vuelve a pedir.
+    this.loadedTabs.delete('historial');
   }
 
   // ─── Tabs ────────────────────────────────────────────────────────────────
@@ -602,10 +656,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       fecha_inicio:          rl?.fecha_inicio    ? rl.fecha_inicio.split('T')[0] : '',
       escalafon_id:          rl?.escalafon?.id   ?? null,
       grado_id:              rl?.grado?.id       ?? null,
-      situacion_id:          rl?.situacion?.id   ?? null,
       regimen_id:            rl?.regimen?.id     ?? null,
       programa_id:           rl?.programa?.id    ?? null,
-      sub_unidad_id:         rl?.sub_unidad?.id  ?? null,
       prima_tecnica:         rl?.prima_tecnica   ?? '',
       tiene_mando:           rl?.tiene_mando     ?? false,
       observaciones_laborales: rl?.observaciones ?? '',
@@ -640,11 +692,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
     if (!this.catalogsLoaded) {
       this.catalogsLoaded = true;
-      this.svc.getSituaciones().subscribe({ next: d => this.editSituaciones.set(d) });
       this.svc.getRegimenes().subscribe({ next: d => this.editRegimenes.set(d) });
       this.svc.getProgramas().subscribe({ next: d => this.editProgramas.set(d) });
       this.svc.getEscalafones().subscribe({ next: d => this.editEscalafones.set(d) });
-      this.svc.getSubUnidades().subscribe({ next: d => this.editSubUnidades.set(d) });
       if (rl?.escalafon?.id) {
         this.svc.getGrados(rl.escalafon.id).subscribe({ next: d => this.editGrados.set(d) });
       }
@@ -685,10 +735,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       ...(raw.fecha_inicio          && { fecha_inicio:          raw.fecha_inicio }),
       ...(raw.escalafon_id          && { escalafon_id:          Number(raw.escalafon_id) }),
       ...(raw.grado_id              && { grado_id:              Number(raw.grado_id) }),
-      ...(raw.situacion_id          && { situacion_id:          Number(raw.situacion_id) }),
       ...(raw.regimen_id            && { regimen_id:            Number(raw.regimen_id) }),
       ...(raw.programa_id           && { programa_id:           Number(raw.programa_id) }),
-      sub_unidad_id:                   raw.sub_unidad_id ? Number(raw.sub_unidad_id) : null,
       prima_tecnica:                   raw.prima_tecnica || null,
       tiene_mando:                     raw.tiene_mando,
       observaciones_laborales:         raw.observaciones_laborales || null,
@@ -716,8 +764,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       error: (err: HttpErrorResponse) => {
         this.editLoading.set(false);
         if (err.status === 403 || err.status === 400) {
-          // 400 acá incluye reglas de negocio como "no podés cambiar el destino de un
-          // funcionario a otra unidad", no solo validación de formulario.
+          // 400 acá puede ser una regla de negocio, no solo validación de formulario.
           this.errorModal.show(parseError(err));
           return;
         }

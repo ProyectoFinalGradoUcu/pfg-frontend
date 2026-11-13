@@ -54,6 +54,36 @@ $navy: #132744;
   flex-wrap: wrap;
 }
 
+.un__filtros {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.un__select {
+  height: 2.4rem;
+  padding: 0 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 0.875rem;
+
+  &:focus {
+    outline: none;
+    border-color: $navy;
+  }
+}
+
+.un__grupo td {
+  background-color: #f1f5f9;
+  color: $navy;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+}
+
 .un__search {
   position: relative;
   display: flex;

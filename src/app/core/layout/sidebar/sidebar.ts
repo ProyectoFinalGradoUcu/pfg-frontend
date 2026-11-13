@@ -1,5 +1,6 @@
 import { Component, ViewEncapsulation, computed, inject } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
+import { SidebarAccordionState } from './sidebar-accordion-state';
 
 @Component({
   selector: 'app-sidebar',
@@ -7,6 +8,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
   encapsulation: ViewEncapsulation.None,
+  providers: [SidebarAccordionState],
 })
 export class Sidebar {
   private readonly auth = inject(AuthService);
@@ -22,7 +24,7 @@ export class Sidebar {
     const items: { label: string; route: string; excluir?: string[] }[] = [];
     if (this.puedeVerPersonal()) {
       items.push({
-        label: 'Administración de personal',
+        label: 'Administración',
         route: '/personal',
         excluir: ['/personal/configuracion-derecha'],
       });

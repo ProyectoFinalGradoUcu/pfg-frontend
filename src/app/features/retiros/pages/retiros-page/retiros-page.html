@@ -33,12 +33,12 @@
 
       <app-select
         class="retiros__filter-select"
-        [items]="unidades()"
-        bindLabel="denominacion"
+        [items]="bases()"
+        bindLabel="etiqueta"
         bindValue="id"
-        placeholder="Todas las unidades"
-        [ngModel]="unidadId()"
-        (ngModelChange)="setUnidad($event)"
+        placeholder="Todas las bases"
+        [ngModel]="baseId()"
+        (ngModelChange)="setBase($event)"
       ></app-select>
 
       <app-select
@@ -117,7 +117,7 @@
             <th>Funcionario</th>
             <th>Grado</th>
             <th>Cédula</th>
-            <th>Unidad</th>
+            <th>Base</th>
             <th>Fecha</th>
             <th>Motivo</th>
             <th>Estado</th>
@@ -136,7 +136,7 @@
             <!-- El grado al momento del retiro, no el actual. -->
             <td>{{ r.grado?.denominacion ?? '—' }}</td>
             <td>{{ r.persona.cedula }}</td>
-            <td>{{ r.unidad?.denominacion ?? '—' }}</td>
+            <td [title]="r.unidad?.denominacion ?? ''">{{ r.sub_unidad?.denominacion ?? r.unidad?.denominacion ?? '—' }}</td>
             <td>{{ r.fecha_retiro }}</td>
             <td>{{ r.motivo_baja.denominacion }}</td>
             <td>

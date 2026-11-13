@@ -46,8 +46,8 @@
 
       <app-select
         *ngIf="!alcanceAcotado()"
-        [items]="unidades()"
-        bindLabel="denominacion"
+        [items]="bases()"
+        bindLabel="etiqueta"
         bindValue="id"
         placeholder="Destino"
         [multiple]="true"
