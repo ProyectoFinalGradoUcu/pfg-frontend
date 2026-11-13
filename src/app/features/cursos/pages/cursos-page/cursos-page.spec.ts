@@ -963,6 +963,14 @@ describe('CursosPage', () => {
   // ── CalificacionMasivaModal ────────────────────────────────────────────────
 
   describe('CalificacionMasivaModal', () => {
+    it('el historial permite seleccionar una base cuando el usuario tiene varias', async () => {
+      await setup('catalogo', false, [BAI, ETA]);
+      component.abrirRegistrar();
+      expect(component.basesCurso().map(b => b.id)).toEqual([7, 9]);
+      expect(component.registrarForm.controls.sub_unidad_id.invalid).toBe(true);
+      component.registrarForm.controls.sub_unidad_id.setValue(8);
+      expect(component.registrarForm.controls.sub_unidad_id.valid).toBe(true);
+    });
     beforeEach(async () => {
       await setup();
       // Cargar funcionarios con cursos terminados y sin resultado

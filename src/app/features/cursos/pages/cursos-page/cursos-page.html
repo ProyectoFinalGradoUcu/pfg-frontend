@@ -491,6 +491,13 @@
           </label>
         </div>
 
+        <label class="modal__field">
+          <span>Base <em *ngIf="gestionaPorBase()">*</em></span>
+          <app-select formControlName="sub_unidad_id" [items]="basesCurso()" bindLabel="etiqueta" bindValue="id"
+            [placeholder]="gestionaPorBase() ? 'Seleccioná la base' : 'General (toda la fuerza)'"
+            [clearable]="!gestionaPorBase()" [searchable]="true"></app-select>
+        </label>
+
         <div class="modal__field">
           <span>Documento (Certificado)</span>
           <div

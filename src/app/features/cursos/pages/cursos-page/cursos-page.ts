@@ -232,6 +232,7 @@ export class CursosPage implements OnInit, OnDestroy {
 
   // ── Formularios ────────────────────────────────────────────────────────────
   readonly registrarForm = this.fb.group({
+    sub_unidad_id: [null as number | null],
     personaId: ['', Validators.required],
     nombre: ['', [Validators.required, Validators.maxLength(100)]],
     institucion: ['', [Validators.required, Validators.maxLength(100)]],
@@ -414,7 +415,9 @@ export class CursosPage implements OnInit, OnDestroy {
   abrirRegistrar(): void {
     this.registrarForm.reset({
       personaId: '', nombre: '', institucion: '', tipo: '', fechaInicio: '', fechaFin: '', estado: '',
+      sub_unidad_id: null,
     });
+    this.cargarBasesCurso(this.registrarForm.controls.sub_unidad_id);
     this.archivoCertificado.set(null);
     this.modalError.set(null);
     this.modal.set('registrarCurso');
@@ -593,7 +596,7 @@ export class CursosPage implements OnInit, OnDestroy {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { personaId, nombre, institucion, tipo, fechaInicio, fechaFin, estado } =
+    const { personaId, nombre, institucion, tipo, fechaInicio, fechaFin, estado, sub_unidad_id } =
       this.registrarForm.getRawValue();
 
     this.modalError.set(null);
@@ -601,6 +604,7 @@ export class CursosPage implements OnInit, OnDestroy {
       .createHistorial(
         {
           personaId: personaId!,
+          ...(sub_unidad_id != null ? { sub_unidad_id: Number(sub_unidad_id) } : {}),
           nombre: nombre!,
           institucion: institucion!,
           tipo: tipo as TipoCurso,
@@ -621,8 +625,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   /** Con alcance de unidad la base es obligatoria; si tiene una sola, va esa. */
-  private cargarBasesCurso(): void {
-    const control = this.nuevoCursoForm.controls.sub_unidad_id;
+  private cargarBasesCurso(control = this.nuevoCursoForm.controls.sub_unidad_id): void {
     if (this.gestionaPorBase()) {
       const propias = (this.auth.currentUser()?.unidades ?? []).map((u) => ({
         id: Number(u.id),
