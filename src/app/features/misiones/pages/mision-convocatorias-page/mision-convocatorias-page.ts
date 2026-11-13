@@ -224,11 +224,11 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
     if (editando) {
       this.misionesService
         .editarConvocatoria(this.misionId, editando.id, {
-          numero_orden: raw.numero_orden || undefined,
-          boletin: raw.boletin || undefined,
-          fecha_salida: raw.fecha_salida || undefined,
-          fecha_llegada: raw.fecha_llegada || undefined,
-          observaciones: raw.observaciones || undefined,
+          numero_orden: raw.numero_orden || null,
+          boletin: raw.boletin || null,
+          fecha_salida: raw.fecha_salida || null,
+          fecha_llegada: raw.fecha_llegada || null,
+          observaciones: raw.observaciones || null,
         })
         .subscribe({
           next: () => {

@@ -280,9 +280,9 @@ describe('ConvocatoriaDetallePage', () => {
       component.guardarConvocatoria();
       expect(misionesService.editarConvocatoria).toHaveBeenCalledWith('1', 'c9', {
         numero_orden: 'ORD-NEW',
-        boletin: undefined,
-        fecha_salida: undefined,
-        fecha_llegada: undefined,
+        boletin: null,
+        fecha_salida: null,
+        fecha_llegada: null,
         observaciones: 'nota',
       });
     });
@@ -547,7 +547,7 @@ describe('ConvocatoriaDetallePage', () => {
       component.guardarEdicionFuncionario();
       expect(misionesService.updateFuncionario).toHaveBeenCalledWith('1', 'c9', '77', {
         numero_orden: 'ORD-9',
-        boletin: undefined,
+        boletin: null,
         observaciones: 'x',
       });
     });

@@ -379,20 +379,21 @@ export class MisionesPage implements OnInit, OnDestroy {
     }
 
     const raw = this.misionForm.getRawValue();
+    const editando = this.misionSeleccionada();
+    // Al editar, null le indica al backend que borre el campo; al crear, se omite.
+    const vacio = editando ? null : undefined;
     const payload = {
       nombre_mision: raw.nombre_mision!,
       pais: raw.pais!,
-      fecha_orden: raw.fecha_orden || undefined,
-      fecha_boletin: raw.fecha_boletin || undefined,
-      numero_resolucion: raw.numero_resolucion || undefined,
-      fecha_resolucion: raw.fecha_resolucion || undefined,
-      resolucion_cje: raw.resolucion_cje || undefined,
+      fecha_orden: raw.fecha_orden || vacio,
+      fecha_boletin: raw.fecha_boletin || vacio,
+      numero_resolucion: raw.numero_resolucion || vacio,
+      fecha_resolucion: raw.fecha_resolucion || vacio,
+      resolucion_cje: raw.resolucion_cje || vacio,
     };
 
     this.modalError.set(null);
     this.guardando.set(true);
-
-    const editando = this.misionSeleccionada();
 
     if (editando) {
       this.misionesService.editarDefinicion(editando.id, payload).subscribe({

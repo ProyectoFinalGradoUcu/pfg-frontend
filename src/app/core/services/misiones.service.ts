@@ -16,6 +16,7 @@ import {
   MisionesCatalogoResponse,
   MisionOpcion,
   UpdateConvocatoriaPayload,
+  UpdateFuncionarioConvocatoriaPayload,
   UpdateMisionDefinicionPayload,
 } from '../models/misiones.models';
 import { PersonalService } from './personal.service';
@@ -459,7 +460,7 @@ export class MisionesService {
     misionId: string,
     convocatoriaId: string,
     personaId: string,
-    data: Partial<FuncionarioConvocatoriaPayload>,
+    data: UpdateFuncionarioConvocatoriaPayload,
   ): Observable<void> {
     if (misionesServiceConfig.useMockData) {
       const fila = (this.mockFuncionarios[convocatoriaId] ?? []).find((f) => f.persona_id === personaId);

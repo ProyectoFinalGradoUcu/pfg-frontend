@@ -18,11 +18,11 @@ export interface MisionDefinicion {
 export interface CreateMisionDefinicionPayload {
   nombre_mision: string;
   pais: string;
-  fecha_orden?: string;
-  fecha_boletin?: string;
-  numero_resolucion?: string;
-  fecha_resolucion?: string;
-  resolucion_cje?: string;
+  fecha_orden?: string | null;
+  fecha_boletin?: string | null;
+  numero_resolucion?: string | null;
+  fecha_resolucion?: string | null;
+  resolucion_cje?: string | null;
 }
 
 export type UpdateMisionDefinicionPayload = Partial<CreateMisionDefinicionPayload>;
@@ -61,11 +61,11 @@ export interface CreateConvocatoriaPayload {
 }
 
 export interface UpdateConvocatoriaPayload {
-  numero_orden?: string;
-  boletin?: string;
-  fecha_salida?: string;
-  fecha_llegada?: string;
-  observaciones?: string;
+  numero_orden?: string | null;
+  boletin?: string | null;
+  fecha_salida?: string | null;
+  fecha_llegada?: string | null;
+  observaciones?: string | null;
 }
 
 // ── Funcionarios asignados a una convocatoria ────────────────────────────────
@@ -85,6 +85,12 @@ export interface FuncionarioConvocatoriaPayload {
   numero_orden?: string;
   boletin?: string;
   observaciones?: string;
+}
+
+export interface UpdateFuncionarioConvocatoriaPayload {
+  numero_orden?: string | null;
+  boletin?: string | null;
+  observaciones?: string | null;
 }
 
 // ── Personal en misión (tab agrupado por persona, análogo a cursos) ─────────

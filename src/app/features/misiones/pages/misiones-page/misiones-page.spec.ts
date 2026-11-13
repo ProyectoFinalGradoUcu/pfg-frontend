@@ -326,12 +326,20 @@ describe('MisionesPage', () => {
       expect(component.modal()).toBe('nuevaMision');
     });
 
-    it('guardarMision (edición) llama a editarDefinicion con el id correcto', () => {
-      const mision = makeMision({ id: '42' });
+    it('guardarMision (edición) llama a editarDefinicion con el id y los campos vacíos en null', () => {
+      const mision = makeMision({ id: '42', fecha_orden: '2026-08-20', resolucion_cje: 'R.CJE. 1/2026' });
       component.abrirEditar(mision);
-      component.misionForm.patchValue({ nombre_mision: 'Nuevo', pais: 'Y' });
+      component.misionForm.patchValue({ nombre_mision: 'Nuevo', pais: 'Y', fecha_orden: '', resolucion_cje: '' });
       component.guardarMision();
-      expect(misionesService.editarDefinicion).toHaveBeenCalledWith('42', { nombre_mision: 'Nuevo', pais: 'Y' });
+      expect(misionesService.editarDefinicion).toHaveBeenCalledWith('42', {
+        nombre_mision: 'Nuevo',
+        pais: 'Y',
+        fecha_orden: null,
+        fecha_boletin: null,
+        numero_resolucion: null,
+        fecha_resolucion: null,
+        resolucion_cje: null,
+      });
     });
 
     it('guardarMision (edición) cierra el modal, muestra toast y recarga', () => {
