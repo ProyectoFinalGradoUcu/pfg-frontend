@@ -150,6 +150,7 @@ export class CursosPage implements OnInit, OnDestroy {
     const vistos = new Set<string>();
     const result: { id: string; nombre: string; institucion: string }[] = [];
     for (const fila of this.filasFlat()) {
+      if (fila.curso.dadoDeBaja) continue;
       if (!fila.curso.fechaFin) continue;
       if (new Date(fila.curso.fechaFin) >= hoy) continue;
       if (fila.curso.aprobado !== null) continue;
@@ -163,7 +164,7 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly filasCursoMasivo = computed<FilaHistorial[]>(() => {
     const id = this.cursoMasivoId();
     if (!id) return [];
-    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.aprobado === null);
+    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.aprobado === null && !f.curso.dadoDeBaja);
   });
 
   // ── Designar ────────────────────────────────────────────────────────────────
@@ -229,6 +230,7 @@ export class CursosPage implements OnInit, OnDestroy {
 
   // ── Formularios ────────────────────────────────────────────────────────────
   readonly registrarForm = this.fb.group({
+    sub_unidad_id: [null as number | null],
     personaId: ['', Validators.required],
     nombre: ['', [Validators.required, Validators.maxLength(100)]],
     institucion: ['', [Validators.required, Validators.maxLength(100)]],
@@ -411,7 +413,9 @@ export class CursosPage implements OnInit, OnDestroy {
   abrirRegistrar(): void {
     this.registrarForm.reset({
       personaId: '', nombre: '', institucion: '', tipo: '', fechaInicio: '', fechaFin: '', estado: '',
+      sub_unidad_id: null,
     });
+    this.cargarBasesCurso(this.registrarForm.controls.sub_unidad_id);
     this.archivoCertificado.set(null);
     this.modalError.set(null);
     this.modal.set('registrarCurso');
@@ -589,7 +593,7 @@ export class CursosPage implements OnInit, OnDestroy {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { personaId, nombre, institucion, tipo, fechaInicio, fechaFin, estado } =
+    const { personaId, nombre, institucion, tipo, fechaInicio, fechaFin, estado, sub_unidad_id } =
       this.registrarForm.getRawValue();
 
     this.modalError.set(null);
@@ -597,6 +601,7 @@ export class CursosPage implements OnInit, OnDestroy {
       .createHistorial(
         {
           personaId: personaId!,
+          ...(sub_unidad_id != null ? { sub_unidad_id: Number(sub_unidad_id) } : {}),
           nombre: nombre!,
           institucion: institucion!,
           tipo: tipo as TipoCurso,
@@ -617,8 +622,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   /** Con alcance de unidad la base es obligatoria; si tiene una sola, va esa. */
-  private cargarBasesCurso(): void {
-    const control = this.nuevoCursoForm.controls.sub_unidad_id;
+  private cargarBasesCurso(control = this.nuevoCursoForm.controls.sub_unidad_id): void {
     if (this.gestionaPorBase()) {
       const propias = (this.auth.currentUser()?.unidades ?? []).map((u) => ({
         id: Number(u.id),
@@ -976,6 +980,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   iniciarCalificacion(fila: FilaHistorial): void {
+    if (fila.curso.dadoDeBaja) return;
     this.aprobadoValor.set(null);
     this.calificacionValor.set(null);
     this.observacionValor.set('');
@@ -991,6 +996,10 @@ export class CursosPage implements OnInit, OnDestroy {
   guardarCalificacion(): void {
     const fila = this.filaCalificando();
     if (!fila) return;
+    if (fila.curso.dadoDeBaja) {
+      this.modalError.set('La inscripción está dada de baja; reactivala antes de calificar');
+      return;
+    }
 
     const aprobado = this.aprobadoValor();
     if (aprobado === null) {
