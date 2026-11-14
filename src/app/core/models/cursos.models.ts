@@ -57,6 +57,7 @@ export interface FuncionarioConCursos {
 }
 
 export interface CreateHistorialCursoPayload {
+  sub_unidad_id?: number;
   personaId: string;
   nombre: string;
   institucion: string;

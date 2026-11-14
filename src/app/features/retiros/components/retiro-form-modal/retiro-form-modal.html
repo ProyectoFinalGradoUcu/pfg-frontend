@@ -118,11 +118,11 @@
           <label class="rf__check" *ngFor="let a of p.comisiones_abiertas">
             <input
               type="checkbox"
-              [checked]="comisionesElegidas().includes(a.id)"
-              (change)="toggleComision(a.id)"
+              [checked]="true"
+              [disabled]="true"
             />
             <span>
-              Cerrar la pertenencia a <strong>{{ a.comision.denominacion }}</strong
+               Cierre obligatorio de la pertenencia a <strong>{{ a.comision.denominacion }}</strong
               ><ng-container *ngIf="a.cargo"> ({{ a.cargo }})</ng-container>
             </span>
           </label>

@@ -6,14 +6,14 @@
       <p>{{ catalogo ? 'Administrá las comisiones compartidas por el personal.' : 'Consultá y gestioná las pertenencias del personal y su historial.' }}</p>
       <p *ngIf="comisionDetalle() && !comisionDetalle()!.vigente">Esta comisión está inactiva.</p>
     </div>
-    <button class="btn btn--primary" *ngIf="puedeGestionar() && catalogo" (click)="abrirComision()">Nueva comisión</button>
+    <button class="btn btn--primary" *ngIf="puedeGestionarCatalogo() && catalogo" (click)="abrirComision()">Nueva comisión</button>
     <button class="btn btn--primary" *ngIf="puedeGestionar() && !catalogo" [disabled]="!!comisionId && !comisionDetalle()?.vigente" (click)="abrirAsignacion()">Nueva asignación</button>
   </header>
 
   <div class="comisiones__stats" *ngIf="!catalogo && !comisionId">
     <article><strong>{{ stats().total_asignaciones }}</strong><span>Asignaciones (filtrado)</span></article>
-    <article><strong>{{ stats().asignaciones_activas }}</strong><span>Asignaciones abiertas (global)</span></article>
-    <article><strong>{{ stats().comisiones_con_personal }}</strong><span>Comisiones con integrantes (global)</span></article>
+    <article><strong>{{ stats().asignaciones_activas }}</strong><span>Asignaciones vigentes (tu alcance)</span></article>
+    <article><strong>{{ stats().comisiones_con_personal }}</strong><span>Comisiones con integrantes (tu alcance)</span></article>
   </div>
 
   <article class="comisiones__card">
@@ -42,7 +42,7 @@
           <button type="button" class="btn comisiones__dots" aria-label="Acciones de comisión" aria-haspopup="menu" [attr.aria-expanded]="openMenuId() === c.id" (click)="toggleMenu(c.id, $event)">⋯</button>
           <div class="comisiones__menu" role="menu" *ngIf="openMenuId() === c.id" [style.top.px]="menuPosition()?.top" [style.right.px]="menuPosition()?.right" (click)="$event.stopPropagation()">
             <a role="menuitem" [routerLink]="['/comisiones/catalogo', c.id]" (click)="cerrarMenu()">Ver integrantes</a>
-            <button role="menuitem" *ngIf="puedeGestionar()" (click)="abrirComision(c)">Editar comisión</button>
+            <button role="menuitem" *ngIf="puedeGestionarCatalogo()" (click)="abrirComision(c)">Editar comisión</button>
           </div>
         </td></tr>
         <tr *ngIf="!comisiones().length"><td colspan="4" class="comisiones__empty">{{ filtroTexto || filtroEstado ? 'No hay resultados para los filtros seleccionados.' : 'No hay comisiones registradas.' }}</td></tr>

@@ -219,7 +219,7 @@ describe('RetiroFormModal', () => {
     );
   });
 
-  it('ofrece cerrar las pertenencias a comisiones y manda las tildadas', async () => {
+  it('cierra obligatoriamente todas las pertenencias a comisiones', async () => {
     retiros.previa.mockReturnValue(
       of(
         makePrevia({
@@ -250,10 +250,11 @@ describe('RetiroFormModal', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Comisión de Vivienda');
-    component.toggleComision('13'); // el operador la destilda
+    const cierres = Array.from(fixture.nativeElement.querySelectorAll('input[type="checkbox"][disabled]')) as HTMLInputElement[];
+    expect(cierres.filter(c => c.checked)).toHaveLength(2);
     component.confirmar();
 
-    expect(retiros.registrar.mock.calls[0][0].cerrar.comisiones).toEqual([12]);
+    expect(retiros.registrar.mock.calls[0][0].cerrar.comisiones).toEqual([12, 13]);
   });
 
   it('las inscripciones viajan como número, no como string', async () => {

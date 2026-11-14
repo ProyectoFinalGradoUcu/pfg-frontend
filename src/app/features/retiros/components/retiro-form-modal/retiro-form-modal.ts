@@ -178,7 +178,7 @@ export class RetiroFormModal implements OnInit, OnDestroy {
       p.inscripciones_activas.filter((i) => i.cerrar_sugerido).map((i) => i.id),
     );
     this.comisionesElegidas.set(
-      p.comisiones_abiertas.filter((a) => a.cerrar_sugerido).map((a) => a.id),
+      p.comisiones_abiertas.map((a) => a.id),
     );
   }
 
@@ -204,12 +204,6 @@ export class RetiroFormModal implements OnInit, OnDestroy {
 
   toggleInscripcion(id: string): void {
     this.inscripcionesElegidas.update((ids) =>
-      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
-    );
-  }
-
-  toggleComision(id: string): void {
-    this.comisionesElegidas.update((ids) =>
       ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
     );
   }

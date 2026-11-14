@@ -202,7 +202,7 @@
 
                 <!-- Sin resultado: curso ya terminó → botón cargar -->
                 <button
-                  *ngIf="fila.curso.aprobado === null && cursoTerminado(fila.curso) && puedeGestionar()"
+                  *ngIf="!fila.curso.dadoDeBaja && fila.curso.aprobado === null && cursoTerminado(fila.curso) && puedeGestionar()"
                   type="button"
                   class="btn btn--ghost btn--sm cursos__cal-btn"
                   (click)="iniciarCalificacion(fila)"
@@ -216,7 +216,7 @@
 
                 <!-- Sin resultado: curso activo, o sin permiso para cargarlo -->
                 <span
-                  *ngIf="fila.curso.aprobado === null && (!cursoTerminado(fila.curso) || !puedeGestionar())"
+                  *ngIf="fila.curso.aprobado === null && (fila.curso.dadoDeBaja || !cursoTerminado(fila.curso) || !puedeGestionar())"
                   class="cursos__sin-nota"
                 >—</span>
 
@@ -490,6 +490,13 @@
             <app-select formControlName="estado" [items]="estadoOpciones" bindLabel="label" bindValue="value" placeholder="Estado"></app-select>
           </label>
         </div>
+
+        <label class="modal__field">
+          <span>Base <em *ngIf="gestionaPorBase()">*</em></span>
+          <app-select formControlName="sub_unidad_id" [items]="basesCurso()" bindLabel="etiqueta" bindValue="id"
+            [placeholder]="gestionaPorBase() ? 'Seleccioná la base' : 'General (toda la fuerza)'"
+            [clearable]="!gestionaPorBase()" [searchable]="true"></app-select>
+        </label>
 
         <div class="modal__field">
           <span>Documento (Certificado)</span>
