@@ -18,6 +18,7 @@ import {
   FuncionarioConvocatoria,
   FuncionarioConvocatoriaPayload,
   MisionDefinicion,
+  UpdateFuncionarioConvocatoriaPayload,
 } from '../../../../core/models/misiones.models';
 
 @Component({
@@ -205,11 +206,11 @@ export class ConvocatoriaDetallePage implements OnInit {
 
     const raw = this.convocatoriaForm.getRawValue();
     const payload = {
-      numero_orden: raw.numero_orden || undefined,
-      boletin: raw.boletin || undefined,
-      fecha_salida: raw.fecha_salida || undefined,
-      fecha_llegada: raw.fecha_llegada || undefined,
-      observaciones: raw.observaciones || undefined,
+      numero_orden: raw.numero_orden || null,
+      boletin: raw.boletin || null,
+      fecha_salida: raw.fecha_salida || null,
+      fecha_llegada: raw.fecha_llegada || null,
+      observaciones: raw.observaciones || null,
     };
 
     this.modalErrorConvocatoria.set(null);
@@ -393,10 +394,10 @@ export class ConvocatoriaDetallePage implements OnInit {
       return;
     }
 
-    const payload: Partial<FuncionarioConvocatoriaPayload> = {
-      numero_orden: raw.numero_orden || undefined,
-      boletin: raw.boletin || undefined,
-      observaciones: raw.observaciones || undefined,
+    const payload: UpdateFuncionarioConvocatoriaPayload = {
+      numero_orden: raw.numero_orden || null,
+      boletin: raw.boletin || null,
+      observaciones: raw.observaciones || null,
     };
 
     this.modalErrorEditarFuncionario.set(null);

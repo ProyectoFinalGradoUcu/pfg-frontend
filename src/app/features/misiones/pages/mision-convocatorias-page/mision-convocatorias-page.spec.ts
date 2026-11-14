@@ -377,6 +377,19 @@ describe('MisionConvocatoriasPage', () => {
       expect(misionesService.editarConvocatoria).toHaveBeenCalledWith('1', '9', expect.objectContaining({ numero_orden: 'ORD-9' }));
     });
 
+    it('guardarConvocatoria (edición) manda null en los campos vaciados', () => {
+      component.abrirEditar(makeConvocatoria({ id: '9', boletin: 'BOL-1', fecha_salida: '2026-03-01', fecha_llegada: '2026-09-30', observaciones: 'nota' }));
+      component.convocatoriaForm.patchValue({ numero_orden: 'ORD-9', boletin: '', fecha_salida: '', fecha_llegada: '', observaciones: '' });
+      component.guardarConvocatoria();
+      expect(misionesService.editarConvocatoria).toHaveBeenCalledWith('1', '9', {
+        numero_orden: 'ORD-9',
+        boletin: null,
+        fecha_salida: null,
+        fecha_llegada: null,
+        observaciones: null,
+      });
+    });
+
     it('guardarConvocatoria (edición) NO llama a crearConvocatoria', () => {
       component.abrirEditar(makeConvocatoria());
       component.convocatoriaForm.patchValue({ numero_orden: 'ORD-9' });
