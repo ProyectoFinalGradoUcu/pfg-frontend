@@ -8,7 +8,8 @@ import {
   Convocatoria,
   CreateConvocatoriaPayload,
   CreateMisionDefinicionPayload,
-  FuncionarioConMisiones,
+  FilaPersonalMision,
+  FiltrosPersonalMision,
   FuncionarioConvocatoria,
   FuncionarioConvocatoriaPayload,
   FuncionarioMisionItem,
@@ -505,73 +506,83 @@ export class MisionesService {
     );
   }
 
-  // ── Personal en misión (agrupado por persona) ────────────────────────────
+  // ── Personal en misión (una fila por asignación) ─────────────────────────
 
-  findFuncionariosConMisiones(
+  findPersonalEnMision(
     page = 1,
-    pageSize = 200,
-    categoria?: 'oficial' | 'subalterno',
-  ): Observable<FuncionarioConMisiones[]> {
+    pageSize = 10,
+    filtros: FiltrosPersonalMision = {},
+  ): Observable<PaginatedResponse<FilaPersonalMision>> {
+    const query = filtros.query?.trim() ?? '';
+    const orden = filtros.orden?.trim() ?? '';
+    const misionIds = filtros.misionIds ?? [];
+
     if (misionesServiceConfig.useMockData) {
-      const agrupados = new Map<string, FuncionarioConMisiones>();
-      for (const [convocatoriaId, filas] of Object.entries(this.mockFuncionarios)) {
+      const filas: FilaPersonalMision[] = [];
+      for (const [convocatoriaId, asignados] of Object.entries(this.mockFuncionarios)) {
         const convocatoria = this.mockConvocatorias.find((c) => c.id === convocatoriaId);
         if (!convocatoria) continue;
         const mision = this.mockMisiones.find((m) => m.id === convocatoria.mision_id);
         if (!mision) continue;
 
-        for (const f of filas) {
-          if (!agrupados.has(f.persona_id)) {
-            const nombre = [f.primer_nombre, f.primer_apellido].filter(Boolean).join(' ');
-            agrupados.set(f.persona_id, { id: f.persona_id, cedula: f.cedula ?? '', nombre, misiones: [] });
-          }
-          agrupados.get(f.persona_id)!.misiones.push({
-            id: mision.id,
-            convocatoriaId: convocatoria.id,
-            nombre_mision: mision.nombre_mision,
-            pais: mision.pais,
-            numero_orden: f.numero_orden ?? convocatoria.numero_orden,
-            boletin: f.boletin ?? convocatoria.boletin,
-            observaciones: f.observaciones ?? null,
-            fecha_salida: convocatoria.fecha_salida,
-            fecha_llegada: convocatoria.fecha_llegada,
-            finalizada: convocatoria.finalizada,
+        for (const f of asignados) {
+          filas.push({
+            funcionarioId: f.persona_id,
+            cedula: f.cedula ?? '',
+            nombre: [f.primer_nombre, f.primer_apellido].filter(Boolean).join(' '),
+            mision: {
+              id: mision.id,
+              convocatoriaId: convocatoria.id,
+              nombre_mision: mision.nombre_mision,
+              pais: mision.pais,
+              numero_orden: f.numero_orden ?? convocatoria.numero_orden,
+              boletin: f.boletin ?? convocatoria.boletin,
+              observaciones: f.observaciones ?? null,
+              fecha_salida: convocatoria.fecha_salida,
+              fecha_llegada: convocatoria.fecha_llegada,
+              finalizada: convocatoria.finalizada,
+            },
           });
         }
       }
-      return this.mockOf(Array.from(agrupados.values()));
+      const palabras = query.toLowerCase().split(/\s+/).filter(Boolean);
+      const ordenLower = orden.toLowerCase();
+      const filtradas = filas.filter(
+        ({ cedula, nombre, mision: m }) =>
+          palabras.every((p) => cedula.toLowerCase().includes(p) || nombre.toLowerCase().includes(p)) &&
+          (misionIds.length === 0 || misionIds.includes(m.id)) &&
+          (!ordenLower ||
+            (m.numero_orden ?? '').toLowerCase().includes(ordenLower) ||
+            (m.boletin ?? '').toLowerCase().includes(ordenLower)) &&
+          (filtros.finalizada === undefined || m.finalizada === filtros.finalizada),
+      );
+      const start = (page - 1) * pageSize;
+      return this.mockOf({ items: filtradas.slice(start, start + pageSize), total: filtradas.length, page, pageSize });
     }
 
     const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-    if (categoria) qs.set('categoria', categoria);
+    if (query) qs.set('query', query);
+    if (misionIds.length > 0) qs.set('misionIds', misionIds.join(','));
+    if (orden) qs.set('orden', orden);
+    if (filtros.finalizada !== undefined) qs.set('finalizada', String(filtros.finalizada));
+    if (filtros.categoria) qs.set('categoria', filtros.categoria);
     return this.http
       .get<PaginatedResponse<any>>(`${API_BASE_URL}/misiones/funcionarios?${qs}`, {
         withCredentials: true,
       })
       .pipe(
-        map((res) => {
-          // Agrupamos filas planas (persona + convocatoria + misión) por persona
-          const items: any[] = res.items ?? [];
-          const agrupados = new Map<string, FuncionarioConMisiones>();
-          for (const row of items) {
+        map((res) => ({
+          ...res,
+          items: (res.items ?? []).map((row): FilaPersonalMision => {
             const persona = row.persona ?? {};
-            const personaId = String(persona.id ?? '');
-            if (!personaId) continue;
-            if (!agrupados.has(personaId)) {
-              const nombre =
-                [persona.primer_nombre, persona.primer_apellido].filter(Boolean).join(' ').trim() ||
-                (persona.nombre ?? '');
-              agrupados.set(personaId, {
-                id: personaId,
-                cedula: persona.cedula ?? '',
-                nombre,
-                misiones: [],
-              });
-            }
-            agrupados.get(personaId)!.misiones.push(this.mapFuncionarioMisionItem(row));
-          }
-          return Array.from(agrupados.values());
-        }),
+            return {
+              funcionarioId: String(persona.id ?? ''),
+              cedula: persona.cedula ?? '',
+              nombre: [persona.primer_nombre, persona.primer_apellido].filter(Boolean).join(' '),
+              mision: this.mapFuncionarioMisionItem(row),
+            };
+          }),
+        })),
       );
   }
 

@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { vi } from 'vitest';
 
@@ -12,7 +12,7 @@ import { PaisesService } from '../../../../core/services/paises.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import {
-  FuncionarioConMisiones,
+  FilaPersonalMision,
   FuncionarioMisionItem,
   MisionDefinicion,
 } from '../../../../core/models/misiones.models';
@@ -39,8 +39,12 @@ function makeMisionItem(overrides: Partial<FuncionarioMisionItem> = {}): Funcion
   };
 }
 
-function makeFuncionario(overrides: Partial<FuncionarioConMisiones> = {}): FuncionarioConMisiones {
-  return { id: 'f1', cedula: '12345678', nombre: 'Juan Pérez', misiones: [], ...overrides };
+function makeFila(overrides: Partial<FilaPersonalMision> = {}): FilaPersonalMision {
+  return { funcionarioId: 'f1', cedula: '12345678', nombre: 'Juan Pérez', mision: makeMisionItem(), ...overrides };
+}
+
+function makePaginaPersonal(items: FilaPersonalMision[] = [], total = items.length) {
+  return { items, total, page: 1, pageSize: 10 };
 }
 
 function makeCatalogo(items: MisionDefinicion[] = [], total = items.length) {
@@ -72,7 +76,7 @@ describe('MisionesPage', () => {
     return {
       findAllDefiniciones: vi.fn().mockReturnValue(of(makeCatalogo())),
       findMisionesOpciones: vi.fn().mockReturnValue(of([])),
-      findFuncionariosConMisiones: vi.fn().mockReturnValue(of([])),
+      findPersonalEnMision: vi.fn().mockReturnValue(of(makePaginaPersonal())),
       createDefinicion: vi.fn().mockReturnValue(of(makeMision())),
       editarDefinicion: vi.fn().mockReturnValue(of(makeMision())),
       deleteDefinicion: vi.fn().mockReturnValue(of(undefined)),
@@ -139,12 +143,12 @@ describe('MisionesPage', () => {
     it('en tab catálogo, carga las definiciones (no el personal)', async () => {
       await setup('catalogo');
       expect(misionesService.findAllDefiniciones).toHaveBeenCalled();
-      expect(misionesService.findFuncionariosConMisiones).not.toHaveBeenCalled();
+      expect(misionesService.findPersonalEnMision).not.toHaveBeenCalled();
     });
 
     it('en tab personal-en-mision, carga el personal y las opciones de misión (no el catálogo)', async () => {
       await setup('personal-en-mision');
-      expect(misionesService.findFuncionariosConMisiones).toHaveBeenCalled();
+      expect(misionesService.findPersonalEnMision).toHaveBeenCalled();
       expect(misionesService.findMisionesOpciones).toHaveBeenCalled();
       expect(misionesService.findAllDefiniciones).not.toHaveBeenCalled();
     });
@@ -409,82 +413,129 @@ describe('MisionesPage', () => {
 
   // ── Personal en Misión: filtros ────────────────────────────────────────────
 
-  describe('Personal en Misión — filtros', () => {
-    beforeEach(async () => {
-      await setup('personal-en-mision');
-      const juan = makeFuncionario({
-        id: 'f1',
-        cedula: '11111111',
-        nombre: 'Juan Pérez',
-        misiones: [
-          makeMisionItem({ id: 'm1', convocatoriaId: 'c1', nombre_mision: 'Congo', numero_orden: 'ORD-100', boletin: null, finalizada: false }),
-          makeMisionItem({ id: 'm2', convocatoriaId: 'c2', nombre_mision: 'Chipre', numero_orden: null, boletin: 'BOL-9', finalizada: true }),
-        ],
-      });
-      const ana = makeFuncionario({
-        id: 'f2',
-        cedula: '22222222',
-        nombre: 'Ana García',
-        misiones: [makeMisionItem({ id: 'm1', convocatoriaId: 'c3', nombre_mision: 'Congo', numero_orden: 'ORD-200', finalizada: false })],
-      });
-      component.funcionarios.set([juan, ana]);
+  describe('Personal en Misión — carga y filtros', () => {
+    beforeEach(() => setup('personal-en-mision'));
+
+    const ultimaLlamada = () => misionesService.findPersonalEnMision.mock.lastCall!;
+
+    it('pide la primera página sin filtros al iniciar', () => {
+      expect(misionesService.findPersonalEnMision).toHaveBeenCalledWith(1, 10, {});
     });
 
-    it('sin filtros, filasFlat incluye todas las filas (una por misión de cada persona)', () => {
-      expect(component.filasFlat()).toHaveLength(3);
+    it('muestra las filas y el total que devuelve el backend', () => {
+      const filas = [makeFila(), makeFila({ funcionarioId: 'f2', nombre: 'Ana García' })];
+      misionesService.findPersonalEnMision.mockReturnValue(of(makePaginaPersonal(filas, 25)));
+      component.cargarPersonal();
+      expect(component.filasPersonal()).toEqual(filas);
+      expect(component.personalTotal()).toBe(25);
+      expect(component.loadingPersonal()).toBe(false);
     });
 
-    it('filtra por búsqueda de cédula', () => {
-      component.busquedaPersonal.set('1111');
-      expect(component.filasFlat()).toHaveLength(2);
-      expect(component.filasFlat().every((f) => f.cedula === '11111111')).toBe(true);
+    it('si la carga falla, marca el error y avisa en vez de mostrar la lista vacía sin más', () => {
+      misionesService.findPersonalEnMision.mockReturnValue(throwError(() => makeHttpError('Sin conexión', 500)));
+      component.cargarPersonal();
+      expect(component.errorPersonal()).toBe(true);
+      expect(toastService.error).toHaveBeenCalled();
+      expect(component.loadingPersonal()).toBe(false);
     });
 
-    it('filtra por búsqueda de nombre (case-insensitive)', () => {
-      component.busquedaPersonal.set('ana');
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].nombre).toBe('Ana García');
+    it('una carga correcta limpia el error anterior', () => {
+      misionesService.findPersonalEnMision.mockReturnValueOnce(throwError(() => makeHttpError('fallo', 500)));
+      component.cargarPersonal();
+      component.cargarPersonal();
+      expect(component.errorPersonal()).toBe(false);
     });
 
-    it('filtra por misión seleccionada (multiselect)', () => {
-      component.misionesFiltroIds.set(['m2']);
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].mision.nombre_mision).toBe('Chipre');
+    it('si la página pedida quedó vacía, pide la última página con datos', () => {
+      component.personalPage.set(4);
+      misionesService.findPersonalEnMision.mockReturnValueOnce(of({ items: [], total: 25, page: 4, pageSize: 10 }));
+      component.cargarPersonal();
+      expect(component.personalPage()).toBe(3);
+      expect(ultimaLlamada()).toEqual([3, 10, {}]);
     });
 
-    it('filtra por varias misiones a la vez', () => {
-      component.misionesFiltroIds.set(['m1', 'm2']);
-      expect(component.filasFlat()).toHaveLength(3);
+    it('sin resultados en la página 1 no vuelve a pedir', () => {
+      const llamadas = misionesService.findPersonalEnMision.mock.calls.length;
+      component.cargarPersonal();
+      expect(misionesService.findPersonalEnMision).toHaveBeenCalledTimes(llamadas + 1);
     });
 
-    it('filtra por número de orden', () => {
-      component.ordenBoletinFiltroPersonal.set('ORD-100');
-      expect(component.filasFlat()).toHaveLength(1);
+    it('ignora la respuesta de una carga anterior que llega tarde', () => {
+      const lenta = new Subject<ReturnType<typeof makePaginaPersonal>>();
+      misionesService.findPersonalEnMision.mockReturnValueOnce(lenta);
+      component.cargarPersonal();
+      const nueva = [makeFila({ funcionarioId: 'nueva' })];
+      misionesService.findPersonalEnMision.mockReturnValueOnce(of(makePaginaPersonal(nueva)));
+      component.cargarPersonal();
+      lenta.next(makePaginaPersonal([makeFila({ funcionarioId: 'vieja' })]));
+      expect(component.filasPersonal()).toEqual(nueva);
     });
 
-    it('filtra por boletín', () => {
-      component.ordenBoletinFiltroPersonal.set('bol-9');
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].mision.boletin).toBe('BOL-9');
+    it('cambiar de página pide esa página con los filtros vigentes', () => {
+      component.onEstadoFiltroPersonalChange('finalizada');
+      component.onPersonalPageChange(3);
+      expect(component.personalPage()).toBe(3);
+      expect(ultimaLlamada()).toEqual([3, 10, { finalizada: true }]);
     });
 
-    it('filtra por estado activa', () => {
-      component.estadoFiltroPersonal.set('activa');
-      expect(component.filasFlat().every((f) => !f.mision.finalizada)).toBe(true);
-      expect(component.filasFlat()).toHaveLength(2);
+    it('la búsqueda va al backend tras el debounce, sin espacios, desde la página 1', () => {
+      component.personalPage.set(4);
+      const llamadas = misionesService.findPersonalEnMision.mock.calls.length;
+      vi.useFakeTimers();
+      component.onBusquedaPersonalInput(' Ana ');
+      expect(misionesService.findPersonalEnMision).toHaveBeenCalledTimes(llamadas);
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
+      expect(component.busquedaPersonal()).toBe(' Ana ');
+      expect(ultimaLlamada()).toEqual([1, 10, { query: 'Ana' }]);
     });
 
-    it('filtra por estado finalizada', () => {
-      component.estadoFiltroPersonal.set('finalizada');
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].mision.finalizada).toBe(true);
+    it('el filtro de orden o boletín va al backend tras el debounce', () => {
+      vi.useFakeTimers();
+      component.onOrdenBoletinPersonalInput('BOL-9');
+      vi.advanceTimersByTime(400);
+      vi.useRealTimers();
+      expect(ultimaLlamada()).toEqual([1, 10, { orden: 'BOL-9' }]);
     });
 
-    it('combina varios filtros a la vez', () => {
+    it('filtrar por misiones recarga desde la página 1', () => {
+      component.personalPage.set(3);
+      component.onMisionFiltroChange(['m1', 'm2']);
+      expect(ultimaLlamada()).toEqual([1, 10, { misionIds: ['m1', 'm2'] }]);
+    });
+
+    it('onMisionFiltroChange acepta null y lo trata como array vacío', () => {
+      component.onMisionFiltroChange(null);
+      expect(component.misionesFiltroIds()).toEqual([]);
+      expect(ultimaLlamada()).toEqual([1, 10, {}]);
+    });
+
+    it('el estado activa pide finalizada=false', () => {
+      component.onEstadoFiltroPersonalChange('activa');
+      expect(ultimaLlamada()).toEqual([1, 10, { finalizada: false }]);
+    });
+
+    it('el estado finalizada pide finalizada=true', () => {
+      component.onEstadoFiltroPersonalChange('finalizada');
+      expect(ultimaLlamada()).toEqual([1, 10, { finalizada: true }]);
+    });
+
+    it('filtrar por categoría manda la categoría', () => {
+      component.onCategoriaFiltroPersonalChange('oficial');
+      expect(ultimaLlamada()).toEqual([1, 10, { categoria: 'oficial' }]);
+    });
+
+    it('combina todos los filtros en el pedido', () => {
       component.busquedaPersonal.set('juan');
-      component.estadoFiltroPersonal.set('activa');
-      expect(component.filasFlat()).toHaveLength(1);
-      expect(component.filasFlat()[0].mision.nombre_mision).toBe('Congo');
+      component.ordenBoletinFiltroPersonal.set('ORD');
+      component.misionesFiltroIds.set(['m1']);
+      component.categoriaFiltroPersonal.set('subalterno');
+      component.onEstadoFiltroPersonalChange('activa');
+      expect(ultimaLlamada()).toEqual([
+        1,
+        10,
+        { query: 'juan', orden: 'ORD', misionIds: ['m1'], categoria: 'subalterno', finalizada: false },
+      ]);
     });
 
     it('hayFiltrosPersonal es true si hay algún filtro activo', () => {
@@ -496,28 +547,21 @@ describe('MisionesPage', () => {
       expect(component.hayFiltrosPersonal()).toBe(false);
     });
 
-    it('limpiarFiltrosPersonal resetea todos los filtros y la página', () => {
+    it('limpiarFiltrosPersonal resetea los filtros y recarga la página 1', () => {
       component.busquedaPersonal.set('x');
       component.misionesFiltroIds.set(['m1']);
       component.ordenBoletinFiltroPersonal.set('y');
       component.estadoFiltroPersonal.set('activa');
+      component.categoriaFiltroPersonal.set('oficial');
       component.personalPage.set(3);
       component.limpiarFiltrosPersonal();
       expect(component.busquedaPersonal()).toBe('');
       expect(component.misionesFiltroIds()).toEqual([]);
       expect(component.ordenBoletinFiltroPersonal()).toBe('');
       expect(component.estadoFiltroPersonal()).toBe('');
+      expect(component.categoriaFiltroPersonal()).toBe('todos');
       expect(component.personalPage()).toBe(1);
-    });
-
-    it('onMisionFiltroChange acepta null y lo trata como array vacío', () => {
-      component.onMisionFiltroChange(null);
-      expect(component.misionesFiltroIds()).toEqual([]);
-    });
-
-    it('filasPaginadas respeta el tamaño de página', () => {
-      component.personalPage.set(1);
-      expect(component.filasPaginadas().length).toBeLessThanOrEqual(component.personalPageSize);
+      expect(ultimaLlamada()).toEqual([1, 10, {}]);
     });
   });
 
@@ -553,7 +597,7 @@ describe('MisionesPage', () => {
       component.confirmarQuitarPersonal();
       expect(component.modal()).toBeNull();
       expect(toastService.success).toHaveBeenCalled();
-      expect(misionesService.findFuncionariosConMisiones).toHaveBeenCalled();
+      expect(misionesService.findPersonalEnMision).toHaveBeenCalled();
     });
 
     it('confirmarQuitarPersonal muestra toast de error si falla', () => {
@@ -612,7 +656,7 @@ describe('MisionesPage', () => {
       component.guardarEdicionFuncionarioPersonal();
       expect(component.modal()).toBeNull();
       expect(toastService.success).toHaveBeenCalled();
-      expect(misionesService.findFuncionariosConMisiones).toHaveBeenCalled();
+      expect(misionesService.findPersonalEnMision).toHaveBeenCalled();
     });
 
     it('guardarEdicionFuncionarioPersonal muestra error si el backend falla', () => {

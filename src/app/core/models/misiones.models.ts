@@ -102,11 +102,19 @@ export interface FuncionarioMisionItem {
   finalizada: boolean;
 }
 
-export interface FuncionarioConMisiones {
-  id: string;
+export interface FilaPersonalMision {
+  funcionarioId: string;
   cedula: string;
   nombre: string;
-  misiones: FuncionarioMisionItem[];
+  mision: FuncionarioMisionItem;
+}
+
+export interface FiltrosPersonalMision {
+  query?: string;
+  misionIds?: string[];
+  orden?: string;
+  finalizada?: boolean;
+  categoria?: 'oficial' | 'subalterno';
 }
 
 export interface MisionOpcion {

@@ -345,81 +345,94 @@ describe('MisionesService', () => {
       });
     });
 
-    describe('findFuncionariosConMisiones', () => {
+    describe('findPersonalEnMision', () => {
       const matchAll = (r: { url: string }) => r.url.startsWith(`${API_BASE_URL}/misiones/funcionarios?`);
-
-      it('construye la URL con page=1 y pageSize=200 por defecto', () => {
-        service.findFuncionariosConMisiones().subscribe();
-        const req = http.expectOne(matchAll);
-        expect(req.request.url).toContain('page=1');
-        expect(req.request.url).toContain('pageSize=200');
-        req.flush({ items: [], total: 0 });
+      const params = (req: { request: { url: string } }) => new URL(req.request.url, 'http://localhost').searchParams;
+      const rawFila = (overrides: Record<string, unknown> = {}) => ({
+        id: '12',
+        persona: { id: '42', cedula: '111', primer_nombre: 'Juan', primer_apellido: 'García' },
+        mision: { id: '1', nombre_mision: 'Congo', pais: 'RD Congo' },
+        convocatoria_id: '5',
+        numero_orden: 'ORD-1', boletin: null, fecha_salida: '2026-01-01', fecha_llegada: null, finalizada: false,
+        ...overrides,
       });
 
-      it('agrupa filas planas por persona', () => {
+      it('pide page=1 y pageSize=10 por defecto, sin filtros', () => {
+        service.findPersonalEnMision().subscribe();
+        const req = http.expectOne(matchAll);
+        expect(Object.fromEntries(params(req))).toEqual({ page: '1', pageSize: '10' });
+        req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+      });
+
+      it('manda página y filtros como parámetros', () => {
+        service
+          .findPersonalEnMision(3, 10, {
+            query: ' Ana García ',
+            misionIds: ['3', '7'],
+            orden: 'ORD',
+            finalizada: false,
+            categoria: 'oficial',
+          })
+          .subscribe();
+        const req = http.expectOne(matchAll);
+        expect(Object.fromEntries(params(req))).toEqual({
+          page: '3',
+          pageSize: '10',
+          query: 'Ana García',
+          misionIds: '3,7',
+          orden: 'ORD',
+          finalizada: 'false',
+          categoria: 'oficial',
+        });
+        req.flush({ items: [], total: 0, page: 3, pageSize: 10 });
+      });
+
+      it('no manda filtros vacíos', () => {
+        service.findPersonalEnMision(1, 10, { query: '  ', misionIds: [], orden: ' ' }).subscribe();
+        const req = http.expectOne(matchAll);
+        expect(Object.fromEntries(params(req))).toEqual({ page: '1', pageSize: '10' });
+        req.flush({ items: [], total: 0, page: 1, pageSize: 10 });
+      });
+
+      it('devuelve una fila por asignación con el total del backend', () => {
         let result: any;
-        service.findFuncionariosConMisiones().subscribe((r) => (result = r));
-        const rawItems = [
-          {
-            id: '12',
-            persona: { id: '42', cedula: '111', primer_nombre: 'Juan', primer_apellido: 'García' },
-            mision: { id: '1', nombre_mision: 'Congo', pais: 'RD Congo' },
-            convocatoria_id: '5',
-            numero_orden: 'ORD-1', boletin: null, fecha_salida: '2026-01-01', fecha_llegada: null, finalizada: false,
-          },
-          {
-            id: '13',
-            persona: { id: '42', cedula: '111', primer_nombre: 'Juan', primer_apellido: 'García' },
-            mision: { id: '2', nombre_mision: 'Chipre', pais: 'Chipre' },
-            convocatoria_id: '9',
-            numero_orden: null, boletin: 'BOL-9', fecha_salida: '2025-01-01', fecha_llegada: '2025-06-01', finalizada: true,
-          },
-        ];
-        http.expectOne(matchAll).flush({ items: rawItems, total: 2 });
-        expect(result).toHaveLength(1);
-        expect(result[0].nombre).toBe('Juan García');
-        expect(result[0].misiones).toHaveLength(2);
+        service.findPersonalEnMision().subscribe((r) => (result = r));
+        http.expectOne(matchAll).flush({
+          items: [
+            rawFila(),
+            rawFila({
+              id: '13',
+              mision: { id: '2', nombre_mision: 'Chipre', pais: 'Chipre' },
+              convocatoria_id: '9',
+              finalizada: true,
+            }),
+          ],
+          total: 25,
+          page: 1,
+          pageSize: 10,
+        });
+        expect(result.total).toBe(25);
+        expect(result.items).toHaveLength(2);
+        expect(result.items[0]).toEqual(
+          expect.objectContaining({ funcionarioId: '42', cedula: '111', nombre: 'Juan García' }),
+        );
+        expect(result.items[1].mision.nombre_mision).toBe('Chipre');
       });
 
       it('usa convocatoria_id (no id) como convocatoriaId — el id de la fila es la asignación, no la convocatoria', () => {
         let result: any;
-        service.findFuncionariosConMisiones().subscribe((r) => (result = r));
-        const rawItems = [
-          {
-            id: '999', // id de la fila de asignación — NO debe usarse como convocatoriaId
-            persona: { id: '1', cedula: '1', primer_nombre: 'A', primer_apellido: 'B' },
-            mision: { id: '1', nombre_mision: 'Congo', pais: 'RD Congo' },
-            convocatoria_id: '5', // este es el que debe quedar en convocatoriaId
-            numero_orden: 'ORD-1', boletin: null, fecha_salida: null, fecha_llegada: null, finalizada: false,
-          },
-        ];
-        http.expectOne(matchAll).flush({ items: rawItems, total: 1 });
-        expect(result[0].misiones[0].convocatoriaId).toBe('5');
+        service.findPersonalEnMision().subscribe((r) => (result = r));
+        http.expectOne(matchAll).flush({ items: [rawFila({ id: '999' })], total: 1, page: 1, pageSize: 10 });
+        expect(result.items[0].mision.convocatoriaId).toBe('5');
       });
 
       it('si no viene convocatoria_id, usa id como fallback', () => {
         let result: any;
-        service.findFuncionariosConMisiones().subscribe((r) => (result = r));
-        const rawItems = [
-          {
-            id: '77',
-            persona: { id: '1', cedula: '1', primer_nombre: 'A', primer_apellido: 'B' },
-            mision: { id: '1', nombre_mision: 'Congo', pais: 'RD Congo' },
-            numero_orden: null, boletin: null, fecha_salida: null, fecha_llegada: null, finalizada: false,
-          },
-        ];
-        http.expectOne(matchAll).flush({ items: rawItems, total: 1 });
-        expect(result[0].misiones[0].convocatoriaId).toBe('77');
-      });
-
-      it('descarta filas sin persona.id', () => {
-        let result: any;
-        service.findFuncionariosConMisiones().subscribe((r) => (result = r));
-        const rawItems = [
-          { id: '1', persona: {}, mision: { id: '1', nombre_mision: 'X', pais: 'Y' }, convocatoria_id: '5' },
-        ];
-        http.expectOne(matchAll).flush({ items: rawItems, total: 1 });
-        expect(result).toHaveLength(0);
+        service.findPersonalEnMision().subscribe((r) => (result = r));
+        http
+          .expectOne(matchAll)
+          .flush({ items: [rawFila({ id: '77', convocatoria_id: undefined })], total: 1, page: 1, pageSize: 10 });
+        expect(result.items[0].mision.convocatoriaId).toBe('77');
       });
     });
   });
@@ -798,30 +811,41 @@ describe('MisionesService', () => {
       });
     });
 
-    describe('findFuncionariosConMisiones', () => {
-      it('agrupa por persona a través de todas las convocatorias', () => {
-        const { value } = runMock(service.findFuncionariosConMisiones());
+    describe('findPersonalEnMision', () => {
+      it('devuelve una fila por asignación a través de todas las convocatorias', () => {
+        const { value } = runMock(service.findPersonalEnMision(1, 100));
         // persona 1001 está en convocatorias 101 y 201 (misiones distintas)
-        const juan = value!.find((f) => f.id === '1001')!;
-        expect(juan.misiones).toHaveLength(2);
+        expect(value!.items.filter((f) => f.funcionarioId === '1001')).toHaveLength(2);
+        expect(value!.total).toBe(value!.items.length);
       });
 
       it('usa el numero_orden propio del funcionario si existe, si no el de la convocatoria', () => {
-        const { value } = runMock(service.findFuncionariosConMisiones());
-        const maria = value!.find((f) => f.id === '1002')!;
+        const { value } = runMock(service.findPersonalEnMision(1, 100));
+        const maria = value!.items.find((f) => f.funcionarioId === '1002')!;
         // maria tiene numero_orden propio 'ORD-1542-A' en la convocatoria 101
-        expect(maria.misiones[0].numero_orden).toBe('ORD-1542-A');
+        expect(maria.mision.numero_orden).toBe('ORD-1542-A');
 
-        const juan = value!.find((f) => f.id === '1001')!;
-        const filaConvocatoria101 = juan.misiones.find((m) => m.convocatoriaId === '101')!;
+        const juan101 = value!.items.find((f) => f.funcionarioId === '1001' && f.mision.convocatoriaId === '101')!;
         // juan no tiene numero_orden propio en esa convocatoria → hereda el de la convocatoria ('ORD-1542' en la semilla)
-        expect(filaConvocatoria101.numero_orden).toBe('ORD-1542');
+        expect(juan101.mision.numero_orden).toBe('ORD-1542');
       });
 
       it('nombre se arma concatenando primer_nombre y primer_apellido', () => {
-        const { value } = runMock(service.findFuncionariosConMisiones());
-        const carlos = value!.find((f) => f.id === '1003')!;
+        const { value } = runMock(service.findPersonalEnMision(1, 100));
+        const carlos = value!.items.find((f) => f.funcionarioId === '1003')!;
         expect(carlos.nombre).toBe('Carlos Rodríguez');
+      });
+
+      it('pagina y devuelve el total sin paginar', () => {
+        const todas = runMock(service.findPersonalEnMision(1, 100)).value!;
+        const { value } = runMock(service.findPersonalEnMision(2, 1));
+        expect(value!.items).toEqual([todas.items[1]]);
+        expect(value!.total).toBe(todas.total);
+      });
+
+      it('filtra por búsqueda', () => {
+        const { value } = runMock(service.findPersonalEnMision(1, 100, { query: 'carlos rodríguez' }));
+        expect(value!.items.map((f) => f.funcionarioId)).toEqual(['1003']);
       });
     });
   });

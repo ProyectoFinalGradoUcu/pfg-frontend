@@ -312,7 +312,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let fila of filasPaginadas(); trackBy: trackFila">
+            <tr *ngFor="let fila of filasPersonal(); trackBy: trackFila">
               <td>{{ fila.nombre }}</td>
               <td class="misiones__cedula">{{ fila.cedula }}</td>
               <td><strong>{{ fila.mision.nombre_mision }}</strong></td>
@@ -343,9 +343,15 @@
                 </button>
               </td>
             </tr>
-            <tr *ngIf="filasFlat().length === 0">
+            <tr *ngIf="filasPersonal().length === 0">
               <td [attr.colspan]="puedeGestionar() ? 9 : 8" class="misiones__empty">
-                {{ hayFiltrosPersonal() ? 'No se encontraron resultados con esos filtros' : 'No hay personal designado a misiones' }}
+                {{
+                  errorPersonal()
+                    ? 'No se pudo cargar el personal en misión'
+                    : hayFiltrosPersonal()
+                      ? 'No se encontraron resultados con esos filtros'
+                      : 'No hay personal designado a misiones'
+                }}
               </td>
             </tr>
           </tbody>
@@ -354,15 +360,15 @@
 
       <app-paginator
         *ngIf="!loadingPersonal()"
-        [totalItems]="filasFlat().length"
+        [totalItems]="personalTotal()"
         [pageSize]="personalPageSize"
         [currentPage]="personalPage()"
-        (pageChange)="personalPage.set($event)"
+        (pageChange)="onPersonalPageChange($event)"
       ></app-paginator>
     </article>
 
     <!-- Dropdown: Acciones por funcionario (fixed, escapa del overflow de la tabla) -->
-    <ng-container *ngFor="let fila of filasPaginadas(); trackBy: trackFila">
+    <ng-container *ngFor="let fila of filasPersonal(); trackBy: trackFila">
       <div
         *ngIf="openMenuId() === filaKey(fila) && menuPosition() as pos"
         class="misiones__dropdown"
