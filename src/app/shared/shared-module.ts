@@ -14,6 +14,7 @@ import { CargaMasivaModal } from './components/carga-masiva-modal/carga-masiva-m
 import { SearchInput } from './components/search-input/search-input';
 import { ClearFiltersButton } from './components/clear-filters-button/clear-filters-button';
 import { DateInput } from './components/date-input/date-input';
+import { DocumentoAdjunto } from './components/documento-adjunto/documento-adjunto';
 
 @NgModule({
   declarations: [
@@ -29,6 +30,7 @@ import { DateInput } from './components/date-input/date-input';
     SearchInput,
     ClearFiltersButton,
     DateInput,
+    DocumentoAdjunto,
   ],
   imports: [CommonModule, FormsModule, RouterModule],
   exports: [
@@ -44,6 +46,7 @@ import { DateInput } from './components/date-input/date-input';
     SearchInput,
     ClearFiltersButton,
     DateInput,
+    DocumentoAdjunto,
   ],
 })
 export class SharedModule {}

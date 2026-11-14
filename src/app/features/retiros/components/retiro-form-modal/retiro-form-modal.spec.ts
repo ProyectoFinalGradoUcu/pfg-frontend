@@ -1,7 +1,8 @@
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { NEVER, of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { NEVER, Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { RetiroFormModal, mensajeCierres } from './retiro-form-modal';
@@ -11,6 +12,8 @@ import { PersonalService } from '../../../../core/services/personal.service';
 import { PreviaRetiro, Retiro } from '../../../../core/models/retiros.models';
 import { DEBOUNCE_MS } from '../../retiro-presentacion';
 import { Select } from '../../../../shared/components/select/select';
+import { DocumentoAdjunto } from '../../../../shared/components/documento-adjunto/documento-adjunto';
+import { ToastService } from '../../../../core/services/toast.service';
 
 function makePrevia(overrides: Partial<PreviaRetiro> = {}): PreviaRetiro {
   return {
@@ -46,16 +49,22 @@ const esperarDebounce = () => new Promise((r) => setTimeout(r, DEBOUNCE_MS + 60)
 describe('RetiroFormModal', () => {
   let fixture: ComponentFixture<RetiroFormModal>;
   let component: RetiroFormModal;
-  let retiros: { previa: ReturnType<typeof vi.fn>; registrar: ReturnType<typeof vi.fn> };
+  let retiros: {
+    previa: ReturnType<typeof vi.fn>;
+    registrar: ReturnType<typeof vi.fn>;
+    subirDocumento: ReturnType<typeof vi.fn>;
+  };
   let catalogos: { getMotivosBaja: ReturnType<typeof vi.fn> };
+  let toast: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
 
   async function montar(personaId: string | null = '1'): Promise<void> {
     await TestBed.configureTestingModule({
-      declarations: [RetiroFormModal, Select],
+      declarations: [RetiroFormModal, Select, DocumentoAdjunto],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: RetirosService, useValue: retiros },
         { provide: CatalogosService, useValue: catalogos },
+        { provide: ToastService, useValue: toast },
         {
           provide: PersonalService,
           useValue: { findAll: vi.fn().mockReturnValue(of([])) },
@@ -79,7 +88,9 @@ describe('RetiroFormModal', () => {
         .mockReturnValue(
           of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], comisiones: [], usuario: null } }),
         ),
+      subirDocumento: vi.fn().mockReturnValue(of({})),
     };
+    toast = { error: vi.fn(), success: vi.fn() };
     catalogos = {
       getMotivosBaja: vi
         .fn()
@@ -303,6 +314,136 @@ describe('RetiroFormModal', () => {
       inscripciones: [],
       comisiones: [],
       usuario: '3',
+    });
+  });
+
+  describe('documentos de orden y boletín', () => {
+    const pdf = (nombre: string) => new File(['%PDF-1.4'], nombre, { type: 'application/pdf' });
+
+    async function listoParaConfirmar(): Promise<void> {
+      component.form.patchValue({
+        fecha_retiro: '2026-08-28',
+        motivo_baja_id: 5,
+        numero_orden: 'O.D. 12455',
+        boletin: 'B.P. 8891',
+      });
+      await esperarDebounce();
+    }
+
+    it('sin archivos registra y emite como hoy, sin subir nada', async () => {
+      await montar();
+      const emitido = vi.fn();
+      component.registrado.subscribe(emitido);
+      await listoParaConfirmar();
+
+      component.confirmar();
+
+      expect(retiros.subirDocumento).not.toHaveBeenCalled();
+      expect(emitido).toHaveBeenCalledTimes(1);
+    });
+
+    it('con archivo de orden, registra, sube al retiro creado y recién después emite registrado', async () => {
+      await montar();
+      const emitido = vi.fn();
+      component.registrado.subscribe(emitido);
+      await listoParaConfirmar();
+      const archivo = pdf('orden.pdf');
+      component.elegirArchivo('orden', archivo);
+
+      component.confirmar();
+
+      expect(retiros.subirDocumento).toHaveBeenCalledWith('7', 'orden', archivo);
+      expect(retiros.registrar.mock.invocationCallOrder[0]).toBeLessThan(
+        retiros.subirDocumento.mock.invocationCallOrder[0],
+      );
+      expect(retiros.subirDocumento.mock.invocationCallOrder[0]).toBeLessThan(
+        emitido.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('si una subida falla, igual emite registrado y avisa con el nombre del archivo', async () => {
+      retiros.subirDocumento.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
+      await montar();
+      const emitido = vi.fn();
+      component.registrado.subscribe(emitido);
+      await listoParaConfirmar();
+      component.elegirArchivo('orden', pdf('orden.pdf'));
+
+      component.confirmar();
+
+      expect(emitido).toHaveBeenCalledTimes(1);
+      expect(toast.error).toHaveBeenCalledTimes(1);
+      const mensaje = toast.error.mock.calls[0][0] as string;
+      expect(mensaje).toContain('orden.pdf');
+      expect(mensaje).toContain('Podés adjuntarlo desde el detalle del retiro');
+    });
+
+    it('con dos archivos, sube los dos uno después del otro', async () => {
+      const primera = new Subject<unknown>();
+      retiros.subirDocumento.mockReturnValueOnce(primera).mockReturnValueOnce(of({}));
+      await montar();
+      const emitido = vi.fn();
+      component.registrado.subscribe(emitido);
+      await listoParaConfirmar();
+      component.elegirArchivo('orden', pdf('orden.pdf'));
+      component.elegirArchivo('boletin', pdf('boletin.pdf'));
+
+      component.confirmar();
+      expect(retiros.subirDocumento).toHaveBeenCalledTimes(1);
+      expect(component.subiendoDocumentos()).toBe(true);
+
+      primera.next({});
+      primera.complete();
+
+      expect(retiros.subirDocumento).toHaveBeenCalledTimes(2);
+      expect(retiros.subirDocumento.mock.calls[1][1]).toBe('boletin');
+      expect(emitido).toHaveBeenCalledTimes(1);
+    });
+
+    it('mientras sube documentos no se puede cerrar el modal: el retiro ya existe', async () => {
+      retiros.subirDocumento.mockReturnValue(new Subject<unknown>());
+      await montar();
+      const cerrado = vi.fn();
+      component.cerrado.subscribe(cerrado);
+      await listoParaConfirmar();
+      component.elegirArchivo('orden', pdf('orden.pdf'));
+
+      component.confirmar();
+      fixture.detectChanges();
+      component.cerrar();
+
+      expect(cerrado).not.toHaveBeenCalled();
+      const cruz = (fixture.nativeElement as HTMLElement).querySelector('.modal__close') as HTMLButtonElement;
+      expect(cruz.disabled).toBe(true);
+    });
+
+    it('si se borra el número después de elegir el archivo, el archivo se descarta y no se sube', async () => {
+      await montar();
+      await listoParaConfirmar();
+      component.elegirArchivo('orden', pdf('orden.pdf'));
+
+      component.form.controls.numero_orden.setValue('  ');
+
+      expect(component.archivos().orden).toBeUndefined();
+      component.form.controls.numero_orden.setValue('O.D. 12455');
+      component.confirmar();
+      expect(retiros.subirDocumento).not.toHaveBeenCalled();
+    });
+
+    it('Adjuntar del boletín está deshabilitado mientras el campo boletín está vacío', async () => {
+      await montar();
+      const adjuntarBoletin = () =>
+        (fixture.nativeElement as HTMLElement)
+          .querySelectorAll('app-documento-adjunto')[1]
+          .querySelector('button') as HTMLButtonElement;
+
+      expect(adjuntarBoletin().disabled).toBe(true);
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector('#bol') as HTMLInputElement;
+      input.value = 'B.P. 8891';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(adjuntarBoletin().disabled).toBe(false);
     });
   });
 
