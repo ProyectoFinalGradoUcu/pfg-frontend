@@ -1069,7 +1069,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let fila of filasCursoMasivo(); trackBy: trackFila">
+              <tr
+                *ngFor="let fila of filasCursoMasivo(); trackBy: trackFila"
+                [class.cursos__cal-masiva-row--incompleta]="filasMasivasIncompletas().includes(fila)"
+              >
                 <td>{{ fila.nombre }}</td>
                 <td class="cursos__cedula">{{ fila.cedula }}</td>
                 <td>
@@ -1105,6 +1108,10 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div *ngIf="filasMasivasIncompletas().length > 0" class="modal__warning" role="status">
+          {{ filasMasivasIncompletas().length }} fila(s) con nota pero sin aprobado/desaprobado. Marcá el resultado para poder guardarlas.
         </div>
       </ng-container>
 

@@ -6,6 +6,7 @@ import { FiltroDerechaNumor, filtroDerechaNumorParams } from '../models/derecha.
 import { API_BASE_URL } from '../api.config';
 import { PaginatedResponse } from '../models/auth.models';
 import {
+  CalificacionMasivaItem,
   CalificacionResponse,
   RegistrarCalificacionPayload,
   CursoDefinicion,
@@ -166,6 +167,18 @@ export class CursosService {
     return this.http.patch<CalificacionResponse>(
       `${API_BASE_URL}/cursos/${cursoId}/designaciones/${designacionId}`,
       payload,
+      { withCredentials: true },
+    );
+  }
+
+  // El backend guarda todas o ninguna, así que no hay estado parcial que reconciliar.
+  registrarCalificacionesMasivas(
+    cursoId: string,
+    resultados: CalificacionMasivaItem[],
+  ): Observable<CalificacionResponse[]> {
+    return this.http.patch<CalificacionResponse[]>(
+      `${API_BASE_URL}/cursos/${cursoId}/designaciones`,
+      { resultados },
       { withCredentials: true },
     );
   }

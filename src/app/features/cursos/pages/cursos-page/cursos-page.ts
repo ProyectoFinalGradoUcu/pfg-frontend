@@ -144,6 +144,13 @@ export class CursosPage implements OnInit, OnDestroy {
     () => this.filasCursoMasivo().filter((f) => this.calificacionesMasivas()[f.curso.designacionId]?.aprobado != null),
   );
 
+  readonly filasMasivasIncompletas = computed(() =>
+    this.filasCursoMasivo().filter((f) => {
+      const r = this.calificacionesMasivas()[f.curso.designacionId];
+      return r?.calificacion != null && r.aprobado == null;
+    }),
+  );
+
   readonly cursosAptos = computed(() => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -922,6 +929,14 @@ export class CursosPage implements OnInit, OnDestroy {
   guardarCalificacionMasiva(): void {
     const filas = this.filasMasivasConResultado();
     const resultados = this.calificacionesMasivas();
+
+    const incompletas = this.filasMasivasIncompletas();
+    if (incompletas.length > 0) {
+      this.modalError.set(
+        `Falta marcar aprobado o desaprobado para: ${incompletas.map((f) => f.nombre).join(', ')}`,
+      );
+      return;
+    }
     if (filas.length === 0) return;
 
     for (const fila of filas) {
@@ -935,17 +950,18 @@ export class CursosPage implements OnInit, OnDestroy {
     this.modalError.set(null);
     this.guardandoMasivo.set(true);
 
-    const requests = filas.map((fila) => {
+    const items = filas.map((fila) => {
       const resultado = resultados[fila.curso.designacionId];
-      return this.cursosService.registrarCalificacion(fila.curso.id, fila.curso.designacionId, {
+      return {
+        designacionId: Number(fila.curso.designacionId),
         aprobado: resultado.aprobado!,
         ...(resultado.calificacion !== null ? { calificacion: resultado.calificacion } : {}),
-      });
+      };
     });
 
-    forkJoin(requests).subscribe({
+    this.cursosService.registrarCalificacionesMasivas(this.cursoMasivoId()!, items).subscribe({
       next: (results) => {
-        const porDesignacion = new Map(filas.map((f, i) => [f.curso.designacionId, results[i]]));
+        const porDesignacion = new Map(results.map((r) => [r.id, r]));
         this.funcionarios.update((lista) =>
           lista.map((f) => ({
             ...f,
@@ -963,7 +979,7 @@ export class CursosPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoMasivo.set(false);
-        this.modalError.set('Error al registrar los resultados: ' + this.parseError(err));
+        this.modalError.set('No se guardó ningún resultado: ' + this.parseError(err));
       },
     });
   }
