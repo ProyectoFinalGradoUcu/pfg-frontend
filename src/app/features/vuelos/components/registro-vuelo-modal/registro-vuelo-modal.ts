@@ -109,6 +109,7 @@ export class RegistroVueloModal implements OnChanges, AfterViewInit {
   }
 
   guardar(siguiente: boolean): void {
+    if (this.guardando()) return;
     this.error.set(null);
     const v = this.form.getRawValue();
 
@@ -124,6 +125,10 @@ export class RegistroVueloModal implements OnChanges, AfterViewInit {
         return;
       }
       valores[campo] = n;
+    }
+    if (valores.hs_av_anio_militar > valores.hs_av_total || valores.hs_ob_anio_militar > valores.hs_ob_total) {
+      this.error.set('Las horas del año militar no pueden superar las horas totales de su categoría (Av u Ob).');
+      return;
     }
 
     const r = this.registro;
