@@ -167,6 +167,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     return this.comisiones().filter(c => !query || [c.comision, c.cargo, c.numero_orden, c.boletin].some(v => v?.toLowerCase().includes(query)));
   });
   readonly loadingDestinos   = signal(false);
+  /** Sin esto un 403/404 dejaba la pestaña vacía como si no tuviera destinos (SCRUM-163). */
+  readonly destinosError = signal<string | null>(null);
   readonly busquedaDestinos  = signal('');
   readonly destinosFiltrados = computed<DestinoVista[]>(() => {
     const q = this.busquedaDestinos().trim().toLowerCase();
@@ -503,11 +505,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         });
         break;
       case 'destinos':
-        this.loadingDestinos.set(true);
-        this.svc.getDestinos(this.personaId).subscribe({
-          next: d => { this.destinos.set(d.map(x => this.conSlotsDestino(x))); this.loadingDestinos.set(false); },
-          error: () => this.loadingDestinos.set(false),
-        });
+        this.cargarDestinos();
         break;
       case 'comisiones':
         this.cargarComisiones();
@@ -520,6 +518,15 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         });
         break;
     }
+  }
+
+  cargarDestinos(): void {
+    this.loadingDestinos.set(true);
+    this.destinosError.set(null);
+    this.svc.getDestinos(this.personaId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: d => { this.destinos.set(d.map(x => this.conSlotsDestino(x))); this.loadingDestinos.set(false); },
+      error: err => { this.destinosError.set(parseError(err)); this.loadingDestinos.set(false); },
+    });
   }
 
   cargarComisiones(): void {

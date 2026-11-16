@@ -20,7 +20,7 @@ describe('PersonalPage · filtros', () => {
     getEscalafones: ReturnType<typeof vi.fn>;
   };
 
-  async function setup() {
+  async function setup(alcance: 'global' | 'unidad' = 'global', unidades: { id: string }[] = []) {
     personalService = {
       findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
       getBases: vi.fn().mockReturnValue(of([])),
@@ -28,7 +28,10 @@ describe('PersonalPage · filtros', () => {
       getGrados: vi.fn().mockReturnValue(of([{ id: 14, denominacion: 'Brig. Gral.', escalafon_id: 1, orden: 1 }])),
       getEscalafones: vi.fn().mockReturnValue(of([{ id: 1, denominacion: 'AV' }])),
     };
-    const authService = { alcanceDe: vi.fn().mockReturnValue('global'), currentUser: signal(null) };
+    const authService = {
+      alcanceDe: vi.fn().mockReturnValue(alcance),
+      currentUser: signal(alcance === 'unidad' ? ({ unidades } as any) : null),
+    };
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
@@ -218,6 +221,50 @@ describe('PersonalPage · filtros', () => {
         .find((d) => d.attributes['placeholder'] === 'Destino')!;
       expect(destino.attributes['bindLabel']).toBe('etiqueta');
       expect(destino.properties['items']).toEqual([expect.objectContaining({ id: 1, etiqueta: 'B.A.I. (C.A.O.)' })]);
+    });
+
+    describe('con alcance de unidad', () => {
+      const BASES = [
+        { id: 1, denominacion: 'B.A.I.', unidad_id: 1, comando: { id: 1, denominacion: 'C.A.O.' }, etiqueta: 'B.A.I. (C.A.O.)' },
+        { id: 2, denominacion: 'B.A.II.', unidad_id: 1, comando: { id: 1, denominacion: 'C.A.O.' }, etiqueta: 'B.A.II. (C.A.O.)' },
+        { id: 5, denominacion: 'E.T.A.', unidad_id: 2, comando: { id: 2, denominacion: 'C.A.P.' }, etiqueta: 'E.T.A. (C.A.P.)' },
+      ];
+      const selectDestino = () =>
+        fixture.debugElement.queryAll((d) => d.name === 'app-select')
+          .find((d) => d.attributes['placeholder'] === 'Destino')!;
+
+      async function setupUnidad() {
+        await setup('unidad', [{ id: '1' }, { id: '5' }]);
+        personalService.getBases.mockReturnValue(of(BASES));
+        (component as any).loadFilterOptions();
+        fixture.detectChanges();
+      }
+
+      it('el filtro Destino está habilitado y solo ofrece las bases del usuario', async () => {
+        await setupUnidad();
+
+        const destino = selectDestino();
+        expect(destino).toBeDefined();
+        expect(destino.properties['disabled']).toBeFalsy();
+        expect(destino.properties['items'].map((b: { id: number }) => b.id)).toEqual([1, 5]);
+      });
+
+      it('manda al backend solo las bases elegidas', async () => {
+        await setupUnidad();
+
+        component.onDestinosChange([5]);
+
+        expect(personalService.findPaginado).toHaveBeenLastCalledWith(expect.objectContaining({ destino: [5] }));
+      });
+
+      it('sin bases elegidas no manda el filtro: el backend lista todas las del usuario', async () => {
+        await setupUnidad();
+
+        component.onDestinosChange([5]);
+        component.onDestinosChange([]);
+
+        expect(personalService.findPaginado).toHaveBeenLastCalledWith(expect.objectContaining({ destino: undefined }));
+      });
     });
 
     it('vaciar grados no deja filtro activo', async () => {

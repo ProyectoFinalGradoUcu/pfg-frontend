@@ -787,8 +787,9 @@
       </div>
 
       <div class="pd__loading" *ngIf="loadingDestinos()">Cargando...</div>
+      <div role="alert" *ngIf="destinosError()">{{ destinosError() }} <button type="button" (click)="cargarDestinos()">Reintentar</button></div>
 
-      <p class="pd__empty" *ngIf="!loadingDestinos() && destinos().length === 0">
+      <p class="pd__empty" *ngIf="!loadingDestinos() && !destinosError() && destinos().length === 0">
         No hay destinos registrados.
       </p>
 
@@ -796,7 +797,7 @@
         No se encontraron destinos con esa búsqueda.
       </p>
 
-      <div class="pd__destinos-list" *ngIf="!loadingDestinos() && destinosFiltrados().length > 0">
+      <div class="pd__destinos-list" *ngIf="!loadingDestinos() && !destinosError() && destinosFiltrados().length > 0">
         <div class="pd__destino-card" *ngFor="let d of destinosFiltrados()">
           <div class="pd__destino-card__top">
             <span class="pd__destino-card__unidad">

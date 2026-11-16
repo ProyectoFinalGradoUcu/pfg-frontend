@@ -32,17 +32,17 @@ export class PersonalPage implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
 
   /**
-   * Con alcance de unidad el backend fuerza el filtro y descarta `destino` del query. El select
-   * se muestra fijo y deshabilitado en vez de ocultarse, para que quede claro por qué el
-   * listado está acotado.
+   * Con alcance de unidad el backend nunca lista fuera de las bases del usuario: sin destino
+   * elegido muestra todas las suyas, y con destino solo las elegidas que sean suyas.
    */
   readonly alcanceAcotado = computed(
     () => this.auth.alcanceDe('personas.ver') === 'unidad',
   );
-  readonly unidadPropia = computed(() => {
-    const user = this.auth.currentUser();
-    if (!user || user.unidades.length === 0) return null;
-    return user.unidades.map((u) => u.denominacion).join(', ');
+  /** Opciones del filtro Destino: con alcance de unidad, solo las bases del usuario. */
+  readonly basesDelFiltro = computed(() => {
+    if (!this.alcanceAcotado()) return this.bases();
+    const propias = new Set((this.auth.currentUser()?.unidades ?? []).map((u) => String(u.id)));
+    return this.bases().filter((b) => propias.has(String(b.id)));
   });
 
   readonly PAGE_SIZE = 10;

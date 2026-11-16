@@ -494,6 +494,31 @@ describe('PersonalDetailPage', () => {
       expect(svc.getDestinos).toHaveBeenCalledTimes(2);
     });
 
+    it('si no puede cargar los destinos muestra el error en vez de la pestaña vacía (SCRUM-163)', () => {
+      conMilitar();
+      svc.getDestinos.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 403, error: { service_response: { service_status: { http_message: 'Permiso insuficiente' } } } })),
+      );
+
+      component.switchTab('destinos');
+
+      expect(component.destinosError()).not.toBeNull();
+      expect(component.loadingDestinos()).toBe(false);
+      expect(component.destinos()).toEqual([]);
+    });
+
+    it('reintentar los destinos limpia el error si esta vez funciona (SCRUM-163)', () => {
+      conMilitar();
+      svc.getDestinos.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      component.switchTab('destinos');
+      expect(component.destinosError()).not.toBeNull();
+
+      svc.getDestinos.mockReturnValue(of([]));
+      component.cargarDestinos();
+
+      expect(component.destinosError()).toBeNull();
+    });
+
     it('si la pestaña Destinos ya se había cargado, la pide de nuevo al volver a abrirla', () => {
       conMilitar();
       component.switchTab('destinos');

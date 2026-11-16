@@ -57,7 +57,7 @@
             </p>
             <label class="destino-form__pase-fecha">
               Cerrarlo en otra fecha (opcional)
-              <input type="date" formControlName="fecha_fin_anterior" />
+              <input type="date" formControlName="fecha_fin_anterior" [max]="fechaCierreCalculada() ?? ''" />
             </label>
           </ng-container>
 
