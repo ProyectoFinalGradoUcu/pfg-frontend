@@ -104,6 +104,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly puedeRegistrarAscenso = computed(() => this.auth.hasPermiso('ascensos.registrar'));
 
   readonly puedeEditarDocumentos = computed(() => this.auth.puedeConAlcance('personas.editar'));
+  readonly puedeEditarFoto = computed(() => this.auth.puedeConAlcance('personas.editar'));
 
   // ─── Base y destino ──────────────────────────────────────────────────────────
   // La base no se edita en el perfil. Se cambia registrando un pase, para que el destino
@@ -816,6 +817,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  onFotoCambiada(fotoId: string | null): void {
+    this.persona.update(p => (p ? { ...p, foto_id: fotoId } : p));
+  }
 
   initials(p: PersonaDetalle): string {
     return `${p.primer_nombre[0]}${p.primer_apellido[0]}`.toUpperCase();
