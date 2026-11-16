@@ -26,7 +26,6 @@ function makeBase(id: string, denominacion: string, comando = CAO, overrides: Pa
     comando,
     cantidadRoles: 1,
     cantidadUsuarios: 2,
-    cantidadFuncionarios: 30,
     ...overrides,
   };
 }
@@ -46,7 +45,6 @@ const detalle: UnidadDetalle = {
   comando: CAO,
   roles: [],
   cantidadUsuarios: 2,
-  cantidadFuncionarios: 30,
 };
 
 describe('UnidadesPage', () => {

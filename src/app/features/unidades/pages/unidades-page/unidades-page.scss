@@ -54,6 +54,10 @@ $navy: #132744;
   flex-wrap: wrap;
 }
 
+.un__card-header--fin {
+  justify-content: flex-end;
+}
+
 .un__filtros {
   display: flex;
   align-items: center;
