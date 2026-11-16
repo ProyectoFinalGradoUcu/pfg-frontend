@@ -205,7 +205,7 @@
               <div class="pd__field">
                 <span class="pd__label">Código postal</span>
                 <span class="pd__value" *ngIf="!editMode()">{{ p.codigo_postal ?? '—' }}</span>
-                <input *ngIf="editMode()" type="text" formControlName="codigo_postal" class="pd__edit-input" />
+                <input *ngIf="editMode()" type="text" formControlName="codigo_postal" class="pd__edit-input" maxlength="10" />
               </div>
 
               <div class="pd__field">
@@ -416,7 +416,7 @@
 
               <div class="pd__field">
                 <span class="pd__label">Nivel de idoneidad</span>
-                <select formControlName="nivel_idoneidad" class="pd__edit-select" [disabled]="!esSubalterno()">
+                <select formControlName="nivel_idoneidad" class="pd__edit-select">
                   <option [ngValue]="null">Sin dato</option>
                   <option *ngFor="let n of nivelesIdoneidad" [ngValue]="n">Nivel {{ n }}</option>
                 </select>
@@ -425,7 +425,8 @@
               <div class="pd__field">
                 <span class="pd__label">Códigos</span>
                 <input type="text" formControlName="codigos_legajo" class="pd__edit-input"
-                  maxlength="20" placeholder="Ej: -1-4-7-8-" [disabled]="!esOficial()" />
+                  maxlength="20" placeholder="Ej: -1-4-7-8-" />
+                <span class="pd__edit-hint">Solo para oficiales.</span>
               </div>
 
               <!-- Datos militares que consultan las reglas de ascenso -->

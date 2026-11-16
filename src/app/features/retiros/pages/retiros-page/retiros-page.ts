@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
+import { EMPTY, Subject, catchError, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
 import {
   ListarRetirosQuery,
   MotivoBajaCatalogo,
@@ -17,6 +18,7 @@ import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { parseError } from '../../../../shared/utils/parse-error';
 import { mensajeCierres } from '../../components/retiro-form-modal/retiro-form-modal';
 import { DEBOUNCE_MS, ETIQUETA_ESTADO, estadoRetiro, nombreFuncionario } from '../../retiro-presentacion';
 
@@ -88,17 +90,21 @@ export class RetirosPage implements OnInit, OnDestroy {
       .pipe(
         switchMap(() => {
           this.loading.set(true);
-          return this.retirosService.listar(this.query());
+          // El error se maneja adentro del switchMap para que el stream siga vivo.
+          return this.retirosService.listar(this.query()).pipe(
+            catchError((err: HttpErrorResponse) => {
+              this.loading.set(false);
+              this.toast.error(parseError(err));
+              return EMPTY;
+            }),
+          );
         }),
         takeUntil(this.destroy$),
       )
-      .subscribe({
-        next: (res) => {
-          this.items.set(res.items);
-          this.total.set(res.total);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
+      .subscribe((res) => {
+        this.items.set(res.items);
+        this.total.set(res.total);
+        this.loading.set(false);
       });
 
     this.recargar$.next();

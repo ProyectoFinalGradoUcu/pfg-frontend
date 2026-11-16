@@ -159,6 +159,23 @@ describe('RetiroFormModal', () => {
     expect(retiros.previa).toHaveBeenLastCalledWith('1', '2026-08-31');
   });
 
+  it('después de un error en la previa la sigue recalculando (SCRUM-197)', async () => {
+    await montar();
+    retiros.previa.mockReturnValueOnce(
+      throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'Fecha inválida' } })),
+    );
+    component.form.patchValue({ fecha_retiro: '2026-08-28' });
+    await esperarDebounce();
+    expect(component.error()).toBe('Fecha inválida');
+
+    component.form.patchValue({ fecha_retiro: '2026-08-31' });
+    await esperarDebounce();
+
+    expect(retiros.previa).toHaveBeenCalledTimes(2);
+    expect(component.error()).toBeNull();
+    expect(component.previa()).not.toBeNull();
+  });
+
   it('pre-tilda los ítems con cerrar_sugerido y respeta los que vienen en false', async () => {
     retiros.previa.mockReturnValue(
       of(

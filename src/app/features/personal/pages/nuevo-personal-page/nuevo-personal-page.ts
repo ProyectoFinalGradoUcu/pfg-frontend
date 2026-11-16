@@ -18,6 +18,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { DerechaService } from '../../../../core/services/derecha.service';
 import { Impacto } from '../../../../core/models/derecha.models';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { requeridoSinEspacios, validadorCedula } from '../../../../shared/utils/validadores';
 
 /**
  * La relación laboral no puede empezar antes de que la
@@ -103,17 +104,17 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
 
   // ─── Formulario ───────────────────────────────────────────────────────────────
   readonly form: FormGroup = this.fb.group({
-    cedula:           ['', [Validators.required, Validators.maxLength(12)]],
-    primer_nombre:    ['', Validators.required],
+    cedula:           ['', [Validators.required, validadorCedula]],
+    primer_nombre:    ['', requeridoSinEspacios],
     segundo_nombre:   [''],
-    primer_apellido:  ['', Validators.required],
+    primer_apellido:  ['', requeridoSinEspacios],
     segundo_apellido: [''],
     fecha_nacimiento: [''],
     genero:           [''],
     estado_civil:     [''],
     lugar_nacimiento: [''],
     etnia:            [''],
-    codigo_postal:    [''],
+    codigo_postal:    ['', Validators.maxLength(10)],
     seccional:        [''],
     credencial_civica: [''],
     email:            ['', Validators.email],
@@ -283,7 +284,17 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       });
       const gradoCtrl = this.form.get('grado_id')!;
       gradoCtrl.setValidators(Validators.required);
-      gradoCtrl.disable();
+      // Si ya hay escalafón, el grado vuelve a quedar elegible con sus grados.
+      const escalafonId = this.form.get('escalafon_id')!.value;
+      if (escalafonId) {
+        gradoCtrl.enable({ emitEvent: false });
+        this.personalService.getGrados(Number(escalafonId)).subscribe({
+          next: data => this.grados.set(data),
+          error: () => gradoCtrl.disable({ emitEvent: false }),
+        });
+      } else {
+        gradoCtrl.disable({ emitEvent: false });
+      }
       gradoCtrl.updateValueAndValidity({ emitEvent: false });
     }
   }
@@ -351,6 +362,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     if (errors['cedulaDuplicada']) return 'Ya existe un funcionario con esta cédula';
     if (errors['required'])        return 'Este campo es obligatorio';
     if (errors['email'])           return 'Ingresá un email válido';
+    if (errors['pattern'] && name === 'cedula') return 'Entre 6 y 9 dígitos, sin puntos ni guión';
     if (errors['maxlength'])       return `Máximo ${errors['maxlength'].requiredLength} caracteres`;
     return 'Valor inválido';
   }
@@ -375,9 +387,9 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     const raw = this.form.getRawValue();
 
     const payload: Record<string, unknown> = {
-      cedula:          raw.cedula,
-      primer_nombre:   raw.primer_nombre,
-      primer_apellido: raw.primer_apellido,
+      cedula:          raw.cedula.trim(),
+      primer_nombre:   raw.primer_nombre.trim(),
+      primer_apellido: raw.primer_apellido.trim(),
       es_civil:        esCivil,
       ...(raw.segundo_nombre   && { segundo_nombre:   raw.segundo_nombre }),
       ...(raw.segundo_apellido && { segundo_apellido: raw.segundo_apellido }),
@@ -406,7 +418,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       payload['tipo_funcionario'] = raw.tipo_funcionario;
       payload['regimen_id']       = Number(raw.regimen_id);
       payload['escalafon_id']     = Number(raw.escalafon_id);
-      payload['grado_id']         = Number(raw.grado_id);
+      if (raw.grado_id != null) payload['grado_id'] = Number(raw.grado_id);
       payload['programa_id']      = Number(raw.programa_id);
       payload['situacion_id']     = Number(raw.situacion_id);
       payload['fecha_inicio']     = raw.fecha_inicio;

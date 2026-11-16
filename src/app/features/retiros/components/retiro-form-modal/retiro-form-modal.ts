@@ -152,19 +152,21 @@ export class RetiroFormModal implements OnInit, OnDestroy {
           this.previa.set(null);
           if (!fecha || !this.personaId) return EMPTY;
           this.previaCargando.set(true);
-          return this.retirosService.previa(this.personaId, fecha);
+          this.error.set(null);
+          // El error se maneja adentro del switchMap: así un error no deja de recalcular la previa.
+          return this.retirosService.previa(this.personaId, fecha).pipe(
+            catchError((err: HttpErrorResponse) => {
+              this.previaCargando.set(false);
+              this.error.set(parseError(err));
+              return EMPTY;
+            }),
+          );
         }),
         takeUntil(this.destroy$),
       )
-      .subscribe({
-        next: (p) => {
-          this.previaCargando.set(false);
-          this.aplicarPrevia(p);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.previaCargando.set(false);
-          this.error.set(parseError(err));
-        },
+      .subscribe((p) => {
+        this.previaCargando.set(false);
+        this.aplicarPrevia(p);
       });
 
     // Sin número no se adjunta: si lo borran, el archivo elegido se descarta.

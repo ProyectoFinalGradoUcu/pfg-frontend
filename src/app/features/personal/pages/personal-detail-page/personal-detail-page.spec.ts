@@ -658,4 +658,64 @@ describe('PersonalDetailPage', () => {
       expect(card.textContent!.split('O-2').length - 1).toBe(1);
     });
   });
+  describe('edición: campos por tipo y pestañas (SCRUM-159, SCRUM-196, SCRUM-199)', () => {
+    function conRelacion(relacion: Partial<RelacionLaboral>, persona: Partial<PersonaDetalle> = {}): void {
+      svc.getById.mockReturnValue(of(makePersonaDetalle({ es_civil: false, relacion_laboral: makeRelacion(relacion), ...persona })));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    }
+
+    it('un oficial conserva sus códigos del legajo al editar otro campo', () => {
+      conRelacion({ tipo_funcionario: 'oficial', codigos_legajo: '-1-4-7-8-' });
+      component.openEdit();
+      component.editForm.patchValue({ etnia: 'Mestizo' });
+      component.saveEdit();
+
+      const payload = svc.update.mock.calls[0][1];
+      expect(payload.codigos_legajo).toBe('-1-4-7-8-');
+      expect('nivel_idoneidad' in payload).toBe(false);
+    });
+
+    it('a un oficial le deshabilita el nivel de idoneidad y le habilita los códigos', () => {
+      conRelacion({ tipo_funcionario: 'oficial' });
+      component.openEdit();
+
+      expect(component.editForm.get('nivel_idoneidad')!.disabled).toBe(true);
+      expect(component.editForm.get('codigos_legajo')!.enabled).toBe(true);
+    });
+
+    it('a un subalterno le deshabilita los códigos y no los manda', () => {
+      conRelacion({ tipo_funcionario: 'subalterno' }, { nivel_idoneidad: 5 });
+      component.openEdit();
+
+      expect(component.editForm.get('codigos_legajo')!.disabled).toBe(true);
+      expect(component.editForm.get('nivel_idoneidad')!.enabled).toBe(true);
+      component.saveEdit();
+      const payload = svc.update.mock.calls[0][1];
+      expect(payload.nivel_idoneidad).toBe(5);
+      expect('codigos_legajo' in payload).toBe(false);
+    });
+
+    it('rechaza un código postal de más de 10 caracteres', () => {
+      conRelacion({});
+      component.openEdit();
+      component.editForm.patchValue({ codigo_postal: '12345678901' });
+      component.saveEdit();
+
+      expect(svc.update).not.toHaveBeenCalled();
+    });
+
+    it('después de guardar vuelve a pedir el historial al abrir la pestaña', () => {
+      conRelacion({});
+      component.switchTab('historial');
+      expect(svc.getHistorialMilitar).toHaveBeenCalledTimes(1);
+
+      component.openEdit();
+      component.saveEdit();
+      component.switchTab('historial');
+
+      expect(svc.getHistorialMilitar).toHaveBeenCalledTimes(2);
+    });
+  });
 });
