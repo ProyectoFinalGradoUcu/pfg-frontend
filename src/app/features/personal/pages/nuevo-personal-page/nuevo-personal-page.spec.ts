@@ -137,6 +137,15 @@ describe('NuevoPersonalPage', () => {
     });
   });
 
+  describe('tipo de funcionario', () => {
+    it('solo ofrece Oficial y Subalterno: los civiles se cargan con el checkbox', () => {
+      const opciones = Array.from(
+        fixture.nativeElement.querySelectorAll('#tipo_funcionario option') as NodeListOf<HTMLOptionElement>,
+      ).filter(o => o.value).map(o => o.textContent!.trim());
+      expect(opciones).toEqual(['Oficial', 'Subalterno']);
+    });
+  });
+
   describe('toggle es_civil', () => {
     it('no borra los familiares ya agregados al pasar de civil a militar (o viceversa)', () => {
       component.addFamiliar(makePersona());
