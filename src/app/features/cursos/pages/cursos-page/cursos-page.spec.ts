@@ -434,6 +434,33 @@ describe('CursosPage', () => {
       expect(toastService.success).toHaveBeenCalled();
     });
 
+    describe('con "Designar ahora"', () => {
+      const conDesignacion = (o: Record<string, unknown> = {}) => {
+        component.abrirNuevoCurso();
+        component.nuevoCursoForm.patchValue({
+          nombre_curso: 'Mi Curso', institucion: 'UCU', designar_ahora: true, persona_ids: ['5'],
+          fecha_inicio: '2026-03-01', fecha_fin: '2026-04-01', numero_orden: 'O.D. 1', ...o,
+        });
+      };
+
+      it('no crea el curso si la fecha de fin es anterior a la de inicio', () => {
+        conDesignacion({ fecha_inicio: '2026-04-01', fecha_fin: '2026-03-01' });
+        component.guardarNuevoCurso();
+        expect(component.modalError()).toContain('fecha de fin');
+        expect(cursosService.createDefinicion).not.toHaveBeenCalled();
+      });
+
+      it('si falla la designación borra el curso y deja el modal abierto con el error', () => {
+        cursosService.crearDesignacion.mockReturnValue(throwError(() => makeHttpError('persona inexistente')));
+        conDesignacion();
+        component.guardarNuevoCurso();
+        expect(cursosService.deleteDefinicion).toHaveBeenCalledWith(makeCurso().id);
+        expect(component.modalError()).toContain('persona inexistente');
+        expect(component.modal()).toBe('nuevoCurso');
+        expect(component.definiciones().some((d) => d.id === makeCurso().id)).toBe(false);
+      });
+    });
+
     it('guardarNuevoCurso muestra error del backend sin cerrar el modal', () => {
       cursosService.createDefinicion.mockReturnValue(throwError(() => makeHttpError('nombre duplicado')));
       component.abrirNuevoCurso();

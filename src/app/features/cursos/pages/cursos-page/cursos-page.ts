@@ -673,6 +673,10 @@ export class CursosPage implements OnInit, OnDestroy {
       this.modalError.set('Las fechas de inicio y fin son obligatorias para la designación.');
       return;
     }
+    if (designarAhora && raw.fecha_fin! < raw.fecha_inicio!) {
+      this.modalError.set('La fecha de fin no puede ser anterior a la de inicio.');
+      return;
+    }
     if (designarAhora && !raw.numero_orden?.trim() && !raw.boletin?.trim()) {
       this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
       return;
@@ -688,9 +692,8 @@ export class CursosPage implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (nuevo) => {
-          this.definiciones.update((lista) => [...lista, nuevo]);
-
           if (!designarAhora) {
+            this.definiciones.update((lista) => [...lista, nuevo]);
             this.cerrarModal();
             this.toast.success(`Curso "${nuevo.nombre_curso}" creado correctamente`);
             return;
@@ -712,8 +715,16 @@ export class CursosPage implements OnInit, OnDestroy {
                 this.cargar();
               },
               error: (err: HttpErrorResponse) => {
-                this.toast.error('Curso creado, pero falló la designación: ' + this.parseError(err));
-                this.cerrarModal();
+                // Si falla la designación se borra el curso, para no dejarlo a medias.
+                const msg = this.parseError(err);
+                this.cursosService.deleteDefinicion(nuevo.id).subscribe({
+                  next: () => this.modalError.set(msg),
+                  error: () => {
+                    this.definiciones.update((lista) => [...lista, nuevo]);
+                    this.toast.error('Curso creado, pero falló la designación: ' + msg);
+                    this.cerrarModal();
+                  },
+                });
               },
             });
         },
