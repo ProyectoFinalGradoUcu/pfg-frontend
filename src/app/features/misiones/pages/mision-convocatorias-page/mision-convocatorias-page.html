@@ -226,12 +226,15 @@
           <span>Personal a designar <small>(opcional, se puede asignar después)</small></span>
           <app-select
             formControlName="persona_ids"
-            [items]="personal()"
-            bindLabel="nombre"
+            [items]="buscador.opciones()"
+            bindLabel="etiqueta"
             bindValue="id"
             placeholder="Seleccione una o más personas"
             [searchable]="true"
+            [remoteSearch]="true"
+            [loading]="buscador.buscando()"
             [multiple]="true"
+            (searchChange)="buscador.buscar($event)"
           ></app-select>
         </label>
 

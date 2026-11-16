@@ -220,8 +220,7 @@ test.describe.serial('cursos', () => {
     }
   });
 
-  test.fixme('designar encuentra a un Sgto. recién dado de alta', async ({ page }) => {
-    // El selector carga solo las primeras 100 personas y no busca en el servidor.
+  test('designar encuentra a un Sgto. recién dado de alta', async ({ page }) => {
     const sgto = await crearSubalternoEnBase(api, 'E.T.A.', `E2E Sgto ${uid}`);
     const fila = await abrirCatalogo(page);
     await accion(page, fila, 'Designar / Dictar');

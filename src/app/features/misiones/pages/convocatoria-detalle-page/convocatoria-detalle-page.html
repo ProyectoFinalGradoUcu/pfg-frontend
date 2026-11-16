@@ -351,11 +351,14 @@
           <span>Personal <em>*</em></span>
           <app-select
             formControlName="persona_id"
-            [items]="personal()"
-            bindLabel="nombre"
+            [items]="buscador.opciones()"
+            bindLabel="etiqueta"
             bindValue="id"
             placeholder="Seleccione personal"
             [searchable]="true"
+            [remoteSearch]="true"
+            [loading]="buscador.buscando()"
+            (searchChange)="buscador.buscar($event)"
           ></app-select>
         </label>
 

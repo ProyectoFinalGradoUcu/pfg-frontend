@@ -11,16 +11,19 @@
       <div class="field">
         <label>Funcionario *</label>
         <app-select
-          [items]="personal()"
-          bindLabel="nombre"
+          [items]="buscador.opciones()"
+          bindLabel="etiqueta"
           bindValue="id"
           placeholder="Seleccione personal"
           [searchable]="true"
+          [remoteSearch]="true"
+          [loading]="buscador.buscando()"
           [clearable]="true"
           [ngModel]="personaElegida()?.id ?? null"
           (ngModelChange)="elegirPersona($event)"
+          (searchChange)="buscador.buscar($event)"
         ></app-select>
-        <p class="field__hint" *ngIf="cargandoPersonal()">Cargando personal...</p>
+        <p class="field__hint">Buscá por cédula, nombre o apellido.</p>
       </div>
     </div>
 

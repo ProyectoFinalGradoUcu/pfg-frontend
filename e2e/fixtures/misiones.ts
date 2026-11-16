@@ -96,6 +96,11 @@ export async function asignar(
   await ok(res, 'asignar funcionario');
 }
 
+export async function quitar(api: APIRequestContext, misionId: string, convocatoriaId: string, personaId: string) {
+  const res = await api.delete(`/api/misiones/${misionId}/convocatorias/${convocatoriaId}/funcionarios/${personaId}`);
+  await ok(res, 'quitar funcionario');
+}
+
 export async function asignaciones(api: APIRequestContext, misionId: string, convocatoriaId: string): Promise<Asignacion[]> {
   const res = await api.get(`/api/misiones/${misionId}/convocatorias/${convocatoriaId}/funcionarios?page=1&pageSize=50`);
   await ok(res, 'listar funcionarios de la convocatoria');

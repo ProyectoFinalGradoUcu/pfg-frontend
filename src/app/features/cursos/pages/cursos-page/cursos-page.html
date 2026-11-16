@@ -460,7 +460,7 @@
         <div class="modal__grid-2">
           <label class="modal__field">
             <span>Personal <em>*</em></span>
-            <app-select formControlName="personaId" [items]="personal()" bindLabel="nombre" bindValue="id" placeholder="Seleccione personal" [searchable]="true"></app-select>
+            <app-select formControlName="personaId" [items]="buscadorRegistrar.opciones()" bindLabel="etiqueta" bindValue="id" placeholder="Seleccione personal" [searchable]="true" [remoteSearch]="true" [loading]="buscadorRegistrar.buscando()" (searchChange)="buscadorRegistrar.buscar($event)"></app-select>
           </label>
           <label class="modal__field">
             <span>Nombre del Curso <em>*</em></span>
@@ -647,12 +647,15 @@
             <span>Personal a designar <em>*</em></span>
             <app-select
               formControlName="persona_ids"
-              [items]="personal()"
-              bindLabel="nombre"
+              [items]="buscadorNuevoCurso.opciones()"
+              bindLabel="etiqueta"
               bindValue="id"
               placeholder="Seleccione una o más personas"
               [searchable]="true"
+              [remoteSearch]="true"
+              [loading]="buscadorNuevoCurso.buscando()"
               [multiple]="true"
+              (searchChange)="buscadorNuevoCurso.buscar($event)"
             ></app-select>
           </label>
         </div>
@@ -786,12 +789,15 @@
           <span>Personal <em>*</em></span>
           <app-select
             formControlName="persona_ids"
-            [items]="personal()"
-            bindLabel="nombre"
+            [items]="buscadorDesignar.opciones()"
+            bindLabel="etiqueta"
             bindValue="id"
             placeholder="Seleccione una o más personas"
             [searchable]="true"
+            [remoteSearch]="true"
+            [loading]="buscadorDesignar.buscando()"
             [multiple]="true"
+            (searchChange)="buscadorDesignar.buscar($event)"
           ></app-select>
         </label>
 
