@@ -8,6 +8,7 @@ import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import {
   Comando,
   Destino,
@@ -99,6 +100,26 @@ export class AsignacionesPage implements OnInit, OnDestroy {
 
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('destinos.gestionar'));
 
+  readonly puedeVerDocumentos = computed(() => this.auth.hasPermiso('destinos.ver'));
+  readonly mostrarAcciones = computed(() => this.puedeGestionar() || this.puedeVerDocumentos());
+
+  /** El destino cuyos documentos se ven; se refresca desde el listado recargado. */
+  readonly destinoDocumentos = signal<Destino | null>(null);
+  readonly slotsDocumentos = computed<SlotVista[]>(() => {
+    const d = this.destinoDocumentos();
+    if (!d) return [];
+    return armarSlots(
+      this.destinosService.documentos(d.id),
+      d.documentos,
+      { orden: d.numero_orden, boletin: d.boletin },
+      this.puedeGestionar(),
+    );
+  });
+  readonly tituloDocumentos = computed(() => {
+    const d = this.destinoDocumentos();
+    return d ? `Documentos del destino de ${this.nombreFuncionario(d)}` : '';
+  });
+
   readonly modal = signal<ModalKind>(null);
   readonly destinoEnEdicion = signal<Destino | null>(null);
 
@@ -149,12 +170,28 @@ export class AsignacionesPage implements OnInit, OnDestroy {
         this.total.set(res.total);
         this.stats.set(res.stats);
         this.loading.set(false);
+        this.refrescarDocumentos(res.items);
       },
       error: (err: HttpErrorResponse) => {
         this.toast.error(parseError(err));
         this.loading.set(false);
       },
     });
+  }
+
+  private refrescarDocumentos(items: Destino[]): void {
+    const abierto = this.destinoDocumentos();
+    if (!abierto) return;
+    this.destinoDocumentos.set(items.find((d) => d.id === abierto.id) ?? null);
+  }
+
+  abrirDocumentos(destino: Destino): void {
+    this.cerrarMenu();
+    this.destinoDocumentos.set(destino);
+  }
+
+  tieneDocumentos(d: Destino): boolean {
+    return !!(d.documentos?.orden || d.documentos?.boletin);
   }
 
   private query(): ListarDestinosQuery {

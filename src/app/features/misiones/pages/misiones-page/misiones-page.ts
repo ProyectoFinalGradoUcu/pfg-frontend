@@ -7,6 +7,7 @@ import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { PaisesService, PaisOpcion } from '../../../../core/services/paises.service';
 import {
@@ -110,6 +111,25 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   // ── Permisos ─────────────────────────────────────────────────────────────
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('misiones.gestionar'));
+  readonly puedeVerDocumentos = computed(() => this.auth.hasPermiso('misiones.ver'));
+  readonly mostrarAcciones = computed(() => this.puedeGestionar() || this.puedeVerDocumentos());
+
+  /** La fila cuyos documentos se ven; se refresca desde el listado recargado. */
+  readonly filaDocumentos = signal<FilaPersonal | null>(null);
+  readonly slotsDocumentos = computed<SlotVista[]>(() => {
+    const f = this.filaDocumentos();
+    if (!f) return [];
+    return armarSlots(
+      this.misionesService.documentosAsignacion(f.asignacionId),
+      f.documentos,
+      { orden: f.mision.numero_orden, boletin: f.mision.boletin },
+      this.puedeGestionar(),
+    );
+  });
+  readonly tituloDocumentos = computed(() => {
+    const f = this.filaDocumentos();
+    return f ? `Documentos de ${f.nombre} — ${f.mision.nombre_mision}` : '';
+  });
 
   // ── Carga masiva ─────────────────────────────────────────────────────────
   readonly importOpen = signal(false);
@@ -212,6 +232,7 @@ export class MisionesPage implements OnInit, OnDestroy {
             return;
           }
           this.filasPersonal.set(res.items);
+          this.refrescarDocumentos(res.items);
           this.personalTotal.set(res.total);
           this.loadingPersonal.set(false);
         },
@@ -449,6 +470,17 @@ export class MisionesPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
     });
+  }
+
+  private refrescarDocumentos(items: FilaPersonal[]): void {
+    const abierta = this.filaDocumentos();
+    if (!abierta) return;
+    this.filaDocumentos.set(items.find((f) => f.asignacionId === abierta.asignacionId) ?? null);
+  }
+
+  abrirDocumentos(fila: FilaPersonal): void {
+    this.cerrarMenu();
+    this.filaDocumentos.set(fila);
   }
 
   abrirConfirmQuitarPersonal(fila: FilaPersonal): void {

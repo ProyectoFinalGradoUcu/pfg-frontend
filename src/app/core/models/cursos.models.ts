@@ -1,3 +1,5 @@
+import { DocumentosRegistro } from './documentos-registro.models';
+
 export type EstadoCurso = 'en_curso' | 'completado';
 export type TipoCurso = 'obligatorio' | 'optativo';
 
@@ -39,6 +41,8 @@ export interface CursoFuncionarioItem {
   numero_orden?: string | null;
   boletin?: string | null;
   documentoUrl?: string | null;
+  documentos?: DocumentosRegistro;
+  modulos?: { numero_orden: string | null; boletin: string | null }[];
   dadoDeBaja?: boolean;
   motivoBaja?: string | null;
   fechaBaja?: string | null;

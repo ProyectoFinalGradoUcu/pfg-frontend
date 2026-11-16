@@ -33,6 +33,7 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
     fecha_resolucion: null,
     observaciones: null,
     activo: true,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
@@ -73,6 +74,7 @@ describe('AsignacionesPage', () => {
     listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     eliminar: ReturnType<typeof vi.fn>;
+    documentos: ReturnType<typeof vi.fn>;
   };
   let catalogosService: { getComandos: ReturnType<typeof vi.fn> };
   let authService: { hasPermiso: ReturnType<typeof vi.fn> };
@@ -84,6 +86,7 @@ describe('AsignacionesPage', () => {
       listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of(SUB_UNIDADES)),
       editar: vi.fn().mockReturnValue(of(makeDestino())),
       eliminar: vi.fn().mockReturnValue(of({ id: '200', eliminado: true as const })),
+      documentos: vi.fn().mockReturnValue({ subir: vi.fn(), quitar: vi.fn(), inspeccionar: vi.fn(), url: vi.fn() }),
     };
     catalogosService = {
       getComandos: vi.fn().mockReturnValue(
@@ -401,6 +404,69 @@ describe('AsignacionesPage', () => {
       expect(component.openMenuId()).toBe('200');
       component.toggleMenu('200', event);
       expect(component.openMenuId()).toBeNull();
+    });
+  });
+
+  describe('documentos', () => {
+    const orden = { nombre_original: 'orden.pdf', content_type: 'application/pdf', tamanio_bytes: '10', subido_en: '2026-01-01' };
+
+    it('Documentos abre el modal con los slots de la fila', () => {
+      const d = makeDestino({ numero_orden: 'O.D. 1', boletin: 'B. 2', documentos: { orden, boletin: null } });
+      component.abrirDocumentos(d);
+      const slots = component.slotsDocumentos();
+      expect(slots.map((x) => [x.slot, x.numero, x.documento])).toEqual([
+        ['orden', 'O.D. 1', orden],
+        ['boletin', 'B. 2', null],
+      ]);
+      expect(slots.every((x) => x.editable)).toBe(true);
+      expect(destinosService.documentos).toHaveBeenCalledWith('200');
+      expect(component.tituloDocumentos()).toContain('Pérez');
+    });
+
+    it('sin destinos.gestionar los slots son de solo lectura', () => {
+      authService.hasPermiso.mockImplementation((p: string) => p === 'destinos.ver');
+      component.abrirDocumentos(makeDestino());
+      expect(component.slotsDocumentos().every((x) => !x.editable)).toBe(true);
+      expect(component.mostrarAcciones()).toBe(true);
+    });
+
+    it('sin destinos.ver no hay acción Documentos', () => {
+      authService.hasPermiso.mockReturnValue(false);
+      expect(component.puedeVerDocumentos()).toBe(false);
+      expect(component.mostrarAcciones()).toBe(false);
+    });
+
+    it('cambio recarga el listado y refresca la fila del modal', () => {
+      destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
+      fixture.detectChanges();
+      component.abrirDocumentos(makeDestino());
+      destinosService.listar.mockClear();
+      destinosService.listar.mockReturnValue(of(makeLista([makeDestino({ documentos: { orden, boletin: null } })])));
+
+      component.cargar();
+
+      expect(destinosService.listar).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
+      expect(component.destinoDocumentos()!.documentos.orden).toEqual(orden);
+    });
+
+    it('si la fila ya no está en el listado cierra el modal', () => {
+      component.abrirDocumentos(makeDestino());
+      destinosService.listar.mockReturnValue(of(makeLista([])));
+      component.cargar();
+      expect(component.destinoDocumentos()).toBeNull();
+    });
+
+    it('muestra el clip solo en filas con documento', () => {
+      destinosService.listar.mockReturnValue(
+        of(makeLista([makeDestino({ documentos: { orden, boletin: null } }), makeDestino({ id: '201' })])),
+      );
+      fixture.detectChanges();
+      const filas = fixture.nativeElement.querySelectorAll('tbody tr');
+      expect(filas[0].querySelector('.asignaciones__clip')).not.toBeNull();
+      expect(filas[0].querySelector('.asignaciones__clip')!.parentElement!.getAttribute('title')).toBe(
+        'Tiene documento adjunto',
+      );
+      expect(filas[1].querySelector('.asignaciones__clip')).toBeNull();
     });
   });
 });

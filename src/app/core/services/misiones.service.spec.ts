@@ -289,7 +289,31 @@ describe('MisionesService', () => {
       });
     });
 
+    describe('documentos', () => {
+      it('documentosConvocatoria apunta a /misiones/convocatorias/:id/documentos/:slot', () => {
+        const api = service.documentosConvocatoria('5');
+        expect(api.url('orden')).toBe(`${API_BASE_URL}/misiones/convocatorias/5/documentos/orden`);
+        expect(api.url('boletin', { descarga: true })).toBe(
+          `${API_BASE_URL}/misiones/convocatorias/5/documentos/boletin?download=1`,
+        );
+      });
+
+      it('documentosAsignacion apunta a /misiones/asignaciones/:id/documentos/:slot', () => {
+        const api = service.documentosAsignacion('12');
+        expect(api.url('orden')).toBe(`${API_BASE_URL}/misiones/asignaciones/12/documentos/orden`);
+      });
+    });
+
     describe('addFuncionarios', () => {
+      it('devuelve las asignaciones creadas', () => {
+        let res: any;
+        service.addFuncionarios('1', '5', [{ persona_id: '123', boletin: 'B' }]).subscribe((r) => (res = r));
+        http
+          .expectOne(`${API_BASE_URL}/misiones/1/convocatorias/5/funcionarios`)
+          .flush({ asignaciones: [{ id: '88', persona_id: '123' }] });
+        expect(res.asignaciones).toEqual([{ id: '88', persona_id: '123' }]);
+      });
+
       it('hace POST envolviendo { funcionarios } en service_request', () => {
         const payload: FuncionarioConvocatoriaPayload[] = [{ persona_id: '42', boletin: 'BOL-1' }];
         service.addFuncionarios('1', '5', payload).subscribe();
@@ -424,6 +448,24 @@ describe('MisionesService', () => {
         service.findPersonalEnMision().subscribe((r) => (result = r));
         http.expectOne(matchAll).flush({ items: [rawFila({ id: '999' })], total: 1, page: 1, pageSize: 10 });
         expect(result.items[0].mision.convocatoriaId).toBe('5');
+      });
+
+      it('conserva la asignación y sus documentos', () => {
+        const orden = { nombre_original: 'o.pdf', content_type: 'application/pdf', tamanio_bytes: '3', subido_en: '2026-01-01' };
+        let result: any;
+        service.findPersonalEnMision().subscribe((r) => (result = r));
+        http
+          .expectOne(matchAll)
+          .flush({ items: [rawFila({ documentos: { orden, boletin: null } })], total: 1, page: 1, pageSize: 10 });
+        expect(result.items[0].asignacionId).toBe('12');
+        expect(result.items[0].documentos).toEqual({ orden, boletin: null });
+      });
+
+      it('si no viene documentos, usa slots vacíos', () => {
+        let result: any;
+        service.findPersonalEnMision().subscribe((r) => (result = r));
+        http.expectOne(matchAll).flush({ items: [rawFila()], total: 1, page: 1, pageSize: 10 });
+        expect(result.items[0].documentos).toEqual({ orden: null, boletin: null });
       });
 
       it('si no viene convocatoria_id, usa id como fallback', () => {
@@ -723,6 +765,16 @@ describe('MisionesService', () => {
       it('rechaza con 400 si algún funcionario no tiene orden ni boletín', () => {
         const { error } = runMock(service.addFuncionarios('1', '101', [{ persona_id: '999' }]));
         expect(error.status).toBe(400);
+      });
+
+      it('devuelve las asignaciones y el funcionario nace sin documentos', () => {
+        const { value } = runMock(service.addFuncionarios('1', '101', [{ persona_id: '999', boletin: 'B1' }]));
+        expect(value!.asignaciones).toHaveLength(1);
+        expect(value!.asignaciones[0].persona_id).toBe('999');
+        const lista = runMock(service.findFuncionariosByConvocatoria('1', '101')).value!;
+        const nuevo = lista.items.find((f) => f.persona_id === '999')!;
+        expect(nuevo.id).toBe(value!.asignaciones[0].id);
+        expect(nuevo.documentos).toEqual({ orden: null, boletin: null });
       });
 
       it('agrega el funcionario con los datos de PersonalService', () => {

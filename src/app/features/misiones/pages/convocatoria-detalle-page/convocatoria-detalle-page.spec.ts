@@ -30,12 +30,14 @@ function makeConvocatoria(overrides: Partial<Convocatoria> = {}): Convocatoria {
     observaciones: null,
     total_funcionarios: 0,
     finalizada: false,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
 
 function makeFuncionario(overrides: Partial<FuncionarioConvocatoria> = {}): FuncionarioConvocatoria {
   return {
+    id: 'a1',
     persona_id: '1001',
     cedula: '12345678',
     primer_nombre: 'Juan',
@@ -43,6 +45,7 @@ function makeFuncionario(overrides: Partial<FuncionarioConvocatoria> = {}): Func
     numero_orden: null,
     boletin: 'BOL-1',
     observaciones: null,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
@@ -66,13 +69,17 @@ describe('ConvocatoriaDetallePage', () => {
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
+  const subir = vi.fn();
+
   function makeMisionesServiceSpy() {
     return {
       findDefinicionById: vi.fn().mockReturnValue(of(makeMision())),
       findConvocatoriaById: vi.fn().mockReturnValue(of(makeConvocatoria())),
       findFuncionariosByConvocatoria: vi.fn().mockReturnValue(of(makePaginated([]))),
       editarConvocatoria: vi.fn().mockReturnValue(of(makeConvocatoria())),
-      addFuncionarios: vi.fn().mockReturnValue(of(undefined)),
+      addFuncionarios: vi.fn().mockReturnValue(of({ asignaciones: [{ id: 'a55', persona_id: '5' }] })),
+      documentosConvocatoria: vi.fn().mockReturnValue({ subir: vi.fn(), quitar: vi.fn(), inspeccionar: vi.fn(), url: vi.fn() }),
+      documentosAsignacion: vi.fn().mockReturnValue({ subir }),
       updateFuncionario: vi.fn().mockReturnValue(of(undefined)),
       deleteFuncionario: vi.fn().mockReturnValue(of(undefined)),
       deleteAllFuncionarios: vi.fn().mockReturnValue(of(undefined)),
@@ -287,12 +294,15 @@ describe('ConvocatoriaDetallePage', () => {
       });
     });
 
-    it('guardarConvocatoria actualiza la convocatoria, cierra el modal y muestra toast', () => {
+    it('guardarConvocatoria actualiza sin recargar, conserva documentos, cierra el modal y muestra toast', () => {
+      const actual = makeConvocatoria();
       const actualizado = makeConvocatoria({ observaciones: 'actualizada' });
-      misionesService.editarConvocatoria.mockReturnValue(of(actualizado));
-      component.convocatoria.set(makeConvocatoria());
+      misionesService.editarConvocatoria.mockReturnValue(of({ ...actualizado, documentos: undefined as never }));
+      misionesService.findConvocatoriaById.mockClear();
+      component.convocatoria.set(actual);
       component.guardarConvocatoria();
-      expect(component.convocatoria()).toEqual(actualizado);
+      expect(misionesService.findConvocatoriaById).not.toHaveBeenCalled();
+      expect(component.convocatoria()).toEqual({ ...actualizado, documentos: actual.documentos });
       expect(component.modalEditarConvocatoria()).toBe(false);
       expect(toastService.success).toHaveBeenCalled();
     });
@@ -380,6 +390,125 @@ describe('ConvocatoriaDetallePage', () => {
   });
 
   // ── Menú de acciones (kebab) ───────────────────────────────────────────────
+
+  describe('documentos', () => {
+    const orden = { nombre_original: 'orden.pdf', content_type: 'application/pdf', tamanio_bytes: '10', subido_en: '2026-01-01' };
+    const pdf = (nombre: string) => new File(['x'], nombre, { type: 'application/pdf' });
+
+    beforeEach(() => {
+      subir.mockReset();
+      subir.mockReturnValue(of({}));
+    });
+
+    it('la sección Respaldo documental muestra los documentos de la convocatoria', async () => {
+      await setup();
+      misionesService.findConvocatoriaById.mockReturnValue(
+        of(makeConvocatoria({ numero_orden: 'ORD-1', boletin: 'BOL-1', documentos: { orden, boletin: null } })),
+      );
+      component.cargar('c1');
+      const slots = component.slotsConvocatoria();
+      expect(slots.map((s) => [s.slot, s.numero, s.documento, s.editable])).toEqual([
+        ['orden', 'ORD-1', orden, true],
+        ['boletin', 'BOL-1', null, true],
+      ]);
+      expect(misionesService.documentosConvocatoria).toHaveBeenCalledWith('c1');
+    });
+
+    it('sin misiones.gestionar la sección es de solo lectura', async () => {
+      await setup();
+      authService.hasPermiso.mockImplementation((p: string) => p === 'misiones.ver');
+      component.convocatoria.set(makeConvocatoria());
+      expect(component.slotsConvocatoria().every((s) => !s.editable)).toBe(true);
+      expect(component.mostrarAcciones()).toBe(true);
+    });
+
+    it('Documentos en la fila del funcionario abre el modal', async () => {
+      await setup();
+      const f = makeFuncionario({ id: 'a9', numero_orden: 'O-1', documentos: { orden, boletin: null } });
+      component.abrirDocumentosFuncionario(f);
+      const slots = component.slotsFuncionario();
+      expect(slots.map((s) => [s.slot, s.numero, s.documento])).toEqual([
+        ['orden', 'O-1', orden],
+        ['boletin', 'BOL-1', null],
+      ]);
+      expect(misionesService.documentosAsignacion).toHaveBeenCalledWith('a9');
+      expect(component.tituloDocumentosFuncionario()).toContain('Juan');
+    });
+
+    it('cambio recarga la convocatoria y refresca la fila abierta', async () => {
+      await setup();
+      component.convocatoria.set(makeConvocatoria());
+      component.abrirDocumentosFuncionario(makeFuncionario({ id: 'a9' }));
+      misionesService.findConvocatoriaById.mockClear();
+      misionesService.findFuncionariosByConvocatoria.mockReturnValue(
+        of(makePaginated([makeFuncionario({ id: 'a9', documentos: { orden, boletin: null } })])),
+      );
+
+      component.recargarDocumentos();
+
+      expect(misionesService.findConvocatoriaById).toHaveBeenCalledTimes(1);
+      expect(component.funcionarioDocumentos()!.documentos.orden).toEqual(orden);
+    });
+
+    it('asignar funcionario con archivo: sube a la asignación creada', async () => {
+      await setup();
+      component.convocatoria.set(makeConvocatoria({ id: 'c9' }));
+      component.abrirModalAsignar();
+      component.asignarForm.patchValue({ persona_id: '5', numero_orden: 'ORD-5' });
+      const archivo = pdf('orden.pdf');
+      component.pendientes.elegir('orden', archivo);
+
+      component.asignarFuncionario();
+
+      expect(misionesService.documentosAsignacion).toHaveBeenCalledWith('a55');
+      expect(subir).toHaveBeenCalledWith('orden', archivo);
+      expect(component.modalAsignar()).toBe(false);
+      expect(toastService.success).toHaveBeenCalled();
+    });
+
+    it('asignar: si la subida falla avisa y deja al funcionario asignado', async () => {
+      await setup();
+      subir.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      component.convocatoria.set(makeConvocatoria({ id: 'c9' }));
+      component.abrirModalAsignar();
+      component.asignarForm.patchValue({ persona_id: '5', numero_orden: 'ORD-5' });
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+
+      component.asignarFuncionario();
+
+      const [msg, ms] = toastService.error.mock.calls[0];
+      expect(msg).toContain('El funcionario se asignó, pero no se pudo subir «orden.pdf»');
+      expect(msg).toContain('Podés adjuntarlo desde la tabla de funcionarios.');
+      expect(ms).toBe(8000);
+      expect(toastService.success).toHaveBeenCalled();
+    });
+
+    it('asignar sin archivos no sube nada', async () => {
+      await setup();
+      component.convocatoria.set(makeConvocatoria({ id: 'c9' }));
+      component.asignarForm.patchValue({ persona_id: '5', numero_orden: 'ORD-5' });
+      component.asignarFuncionario();
+      expect(subir).not.toHaveBeenCalled();
+    });
+
+    it('no se puede cerrar el modal de asignar mientras guarda', async () => {
+      await setup();
+      component.modalAsignar.set(true);
+      component.asignando.set(true);
+      component.cerrarModalAsignar();
+      expect(component.modalAsignar()).toBe(true);
+    });
+
+    it('editar la convocatoria no recarga y conserva los documentos', async () => {
+      await setup();
+      const orden = { nombre_original: 'o.pdf', content_type: 'application/pdf', tamanio_bytes: 1, subido_por: null, subido_en: '2026-01-01T00:00:00Z' };
+      component.convocatoria.set(makeConvocatoria({ documentos: { orden, boletin: null } } as never));
+      misionesService.findConvocatoriaById.mockClear();
+      component.guardarConvocatoria();
+      expect(misionesService.findConvocatoriaById).not.toHaveBeenCalled();
+      expect(component.convocatoria()!.documentos.orden).toEqual(orden);
+    });
+  });
 
   describe('menú de acciones', () => {
     beforeEach(() => setup());

@@ -5,6 +5,9 @@ import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { DestinosService, payloadEdicion } from '../../../../core/services/destinos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
+import { ToastService } from '../../../../core/services/toast.service';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import { ArchivosPendientes, subirPendientes } from '../../../../core/services/documentos-registro';
 import { CrearDestinoPayload, Destino, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
@@ -37,6 +40,8 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly destinosService = inject(DestinosService);
   private readonly personalService = inject(PersonalService);
+  private readonly toast = inject(ToastService);
+  private readonly destroy$ = new Subject<void>();
 
   /** `null` crea un destino; con un destino, lo edita. */
   @Input() destino: Destino | null = null;
@@ -49,6 +54,8 @@ export class DestinoFormModal implements OnInit, OnDestroy {
 
   readonly error = signal<string | null>(null);
   readonly guardando = signal(false);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
   /** Los destinos posibles: sub-unidades vigentes, ya ordenadas por comando desde el backend. */
   readonly subUnidades = signal<SubUnidadConDestinados[]>([]);
   readonly opcionesSubUnidad = computed(() =>
@@ -132,11 +139,16 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     this.form.get('fecha_inicio')!.valueChanges.subscribe((v) => this.fechaInicio.set(v ?? ''));
     this.form.get('sub_unidad_id')!.valueChanges.subscribe((v) => this.subUnidadElegida.set(v ? String(v) : ''));
 
+    this.pendientes.descartarSiVacio(this.form.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.form.controls.boletin, 'boletin', this.destroy$);
+
     if (this.destino) this.precargarEdicion(this.destino);
     else if (this.persona) this.elegirPersona(this.persona);
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.busquedaSubject.complete();
   }
 
@@ -260,10 +272,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
 
     this.guardando.set(true);
     this.destinosService.crear(payload).subscribe({
-      next: (creado) => {
-        this.guardando.set(false);
-        this.guardado.emit(creado);
-      },
+      next: (creado) => this.subirDocumentos(creado),
       error: (err: HttpErrorResponse) => {
         this.guardando.set(false);
         this.error.set(parseError(err));
@@ -272,7 +281,27 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   }
 
   cerrar(): void {
+    // Con el destino ya creado, cerrar a mitad de las subidas perdería el aviso.
+    if (this.guardando()) return;
     this.cerrado.emit();
+  }
+
+  /** Emite al final: el padre destruye el modal al recibir `guardado`. */
+  private subirDocumentos(creado: Destino): void {
+    this.subiendoDocumentos.set(this.pendientes.hay());
+    subirPendientes(
+      (slot, archivo) => this.destinosService.documentos(creado.id).subir(slot, archivo),
+      this.pendientes.archivos(),
+      (archivo, err) =>
+        this.toast.error(
+          `El destino se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde Asignaciones.`,
+          8000,
+        ),
+    ).subscribe(() => {
+      this.subiendoDocumentos.set(false);
+      this.guardando.set(false);
+      this.guardado.emit(creado);
+    });
   }
 
   // ── Modo editar: se completa en la Task 7 ───────────────────────────────────

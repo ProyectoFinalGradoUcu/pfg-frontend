@@ -64,6 +64,15 @@
       </p>
     </article>
 
+    <article class="card">
+      <h3 class="card__titulo">Respaldo documental</h3>
+      <app-documentos-registro
+        [slots]="slotsOrden()"
+        registro="esta orden"
+        (cambio)="recargarDocumentos()"
+      ></app-documentos-registro>
+    </article>
+
     <article class="card card--tabla">
       <h3 class="card__titulo">Funcionarios</h3>
 

@@ -45,6 +45,7 @@ describe('NuevaOrdenPage', () => {
   let toast: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
   let queryParams: Map<string, string>;
+  let subir: ReturnType<typeof vi.fn>;
 
   async function montar(): Promise<void> {
     await TestBed.configureTestingModule({
@@ -72,9 +73,11 @@ describe('NuevaOrdenPage', () => {
 
   beforeEach(() => {
     queryParams = new Map();
+    subir = vi.fn().mockReturnValue(of({}));
     svc = {
       listarPasibles: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 20 })),
       getElegibilidad: vi.fn().mockReturnValue(of(makeElegibilidad())),
+      documentosOrden: vi.fn().mockReturnValue({ subir }),
       crearOrden: vi.fn().mockReturnValue(
         of({ id: '70', numero_orden: 'O.C.G.F.A. N.º 1', cantidad_funcionarios: 1 }),
       ),
@@ -511,6 +514,85 @@ describe('NuevaOrdenPage', () => {
         { persona_id: 100, grado_destino_id: 4, fecha_ascenso: '2027-02-01', motivo_excepcion: undefined },
       ]);
       expect(router.navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes', '70']);
+    });
+
+    it('confirmar con archivos: crea, sube y navega', async () => {
+      await prepararOrdenLista();
+      const pdf = new File(['x'], 'orden.pdf', { type: 'application/pdf' });
+      component.pendientes.elegir('orden', pdf);
+
+      component.confirmar();
+
+      expect(svc['documentosOrden']).toHaveBeenCalledWith('70');
+      expect(subir).toHaveBeenCalledWith('orden', pdf);
+      expect(router.navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes', '70']);
+    });
+
+    it('mientras sube muestra Subiendo documentos y no navega todavía', async () => {
+      await prepararOrdenLista();
+      const subida = new Subject<unknown>();
+      subir.mockReturnValue(subida);
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+
+      component.confirmar();
+      fixture.detectChanges();
+
+      expect(component.subiendoDocumentos()).toBe(true);
+      expect(router.navigate).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain('Subiendo documentos...');
+      expect(fixture.nativeElement.querySelector('.card__footer .btn--primary').disabled).toBe(true);
+
+      subida.next({});
+      subida.complete();
+      expect(router.navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes', '70']);
+    });
+
+    it('si se sale de la página mientras sube, no navega al terminar', async () => {
+      await prepararOrdenLista();
+      const subida = new Subject<unknown>();
+      subir.mockReturnValue(subida);
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+
+      component.confirmar();
+      component.ngOnDestroy();
+      subida.next({});
+      subida.complete();
+
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+
+    it('si la subida falla, avisa y navega igual', async () => {
+      await prepararOrdenLista();
+      subir.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: 'Falló' } })),
+      );
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+
+      component.confirmar();
+
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringMatching(/^La orden se registró, pero no se pudo subir «orden\.pdf»: .+ Podés adjuntarlo desde el detalle de la orden\.$/),
+        8000,
+      );
+      expect(router.navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes', '70']);
+    });
+
+    it('el resumen muestra los archivos elegidos', async () => {
+      await prepararOrdenLista();
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('orden.pdf');
+    });
+
+    it('borrar el número descarta el archivo elegido', async () => {
+      await montar();
+      component.ordenForm.patchValue({ numero_orden: 'O-1' });
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+
+      component.ordenForm.patchValue({ numero_orden: '' });
+
+      expect(component.pendientes.hay()).toBe(false);
     });
 
     it('si el backend rechaza, vuelve al paso de funcionarios con el aviso', async () => {

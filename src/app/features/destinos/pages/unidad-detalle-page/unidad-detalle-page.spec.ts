@@ -29,6 +29,7 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
     fecha_resolucion: null,
     observaciones: null,
     activo: true,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
