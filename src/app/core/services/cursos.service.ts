@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { FiltroDerechaNumor, filtroDerechaNumorParams } from '../models/derecha.models';
 import { API_BASE_URL } from '../api.config';
+import { ApiDocumentos, apiDocumentos } from './documentos-registro';
+import { SlotDocumento } from '../models/documentos-registro.models';
 import { PaginatedResponse } from '../models/auth.models';
 import {
   CalificacionMasivaItem,
@@ -193,6 +195,26 @@ export class CursosService {
     );
   }
 
+  documentosDesignacion(cursoId: string, id: string): ApiDocumentos {
+    return apiDocumentos(this.http, `${API_BASE_URL}/cursos/${cursoId}/designaciones/${id}`);
+  }
+
+  // Una sola subida por slot para todas las designaciones recién creadas.
+  subirDocumentoDesignaciones(
+    cursoId: string,
+    slot: SlotDocumento,
+    archivo: File,
+    designacionIds: string[],
+  ): Observable<{ adjuntados: number }> {
+    const form = new FormData();
+    form.append('archivo', archivo);
+    form.append('designacion_ids', designacionIds.join(','));
+    return this.http.post<{ adjuntados: number }>(
+      `${API_BASE_URL}/cursos/${cursoId}/designaciones/documentos/${slot}`,
+      form,
+    );
+  }
+
   // ── Baja / Reactivación de inscripción ─────────────────────────────────────
 
   darDeBaja(cursoId: string, designacionId: string, motivo: string): Observable<any> {
@@ -229,6 +251,11 @@ export class CursosService {
       numero_orden:  raw.numero_orden ?? null,
       boletin:       raw.boletin      ?? null,
       documentoUrl:  raw.documentoUrl ?? raw.documento_url ?? null,
+      documentos:    raw.documentos ?? { orden: null, boletin: null },
+      modulos:       (raw.modulos ?? []).map((m: any) => ({
+        numero_orden: m.numero_orden ?? null,
+        boletin:      m.boletin      ?? null,
+      })),
       dadoDeBaja:    raw.dado_de_baja ?? false,
       motivoBaja:    raw.motivo_baja  ?? null,
       fechaBaja:     raw.fecha_baja   ?? null,

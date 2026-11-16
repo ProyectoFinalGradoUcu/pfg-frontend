@@ -674,6 +674,11 @@ $navy-soft: #1e3a5f;
   font-weight: 400;
 }
 
+.modal__field-label {
+  display: grid;
+  gap: 0.4rem;
+}
+
 .modal__field-error-msg {
   font-size: 0.8rem;
   font-weight: 400;

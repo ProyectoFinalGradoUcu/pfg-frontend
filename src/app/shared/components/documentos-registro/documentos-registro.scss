@@ -1,0 +1,33 @@
+.documentos-registro {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.9rem 1.5rem;
+  margin: 0;
+
+  dt {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  dd {
+    margin: 0.2rem 0 0;
+    font-size: 0.9rem;
+    color: #0f172a;
+  }
+}
+
+.documentos-registro__nota {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.documentos-registro__vacio {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}

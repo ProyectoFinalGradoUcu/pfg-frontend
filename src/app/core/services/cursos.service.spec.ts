@@ -214,6 +214,51 @@ describe('CursosService', () => {
     });
   });
 
+  describe('documentos de designación', () => {
+    it('documentosDesignacion apunta a la inscripción', () => {
+      const api = service.documentosDesignacion('c1', '12');
+      expect(api.url('orden')).toBe(`${API_BASE_URL}/cursos/c1/designaciones/12/documentos/orden`);
+      expect(api.url('boletin', { descarga: true })).toBe(
+        `${API_BASE_URL}/cursos/c1/designaciones/12/documentos/boletin?download=1`,
+      );
+    });
+
+    it('subirDocumentoDesignaciones envía archivo e ids separados por coma en un solo POST', () => {
+      const archivo = new File(['x'], 'orden.pdf', { type: 'application/pdf' });
+      let res: any;
+      service.subirDocumentoDesignaciones('c1', 'orden', archivo, ['12', '13', '14']).subscribe((r) => (res = r));
+      const req = http.expectOne(`${API_BASE_URL}/cursos/c1/designaciones/documentos/orden`);
+      expect(req.request.method).toBe('POST');
+      const form = req.request.body as FormData;
+      expect(form.get('archivo')).toBe(archivo);
+      expect(form.get('designacion_ids')).toBe('12,13,14');
+      expect(req.request.headers.has('Content-Type')).toBe(false);
+      req.flush({ adjuntados: 3 });
+      expect(res).toEqual({ adjuntados: 3 });
+    });
+
+    it('findFuncionariosConCursos conserva documentos y números de módulos', () => {
+      let result: any;
+      service.findFuncionariosConCursos().subscribe((r) => (result = r));
+      http.expectOne(matchFuncionarios).flush({
+        items: [{
+          id: '55',
+          persona: { id: 1, primer_nombre: 'Ana', primer_apellido: 'Paz', cedula: '1' },
+          curso: { id: '9', nombre_curso: 'X', institucion: 'Y', es_obligatorio: false },
+          numero_orden: null, boletin: null,
+          documentos: { orden: null, boletin: null },
+          modulos: [{ numero_orden: 'O-1', boletin: null }],
+        }],
+        total: 1,
+      });
+      const c = result[0].cursos[0];
+      expect(c.designacionId).toBe('55');
+      expect(c.id).toBe('9');
+      expect(c.documentos).toEqual({ orden: null, boletin: null });
+      expect(c.modulos).toEqual([{ numero_orden: 'O-1', boletin: null }]);
+    });
+  });
+
   // ── registrarCalificacion ─────────────────────────────────────────────────
 
   describe('registrarCalificacionesMasivas', () => {

@@ -1,3 +1,4 @@
+import { DocumentosRegistro } from './documentos-registro.models';
 
 // ── Referencias anidadas ──────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ export interface Destino {
   fecha_resolucion: string | null;
   observaciones: string | null;
   activo: boolean;
+  documentos: DocumentosRegistro;
 }
 
 /**
@@ -117,6 +119,7 @@ export interface DestinoDePersona {
   boletin: string | null;
   observaciones: string | null;
   activo: boolean;
+  documentos: DocumentosRegistro;
 }
 
 // ── Listados ──────────────────────────────────────────────────────────────────

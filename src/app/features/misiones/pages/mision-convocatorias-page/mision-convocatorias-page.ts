@@ -8,6 +8,8 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
 import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import { ArchivosPendientes, subirPendientes } from '../../../../core/services/documentos-registro';
 import { Convocatoria, MisionDefinicion } from '../../../../core/models/misiones.models';
 
 type ModalKind = 'nuevaConvocatoria' | 'editarConvocatoria' | 'confirmarEliminar' | null;
@@ -33,6 +35,9 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
   readonly loading = signal(false);
   readonly loadingConvocatorias = signal(false);
   readonly guardando = signal(false);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
+  private readonly destroy$ = new Subject<void>();
   readonly modal = signal<ModalKind>(null);
   readonly modalError = signal<string | null>(null);
   readonly convocatoriaSeleccionada = signal<Convocatoria | null>(null);
@@ -64,6 +69,8 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.misionId = this.route.snapshot.paramMap.get('misionId')!;
+    this.pendientes.descartarSiVacio(this.convocatoriaForm.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.convocatoriaForm.controls.boletin, 'boletin', this.destroy$);
     this.cargarMision();
     this.cargarConvocatorias();
     this.buscador.vincular(this.convocatoriaForm.controls.persona_ids);
@@ -75,6 +82,8 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.filtroSubject.complete();
   }
 
@@ -172,6 +181,7 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
       observaciones: '',
       persona_ids: [],
     });
+    this.pendientes.limpiar();
     this.modalError.set(null);
     this.convocatoriaSeleccionada.set(null);
     this.modal.set('nuevaConvocatoria');
@@ -200,6 +210,8 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
   }
 
   cerrarModal(): void {
+    // Con la convocatoria ya creada, cerrar a mitad de las subidas perdería el aviso.
+    if (this.subiendoDocumentos()) return;
     this.modal.set(null);
     this.modalError.set(null);
     this.convocatoriaSeleccionada.set(null);
@@ -255,18 +267,32 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
         persona_ids: personaIds.length > 0 ? personaIds : undefined,
       })
       .subscribe({
-        next: () => {
-          this.guardando.set(false);
-          this.cerrarModal();
-          this.toast.success('Convocatoria creada correctamente');
-          this.cargarConvocatorias(1);
-          this.cargarMision();
-        },
+        next: (creada) => this.subirDocumentos(creada),
         error: (err: HttpErrorResponse) => {
           this.guardando.set(false);
           this.modalError.set(this.parseError(err));
         },
       });
+  }
+
+  private subirDocumentos(creada: Convocatoria): void {
+    this.subiendoDocumentos.set(this.pendientes.hay());
+    subirPendientes(
+      (slot, archivo) => this.misionesService.documentosConvocatoria(creada.id).subir(slot, archivo),
+      this.pendientes.archivos(),
+      (archivo, err) =>
+        this.toast.error(
+          `La convocatoria se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde el detalle de la convocatoria.`,
+          8000,
+        ),
+    ).subscribe(() => {
+      this.subiendoDocumentos.set(false);
+      this.guardando.set(false);
+      this.cerrarModal();
+      this.toast.success('Convocatoria creada correctamente');
+      this.cargarConvocatorias(1);
+      this.cargarMision();
+    });
   }
 
   confirmarEliminar(): void {

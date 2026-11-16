@@ -25,6 +25,7 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
     fecha_resolucion: null,
     observaciones: null,
     activo: true,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
@@ -264,5 +265,11 @@ describe('DestinosService', () => {
     it('recorta los espacios de los textos antes de comparar', () => {
       expect(payloadEdicion(original, { ...sinCambios, posicion_destino: '  Sub-Jefe  ' })).toEqual({});
     });
+  });
+
+  it('documentos apunta a /destinos/:id/documentos/:slot', () => {
+    const api = TestBed.inject(DestinosService).documentos('200');
+    expect(api.url('orden')).toBe(`${API_BASE_URL}/destinos/200/documentos/orden`);
+    expect(api.url('boletin', { descarga: true })).toBe(`${API_BASE_URL}/destinos/200/documentos/boletin?download=1`);
   });
 });

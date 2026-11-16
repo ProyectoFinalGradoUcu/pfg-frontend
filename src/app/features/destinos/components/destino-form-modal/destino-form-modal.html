@@ -2,7 +2,7 @@
   <div class="modal destino-form" (click)="$event.stopPropagation()">
     <header class="modal__header">
       <h3>{{ editando() ? 'Editar destino' : 'Registrar destino' }}</h3>
-      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+      <button type="button" class="modal__close" (click)="cerrar()" [disabled]="guardando()" aria-label="Cerrar">×</button>
     </header>
 
     <div class="modal__body" [formGroup]="form">
@@ -113,11 +113,31 @@
         <div class="destino-form__field">
           <label>N° de orden</label>
           <input type="text" formControlName="numero_orden" maxlength="50" />
+          <app-documento-adjunto
+            *ngIf="!editando()"
+            [nombre]="pendientes.archivos().orden?.name ?? null"
+            [tamanio]="pendientes.archivos().orden?.size ?? null"
+            [puedeEditar]="true"
+            [habilitado]="!!(form.controls.numero_orden.value ?? '').trim()"
+            [ocupado]="guardando()"
+            (elegido)="pendientes.elegir('orden', $event)"
+            (quitado)="pendientes.quitar('orden')"
+          />
         </div>
 
         <div class="destino-form__field">
           <label>Boletín</label>
           <input type="text" formControlName="boletin" maxlength="50" />
+          <app-documento-adjunto
+            *ngIf="!editando()"
+            [nombre]="pendientes.archivos().boletin?.name ?? null"
+            [tamanio]="pendientes.archivos().boletin?.size ?? null"
+            [puedeEditar]="true"
+            [habilitado]="!!(form.controls.boletin.value ?? '').trim()"
+            [ocupado]="guardando()"
+            (elegido)="pendientes.elegir('boletin', $event)"
+            (quitado)="pendientes.quitar('boletin')"
+          />
         </div>
 
         <div class="destino-form__field">
@@ -158,7 +178,7 @@
     <footer class="modal__footer">
       <button type="button" class="btn" (click)="cerrar()" [disabled]="guardando()">Cancelar</button>
       <button type="button" class="btn btn--primary" (click)="guardar()" [disabled]="guardando()">
-        {{ guardando() ? 'Guardando...' : (editando() ? 'Guardar cambios' : 'Registrar destino') }}
+        {{ subiendoDocumentos() ? 'Subiendo documentos...' : guardando() ? 'Guardando...' : (editando() ? 'Guardar cambios' : 'Registrar destino') }}
       </button>
     </footer>
   </div>

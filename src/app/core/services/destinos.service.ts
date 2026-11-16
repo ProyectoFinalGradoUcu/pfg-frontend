@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
+import { ApiDocumentos, apiDocumentos } from './documentos-registro';
 import {
   CrearDestinoPayload,
   Destino,
@@ -104,6 +105,10 @@ export class DestinosService {
 
   eliminar(destinoId: string): Observable<DestinoEliminado> {
     return this.http.delete<DestinoEliminado>(`${this.base}/${destinoId}`, { withCredentials: true });
+  }
+
+  documentos(destinoId: string): ApiDocumentos {
+    return apiDocumentos(this.http, `${this.base}/${destinoId}`);
   }
 
   /** Sub-unidades (los destinos) con su comando y dotación actual. Catálogo de solo lectura. */

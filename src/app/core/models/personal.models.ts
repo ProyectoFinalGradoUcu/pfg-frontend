@@ -1,4 +1,5 @@
 import { RetiroHistorial } from './retiros.models';
+import { DocumentosRegistro } from './documentos-registro.models';
 
 import { FiltroDerechaNumor } from './derecha.models';
 
@@ -172,6 +173,8 @@ export interface PersonaDetalle {
   codigo_postal: string | null;
   seccional: string | null;
   credencial_civica: string | null;
+  /** Cambia con cada foto nueva; null si no tiene. */
+  foto_id?: string | null;
   /** Nivel de pericia/idoneidad 3/5/7/9 del subalterno (ETA). null = sin definir. */
   nivel_idoneidad: number | null;
   es_civil: boolean;
@@ -214,6 +217,8 @@ export interface HistorialMilitar {
 }
 
 export interface CursoPersona {
+  /** Id de la designación (inscripción). */
+  id: string;
   curso_id: number;
   nombre_curso: string;
   institucion: string;
@@ -226,9 +231,12 @@ export interface CursoPersona {
   calificacion: string | null;
   observacion: string | null;
   completado: boolean;
+  documentos: DocumentosRegistro;
 }
 
 export interface MisionPersona {
+  /** Id de la asignación. */
+  id: string;
   mision_id: string;
   convocatoria_id: string;
   nombre_mision: string;
@@ -238,6 +246,8 @@ export interface MisionPersona {
   numero_orden: string;
   boletin: string | null;
   finalizada: boolean;
+  documentos: DocumentosRegistro;
+  documentos_convocatoria: DocumentosRegistro;
 }
 
 /**

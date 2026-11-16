@@ -1,11 +1,13 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, forkJoin } from 'rxjs';
-import { debounceTime, switchMap } from 'rxjs/operators';
+import { Subject, forkJoin, of } from 'rxjs';
+import { debounceTime, map, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import { ArchivosPendientes, SlotVista, armarSlots, subirPendientes } from '../../../../core/services/documentos-registro';
 import { MisionesService } from '../../../../core/services/misiones.service';
 import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 import {
@@ -27,7 +29,7 @@ import {
   templateUrl: './convocatoria-detalle-page.html',
   styleUrl: './convocatoria-detalle-page.scss',
 })
-export class ConvocatoriaDetallePage implements OnInit {
+export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly misionesService = inject(MisionesService);
@@ -36,12 +38,16 @@ export class ConvocatoriaDetallePage implements OnInit {
   private readonly router = inject(Router);
 
   private misionId = '';
+  private readonly destroy$ = new Subject<void>();
 
   readonly mision = signal<MisionDefinicion | null>(null);
   readonly convocatoria = signal<Convocatoria | null>(null);
   readonly loading = signal(false);
   readonly loadingFuncionarios = signal(false);
   readonly asignando = signal(false);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
+  readonly funcionarioDocumentos = signal<FuncionarioConvocatoria | null>(null);
   readonly editando = signal(false);
   readonly borrandoTodos = signal(false);
   readonly modalAsignar = signal(false);
@@ -67,6 +73,34 @@ export class ConvocatoriaDetallePage implements OnInit {
   private readonly busquedaSubject = new Subject<string>();
 
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('misiones.gestionar'));
+  readonly puedeVerDocumentos = computed(() => this.auth.hasPermiso('misiones.ver'));
+  readonly mostrarAcciones = computed(() => this.puedeGestionar() || this.puedeVerDocumentos());
+
+  readonly slotsConvocatoria = computed<SlotVista[]>(() => {
+    const c = this.convocatoria();
+    if (!c) return [];
+    return armarSlots(
+      this.misionesService.documentosConvocatoria(c.id),
+      c.documentos,
+      { orden: c.numero_orden, boletin: c.boletin },
+      this.puedeGestionar(),
+    );
+  });
+
+  readonly slotsFuncionario = computed<SlotVista[]>(() => {
+    const f = this.funcionarioDocumentos();
+    if (!f) return [];
+    return armarSlots(
+      this.misionesService.documentosAsignacion(f.id),
+      f.documentos,
+      { orden: f.numero_orden, boletin: f.boletin },
+      this.puedeGestionar(),
+    );
+  });
+  readonly tituloDocumentosFuncionario = computed(() => {
+    const f = this.funcionarioDocumentos();
+    return f ? `Documentos de ${[f.primer_nombre, f.primer_apellido].filter(Boolean).join(' ')}` : '';
+  });
 
   readonly asignarForm = this.fb.group({
     persona_id: ['', Validators.required],
@@ -90,6 +124,8 @@ export class ConvocatoriaDetallePage implements OnInit {
   });
 
   ngOnInit(): void {
+    this.pendientes.descartarSiVacio(this.asignarForm.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.asignarForm.controls.boletin, 'boletin', this.destroy$);
     this.misionId = this.route.snapshot.paramMap.get('misionId')!;
     const convocatoriaId = this.route.snapshot.paramMap.get('convocatoriaId')!;
     this.cargar(convocatoriaId);
@@ -100,6 +136,35 @@ export class ConvocatoriaDetallePage implements OnInit {
       if (!c) return;
       this.cargarFuncionarios(c.id, 1);
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  /** Tras adjuntar o quitar un documento: refresca la convocatoria y la tabla. */
+  recargarDocumentos(): void {
+    const c = this.convocatoria();
+    if (!c) return;
+    this.recargarDetalleYFuncionarios$(c.id, this.funcionariosPage()).subscribe({
+      next: ({ detalle, funcionarios }) => {
+        this.convocatoria.set(detalle);
+        this.funcionarios.set(funcionarios.items);
+        this.funcionariosTotal.set(funcionarios.total);
+        this.funcionariosPage.set(funcionarios.page);
+        const abierto = this.funcionarioDocumentos();
+        if (abierto) {
+          this.funcionarioDocumentos.set(funcionarios.items.find((f) => f.id === abierto.id) ?? null);
+        }
+      },
+      error: (err: HttpErrorResponse) => this.toast.error(this.parseError(err)),
+    });
+  }
+
+  abrirDocumentosFuncionario(f: FuncionarioConvocatoria): void {
+    this.cerrarMenu();
+    this.funcionarioDocumentos.set(f);
   }
 
   cargar(convocatoriaId: string): void {
@@ -215,11 +280,11 @@ export class ConvocatoriaDetallePage implements OnInit {
     this.misionesService
       .editarConvocatoria(this.misionId, c.id, payload)
       .subscribe({
-        next: (updated) => {
-          this.convocatoria.set(updated);
+        next: (actualizada) => {
           this.guardandoConvocatoria.set(false);
           this.cerrarModalConvocatoria();
           this.toast.success('Convocatoria actualizada correctamente');
+          this.convocatoria.set({ ...actualizada, documentos: c.documentos });
         },
         error: (err: HttpErrorResponse) => {
           this.guardandoConvocatoria.set(false);
@@ -232,11 +297,14 @@ export class ConvocatoriaDetallePage implements OnInit {
 
   abrirModalAsignar(): void {
     this.asignarForm.reset({ persona_id: '', numero_orden: '', boletin: '', observaciones: '' });
+    this.pendientes.limpiar();
     this.modalErrorAsignar.set(null);
     this.modalAsignar.set(true);
   }
 
   cerrarModalAsignar(): void {
+    // Con el funcionario ya asignado, cerrar a mitad de las subidas perdería el aviso.
+    if (this.asignando()) return;
     this.modalAsignar.set(false);
     this.modalErrorAsignar.set(null);
   }
@@ -265,7 +333,10 @@ export class ConvocatoriaDetallePage implements OnInit {
     this.asignando.set(true);
     this.misionesService
       .addFuncionarios(this.misionId, c.id, [payload])
-      .pipe(switchMap(() => this.recargarDetalleYFuncionarios$(c.id, this.funcionariosPage())))
+      .pipe(
+        switchMap((res) => this.subirDocumentosAsignacion$(res.asignaciones?.[0]?.id)),
+        switchMap(() => this.recargarDetalleYFuncionarios$(c.id, this.funcionariosPage())),
+      )
       .subscribe({
         next: ({ detalle, funcionarios }) => {
           this.convocatoria.set(detalle);
@@ -281,6 +352,20 @@ export class ConvocatoriaDetallePage implements OnInit {
           this.asignando.set(false);
         },
       });
+  }
+
+  private subirDocumentosAsignacion$(asignacionId: string | undefined) {
+    if (!asignacionId || !this.pendientes.hay()) return of(undefined);
+    this.subiendoDocumentos.set(true);
+    return subirPendientes(
+      (slot, archivo) => this.misionesService.documentosAsignacion(asignacionId).subir(slot, archivo),
+      this.pendientes.archivos(),
+      (archivo, err) =>
+        this.toast.error(
+          `El funcionario se asignó, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde la tabla de funcionarios.`,
+          8000,
+        ),
+    ).pipe(map(() => this.subiendoDocumentos.set(false)));
   }
 
   toggleMenu(personaId: string, event: MouseEvent): void {

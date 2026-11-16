@@ -52,6 +52,7 @@ function makeOrden(overrides: Partial<OrdenAscensoDetalle> = {}): OrdenAscensoDe
     ascensos,
     page: 1,
     pageSize: 10,
+    documentos: { orden: null, boletin: null },
     vigentes: ascensos
       .filter((a) => !a.anulado)
       .map((a) => ({
@@ -73,6 +74,7 @@ describe('OrdenDetallePage', () => {
 
   beforeEach(async () => {
     svc = {
+      documentosOrden: vi.fn().mockReturnValue({ subir: vi.fn(), quitar: vi.fn(), inspeccionar: vi.fn(), url: vi.fn() }),
       getOrden: vi.fn().mockReturnValue(of(makeOrden())),
       anularOrden: vi.fn().mockReturnValue(of(makeOrden({ anulada: true }))),
       anularAscenso: vi.fn().mockReturnValue(
@@ -103,6 +105,41 @@ describe('OrdenDetallePage', () => {
   it('carga la orden al entrar', () => {
     expect(svc['getOrden']).toHaveBeenCalledWith('70', { page: 1, pageSize: 10 });
     expect(component.orden()?.numero_orden).toBe('O.C.G.F.A. N.º 12.345');
+  });
+
+  describe('respaldo documental', () => {
+    it('el detalle muestra Respaldo documental', () => {
+      svc['getOrden'].mockReturnValue(
+        of(makeOrden({ boletin: 'BOL-1', documentos: { orden: null, boletin: null } })),
+      );
+      component.cargar();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Respaldo documental');
+      expect(fixture.nativeElement.querySelector('app-documentos-registro')).not.toBeNull();
+      expect(svc['documentosOrden']).toHaveBeenCalledWith('70');
+      expect(component.slotsOrden().map((s) => [s.slot, s.numero, s.editable])).toEqual([
+        ['orden', 'O.C.G.F.A. N.º 12.345', true],
+        ['boletin', 'BOL-1', true],
+      ]);
+    });
+
+    it('orden anulada: sin Adjuntar ni Quitar', () => {
+      component.orden.set(makeOrden({ anulada: true }));
+      expect(component.slotsOrden().every((s) => !s.editable)).toBe(true);
+    });
+
+    it('sin ascensos.registrar es de solo lectura', () => {
+      auth.hasPermiso.mockImplementation((p: string) => p !== 'ascensos.registrar');
+      component.orden.set(makeOrden());
+      expect(component.slotsOrden().every((s) => !s.editable)).toBe(true);
+    });
+
+    it('cambio recarga la orden en la página que se estaba viendo', () => {
+      component.irAPagina(3);
+      svc['getOrden'].mockClear();
+      component.recargarDocumentos();
+      expect(svc['getOrden']).toHaveBeenCalledWith('70', { page: 3, pageSize: 10 });
+    });
   });
 
   describe('paginación de funcionarios', () => {

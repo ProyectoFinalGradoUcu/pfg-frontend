@@ -10,6 +10,11 @@ import { PersonalDetailPage } from './personal-detail-page';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { DestinosService } from '../../../../core/services/destinos.service';
+import { MisionesService } from '../../../../core/services/misiones.service';
+import { CursosService } from '../../../../core/services/cursos.service';
+import { SlotVista } from '../../../../core/services/documentos-registro';
+import { DocumentosRegistro } from '../../../../core/models/documentos-registro.models';
 import { FamiliarItem, PersonaDetalle, PersonaListItem, RelacionLaboral } from '../../../../core/models/personal.models';
 
 function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDetalle {
@@ -131,6 +136,15 @@ describe('PersonalDetailPage', () => {
       providers: [
         { provide: PersonalService, useValue: svc },
         { provide: ToastService, useValue: toastService },
+        { provide: DestinosService, useValue: { documentos: (id: string) => ({ id: `destino:${id}` }) } },
+        {
+          provide: MisionesService,
+          useValue: {
+            documentosAsignacion: (id: string) => ({ id: `asignacion:${id}` }),
+            documentosConvocatoria: (id: string) => ({ id: `convocatoria:${id}` }),
+          },
+        },
+        { provide: CursosService, useValue: { documentosDesignacion: (c: string, id: string) => ({ id: `curso:${c}:${id}` }) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => '31' } } } },
       ],
@@ -511,6 +525,112 @@ describe('PersonalDetailPage', () => {
       expect(component.editForm.get('sub_unidad_id')).toBeNull();
       expect(fixture.nativeElement.querySelector('[formControlName="sub_unidad_id"]')).toBeNull();
       expect(fixture.nativeElement.textContent).toContain('La base no se edita acá');
+    });
+  });
+
+  describe('documentos en las pestañas', () => {
+    const doc = { nombre_original: 'o.pdf', content_type: 'application/pdf', tamanio_bytes: '1', subido_en: '2026-01-01' };
+    const sinDocs: DocumentosRegistro = { orden: null, boletin: null };
+    const conPermisos = (permisos: string[]): void => {
+      vi.spyOn(TestBed.inject(AuthService), 'hasPermiso').mockImplementation((p: string) => permisos.includes(p));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    };
+    const slotsDe = (selector: string): SlotVista[] | undefined =>
+      fixture.nativeElement.querySelector(`${selector} app-documentos-registro`)?.slots;
+    const destino = (documentos: DocumentosRegistro) => ({
+      id: '9', unidad_id: null, unidad: 'C.A.O.', codigo_unidad: null, sub_unidad_id: null, sub_unidad: 'B.A.I.',
+      codigo_sub_unidad: null, posicion_destino: null, fecha_inicio: '2024-01-01', fecha_fin: null,
+      numero_orden: '123', boletin: null, observaciones: null, activo: true, documentos,
+    });
+
+    it('destinos: muestra los documentos con permiso destinos.ver', () => {
+      svc.getDestinos.mockReturnValue(of([destino({ orden: doc, boletin: null })]));
+      conPermisos(['destinos.ver']);
+      component.switchTab('destinos');
+      fixture.detectChanges();
+
+      const slots = slotsDe('.pd__destino-card')!;
+      expect(slots.map((s) => s.slot)).toEqual(['orden', 'boletin']);
+      expect(slots.every((s) => !s.editable)).toBe(true);
+      expect(slots[0].documento).toBe(doc);
+      expect(slots[0].numero).toBe('123');
+      expect((slots[0].api as any).id).toBe('destino:9');
+    });
+
+    it('destinos: sin permiso no muestra documentos', () => {
+      svc.getDestinos.mockReturnValue(of([destino({ orden: doc, boletin: null })]));
+      conPermisos([]);
+      component.switchTab('destinos');
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.pd__destino-card')).not.toBeNull();
+      expect(slotsDe('.pd__destino-card')).toBeUndefined();
+    });
+
+    it('destinos: sin ningún documento no muestra el bloque', () => {
+      svc.getDestinos.mockReturnValue(of([destino(sinDocs)]));
+      conPermisos(['destinos.ver.unidad']);
+      component.switchTab('destinos');
+      fixture.detectChanges();
+
+      expect(slotsDe('.pd__destino-card')).toBeUndefined();
+    });
+
+    it('misiones: usa el documento de la convocatoria si la asignación no tiene, con la nota', () => {
+      const docConv = { ...doc, nombre_original: 'conv.pdf' };
+      svc.getMisiones.mockReturnValue(of([{
+        id: '5', mision_id: '1', convocatoria_id: '77', nombre_mision: 'MONUSCO', pais: 'Congo',
+        fecha_salida: '2024-01-01', fecha_llegada: null, numero_orden: 'A-1', boletin: null, finalizada: false,
+        documentos: { orden: null, boletin: doc },
+        documentos_convocatoria: { orden: docConv, boletin: { ...doc, nombre_original: 'otro.pdf' } },
+      }]));
+      conPermisos(['misiones.ver']);
+      component.switchTab('misiones');
+      fixture.detectChanges();
+
+      const [orden, boletin] = slotsDe('.pd__mission-card')!;
+      expect(orden.documento).toBe(docConv);
+      expect(orden.nota).toBe('de la convocatoria');
+      expect(orden.numero).toBe('A-1');
+      expect((orden.api as any).id).toBe('convocatoria:77');
+      expect(boletin.documento).toBe(doc);
+      expect(boletin.nota).toBeUndefined();
+      expect((boletin.api as any).id).toBe('asignacion:5');
+    });
+
+    it('cursos: ya no hay link al boletín y el número se ve como texto', () => {
+      svc.getCursos.mockReturnValue(of([{
+        id: '3', curso_id: 8, nombre_curso: 'Curso', institucion: 'ETA', es_obligatorio: true, boletin: 'B-9',
+        numero_orden: 'O-2', fecha_inicio: '2024-01-01', fecha_fin: '2024-02-01', aprobado: null,
+        calificacion: null, observacion: null, completado: false, documentos: { orden: doc, boletin: null },
+      }]));
+      conPermisos(['cursos.ver']);
+      component.switchTab('cursos');
+      fixture.detectChanges();
+
+      const card = fixture.nativeElement.querySelector('.pd__course-card') as HTMLElement;
+      expect(card.querySelector('a[href]')).toBeNull();
+      expect(card.textContent).toContain('O-2');
+      expect(card.textContent).toContain('B-9');
+      expect((slotsDe('.pd__course-card')![0].api as any).id).toBe('curso:8:3');
+    });
+
+    it('cursos: el bloque de documentos no repite el número', () => {
+      svc.getCursos.mockReturnValue(of([{
+        id: '3', curso_id: 8, nombre_curso: 'Curso', institucion: 'ETA', es_obligatorio: true, boletin: 'B-9',
+        numero_orden: 'O-2', fecha_inicio: '2024-01-01', fecha_fin: '2024-02-01', aprobado: null,
+        calificacion: null, observacion: null, completado: false, documentos: { orden: doc, boletin: null },
+      }]));
+      conPermisos(['cursos.ver']);
+      component.switchTab('cursos');
+      fixture.detectChanges();
+
+      const bloque = fixture.nativeElement.querySelector('.pd__course-card app-documentos-registro');
+      expect(bloque.mostrarNumero).toBe(false);
+      const card = fixture.nativeElement.querySelector('.pd__course-card') as HTMLElement;
+      expect(card.textContent!.split('O-2').length - 1).toBe(1);
     });
   });
 });

@@ -147,7 +147,7 @@
               <th>Fecha Fin</th>
               <th>Tipo</th>
               <th>Resultado</th>
-              <th *ngIf="puedeGestionar()" class="cursos__col-actions">Acciones</th>
+              <th *ngIf="mostrarAcciones()" class="cursos__col-actions">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -223,9 +223,18 @@
               </td>
 
               <!-- ── Acciones ─────────────────────────────────────────── -->
-              <td *ngIf="puedeGestionar()" class="cursos__col-actions">
+              <td *ngIf="mostrarAcciones()" class="cursos__col-actions">
                 <button
-                  *ngIf="!fila.curso.dadoDeBaja"
+                  *ngIf="puedeVerDocumentos()"
+                  type="button"
+                  class="btn btn--ghost btn--sm"
+                  (click)="abrirDocumentos(fila)"
+                  title="Ver los documentos de la designación"
+                >
+                  Documentos
+                </button>
+                <button
+                  *ngIf="puedeGestionar() && !fila.curso.dadoDeBaja"
                   type="button"
                   class="btn btn--ghost btn--sm cursos__baja-btn"
                   (click)="abrirBaja(fila)"
@@ -234,7 +243,7 @@
                   Dar de baja
                 </button>
                 <button
-                  *ngIf="fila.curso.dadoDeBaja"
+                  *ngIf="puedeGestionar() && fila.curso.dadoDeBaja"
                   type="button"
                   class="btn btn--ghost btn--sm cursos__reactivar-btn"
                   [disabled]="reactivandoId() === fila.curso.designacionId"
@@ -246,7 +255,7 @@
               </td>
             </tr>
             <tr *ngIf="filasFlat().length === 0">
-              <td [attr.colspan]="puedeGestionar() ? 12 : 11" class="cursos__empty">
+              <td [attr.colspan]="mostrarAcciones() ? 12 : 11" class="cursos__empty">
                 {{ cedulaFiltro() ? 'No se encontraron cursos para esa cédula' : 'No hay cursos registrados' }}
               </td>
             </tr>
@@ -626,14 +635,36 @@
             Al menos uno entre N° Orden y Boletín es requerido.
           </p>
           <div class="modal__grid-2">
-            <label class="modal__field">
-              <span>N° Orden <em>*</em> <small>(o boletín)</small></span>
-              <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
-            </label>
-            <label class="modal__field">
-              <span>Boletín <em>*</em> <small>(o N° orden)</small></span>
-              <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
-            </label>
+            <div class="modal__field">
+              <label class="modal__field-label">
+                <span>N° Orden <em>*</em> <small>(o boletín)</small></span>
+                <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
+              </label>
+              <app-documento-adjunto
+                [nombre]="pendientes.archivos().orden?.name ?? null"
+                [tamanio]="pendientes.archivos().orden?.size ?? null"
+                [puedeEditar]="true"
+                [habilitado]="!!(nuevoCursoForm.controls.numero_orden.value ?? '').trim()"
+                [ocupado]="subiendoDocumentos()"
+                (elegido)="pendientes.elegir('orden', $event)"
+                (quitado)="pendientes.quitar('orden')"
+              />
+            </div>
+            <div class="modal__field">
+              <label class="modal__field-label">
+                <span>Boletín <em>*</em> <small>(o N° orden)</small></span>
+                <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+              </label>
+              <app-documento-adjunto
+                [nombre]="pendientes.archivos().boletin?.name ?? null"
+                [tamanio]="pendientes.archivos().boletin?.size ?? null"
+                [puedeEditar]="true"
+                [habilitado]="!!(nuevoCursoForm.controls.boletin.value ?? '').trim()"
+                [ocupado]="subiendoDocumentos()"
+                (elegido)="pendientes.elegir('boletin', $event)"
+                (quitado)="pendientes.quitar('boletin')"
+              />
+            </div>
             <label class="modal__field">
               <span>Fecha Inicio <em>*</em></span>
               <input type="date" formControlName="fecha_inicio" />
@@ -662,11 +693,22 @@
 
         <footer class="modal__actions">
           <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
-          <button type="submit" class="btn btn--primary">Crear Curso</button>
+          <button type="submit" class="btn btn--primary" [disabled]="subiendoDocumentos()">
+            {{ subiendoDocumentos() ? 'Subiendo documentos...' : 'Crear Curso' }}
+          </button>
         </footer>
       </form>
     </div>
   </div>
+
+  <app-documentos-registro-modal
+    *ngIf="filaDocumentos()"
+    [titulo]="tituloDocumentos()"
+    [slots]="slotsDocumentos()"
+    registro="esta designación"
+    (cambio)="cargar()"
+    (cerrado)="filaDocumentos.set(null)"
+  ></app-documentos-registro-modal>
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: Módulos                                                         -->
@@ -751,7 +793,7 @@
           <h3>Designar / Dictar</h3>
           <p>{{ curso.nombre_curso }} — designá personal bajo una orden/boletín. Sirve para un nuevo dictado.</p>
         </div>
-        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+        <button type="button" class="modal__close" [disabled]="designando() || subiendoDocumentos()" (click)="cerrarModal()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
@@ -767,14 +809,36 @@
         </p>
 
         <div class="modal__grid-2">
-          <label class="modal__field">
-            <span>N° Orden <em>*</em> <small>(o boletín)</small></span>
-            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>Boletín <em>*</em> <small>(o N° orden)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
-          </label>
+          <div class="modal__field">
+            <label class="modal__field-label">
+              <span>N° Orden <em>*</em> <small>(o boletín)</small></span>
+              <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
+            </label>
+            <app-documento-adjunto
+              [nombre]="pendientes.archivos().orden?.name ?? null"
+              [tamanio]="pendientes.archivos().orden?.size ?? null"
+              [puedeEditar]="true"
+              [habilitado]="!!(designarForm.controls.numero_orden.value ?? '').trim()"
+              [ocupado]="designando() || subiendoDocumentos()"
+              (elegido)="pendientes.elegir('orden', $event)"
+              (quitado)="pendientes.quitar('orden')"
+            />
+          </div>
+          <div class="modal__field">
+            <label class="modal__field-label">
+              <span>Boletín <em>*</em> <small>(o N° orden)</small></span>
+              <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+            </label>
+            <app-documento-adjunto
+              [nombre]="pendientes.archivos().boletin?.name ?? null"
+              [tamanio]="pendientes.archivos().boletin?.size ?? null"
+              [puedeEditar]="true"
+              [habilitado]="!!(designarForm.controls.boletin.value ?? '').trim()"
+              [ocupado]="designando() || subiendoDocumentos()"
+              (elegido)="pendientes.elegir('boletin', $event)"
+              (quitado)="pendientes.quitar('boletin')"
+            />
+          </div>
           <label class="modal__field">
             <span>Fecha Inicio <em>*</em></span>
             <input type="date" formControlName="fecha_inicio" />
@@ -820,8 +884,10 @@
         </div>
 
         <footer class="modal__actions">
-          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
-          <button type="submit" class="btn btn--primary" [disabled]="designando()">Designar</button>
+          <button type="button" class="btn btn--ghost" [disabled]="designando() || subiendoDocumentos()" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary" [disabled]="designando()">
+            {{ subiendoDocumentos() ? 'Subiendo documentos...' : 'Designar' }}
+          </button>
         </footer>
       </form>
     </div>

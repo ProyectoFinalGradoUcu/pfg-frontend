@@ -1,0 +1,26 @@
+<dl class="documentos-registro" *ngIf="visibles().length; else sinSlots">
+  <div *ngFor="let s of visibles(); trackBy: porSlot">
+    <dt>{{ s.etiqueta }}</dt>
+    <dd>
+      <ng-container *ngIf="mostrarNumero">{{ s.numero || '—' }}</ng-container>
+      <app-documento-adjunto
+        [nombre]="s.documento?.nombre_original ?? null"
+        [tamanio]="s.documento?.tamanio_bytes ?? null"
+        [tipo]="s.documento?.content_type ?? null"
+        [puedeVer]="!!s.documento"
+        [visorUrl]="visorUrl(s.slot)"
+        [urlDescarga]="s.documento ? s.api.url(s.slot, { descarga: true }) : null"
+        [puedeEditar]="s.editable"
+        [habilitado]="!!s.numero?.trim()"
+        [ocupado]="trabajando() !== null"
+        (elegido)="adjuntar(s, $event)"
+        (quitado)="quitar(s)"
+        (verAlternado)="alternarVisor(s)"
+      />
+      <small class="documentos-registro__nota" *ngIf="s.nota && s.documento">{{ s.nota }}</small>
+    </dd>
+  </div>
+</dl>
+<ng-template #sinSlots>
+  <p class="documentos-registro__vacio">Sin número de orden ni boletín.</p>
+</ng-template>

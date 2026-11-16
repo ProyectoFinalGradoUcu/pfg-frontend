@@ -1,0 +1,14 @@
+<div class="modal-overlay">
+  <div class="modal modal--ancho">
+    <header class="modal__header">
+      <h3>{{ titulo }}</h3>
+      <button type="button" class="modal__close" [disabled]="ocupado" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+    <div class="modal__body">
+      <app-documentos-registro [slots]="slots" [registro]="registro" (cambio)="cambio.emit()" (ocupadoCambio)="ocupado = $event"></app-documentos-registro>
+    </div>
+    <footer class="modal__footer">
+      <button type="button" class="btn" [disabled]="ocupado" (click)="cerrar()">Cerrar</button>
+    </footer>
+  </div>
+</div>

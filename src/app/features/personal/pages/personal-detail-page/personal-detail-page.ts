@@ -16,6 +16,10 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { DerechaService } from '../../../../core/services/derecha.service';
+import { DestinosService } from '../../../../core/services/destinos.service';
+import { MisionesService } from '../../../../core/services/misiones.service';
+import { CursosService } from '../../../../core/services/cursos.service';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import { Impacto } from '../../../../core/models/derecha.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 import {
@@ -27,6 +31,10 @@ import {
 export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'comisiones' | 'misiones' | 'documentos';
 
 interface TabDef { key: TabKey; label: string }
+
+type CursoVista = CursoPersona & { slots: SlotVista[] };
+type MisionVista = MisionPersona & { slots: SlotVista[] };
+type DestinoVista = DestinoDePersona & { slots: SlotVista[] };
 
 // Required que no acepta solo espacios.
 const requeridoSinEspacios = (c: AbstractControl): ValidationErrors | null =>
@@ -48,6 +56,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private readonly errorModal = inject(ErrorModalService);
   private readonly fb       = inject(FormBuilder);
   private readonly derecha  = inject(DerechaService);
+  private readonly destinosApi = inject(DestinosService);
+  private readonly misionesApi = inject(MisionesService);
+  private readonly cursosApi   = inject(CursosService);
 
   protected personaId!: number;
 
@@ -104,6 +115,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   readonly puedeRegistrarAscenso = computed(() => this.auth.hasPermiso('ascensos.registrar'));
 
   readonly puedeEditarDocumentos = computed(() => this.auth.puedeConAlcance('personas.editar'));
+  readonly puedeEditarFoto = computed(() => this.auth.puedeConAlcance('personas.editar'));
 
   // ─── Base y destino ──────────────────────────────────────────────────────────
   // La base no se edita en el perfil. Se cambia registrando un pase, para que el destino
@@ -133,19 +145,19 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       new Date(b.fecha_ascenso).getTime() - new Date(a.fecha_ascenso).getTime()
     );
   });
-  readonly cursos           = signal<CursoPersona[]>([]);
+  readonly cursos           = signal<CursoVista[]>([]);
   readonly loadingCursos    = signal(false);
-  readonly misiones         = signal<MisionPersona[]>([]);
+  readonly misiones         = signal<MisionVista[]>([]);
   readonly loadingMisiones  = signal(false);
   readonly busquedaMisiones = signal('');
-  readonly misionesFiltradas = computed<MisionPersona[]>(() => {
+  readonly misionesFiltradas = computed<MisionVista[]>(() => {
     const q = this.busquedaMisiones().trim().toLowerCase();
     if (!q) return this.misiones();
     return this.misiones().filter(
       (m) => m.nombre_mision.toLowerCase().includes(q) || m.pais.toLowerCase().includes(q),
     );
   });
-  readonly destinos          = signal<DestinoDePersona[]>([]);
+  readonly destinos          = signal<DestinoVista[]>([]);
   readonly comisiones = signal<ComisionDePersona[]>([]);
   readonly loadingComisiones = signal(false);
   readonly comisionesError = signal<string | null>(null);
@@ -156,7 +168,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   });
   readonly loadingDestinos   = signal(false);
   readonly busquedaDestinos  = signal('');
-  readonly destinosFiltrados = computed<DestinoDePersona[]>(() => {
+  readonly destinosFiltrados = computed<DestinoVista[]>(() => {
     const q = this.busquedaDestinos().trim().toLowerCase();
     if (!q) return this.destinos();
     return this.destinos().filter(
@@ -486,14 +498,14 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       case 'cursos':
         this.loadingCursos.set(true);
         this.svc.getCursos(this.personaId).subscribe({
-          next: d => { this.cursos.set(d); this.loadingCursos.set(false); },
+          next: d => { this.cursos.set(d.map(c => this.conSlotsCurso(c))); this.loadingCursos.set(false); },
           error: () => this.loadingCursos.set(false),
         });
         break;
       case 'destinos':
         this.loadingDestinos.set(true);
         this.svc.getDestinos(this.personaId).subscribe({
-          next: d => { this.destinos.set(d); this.loadingDestinos.set(false); },
+          next: d => { this.destinos.set(d.map(x => this.conSlotsDestino(x))); this.loadingDestinos.set(false); },
           error: () => this.loadingDestinos.set(false),
         });
         break;
@@ -503,7 +515,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       case 'misiones':
         this.loadingMisiones.set(true);
         this.svc.getMisiones(this.personaId).subscribe({
-          next: d => { this.misiones.set(d); this.loadingMisiones.set(false); },
+          next: d => { this.misiones.set(d.map(m => this.conSlotsMision(m))); this.loadingMisiones.set(false); },
           error: () => this.loadingMisiones.set(false),
         });
         break;
@@ -817,6 +829,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
+  onFotoCambiada(fotoId: string | null): void {
+    this.persona.update(p => (p ? { ...p, foto_id: fotoId } : p));
+  }
+
   initials(p: PersonaDetalle): string {
     return `${p.primer_nombre[0]}${p.primer_apellido[0]}`.toUpperCase();
   }
@@ -844,6 +860,35 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   ordenOBoletin(d: DestinoDePersona): string {
     return [d.numero_orden, d.boletin].filter(Boolean).join(' / ');
+  }
+
+  // Solo lectura: con permiso de ver el módulo y al menos un documento. Se arma al llegar los datos.
+  private slotsVisibles(permisoVer: string, slots: SlotVista[]): SlotVista[] {
+    return this.auth.puedeConAlcance(permisoVer) && slots.some((s) => s.documento) ? slots : [];
+  }
+
+  private conSlotsDestino(d: DestinoDePersona): DestinoVista {
+    const slots = armarSlots(this.destinosApi.documentos(d.id), d.documentos, { orden: d.numero_orden, boletin: d.boletin }, false);
+    return { ...d, slots: this.slotsVisibles('destinos.ver', slots) };
+  }
+
+  private conSlotsCurso(c: CursoPersona): CursoVista {
+    const api = this.cursosApi.documentosDesignacion(String(c.curso_id), c.id);
+    const slots = armarSlots(api, c.documentos, { orden: c.numero_orden, boletin: c.boletin }, false);
+    return { ...c, slots: this.slotsVisibles('cursos.ver', slots) };
+  }
+
+  private conSlotsMision(m: MisionPersona): MisionVista {
+    const apiConvocatoria = this.misionesApi.documentosConvocatoria(m.convocatoria_id);
+    const slots = armarSlots(
+      this.misionesApi.documentosAsignacion(m.id), m.documentos, { orden: m.numero_orden, boletin: m.boletin }, false,
+    ).map((s): SlotVista => {
+      const heredado = m.documentos_convocatoria[s.slot];
+      return !s.documento && heredado
+        ? { ...s, api: apiConvocatoria, documento: heredado, nota: 'de la convocatoria' }
+        : s;
+    });
+    return { ...m, slots: this.slotsVisibles('misiones.ver', slots) };
   }
 
   volver(): void {

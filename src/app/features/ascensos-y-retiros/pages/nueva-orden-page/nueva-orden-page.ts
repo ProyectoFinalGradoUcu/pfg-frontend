@@ -21,6 +21,8 @@ import {
   FuncionarioDeOrdenPayload,
   RequisitoEvaluado,
 } from '../../../../core/models/ascensos.models';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import { ArchivosPendientes, subirPendientes } from '../../../../core/services/documentos-registro';
 import { parseError } from '../../../../shared/utils/parse-error';
 import { DerechaService } from '../../../../core/services/derecha.service';
 import { Impacto } from '../../../../core/models/derecha.models';
@@ -94,6 +96,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
 
   readonly paso = signal<1 | 2 | 3>(1);
   readonly guardando = signal(false);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
   readonly buscando = signal(false);
 
   readonly resultados = signal<Elegibilidad[]>([]);
@@ -188,6 +192,9 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       ...(params.get('persona') ? [params.get('persona')!] : []),
       ...(params.get('personas')?.split(',').filter(Boolean) ?? []),
     ];
+    this.pendientes.descartarSiVacio(this.ordenForm.controls['numero_orden'], 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.ordenForm.controls['boletin'], 'boletin', this.destroy$);
+
     for (const id of ids) this.agregarPorId(id);
   }
 
@@ -529,11 +536,10 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
     this.guardando.set(true);
     this.svc.crearOrden(payload).subscribe({
       next: (orden) => {
-        this.guardando.set(false);
         this.toast.success(
           `Orden ${orden.numero_orden ?? orden.boletin} registrada: ${orden.cantidad_funcionarios} funcionarios`,
         );
-        this.router.navigate(['/ascensos-y-retiros/ordenes', orden.id]);
+        this.subirDocumentos(orden.id);
       },
       error: (err: HttpErrorResponse) => {
         this.guardando.set(false);
@@ -541,6 +547,26 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
         this.paso.set(2);
       },
     });
+  }
+
+  /** La orden ya existe: si un archivo falla se avisa y se navega igual. */
+  private subirDocumentos(ordenId: string): void {
+    this.subiendoDocumentos.set(this.pendientes.hay());
+    subirPendientes(
+      (slot, archivo) => this.svc.documentosOrden(ordenId).subir(slot, archivo),
+      this.pendientes.archivos(),
+      (archivo, err) =>
+        this.toast.error(
+          `La orden se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde el detalle de la orden.`,
+          8000,
+        ),
+    )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.subiendoDocumentos.set(false);
+        this.guardando.set(false);
+        this.router.navigate(['/ascensos-y-retiros/ordenes', ordenId]);
+      });
   }
 
   cancelar(): void {
