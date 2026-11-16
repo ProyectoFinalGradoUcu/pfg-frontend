@@ -436,7 +436,12 @@
               </div>
               <div class="pd__field">
                 <span class="pd__label">Egreso de la ETA</span>
-                <input type="date" formControlName="fecha_egreso_eta" class="pd__edit-input" />
+                <input type="date" formControlName="fecha_egreso_eta" class="pd__edit-input"
+                  [attr.min]="editForm.get('fecha_ingreso_eta')?.value || null"
+                  [class.pd__edit-input--error]="etaInconsistente()" />
+                <span class="pd__edit-error" *ngIf="etaInconsistente()">
+                  No puede ser anterior al ingreso a la ETA
+                </span>
                 <span class="pd__edit-hint">Distingue al egresado del mutado en AT 2.ª a AT 1.ª.</span>
               </div>
               <div class="pd__field">

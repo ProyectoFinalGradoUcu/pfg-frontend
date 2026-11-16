@@ -320,7 +320,7 @@ describe('PersonalPage · filtros', () => {
       editar.click();
 
       expect(router.navigate).toHaveBeenCalledTimes(1);
-      expect(router.navigate).toHaveBeenCalledWith(['/personal', '7']);
+      expect(router.navigate).toHaveBeenCalledWith(['/personal', '7'], { queryParams: { editar: 1 } });
     });
   });
 });

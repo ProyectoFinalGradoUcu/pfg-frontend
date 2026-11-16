@@ -28,6 +28,10 @@ export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destino
 
 interface TabDef { key: TabKey; label: string }
 
+// Required que no acepta solo espacios.
+const requeridoSinEspacios = (c: AbstractControl): ValidationErrors | null =>
+  typeof c.value === 'string' && c.value.trim() === '' ? { required: true } : null;
+
 @Component({
   selector: 'app-personal-detail-page',
   standalone: false,
@@ -196,9 +200,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   }
 
   readonly editForm: FormGroup = this.fb.group({
-    primer_nombre:         ['', Validators.required],
+    primer_nombre:         ['', requeridoSinEspacios],
     segundo_nombre:        [''],
-    primer_apellido:       ['', Validators.required],
+    primer_apellido:       ['', requeridoSinEspacios],
     segundo_apellido:      [''],
     fecha_nacimiento:      [''],
     genero:                [''],
@@ -232,7 +236,12 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     derecha:                 [null as number | null],
     numor:                   [null as number | null],
     motivo_derecha:          [''],
-  }, { validators: (group: AbstractControl) => this.nacimientoAnteriorAInicio(group) });
+  }, {
+    validators: [
+      (group: AbstractControl) => this.nacimientoAnteriorAInicio(group),
+      (group: AbstractControl) => this.egresoEtaPosteriorAIngreso(group),
+    ],
+  });
 
   // ─── Derecha y numor (edición) ───────────────────────────────────────────
   /** Solo con el permiso y si el funcionario tiene derecha (en actividad, grado con derecha). */
@@ -254,6 +263,18 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     const inicio: string = group.get('fecha_inicio')?.value || this.fechaInicioGuardada();
     if (!nacimiento || !inicio) return null;
     return nacimiento > inicio ? { fechasInconsistentes: true } : null;
+  }
+
+  // El egreso de la ETA no puede ser anterior al ingreso.
+  private egresoEtaPosteriorAIngreso(group: AbstractControl): ValidationErrors | null {
+    const ingreso: string = group.get('fecha_ingreso_eta')?.value;
+    const egreso: string = group.get('fecha_egreso_eta')?.value;
+    if (!ingreso || !egreso) return null;
+    return egreso < ingreso ? { etaInconsistente: true } : null;
+  }
+
+  etaInconsistente(): boolean {
+    return !!this.editForm.errors?.['etaInconsistente'];
   }
 
   /** Error de a pares: vive en el grupo, se muestra bajo las dos fechas. */
@@ -360,7 +381,11 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private loadPersona(): void {
     this.loadingPersona.set(true);
     this.svc.getById(this.personaId).subscribe({
-      next: p => { this.persona.set(p); this.loadingPersona.set(false); },
+      next: p => {
+        this.persona.set(p);
+        this.loadingPersona.set(false);
+        this.abrirEdicionSiSePidio();
+      },
       error: (err: HttpErrorResponse) => {
         this.loadingPersona.set(false);
         if (err.status === 404) {
@@ -374,6 +399,18 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         }
       },
     });
+  }
+
+  // "Editar" del listado entra con ?editar=1; se saca de la URL para que no se reabra al recargar.
+  private abrirEdicionSiSePidio(): void {
+    if (this.route.snapshot.queryParamMap?.get('editar') !== '1') return;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { editar: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    if (!this.editMode()) this.openEdit();
   }
 
   private setupEscalafonCascade(): void {
@@ -717,10 +754,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     if (this.cambioDerecha() && this.errorRangoDerecha()) return;
     const raw = this.editForm.getRawValue();
     const payload: PatchPersonaPayload = {
-      ...(raw.primer_nombre         && { primer_nombre:         raw.primer_nombre }),
-      segundo_nombre:                  raw.segundo_nombre   || null,
-      ...(raw.primer_apellido       && { primer_apellido:       raw.primer_apellido }),
-      segundo_apellido:                raw.segundo_apellido || null,
+      ...(raw.primer_nombre?.trim()   && { primer_nombre:         raw.primer_nombre.trim() }),
+      segundo_nombre:                  raw.segundo_nombre?.trim()   || null,
+      ...(raw.primer_apellido?.trim() && { primer_apellido:       raw.primer_apellido.trim() }),
+      segundo_apellido:                raw.segundo_apellido?.trim() || null,
       ...(raw.fecha_nacimiento      && { fecha_nacimiento:      raw.fecha_nacimiento }),
       ...(raw.genero                && { genero:                raw.genero }),
       ...(raw.estado_civil          && { estado_civil:          raw.estado_civil }),

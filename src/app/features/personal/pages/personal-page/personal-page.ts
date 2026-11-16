@@ -277,7 +277,7 @@ export class PersonalPage implements OnInit, OnDestroy {
   }
 
   editar(item: PersonaListItem): void {
-    this.router.navigate(['/personal', item.id]);
+    this.router.navigate(['/personal', item.id], { queryParams: { editar: 1 } });
   }
 
   trackPersonal = (_index: number, item: PersonaListItem) => item.id;

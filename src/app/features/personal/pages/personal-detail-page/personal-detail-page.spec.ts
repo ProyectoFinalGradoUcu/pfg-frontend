@@ -142,6 +142,42 @@ describe('PersonalDetailPage', () => {
     fixture.detectChanges();
   });
 
+  describe('validaciones de la edición y "Editar" del listado', () => {
+    it('rechaza un primer nombre o apellido de solo espacios', () => {
+      component.editForm.patchValue({ primer_nombre: '   ', primer_apellido: 'Pérez' });
+      expect(component.editForm.get('primer_nombre')!.hasError('required')).toBe(true);
+      component.editForm.patchValue({ primer_nombre: 'Juan' });
+      expect(component.editForm.get('primer_nombre')!.valid).toBe(true);
+    });
+
+    it('marca el egreso de la ETA anterior al ingreso', () => {
+      component.editForm.patchValue({ fecha_ingreso_eta: '2014-03-01', fecha_egreso_eta: '2013-12-01' });
+      expect(component.etaInconsistente()).toBe(true);
+      component.editForm.patchValue({ fecha_egreso_eta: '2016-12-01' });
+      expect(component.etaInconsistente()).toBe(false);
+    });
+
+    it('con ?editar=1 abre la ficha en modo edición y saca el parámetro de la URL', () => {
+      const router = TestBed.inject(Router) as unknown as { navigate: ReturnType<typeof vi.fn> };
+      (component as any).route = {
+        snapshot: { paramMap: { get: () => '31' }, queryParamMap: { get: () => '1' } },
+      };
+
+      (component as any).abrirEdicionSiSePidio();
+
+      expect(component.editMode()).toBe(true);
+      expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+        queryParams: { editar: null },
+        replaceUrl: true,
+      }));
+    });
+
+    it('sin el parámetro no entra en modo edición', () => {
+      (component as any).abrirEdicionSiSePidio();
+      expect(component.editMode()).toBe(false);
+    });
+  });
+
   describe('visibleTabs', () => {
     it('incluye "familiar" para un funcionario civil', () => {
       const keys = component.visibleTabs().map(t => t.key);
