@@ -10,6 +10,7 @@ import {
   leerConvocatoria,
   leerMision,
   misionPorNombre,
+  quitar,
   totalPersonalEnMision,
 } from '../fixtures/misiones';
 
@@ -252,16 +253,16 @@ test.describe('convocatorias', () => {
 
 test.describe('detalle de la convocatoria', () => {
   test('asigna un funcionario elegido en el selector', async ({ page }) => {
-    // El selector carga solo las primeras 100 personas del padrón: las que vienen después no aparecen.
-    test.fixme(true, 'el selector de personal de la convocatoria trae solo 100 personas');
     await abrirDetalle(page);
     await page.getByRole('button', { name: 'Asignar Funcionario' }).click();
     const m = modal(page);
-    await elegir(page, campo(m, 'persona_id'), `Test MisE2E ${SUF} Uno`, `MisE2E ${SUF} Uno`);
+    await elegir(page, campo(m, 'persona_id'), `Test MisE2E ${SUF} Uno · CI ${uno.cedula}`, `MisE2E ${SUF} Uno`);
     await campo(m, 'numero_orden').fill(ORDEN);
     await m.getByRole('button', { name: 'Asignar funcionario' }).click();
     await expect(page.getByText('Funcionario asignado correctamente')).toBeVisible();
     await expect(fila(page, uno.cedula)).toContainText(ORDEN);
+    // Los tests siguientes arrancan con la convocatoria vacía.
+    await quitar(api, misionId!, convId, uno.id);
   });
 
   test('pide orden o boletín al asignar', async ({ page }) => {

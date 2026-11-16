@@ -14,6 +14,9 @@ import { DEBOUNCE_MS } from '../../retiro-presentacion';
 import { Select } from '../../../../shared/components/select/select';
 import { DocumentoAdjunto } from '../../../../shared/components/documento-adjunto/documento-adjunto';
 import { ToastService } from '../../../../core/services/toast.service';
+import { PersonaListItem } from '../../../../core/models/personal.models';
+import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
+import { By } from '@angular/platform-browser';
 
 function makePrevia(overrides: Partial<PreviaRetiro> = {}): PreviaRetiro {
   return {
@@ -45,6 +48,11 @@ function makeRetiro(): Retiro {
 }
 
 const esperarDebounce = () => new Promise((r) => setTimeout(r, DEBOUNCE_MS + 60));
+const esperarBusqueda = () => new Promise((r) => setTimeout(r, DEBOUNCE_BUSQUEDA_MS + 60));
+
+function pagina(items: PersonaListItem[]) {
+  return of({ items, total: items.length, page: 1, pageSize: 20 });
+}
 
 describe('RetiroFormModal', () => {
   let fixture: ComponentFixture<RetiroFormModal>;
@@ -56,6 +64,7 @@ describe('RetiroFormModal', () => {
   };
   let catalogos: { getMotivosBaja: ReturnType<typeof vi.fn> };
   let toast: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
+  let personal: { findAll: ReturnType<typeof vi.fn>; findPaginado: ReturnType<typeof vi.fn> };
 
   async function montar(personaId: string | null = '1'): Promise<void> {
     await TestBed.configureTestingModule({
@@ -65,10 +74,7 @@ describe('RetiroFormModal', () => {
         { provide: RetirosService, useValue: retiros },
         { provide: CatalogosService, useValue: catalogos },
         { provide: ToastService, useValue: toast },
-        {
-          provide: PersonalService,
-          useValue: { findAll: vi.fn().mockReturnValue(of([])) },
-        },
+        { provide: PersonalService, useValue: personal },
       ],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
     }).compileComponents();
@@ -91,6 +97,10 @@ describe('RetiroFormModal', () => {
       subirDocumento: vi.fn().mockReturnValue(of({})),
     };
     toast = { error: vi.fn(), success: vi.fn() };
+    personal = {
+      findAll: vi.fn().mockReturnValue(of([])),
+      findPaginado: vi.fn().mockReturnValue(pagina([])),
+    };
     catalogos = {
       getMotivosBaja: vi
         .fn()
@@ -453,9 +463,62 @@ describe('RetiroFormModal', () => {
     expect(component.paso()).toBe('persona');
   });
 
-  it('sin personaId carga el padrón para el selector con buscador', async () => {
-    await montar(null);
-    expect(TestBed.inject(PersonalService).findAll).toHaveBeenCalled();
+  describe('selector de funcionario con búsqueda en el servidor', () => {
+    const DAGALIPEGA: PersonaListItem = {
+      id: '2400', nombre: 'Juan Dagalipega', cedula: '41234567', rango: 'Cabo', destino: null, estado: null, relacion_estado: 'activo',
+    };
+    const selector = () => fixture.debugElement.query(By.directive(Select)).componentInstance as Select;
+
+    async function buscar(texto: string): Promise<void> {
+      selector().searchChange.emit(texto);
+      await esperarBusqueda();
+      fixture.detectChanges();
+    }
+
+    it('no carga una lista de 100 para filtrar en el navegador', async () => {
+      await montar(null);
+      expect(personal.findAll).not.toHaveBeenCalled();
+      expect(selector().remoteSearch).toBe(true);
+    });
+
+    it('encuentra a quien no está entre los primeros 100, por apellido', async () => {
+      await montar(null);
+      personal.findPaginado.mockReturnValue(pagina([DAGALIPEGA]));
+      await buscar('DAGALIPEGA');
+
+      expect(personal.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: 'DAGALIPEGA' }));
+      expect(selector().items).toEqual([expect.objectContaining({ id: '2400' })]);
+    });
+
+    it('busca por cédula y la muestra en la opción', async () => {
+      await montar(null);
+      personal.findPaginado.mockReturnValue(pagina([DAGALIPEGA]));
+      await buscar('41234567');
+
+      expect(personal.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: '41234567' }));
+      expect(selector().getLabelOf(selector().items[0])).toContain('41234567');
+    });
+
+    it('solo ofrece personal en actividad: no pide a los retirados', async () => {
+      await montar(null);
+      await buscar('DAGALIPEGA');
+      expect(personal.findPaginado).not.toHaveBeenCalledWith(expect.objectContaining({ incluir_inactivos: true }));
+    });
+
+    it('el elegido se sigue viendo en el selector aunque una búsqueda nueva no lo traiga', async () => {
+      await montar(null);
+      personal.findPaginado.mockReturnValue(pagina([DAGALIPEGA]));
+      await buscar('DAGALIPEGA');
+      component.elegirPersona('2400');
+      expect(component.personaElegida()?.nombre).toBe('Juan Dagalipega');
+
+      component.cambiarPersona();
+      fixture.detectChanges();
+      personal.findPaginado.mockReturnValue(pagina([]));
+      await buscar('otro');
+
+      expect(selector().selectedLabel()).toContain('Juan Dagalipega');
+    });
   });
 
   describe('cambiar de funcionario sin cerrar el modal', () => {
@@ -466,7 +529,9 @@ describe('RetiroFormModal', () => {
 
     async function montarConPadron(): Promise<void> {
       await montar(null);
-      component.personal.set(padron);
+      personal.findPaginado.mockReturnValue(pagina(padron));
+      (fixture.debugElement.query(By.directive(Select)).componentInstance as Select).searchChange.emit('');
+      await esperarBusqueda();
     }
 
     it('elegir a otro funcionario vuelve al paso de datos con la persona nueva', async () => {
@@ -528,9 +593,11 @@ describe('RetiroFormModal', () => {
     });
   });
 
-  it('con personaId no carga el padrón: la persona ya está elegida', async () => {
+  it('con personaId no busca personas: la persona ya está elegida', async () => {
     await montar('1');
-    expect(TestBed.inject(PersonalService).findAll).not.toHaveBeenCalled();
+    await esperarBusqueda();
+    expect(personal.findAll).not.toHaveBeenCalled();
+    expect(personal.findPaginado).not.toHaveBeenCalled();
   });
 });
 

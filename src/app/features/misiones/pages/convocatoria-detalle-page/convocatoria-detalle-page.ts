@@ -9,7 +9,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
 import { ArchivosPendientes, SlotVista, armarSlots, subirPendientes } from '../../../../core/services/documentos-registro';
 import { MisionesService } from '../../../../core/services/misiones.service';
-import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
+import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 import {
   FiltroCategoria,
   OPCIONES_FILTRO_CATEGORIA,
@@ -33,7 +33,6 @@ export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly misionesService = inject(MisionesService);
-  private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -63,7 +62,7 @@ export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
   readonly quitando = signal(false);
   readonly menuAbierto = signal<string | null>(null);
   readonly menuPosition = signal<{ top: number; right: number } | null>(null);
-  readonly personal = signal<PersonaListItem[]>([]);
+  readonly buscador = new BuscadorPersonas();
   readonly funcionarios = signal<FuncionarioConvocatoria[]>([]);
   readonly funcionariosTotal = signal(0);
   readonly funcionariosPage = signal(1);
@@ -130,9 +129,7 @@ export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
     this.misionId = this.route.snapshot.paramMap.get('misionId')!;
     const convocatoriaId = this.route.snapshot.paramMap.get('convocatoriaId')!;
     this.cargar(convocatoriaId);
-    this.personalService.findAll().subscribe({
-      next: (p) => this.personal.set(p),
-    });
+    this.buscador.vincular(this.asignarForm.controls.persona_id);
 
     this.busquedaSubject.pipe(debounceTime(350)).subscribe(() => {
       const c = this.convocatoria();

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -11,6 +11,10 @@ import { MisionesService } from '../../../../core/services/misiones.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { By } from '@angular/platform-browser';
+import { Select } from '../../../../shared/components/select/select';
+import { PersonaListItem } from '../../../../core/models/personal.models';
+import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
 import { Convocatoria, MisionDefinicion } from '../../../../core/models/misiones.models';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -49,7 +53,7 @@ describe('MisionConvocatoriasPage', () => {
   let component: MisionConvocatoriasPage;
   let fixture: ComponentFixture<MisionConvocatoriasPage>;
   let misionesService: ReturnType<typeof makeMisionesServiceSpy>;
-  let personalService: { findAll: ReturnType<typeof vi.fn> };
+  let personalService: { findAll: ReturnType<typeof vi.fn>; findPaginado: ReturnType<typeof vi.fn> };
   let authService: { hasPermiso: ReturnType<typeof vi.fn> };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
@@ -69,15 +73,18 @@ describe('MisionConvocatoriasPage', () => {
 
   async function setup(misionId = '1', hasPermiso = true) {
     misionesService = makeMisionesServiceSpy();
-    personalService = { findAll: vi.fn().mockReturnValue(of([])) };
+    personalService = {
+      findAll: vi.fn().mockReturnValue(of([])),
+      findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 20 })),
+    };
     authService = { hasPermiso: vi.fn().mockReturnValue(hasPermiso) };
     toastService = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
     router = { navigate: vi.fn() };
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      declarations: [MisionConvocatoriasPage],
-      imports: [ReactiveFormsModule],
+      declarations: [MisionConvocatoriasPage, Select],
+      imports: [FormsModule, ReactiveFormsModule],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
       providers: [
         { provide: MisionesService, useValue: misionesService },
@@ -107,11 +114,81 @@ describe('MisionConvocatoriasPage', () => {
       expect(component).toBeTruthy();
     });
 
-    it('carga la misión, las convocatorias y el personal', async () => {
+    it('carga la misión y las convocatorias sin traer una lista de 100 personas', async () => {
       await setup();
       expect(misionesService.findDefinicionById).toHaveBeenCalledWith('1');
       expect(misionesService.findConvocatorias).toHaveBeenCalled();
-      expect(personalService.findAll).toHaveBeenCalled();
+      expect(personalService.findAll).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Nueva Convocatoria: selector de personal con búsqueda en el servidor', () => {
+    const DAGALIPEGA: PersonaListItem = {
+      id: '2400', nombre: 'Juan Dagalipega', cedula: '41234567', rango: 'Cabo', destino: null, estado: null, relacion_estado: 'activo',
+    };
+    const PEREYRA: PersonaListItem = {
+      id: '1', nombre: 'Ana Pereyra', cedula: '60000001', rango: 'Teniente', destino: null, estado: null, relacion_estado: 'activo',
+    };
+
+    function responder(items: PersonaListItem[]): void {
+      personalService.findPaginado.mockReturnValue(of({ items, total: items.length, page: 1, pageSize: 20 }));
+    }
+
+    function selector(): Select {
+      fixture.detectChanges();
+      return fixture.debugElement.query(By.css('app-select[formControlName="persona_ids"]')).componentInstance as Select;
+    }
+
+    async function buscar(select: Select, texto: string): Promise<void> {
+      select.searchChange.emit(texto);
+      await new Promise((r) => setTimeout(r, DEBOUNCE_BUSQUEDA_MS + 60));
+      fixture.detectChanges();
+    }
+
+    it('encuentra por apellido a quien no está entre los primeros 100', async () => {
+      await setup();
+      component.abrirNuevaConvocatoria();
+      const select = selector();
+      expect(select.remoteSearch).toBe(true);
+
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+
+      expect(personalService.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: 'DAGALIPEGA' }));
+      expect(select.items).toEqual([expect.objectContaining({ id: '2400' })]);
+    });
+
+    it('busca por cédula', async () => {
+      await setup();
+      component.abrirNuevaConvocatoria();
+      const select = selector();
+
+      responder([DAGALIPEGA]);
+      await buscar(select, '41234567');
+
+      expect(personalService.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: '41234567' }));
+    });
+
+    it('conserva a los elegidos de búsquedas anteriores y los manda al crear', async () => {
+      await setup();
+      component.abrirNuevaConvocatoria();
+      component.convocatoriaForm.patchValue({ numero_orden: 'ORD-1' });
+      const select = selector();
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+      responder([PEREYRA]);
+      await buscar(select, 'PEREYRA');
+      select.pick(select.items.find((p) => (p as PersonaListItem).id === '1'));
+
+      expect(select.multipleLabel()).toContain('Juan Dagalipega');
+      expect(select.multipleLabel()).toContain('Ana Pereyra');
+
+      component.guardarConvocatoria();
+      expect(misionesService.crearConvocatoria).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({ persona_ids: [2400, 1] }),
+      );
     });
 
     it('usa el misionId de la ruta', async () => {

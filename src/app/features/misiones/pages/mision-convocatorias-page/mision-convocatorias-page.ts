@@ -7,7 +7,7 @@ import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
-import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
+import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
 import { ArchivosPendientes, subirPendientes } from '../../../../core/services/documentos-registro';
 import { Convocatoria, MisionDefinicion } from '../../../../core/models/misiones.models';
@@ -25,7 +25,6 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly misionesService = inject(MisionesService);
-  private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -42,7 +41,7 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
   readonly modal = signal<ModalKind>(null);
   readonly modalError = signal<string | null>(null);
   readonly convocatoriaSeleccionada = signal<Convocatoria | null>(null);
-  readonly personal = signal<PersonaListItem[]>([]);
+  readonly buscador = new BuscadorPersonas();
 
   readonly convocatorias = signal<Convocatoria[]>([]);
   readonly convPage = signal(1);
@@ -74,7 +73,7 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
     this.pendientes.descartarSiVacio(this.convocatoriaForm.controls.boletin, 'boletin', this.destroy$);
     this.cargarMision();
     this.cargarConvocatorias();
-    this.personalService.findAll().subscribe({ next: (p) => this.personal.set(p) });
+    this.buscador.vincular(this.convocatoriaForm.controls.persona_ids);
 
     this.filtroSubject.pipe(debounceTime(350)).subscribe(() => {
       this.convPage.set(1);

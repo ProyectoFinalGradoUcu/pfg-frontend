@@ -35,7 +35,7 @@ import { mensajeErrorDocumento } from '../../../../core/services/documentos-pers
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { CatalogosService } from '../../../../core/services/catalogos.service';
-import { PersonalService } from '../../../../core/services/personal.service';
+import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 import { parseError } from '../../../../shared/utils/parse-error';
 import { DEBOUNCE_MS } from '../../retiro-presentacion';
 
@@ -74,7 +74,6 @@ export class RetiroFormModal implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly retirosService = inject(RetirosService);
   private readonly catalogos = inject(CatalogosService);
-  private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
 
   /** `null` abre el paso de selección: es la entrada desde el listado. */
@@ -105,9 +104,8 @@ export class RetiroFormModal implements OnInit, OnDestroy {
   readonly inscripcionesElegidas = signal<string[]>([]);
   readonly comisionesElegidas = signal<string[]>([]);
 
-  // Paso 0: el padrón completo en un `app-select` con buscador.
-  readonly personal = signal<PersonaListItem[]>([]);
-  readonly cargandoPersonal = signal(false);
+  // Paso 0: el buscador trae solo personal en actividad (el backend excluye a los retirados).
+  readonly buscador = new BuscadorPersonas();
   readonly personaElegida = signal<PersonaListItem | null>(null);
 
   /** El backend rechaza un retiro con fecha futura. */
@@ -169,8 +167,6 @@ export class RetiroFormModal implements OnInit, OnDestroy {
         },
       });
 
-    if (!this.personaId) this.cargarPersonal();
-
     // Sin número no se adjunta: si lo borran, el archivo elegido se descarta.
     for (const slot of SLOTS) {
       this.form.controls[CAMPO_NUMERO[slot]].valueChanges
@@ -193,19 +189,6 @@ export class RetiroFormModal implements OnInit, OnDestroy {
     });
   }
 
-  /** El padrón activo es exactamente a quién se puede retirar. */
-  private cargarPersonal(): void {
-    this.cargandoPersonal.set(true);
-    this.personal.set([]);
-    this.personalService.findAll().subscribe({
-      next: (p) => {
-        this.personal.set(p);
-        this.cargandoPersonal.set(false);
-      },
-      error: () => this.cargandoPersonal.set(false),
-    });
-  }
-
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
@@ -224,10 +207,12 @@ export class RetiroFormModal implements OnInit, OnDestroy {
     );
   }
 
-  /** El `app-select` emite el id; la persona se resuelve del catálogo ya cargado. */
+  /** El `app-select` emite el id; la persona se resuelve de lo que trajo la búsqueda. */
   elegirPersona(id: string | null): void {
-    const elegida = this.personal().find((p) => p.id === id) ?? null;
+    const elegida = this.buscador.persona(id);
     if (elegida?.id === this.personaId) return;
+
+    this.buscador.recordar(elegida?.id ?? null);
 
     this.personaElegida.set(elegida);
     this.personaId = elegida?.id ?? null;

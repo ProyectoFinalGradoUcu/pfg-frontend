@@ -17,7 +17,8 @@ import {
   subirPendientes,
 } from '../../../../core/services/documentos-registro';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
-import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
+import { PersonalService } from '../../../../core/services/personal.service';
+import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 import {
   FiltroCategoria,
   OPCIONES_FILTRO_CATEGORIA,
@@ -109,7 +110,9 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly filtroDerecha = signal<FiltroDerechaNumor>({ ...FILTRO_DERECHA_NUMOR_INICIAL });
   readonly buscandoCedula = signal(false);
-  readonly personal = signal<PersonaListItem[]>([]);
+  readonly buscadorRegistrar = new BuscadorPersonas();
+  readonly buscadorNuevoCurso = new BuscadorPersonas();
+  readonly buscadorDesignar = new BuscadorPersonas();
   readonly historialPage = signal(1);
   readonly historialPageSize = 10;
   readonly archivoCertificado = signal<File | null>(null);
@@ -333,6 +336,9 @@ export class CursosPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     const section = this.route.snapshot.data['section'] as TabKind;
     if (section) this.tab.set(section);
+    this.buscadorRegistrar.vincular(this.registrarForm.controls.personaId);
+    this.buscadorNuevoCurso.vincular(this.nuevoCursoForm.controls.persona_ids);
+    this.buscadorDesignar.vincular(this.designarForm.controls.persona_ids);
     this.pendientes.descartarSiVacio(this.designarForm.controls.numero_orden, 'orden', this.destroy$);
     this.pendientes.descartarSiVacio(this.designarForm.controls.boletin, 'boletin', this.destroy$);
     this.pendientes.descartarSiVacio(this.nuevoCursoForm.controls.numero_orden, 'orden', this.destroy$);
@@ -393,12 +399,10 @@ export class CursosPage implements OnInit, OnDestroy {
           this.filtroDerecha(),
         )
         .pipe(catchError(() => of([]))),
-      personal: this.personalService.findAll().pipe(catchError(() => of([]))),
     }).subscribe({
-      next: ({ funcionarios, personal }) => {
+      next: ({ funcionarios }) => {
         this.funcionarios.set(funcionarios);
         this.refrescarDocumentos();
-        this.personal.set(personal);
         this.loading.set(false);
       },
       error: (err: HttpErrorResponse) => {

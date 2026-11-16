@@ -11,6 +11,10 @@ import { CursosService } from '../../../../core/services/cursos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { By } from '@angular/platform-browser';
+import { Select } from '../../../../shared/components/select/select';
+import { PersonaListItem } from '../../../../core/models/personal.models';
+import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
 import {
   CursoDefinicion,
   CursoFuncionarioItem,
@@ -69,7 +73,11 @@ describe('CursosPage', () => {
   let component: CursosPage;
   let fixture: ComponentFixture<CursosPage>;
   let cursosService: ReturnType<typeof makeCursosServiceSpy>;
-  let personalService: { findAll: ReturnType<typeof vi.fn>; getBases: ReturnType<typeof vi.fn> };
+  let personalService: {
+    findAll: ReturnType<typeof vi.fn>;
+    findPaginado: ReturnType<typeof vi.fn>;
+    getBases: ReturnType<typeof vi.fn>;
+  };
   let authService: {
     hasPermiso: ReturnType<typeof vi.fn>;
     puedeConAlcance: ReturnType<typeof vi.fn>;
@@ -111,6 +119,7 @@ describe('CursosPage', () => {
     cursosService = makeCursosServiceSpy();
     personalService = {
       findAll: vi.fn().mockReturnValue(of([])),
+      findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 20 })),
       getBases: vi.fn().mockReturnValue(
         of([BAI, ETA].map((b) => ({ ...b, unidad_id: Number(b.comando.id), etiqueta: `${b.denominacion} (${b.comando.denominacion})` }))),
       ),
@@ -130,7 +139,7 @@ describe('CursosPage', () => {
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      declarations: [CursosPage],
+      declarations: [CursosPage, Select],
       imports: [ReactiveFormsModule],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
       providers: [
@@ -197,9 +206,126 @@ describe('CursosPage', () => {
       expect(cursosService.findAllDefiniciones).toHaveBeenCalled();
     });
 
-    it('llama a findAll de PersonalService en ngOnInit', async () => {
+    it('no carga 100 personas al iniciar: los selectores buscan en el servidor', async () => {
       await setup();
-      expect(personalService.findAll).toHaveBeenCalled();
+      expect(personalService.findAll).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('selectores de personal con búsqueda en el servidor', () => {
+    const DAGALIPEGA: PersonaListItem = {
+      id: '2400', nombre: 'Juan Dagalipega', cedula: '41234567', rango: 'Cabo', destino: null, estado: null, relacion_estado: 'activo',
+    };
+    const PEREYRA: PersonaListItem = {
+      id: '1', nombre: 'Ana Pereyra', cedula: '60000001', rango: 'Teniente', destino: null, estado: null, relacion_estado: 'activo',
+    };
+
+    function responder(items: PersonaListItem[]): void {
+      personalService.findPaginado.mockReturnValue(of({ items, total: items.length, page: 1, pageSize: 20 }));
+    }
+
+    function selector(control: string): Select {
+      fixture.detectChanges();
+      const el = fixture.debugElement.query(By.css(`app-select[formControlName="${control}"]`));
+      return el.componentInstance as Select;
+    }
+
+    async function buscar(select: Select, texto: string): Promise<void> {
+      select.searchChange.emit(texto);
+      await new Promise((r) => setTimeout(r, DEBOUNCE_BUSQUEDA_MS + 60));
+      fixture.detectChanges();
+    }
+
+    it('Registrar Curso encuentra por apellido a quien no está entre los primeros 100', async () => {
+      await setup('inscripciones');
+      component.abrirRegistrar();
+      const select = selector('personaId');
+      expect(select.remoteSearch).toBe(true);
+
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+
+      expect(personalService.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: 'DAGALIPEGA' }));
+      expect(select.items).toEqual([expect.objectContaining({ id: '2400' })]);
+    });
+
+    it('Registrar Curso busca por cédula', async () => {
+      await setup('inscripciones');
+      component.abrirRegistrar();
+      const select = selector('personaId');
+
+      responder([DAGALIPEGA]);
+      await buscar(select, '41234567');
+
+      expect(personalService.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: '41234567' }));
+      select.pick(select.items[0]);
+      expect(component.registrarForm.controls.personaId.value).toBe('2400');
+    });
+
+    it('Registrar Curso sigue mostrando al elegido después de otra búsqueda', async () => {
+      await setup('inscripciones');
+      component.abrirRegistrar();
+      const select = selector('personaId');
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+
+      responder([PEREYRA]);
+      await buscar(select, 'PEREYRA');
+
+      expect(select.selectedLabel()).toContain('Juan Dagalipega');
+    });
+
+    it('Nuevo Curso con "Designar ahora" busca en el servidor y conserva a los elegidos', async () => {
+      await setup();
+      component.abrirNuevoCurso();
+      component.nuevoCursoForm.patchValue({ designar_ahora: true });
+      const select = selector('persona_ids');
+      expect(select.remoteSearch).toBe(true);
+
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+      responder([PEREYRA]);
+      await buscar(select, 'PEREYRA');
+      select.pick(select.items.find((p) => (p as PersonaListItem).id === '1'));
+
+      expect(component.nuevoCursoForm.controls.persona_ids.value).toEqual(['2400', '1']);
+      expect(select.multipleLabel()).toContain('Juan Dagalipega');
+      expect(select.multipleLabel()).toContain('Ana Pereyra');
+    });
+
+    it('Designar / Dictar busca en el servidor y conserva a los elegidos', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso({ id: '7' }));
+      const select = selector('persona_ids');
+      expect(select.remoteSearch).toBe(true);
+
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+      responder([PEREYRA]);
+      await buscar(select, 'PEREYRA');
+
+      expect(component.designarForm.controls.persona_ids.value).toEqual(['2400']);
+      expect(select.multipleLabel()).toContain('Juan Dagalipega');
+    });
+
+    it('al reabrir un modal no quedan elegidos de la vez anterior', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso({ id: '7' }));
+      let select = selector('persona_ids');
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+
+      component.cerrarModal();
+      component.abrirDesignar(makeCurso({ id: '7' }));
+      select = selector('persona_ids');
+      responder([PEREYRA]);
+      await buscar(select, '');
+
+      expect(select.items.map((p) => (p as PersonaListItem).id)).toEqual(['1']);
     });
   });
 
