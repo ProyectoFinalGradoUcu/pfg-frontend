@@ -15,6 +15,8 @@ import { SearchInput } from './components/search-input/search-input';
 import { ClearFiltersButton } from './components/clear-filters-button/clear-filters-button';
 import { DateInput } from './components/date-input/date-input';
 import { DocumentoAdjunto } from './components/documento-adjunto/documento-adjunto';
+import { DocumentosRegistroComponent } from './components/documentos-registro/documentos-registro';
+import { DocumentosRegistroModal } from './components/documentos-registro-modal/documentos-registro-modal';
 
 @NgModule({
   declarations: [
@@ -31,6 +33,8 @@ import { DocumentoAdjunto } from './components/documento-adjunto/documento-adjun
     ClearFiltersButton,
     DateInput,
     DocumentoAdjunto,
+    DocumentosRegistroComponent,
+    DocumentosRegistroModal,
   ],
   imports: [CommonModule, FormsModule, RouterModule],
   exports: [
@@ -47,6 +51,8 @@ import { DocumentoAdjunto } from './components/documento-adjunto/documento-adjun
     ClearFiltersButton,
     DateInput,
     DocumentoAdjunto,
+    DocumentosRegistroComponent,
+    DocumentosRegistroModal,
   ],
 })
 export class SharedModule {}

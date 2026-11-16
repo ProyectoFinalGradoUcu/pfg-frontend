@@ -49,6 +49,7 @@ describe('PersonalService', () => {
           boletin: null,
           observaciones: null,
           activo: true,
+          documentos: { orden: null, boletin: null },
         },
       ]);
       expect(result!.length).toBe(1);

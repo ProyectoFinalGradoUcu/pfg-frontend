@@ -92,6 +92,10 @@ describe('CursosPage', () => {
       createModulo: vi.fn().mockReturnValue(of(makeModulo())),
       deleteModulo: vi.fn().mockReturnValue(of(undefined)),
       crearDesignacion: vi.fn().mockReturnValue(of({ personas_designadas: 1 })),
+      subirDocumentoDesignaciones: vi.fn().mockReturnValue(of({ adjuntados: 2 })),
+      documentosDesignacion: vi.fn().mockReturnValue({
+        subir: vi.fn(), quitar: vi.fn(), inspeccionar: vi.fn(), url: vi.fn(),
+      }),
       registrarCalificacion: vi.fn().mockReturnValue(of({ id: 'x', curso_id: 'c1', persona_id: 'f1', aprobado: true, calificacion: 8, observacion: null })),
       registrarCalificacionesMasivas: vi.fn().mockReturnValue(of([])),
     };
@@ -102,6 +106,7 @@ describe('CursosPage', () => {
     routeSection: 'catalogo' | 'inscripciones' = 'catalogo',
     hasPermiso = true,
     basesPropias: (typeof BAI)[] | null = null,
+    permisos?: Record<string, 'global' | 'unidad'>,
   ) {
     cursosService = makeCursosServiceSpy();
     personalService = {
@@ -117,6 +122,10 @@ describe('CursosPage', () => {
       alcanceDe: vi.fn().mockReturnValue(alcance),
       currentUser: () => ({ unidades: basesPropias ?? [] }),
     };
+    if (permisos) {
+      authService.alcanceDe.mockImplementation((p: string) => permisos[p] ?? null);
+      authService.puedeConAlcance.mockImplementation((p: string) => !!permisos[p]);
+    }
     toastService = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
 
     TestBed.resetTestingModule();
@@ -1223,6 +1232,158 @@ describe('CursosPage', () => {
   });
 
   // ── puedeGestionar ─────────────────────────────────────────────────────────
+
+  describe('documentos de la designación', () => {
+    const pdf = (name: string) => new File(['x'], name, { type: 'application/pdf' });
+    const respuesta = { personas_designadas: 2, designaciones: [{ id: '12', persona_id: '1' }, { id: '13', persona_id: '2' }] };
+
+    function designarConArchivos() {
+      component.abrirDesignar(makeCurso({ id: 'cd1' }));
+      component.designarForm.patchValue({
+        numero_orden: 'N1', boletin: 'B1', fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01', persona_ids: ['1', '2'],
+      });
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+      component.pendientes.elegir('boletin', pdf('boletin.pdf'));
+    }
+
+    it('designar con archivo: una sola subida por slot con todos los ids', async () => {
+      await setup();
+      cursosService.crearDesignacion.mockReturnValue(of(respuesta));
+      designarConArchivos();
+      component.guardarDesignar();
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledTimes(2);
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledWith('cd1', 'orden', expect.any(File), ['12', '13']);
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledWith('cd1', 'boletin', expect.any(File), ['12', '13']);
+      expect(component.modal()).toBeNull();
+    });
+
+    it('Designar ahora con archivo: igual', async () => {
+      await setup();
+      cursosService.crearDesignacion.mockReturnValue(of(respuesta));
+      component.abrirNuevoCurso();
+      component.nuevoCursoForm.patchValue({
+        nombre_curso: 'Mi Curso', institucion: 'UCU', designar_ahora: true, persona_ids: ['1', '2'],
+        fecha_inicio: '2026-03-01', fecha_fin: '2026-04-01', numero_orden: 'O1',
+      });
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+      component.guardarNuevoCurso();
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledTimes(1);
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledWith(makeCurso().id, 'orden', expect.any(File), ['12', '13']);
+      expect(component.modal()).toBeNull();
+      expect(toastService.success).toHaveBeenCalled();
+    });
+
+    it('si la subida falla, avisa y cierra igual', async () => {
+      await setup();
+      cursosService.crearDesignacion.mockReturnValue(of(respuesta));
+      cursosService.subirDocumentoDesignaciones.mockReturnValue(throwError(() => makeHttpError('formato inválido')));
+      designarConArchivos();
+      component.guardarDesignar();
+      expect(toastService.error).toHaveBeenCalledWith(
+        expect.stringContaining('La designación se registró, pero no se pudo subir «orden.pdf»'),
+        8000,
+      );
+      expect(toastService.error.mock.calls[0][0]).toContain('Podés adjuntarlo desde la tabla de designados.');
+      expect(component.modal()).toBeNull();
+      expect(toastService.success).toHaveBeenCalled();
+    });
+
+    it('sin archivos no sube nada', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso({ id: 'cd1' }));
+      component.designarForm.patchValue({ numero_orden: 'N1', fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01', persona_ids: ['1'] });
+      component.guardarDesignar();
+      expect(cursosService.subirDocumentoDesignaciones).not.toHaveBeenCalled();
+    });
+
+    it('Documentos abre el modal de la designación', async () => {
+      await setup('inscripciones');
+      const doc = { nombre_original: 'a.pdf', content_type: 'application/pdf', tamanio_bytes: '1', subido_en: '2026-01-01' };
+      component.funcionarios.set([
+        makeFuncionario({
+          cursos: [makeCursoFuncionario({
+            id: 'c9', designacionId: '55', numero_orden: 'O-7', boletin: null,
+            documentos: { orden: doc, boletin: null },
+          })],
+        }),
+      ]);
+      fixture.detectChanges();
+      component.abrirDocumentos(component.filasFlat()[0]);
+      fixture.detectChanges();
+      expect(cursosService.documentosDesignacion).toHaveBeenCalledWith('c9', '55');
+      const slots = component.slotsDocumentos();
+      expect(slots.map((x) => x.slot)).toEqual(['orden', 'boletin']);
+      expect(slots[0]).toMatchObject({ numero: 'O-7', documento: doc, editable: true });
+      expect(fixture.nativeElement.querySelector('app-documentos-registro-modal')).not.toBeNull();
+    });
+
+    it('designación por módulo: el número del slot sale de los módulos', async () => {
+      await setup('inscripciones');
+      component.funcionarios.set([
+        makeFuncionario({
+          cursos: [makeCursoFuncionario({
+            numero_orden: null, boletin: null,
+            modulos: [
+              { numero_orden: 'O-1', boletin: 'B-1' },
+              { numero_orden: 'O-1', boletin: 'B-2' },
+            ],
+          })],
+        }),
+      ]);
+      component.abrirDocumentos(component.filasFlat()[0]);
+      const [orden, boletin] = component.slotsDocumentos();
+      expect(orden.numero).toBe('O-1');
+      expect(boletin.numero).toBeNull();
+    });
+
+    async function abrirDocumentosDeFila() {
+      component.funcionarios.set([makeFuncionario({ cursos: [makeCursoFuncionario({ numero_orden: 'O-1' })] })]);
+      component.abrirDocumentos(component.filasFlat()[0]);
+    }
+
+    it('sin gestionar, los documentos se ven pero no se editan', async () => {
+      await setup('inscripciones', true, null, { 'cursos.ver': 'global' });
+      await abrirDocumentosDeFila();
+      expect(component.puedeVerDocumentos()).toBe(true);
+      expect(component.slotsDocumentos().every((x) => x.editable === false)).toBe(true);
+    });
+
+    it('solo con gestionar (sin cursos.ver) no se pueden ver documentos', async () => {
+      await setup('inscripciones', true, null, { 'cursos.gestionar': 'unidad' });
+      expect(component.puedeVerDocumentos()).toBe(false);
+    });
+
+    it('con cursos.gestionar.unidad los slots son editables', async () => {
+      await setup('inscripciones', false, null, { 'cursos.gestionar': 'unidad' });
+      await abrirDocumentosDeFila();
+      expect(component.slotsDocumentos().every((x) => x.editable === true)).toBe(true);
+    });
+
+    it('si la respuesta no trae designaciones, no sube nada', async () => {
+      await setup();
+      cursosService.crearDesignacion.mockReturnValue(of({ personas_designadas: 1 }));
+      designarConArchivos();
+      component.guardarDesignar();
+      expect(cursosService.subirDocumentoDesignaciones).not.toHaveBeenCalled();
+      expect(component.modal()).toBeNull();
+    });
+
+    it('no deja cerrar el modal mientras designa', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso());
+      component.designando.set(true);
+      component.cerrarModal();
+      expect(component.modal()).toBe('designar');
+    });
+
+    it('el botón no deja cerrar el modal mientras sube', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso());
+      component.subiendoDocumentos.set(true);
+      component.cerrarModal();
+      expect(component.modal()).toBe('designar');
+    });
+  });
 
   describe('permiso cursos.gestionar', () => {
     it('puedeGestionar es true si el service devuelve true', async () => {

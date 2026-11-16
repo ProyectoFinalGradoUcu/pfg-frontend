@@ -8,6 +8,7 @@ import { vi } from 'vitest';
 import { DestinoFormModal } from './destino-form-modal';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
+import { ToastService } from '../../../../core/services/toast.service';
 import { Destino } from '../../../../core/models/destinos.models';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { Select } from '../../../../shared/components/select/select';
@@ -30,6 +31,7 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
     fecha_resolucion: null,
     observaciones: null,
     activo: true,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
@@ -56,15 +58,21 @@ describe('DestinoFormModal (crear)', () => {
     editar: ReturnType<typeof vi.fn>;
     listar: ReturnType<typeof vi.fn>;
     listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    documentos: ReturnType<typeof vi.fn>;
   };
   let personalService: { findPaginado: ReturnType<typeof vi.fn> };
+  let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+  let subir: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    subir = vi.fn().mockReturnValue(of({}));
+    toastService = { success: vi.fn(), error: vi.fn() };
     destinosService = {
       crear: vi.fn().mockReturnValue(of(makeDestino())),
       editar: vi.fn().mockReturnValue(of(makeDestino())),
       listar: vi.fn().mockReturnValue(of(makeLista())),
       listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+      documentos: vi.fn().mockReturnValue({ subir }),
     };
     personalService = {
       findPaginado: vi.fn().mockReturnValue(of({ items: [makePersona()], total: 1, page: 1, pageSize: 10 })),
@@ -76,6 +84,7 @@ describe('DestinoFormModal (crear)', () => {
       providers: [
         { provide: DestinosService, useValue: destinosService },
         { provide: PersonalService, useValue: personalService },
+        { provide: ToastService, useValue: toastService },
       ],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
     }).compileComponents();
@@ -277,6 +286,73 @@ describe('DestinoFormModal (crear)', () => {
     });
   });
 
+  describe('documentos adjuntos', () => {
+    const pdf = (nombre: string) => new File(['x'], nombre, { type: 'application/pdf' });
+
+    beforeEach(() => {
+      component.elegirPersona(makePersona());
+      component.form.patchValue({ sub_unidad_id: '7', fecha_inicio: '2026-09-01', numero_orden: 'O.D. 1' });
+    });
+
+    it('alta con archivo: registra y después sube el documento', () => {
+      const emitido: Destino[] = [];
+      component.guardado.subscribe((d) => emitido.push(d));
+      const archivo = pdf('orden.pdf');
+      component.pendientes.elegir('orden', archivo);
+
+      component.guardar();
+
+      expect(destinosService.crear).toHaveBeenCalled();
+      expect(destinosService.documentos).toHaveBeenCalledWith('200');
+      expect(subir).toHaveBeenCalledWith('orden', archivo);
+      expect(emitido.length).toBe(1);
+    });
+
+    it('alta: si la subida falla, avisa y emite igual', () => {
+      subir.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      const emitido: Destino[] = [];
+      component.guardado.subscribe((d) => emitido.push(d));
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+
+      component.guardar();
+
+      const [msg, ms] = toastService.error.mock.calls[0];
+      expect(msg).toContain('El destino se registró, pero no se pudo subir «orden.pdf»');
+      expect(msg).toContain('Podés adjuntarlo desde Asignaciones.');
+      expect(ms).toBe(8000);
+      expect(emitido.length).toBe(1);
+    });
+
+    it('sin archivos no sube nada y emite', () => {
+      const emitido: Destino[] = [];
+      component.guardado.subscribe((d) => emitido.push(d));
+      component.guardar();
+      expect(subir).not.toHaveBeenCalled();
+      expect(emitido.length).toBe(1);
+    });
+
+    it('borrar el número descarta el archivo', () => {
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+      component.form.patchValue({ numero_orden: '' });
+      expect(component.pendientes.hay()).toBe(false);
+    });
+
+    it('no se puede cerrar mientras guarda y sube', () => {
+      const cerrados: void[] = [];
+      component.cerrado.subscribe(() => cerrados.push(undefined));
+      component.guardando.set(true);
+      component.cerrar();
+      expect(cerrados.length).toBe(0);
+    });
+
+    it('el botón dice "Subiendo documentos..." mientras sube', () => {
+      component.guardando.set(true);
+      component.subiendoDocumentos.set(true);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.modal__footer .btn--primary').textContent).toContain('Subiendo documentos...');
+    });
+  });
+
   describe('guardar', () => {
     beforeEach(() => {
       destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
@@ -408,6 +484,11 @@ describe('DestinoFormModal (editar)', () => {
     component.destino = destino;
     fixture.detectChanges();
   }
+
+  it('edición: no muestra Adjuntar', () => {
+    crearFixtureEditando(makeDestino());
+    expect(fixture.nativeElement.querySelector('app-documento-adjunto')).toBeNull();
+  });
 
   it('precarga el formulario con los datos del destino', () => {
     const destino = makeDestino({

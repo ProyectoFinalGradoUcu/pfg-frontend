@@ -9,6 +9,13 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { CursosService } from '../../../../core/services/cursos.service';
 import { FILTRO_DERECHA_NUMOR_INICIAL, FiltroDerechaNumor } from '../../../../core/models/derecha.models';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import {
+  ArchivosPendientes,
+  SlotVista,
+  armarSlots,
+  subirPendientes,
+} from '../../../../core/services/documentos-registro';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
 import {
@@ -42,6 +49,16 @@ type ModalKind =
 interface ResultadoMasivo {
   aprobado: boolean | null;
   calificacion: number | null;
+}
+
+/** El número que comparten todos los módulos, si es uno solo y no nulo. */
+function numeroComun(
+  modulos: CursoFuncionarioItem['modulos'],
+  campo: 'numero_orden' | 'boletin',
+): string | null {
+  const valores = (modulos ?? []).map((m) => m[campo]);
+  if (valores.length === 0 || valores.some((v) => !v)) return null;
+  return valores.every((v) => v === valores[0]) ? valores[0] : null;
 }
 
 interface FilaHistorial {
@@ -176,6 +193,33 @@ export class CursosPage implements OnInit, OnDestroy {
 
   // ── Designar ────────────────────────────────────────────────────────────────
   readonly designando = signal(false);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
+  private readonly destroy$ = new Subject<void>();
+
+  readonly puedeVerDocumentos = computed(
+    () => this.auth.puedeConAlcance('cursos.ver'),
+  );
+  readonly mostrarAcciones = computed(() => this.puedeGestionar() || this.puedeVerDocumentos());
+  readonly filaDocumentos = signal<FilaHistorial | null>(null);
+  readonly slotsDocumentos = computed<SlotVista[]>(() => {
+    const fila = this.filaDocumentos();
+    if (!fila) return [];
+    const c = fila.curso;
+    return armarSlots(
+      this.cursosService.documentosDesignacion(c.id, c.designacionId),
+      c.documentos ?? { orden: null, boletin: null },
+      {
+        orden: c.numero_orden ?? numeroComun(c.modulos, 'numero_orden'),
+        boletin: c.boletin ?? numeroComun(c.modulos, 'boletin'),
+      },
+      this.puedeGestionar(),
+    );
+  });
+  readonly tituloDocumentos = computed(() => {
+    const fila = this.filaDocumentos();
+    return fila ? `Documentos de la designación de ${fila.nombre}` : '';
+  });
 
   // ── Computed ───────────────────────────────────────────────────────────────
   // Con `.unidad` también gestiona: los cursos de sus bases.
@@ -289,6 +333,10 @@ export class CursosPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     const section = this.route.snapshot.data['section'] as TabKind;
     if (section) this.tab.set(section);
+    this.pendientes.descartarSiVacio(this.designarForm.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.designarForm.controls.boletin, 'boletin', this.destroy$);
+    this.pendientes.descartarSiVacio(this.nuevoCursoForm.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.nuevoCursoForm.controls.boletin, 'boletin', this.destroy$);
     this.cargar();
     this.cargarDefiniciones();
 
@@ -312,6 +360,7 @@ export class CursosPage implements OnInit, OnDestroy {
       )
       .subscribe((funcionarios) => {
         this.funcionarios.set(funcionarios);
+        this.refrescarDocumentos();
         this.historialPage.set(1);
         this.buscandoCedula.set(false);
       });
@@ -325,6 +374,8 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.cedulaSubject.complete();
     this.defTextSubject.complete();
   }
@@ -346,6 +397,7 @@ export class CursosPage implements OnInit, OnDestroy {
     }).subscribe({
       next: ({ funcionarios, personal }) => {
         this.funcionarios.set(funcionarios);
+        this.refrescarDocumentos();
         this.personal.set(personal);
         this.loading.set(false);
       },
@@ -437,6 +489,7 @@ export class CursosPage implements OnInit, OnDestroy {
     this.modalError.set(null);
     // Después del reset: con una sola base propia la deja elegida.
     this.cargarBasesCurso();
+    this.pendientes.limpiar();
     this.modal.set('nuevoCurso');
   }
 
@@ -449,6 +502,8 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   cerrarModal(): void {
+    if (this.designando() || this.subiendoDocumentos()) return;
+    this.pendientes.limpiar();
     this.modal.set(null);
     this.modalError.set(null);
     this.archivoCertificado.set(null);
@@ -485,6 +540,7 @@ export class CursosPage implements OnInit, OnDestroy {
       persona_ids: [], modulo_ids: [],
     });
     this.modalError.set(null);
+    this.pendientes.limpiar();
     this.modal.set('designar');
   }
 
@@ -534,16 +590,54 @@ export class CursosPage implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (res) => {
-          this.designando.set(false);
-          this.cerrarModal();
-          this.toast.success(`Designación registrada: ${res.personas_designadas} persona(s)`);
-          this.cargar();
+          this.subirDocumentos(curso.id, res.designaciones, () => {
+            this.designando.set(false);
+            this.cerrarModal();
+            this.toast.success(`Designación registrada: ${res.personas_designadas} persona(s)`);
+            this.cargar();
+          });
         },
         error: (err: HttpErrorResponse) => {
           this.designando.set(false);
           this.modalError.set(this.parseError(err));
         },
       });
+  }
+
+  /** Una subida por slot para todas las designaciones; los fallos avisan pero no frenan. */
+  private subirDocumentos(
+    cursoId: string,
+    designaciones: { id: string }[] | undefined,
+    alTerminar: () => void,
+  ): void {
+    const ids = (designaciones ?? []).map((d) => d.id);
+    // Sin ids no hay a quién adjuntar: no se manda un `designacion_ids` vacío.
+    const archivos = ids.length ? this.pendientes.archivos() : {};
+    this.subiendoDocumentos.set(Object.keys(archivos).length > 0);
+    subirPendientes(
+      (slot, archivo) => this.cursosService.subirDocumentoDesignaciones(cursoId, slot, archivo, ids),
+      archivos,
+      (archivo, err) =>
+        this.toast.error(
+          `La designación se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde la tabla de designados.`,
+          8000,
+        ),
+    ).subscribe(() => {
+      this.subiendoDocumentos.set(false);
+      alTerminar();
+    });
+  }
+
+  abrirDocumentos(fila: FilaHistorial): void {
+    this.filaDocumentos.set(fila);
+  }
+
+  private refrescarDocumentos(): void {
+    const abierta = this.filaDocumentos();
+    if (!abierta) return;
+    this.filaDocumentos.set(
+      this.filasFlat().find((f) => f.curso.designacionId === abierta.curso.designacionId) ?? null,
+    );
   }
 
   // ── Editar curso ──────────────────────────────────────────────────────────
@@ -709,10 +803,12 @@ export class CursosPage implements OnInit, OnDestroy {
               fecha_fin: raw.fecha_fin || undefined,
             })
             .subscribe({
-              next: () => {
-                this.cerrarModal();
-                this.toast.success(`Curso "${nuevo.nombre_curso}" creado y designado`);
-                this.cargar();
+              next: (res) => {
+                this.subirDocumentos(nuevo.id, res.designaciones, () => {
+                  this.cerrarModal();
+                  this.toast.success(`Curso "${nuevo.nombre_curso}" creado y designado`);
+                  this.cargar();
+                });
               },
               error: (err: HttpErrorResponse) => {
                 // Si falla la designación se borra el curso, para no dejarlo a medias.

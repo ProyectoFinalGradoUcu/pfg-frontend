@@ -1,4 +1,5 @@
 import { PaginatedResponse } from './auth.models';
+import { DocumentosRegistro } from './documentos-registro.models';
 
 // ── Misión (catálogo / definición reutilizable) ──────────────────────────────
 
@@ -49,6 +50,8 @@ export interface Convocatoria {
   observaciones: string | null;
   total_funcionarios: number;
   finalizada: boolean;
+  /** Ausente en las respuestas de crear y editar: hay que recargar. */
+  documentos: DocumentosRegistro;
 }
 
 export interface CreateConvocatoriaPayload {
@@ -71,6 +74,8 @@ export interface UpdateConvocatoriaPayload {
 // ── Funcionarios asignados a una convocatoria ────────────────────────────────
 
 export interface FuncionarioConvocatoria {
+  /** Id de la asignación (no el de la persona). */
+  id: string;
   persona_id: string;
   cedula: string | null;
   primer_nombre: string | null;
@@ -78,6 +83,11 @@ export interface FuncionarioConvocatoria {
   numero_orden: string | null;
   boletin: string | null;
   observaciones: string | null;
+  documentos: DocumentosRegistro;
+}
+
+export interface AgregarFuncionariosResponse {
+  asignaciones: { id: string; persona_id: string }[];
 }
 
 export interface FuncionarioConvocatoriaPayload {
@@ -109,6 +119,9 @@ export interface FuncionarioMisionItem {
 }
 
 export interface FilaPersonalMision {
+  /** Id de la asignación a la convocatoria: la fila de la tabla. */
+  asignacionId: string;
+  documentos: DocumentosRegistro;
   funcionarioId: string;
   cedula: string;
   nombre: string;

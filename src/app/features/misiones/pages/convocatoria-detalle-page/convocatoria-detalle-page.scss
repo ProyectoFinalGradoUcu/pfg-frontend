@@ -503,6 +503,12 @@ $navy-soft: #1e3a5f;
   }
 }
 
+.modal__campo-adjunto {
+  margin-bottom: 1rem;
+
+  > .modal__field { margin-bottom: 0; }
+}
+
 .modal__field {
   display: grid;
   gap: 0.4rem;

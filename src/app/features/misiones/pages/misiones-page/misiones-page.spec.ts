@@ -40,7 +40,7 @@ function makeMisionItem(overrides: Partial<FuncionarioMisionItem> = {}): Funcion
 }
 
 function makeFila(overrides: Partial<FilaPersonalMision> = {}): FilaPersonalMision {
-  return { funcionarioId: 'f1', cedula: '12345678', nombre: 'Juan Pérez', mision: makeMisionItem(), ...overrides };
+  return { asignacionId: 'a1', documentos: { orden: null, boletin: null }, funcionarioId: 'f1', cedula: '12345678', nombre: 'Juan Pérez', mision: makeMisionItem(), ...overrides };
 }
 
 function makePaginaPersonal(items: FilaPersonalMision[] = [], total = items.length) {
@@ -82,6 +82,7 @@ describe('MisionesPage', () => {
       deleteDefinicion: vi.fn().mockReturnValue(of(undefined)),
       deleteFuncionario: vi.fn().mockReturnValue(of(undefined)),
       updateFuncionario: vi.fn().mockReturnValue(of(undefined)),
+      documentosAsignacion: vi.fn().mockReturnValue({ subir: vi.fn(), quitar: vi.fn(), inspeccionar: vi.fn(), url: vi.fn() }),
     };
   }
 
@@ -579,6 +580,8 @@ describe('MisionesPage', () => {
     beforeEach(() => setup('personal-en-mision'));
 
     const fila = () => ({
+      asignacionId: 'a1',
+      documentos: { orden: null, boletin: null },
       funcionarioId: 'f1',
       cedula: '1',
       nombre: 'Juan',
@@ -623,10 +626,60 @@ describe('MisionesPage', () => {
     });
   });
 
+  describe('Personal en Misión — documentos', () => {
+    const orden = { nombre_original: 'orden.pdf', content_type: 'application/pdf', tamanio_bytes: '10', subido_en: '2026-01-01' };
+
+    beforeEach(() => setup('personal-en-mision'));
+
+    it('Personal en misión: Documentos abre el modal', () => {
+      const fila = makeFila({
+        asignacionId: 'a7',
+        mision: makeMisionItem({ numero_orden: 'ORD-1', boletin: 'BOL-1' }),
+        documentos: { orden, boletin: null },
+      });
+      component.abrirDocumentos(fila);
+
+      expect(component.filaDocumentos()).toBe(fila);
+      expect(component.slotsDocumentos().map((s) => [s.slot, s.numero, s.documento, s.editable])).toEqual([
+        ['orden', 'ORD-1', orden, true],
+        ['boletin', 'BOL-1', null, true],
+      ]);
+      expect(misionesService.documentosAsignacion).toHaveBeenCalledWith('a7');
+      expect(component.tituloDocumentos()).toContain('Juan Pérez');
+    });
+
+    it('con solo misiones.ver es de solo lectura y la acción sigue visible', () => {
+      authService.hasPermiso.mockImplementation((p: string) => p === 'misiones.ver');
+      component.abrirDocumentos(makeFila());
+      expect(component.slotsDocumentos().every((s) => !s.editable)).toBe(true);
+      expect(component.mostrarAcciones()).toBe(true);
+    });
+
+    it('sin permisos no hay acciones', () => {
+      authService.hasPermiso.mockReturnValue(false);
+      expect(component.mostrarAcciones()).toBe(false);
+    });
+
+    it('al recargar refresca la fila abierta, o cierra el modal si ya no está', () => {
+      component.abrirDocumentos(makeFila({ asignacionId: 'a7' }));
+      misionesService.findPersonalEnMision.mockReturnValue(
+        of(makePaginaPersonal([makeFila({ asignacionId: 'a7', documentos: { orden, boletin: null } })])),
+      );
+      component.cargarPersonal();
+      expect(component.filaDocumentos()!.documentos.orden).toEqual(orden);
+
+      misionesService.findPersonalEnMision.mockReturnValue(of(makePaginaPersonal([])));
+      component.cargarPersonal();
+      expect(component.filaDocumentos()).toBeNull();
+    });
+  });
+
   describe('Personal en Misión — editar', () => {
     beforeEach(() => setup('personal-en-mision'));
 
     const fila = () => ({
+      asignacionId: 'a1',
+      documentos: { orden: null, boletin: null },
       funcionarioId: 'f1',
       cedula: '1',
       nombre: 'Juan',

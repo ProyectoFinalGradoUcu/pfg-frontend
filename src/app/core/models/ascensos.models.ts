@@ -1,4 +1,5 @@
 /** Los ids llegan como string: en el backend son BigInt. */
+import { DocumentosRegistro } from './documentos-registro.models';
 
 export interface GradoRefAscensos {
   id: string;
@@ -346,6 +347,7 @@ export interface OrdenAscensoDetalle extends OrdenAscenso {
   page: number;
   pageSize: number;
   vigentes: VigenteDeOrden[];
+  documentos: DocumentosRegistro;
 }
 
 export interface DetalleOrdenQuery {

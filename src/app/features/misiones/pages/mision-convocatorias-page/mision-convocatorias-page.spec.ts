@@ -30,6 +30,7 @@ function makeConvocatoria(overrides: Partial<Convocatoria> = {}): Convocatoria {
     observaciones: null,
     total_funcionarios: 0,
     finalizada: false,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
@@ -53,6 +54,8 @@ describe('MisionConvocatoriasPage', () => {
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
 
+  const subir = vi.fn();
+
   function makeMisionesServiceSpy() {
     return {
       findDefinicionById: vi.fn().mockReturnValue(of(makeMision())),
@@ -60,6 +63,7 @@ describe('MisionConvocatoriasPage', () => {
       crearConvocatoria: vi.fn().mockReturnValue(of(makeConvocatoria())),
       editarConvocatoria: vi.fn().mockReturnValue(of(makeConvocatoria())),
       eliminarConvocatoria: vi.fn().mockReturnValue(of(undefined)),
+      documentosConvocatoria: vi.fn().mockReturnValue({ subir }),
     };
   }
 
@@ -412,6 +416,57 @@ describe('MisionConvocatoriasPage', () => {
       component.guardarConvocatoria();
       expect(component.modalError()).toBeTruthy();
       expect(component.modal()).toBe('editarConvocatoria');
+    });
+  });
+
+  describe('documentos adjuntos', () => {
+    beforeEach(async () => {
+      subir.mockReset();
+      subir.mockReturnValue(of({}));
+      await setup();
+      misionesService.crearConvocatoria.mockReturnValue(of(makeConvocatoria({ id: 'c77' })));
+      component.abrirNuevaConvocatoria();
+      component.convocatoriaForm.patchValue({ numero_orden: 'ORD-9' });
+    });
+
+    const pdf = (nombre: string) => new File(['x'], nombre, { type: 'application/pdf' });
+
+    it('nueva convocatoria con archivo: crea y sube a la convocatoria', () => {
+      const archivo = pdf('orden.pdf');
+      component.pendientes.elegir('orden', archivo);
+
+      component.guardarConvocatoria();
+
+      expect(misionesService.crearConvocatoria).toHaveBeenCalled();
+      expect(misionesService.documentosConvocatoria).toHaveBeenCalledWith('c77');
+      expect(subir).toHaveBeenCalledWith('orden', archivo);
+      expect(toastService.success).toHaveBeenCalledWith('Convocatoria creada correctamente');
+      expect(component.modal()).toBeNull();
+    });
+
+    it('si la subida falla avisa y deja la convocatoria creada', () => {
+      subir.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+
+      component.guardarConvocatoria();
+
+      const [msg, ms] = toastService.error.mock.calls[0];
+      expect(msg).toContain('La convocatoria se registró, pero no se pudo subir «orden.pdf»');
+      expect(msg).toContain('Podés adjuntarlo desde el detalle de la convocatoria.');
+      expect(ms).toBe(8000);
+      expect(toastService.success).toHaveBeenCalled();
+    });
+
+    it('sin archivos no sube nada', () => {
+      component.guardarConvocatoria();
+      expect(subir).not.toHaveBeenCalled();
+      expect(component.modal()).toBeNull();
+    });
+
+    it('no se puede cerrar mientras sube', () => {
+      component.subiendoDocumentos.set(true);
+      component.cerrarModal();
+      expect(component.modal()).toBe('nuevaConvocatoria');
     });
   });
 

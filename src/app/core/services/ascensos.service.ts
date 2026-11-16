@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
+import { ApiDocumentos, apiDocumentos } from './documentos-registro';
 import {
   CrearReglaPayload,
   CursoDelCatalogo,
@@ -149,6 +150,10 @@ export class AscensosService {
       params,
       withCredentials: true,
     });
+  }
+
+  documentosOrden(id: string): ApiDocumentos {
+    return apiDocumentos(this.http, `${this.base}/ordenes/${id}`);
   }
 
   /** Una sola transacción en el backend: o entran todos, o no entra ninguno. */

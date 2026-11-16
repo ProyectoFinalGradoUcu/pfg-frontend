@@ -50,6 +50,15 @@
                 placeholder="O.C.G.F.A. N.º 12.345"
                 [attr.aria-invalid]="faltaOrdenYBoletin()"
                 [attr.aria-describedby]="faltaOrdenYBoletin() ? 'identificacion-error' : 'identificacion-hint'" />
+              <app-documento-adjunto
+                [nombre]="pendientes.archivos().orden?.name ?? null"
+                [tamanio]="pendientes.archivos().orden?.size ?? null"
+                [puedeEditar]="true"
+                [habilitado]="!!(ordenForm.get('numero_orden')?.value ?? '').trim()"
+                [ocupado]="guardando()"
+                (elegido)="pendientes.elegir('orden', $event)"
+                (quitado)="pendientes.quitar('orden')"
+              ></app-documento-adjunto>
             </div>
             <span class="identificacion__o" aria-hidden="true">o</span>
             <div class="identificacion__opcion">
@@ -58,6 +67,15 @@
                 placeholder="BOL-2027-02"
                 [attr.aria-invalid]="faltaOrdenYBoletin()"
                 [attr.aria-describedby]="faltaOrdenYBoletin() ? 'identificacion-error' : 'identificacion-hint'" />
+              <app-documento-adjunto
+                [nombre]="pendientes.archivos().boletin?.name ?? null"
+                [tamanio]="pendientes.archivos().boletin?.size ?? null"
+                [puedeEditar]="true"
+                [habilitado]="!!(ordenForm.get('boletin')?.value ?? '').trim()"
+                [ocupado]="guardando()"
+                (elegido)="pendientes.elegir('boletin', $event)"
+                (quitado)="pendientes.quitar('boletin')"
+              ></app-documento-adjunto>
             </div>
           </div>
           <span id="identificacion-error" class="field__error" role="alert" *ngIf="faltaOrdenYBoletin(); else ayudaIdentificacion">
@@ -251,9 +269,9 @@
     <h3 class="card__titulo">Confirmar la orden</h3>
 
     <dl class="resumen">
-      <div><dt>N.º de orden</dt><dd>{{ ordenForm.get('numero_orden')?.value || '—' }}</dd></div>
+      <div><dt>N.º de orden</dt><dd>{{ ordenForm.get('numero_orden')?.value || '—' }}<span class="resumen__archivo" *ngIf="pendientes.archivos().orden as a"><br />{{ a.name }}</span></dd></div>
       <div><dt>Fecha</dt><dd>{{ ordenForm.get('fecha_orden')?.value | date:'d/M/yyyy':'UTC' }}</dd></div>
-      <div><dt>Boletín</dt><dd>{{ ordenForm.get('boletin')?.value || '—' }}</dd></div>
+      <div><dt>Boletín</dt><dd>{{ ordenForm.get('boletin')?.value || '—' }}<span class="resumen__archivo" *ngIf="pendientes.archivos().boletin as a"><br />{{ a.name }}</span></dd></div>
       <div><dt>Funcionarios</dt><dd>{{ filas().length }}</dd></div>
       <div><dt>Por excepción</dt><dd>{{ porExcepcion() }}</dd></div>
     </dl>
@@ -283,7 +301,7 @@
     <footer class="card__footer">
       <button type="button" class="btn btn--ghost" (click)="volverAFuncionarios()">Atrás</button>
       <button type="button" class="btn btn--primary" [disabled]="guardando()" (click)="confirmar()">
-        {{ guardando() ? 'Registrando...' : 'Registrar la orden' }}
+        {{ subiendoDocumentos() ? 'Subiendo documentos...' : guardando() ? 'Registrando...' : 'Registrar la orden' }}
       </button>
     </footer>
   </article>
