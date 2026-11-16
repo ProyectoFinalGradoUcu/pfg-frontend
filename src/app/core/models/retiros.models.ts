@@ -92,6 +92,17 @@ export interface RetiroDetalle extends Retiro {
     /** Sin haber y porcentaje liquidación le paga sin el descuento. */
     faltan_datos_de_calculo: boolean;
   } | null;
+  documentos: Record<SlotDocumentoRetiro, DocumentoRetiro | null>;
+}
+
+export type SlotDocumentoRetiro = 'orden' | 'boletin';
+
+export interface DocumentoRetiro {
+  nombre_original: string;
+  content_type: string;
+  /** BIGINT: llega como string. */
+  tamanio_bytes: string;
+  subido_en: string;
 }
 
 export interface PreviaRetiro {

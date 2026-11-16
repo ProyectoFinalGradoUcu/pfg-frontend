@@ -202,4 +202,41 @@ describe('RetirosService', () => {
       req.flush({});
     });
   });
+
+  describe('documentos', () => {
+    it('subirDocumento manda multipart con el archivo, sin service_request', () => {
+      const archivo = new File(['%PDF-1.4'], 'orden.pdf', { type: 'application/pdf' });
+      service.subirDocumento('88', 'orden', archivo).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/88/documentos/orden`);
+      expect(req.request.method).toBe('POST');
+      const body = req.request.body as FormData;
+      expect((body.get('archivo') as File).name).toBe('orden.pdf');
+      expect(body.has('service_request')).toBe(false);
+      expect(req.request.headers.has('Content-Type')).toBe(false);
+      req.flush({});
+    });
+
+    it('quitarDocumento hace DELETE al slot', () => {
+      service.quitarDocumento('88', 'boletin').subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/88/documentos/boletin`);
+      expect(req.request.method).toBe('DELETE');
+      req.flush(null);
+    });
+
+    it('inspeccionarDocumento hace HEAD al slot', () => {
+      let respondio = false;
+      service.inspeccionarDocumento('88', 'orden').subscribe(() => (respondio = true));
+      const req = http.expectOne(`${API_BASE_URL}/retiros/88/documentos/orden`);
+      expect(req.request.method).toBe('HEAD');
+      req.flush(null);
+      expect(respondio).toBe(true);
+    });
+
+    it('urlDocumento arma la url y agrega download=1 para descargar', () => {
+      expect(service.urlDocumento('88', 'boletin')).toBe(`${API_BASE_URL}/retiros/88/documentos/boletin`);
+      expect(service.urlDocumento('88', 'boletin', { descarga: true })).toBe(
+        `${API_BASE_URL}/retiros/88/documentos/boletin?download=1`,
+      );
+    });
+  });
 });

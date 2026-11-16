@@ -1,16 +1,21 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import {
   PreviaReincorporacion,
   ReincorporacionAnulada,
   Reincorporado,
   RetiroAnulado,
   RetiroDetalle,
+  SlotDocumentoRetiro,
 } from '../../../../core/models/retiros.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
+import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
 import { parseError } from '../../../../shared/utils/parse-error';
 import {
   ETIQUETA_ESTADO,
@@ -46,6 +51,9 @@ export class RetiroDetallePage implements OnInit {
   private readonly retirosService = inject(RetirosService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
+  private readonly confirmModal = inject(ConfirmModalService);
+  private readonly errorModal = inject(ErrorModalService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   private retiroId!: string;
 
@@ -139,7 +147,102 @@ export class RetiroDetallePage implements OnInit {
 
   tieneRespaldo(): boolean {
     const r = this.retiro();
-    return !!(r?.numero_orden || r?.boletin || r?.observaciones);
+    return !!(
+      r?.numero_orden ||
+      r?.boletin ||
+      r?.observaciones ||
+      r?.documentos.orden ||
+      r?.documentos.boletin
+    );
+  }
+
+  /** Un retiro anulado conserva sus documentos, pero ya no se tocan. */
+  readonly puedeAdjuntar = computed(() => {
+    const r = this.retiro();
+    return this.puedeEscribir && !!r && !r.anulado;
+  });
+
+  readonly trabajando = signal<SlotDocumentoRetiro | null>(null);
+
+  readonly visor = signal<{ slot: SlotDocumentoRetiro; url: SafeResourceUrl } | null>(null);
+
+  urlDocumento(slot: SlotDocumentoRetiro, descarga = false): string {
+    return this.retirosService.urlDocumento(this.retiroId, slot, { descarga });
+  }
+
+  visorUrl(slot: SlotDocumentoRetiro): SafeResourceUrl | null {
+    const v = this.visor();
+    return v?.slot === slot ? v.url : null;
+  }
+
+  /** HEAD antes de montar el visor: el `<embed>` no avisa si el documento ya no existe. */
+  alternarVisor(slot: SlotDocumentoRetiro): void {
+    if (this.visor()?.slot === slot) {
+      this.visor.set(null);
+      return;
+    }
+    this.retirosService.inspeccionarDocumento(this.retiroId, slot).subscribe({
+      next: () => {
+        const url = this.sanitizer.bypassSecurityTrustResourceUrl(this.urlDocumento(slot));
+        this.visor.set({ slot, url });
+      },
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 403) {
+          this.errorModal.show(parseError(err));
+          return;
+        }
+        if (err.status === 404) {
+          this.toast.error('El documento ya no existe.');
+          this.visor.set(null);
+          this.recargar();
+          return;
+        }
+        this.toast.error(mensajeErrorDocumento(err));
+      },
+    });
+  }
+
+  adjuntar(slot: SlotDocumentoRetiro, archivo: File): void {
+    this.trabajando.set(slot);
+    this.retirosService.subirDocumento(this.retiroId, slot, archivo).subscribe({
+      next: () => {
+        this.trabajando.set(null);
+        this.toast.success('Documento adjuntado.');
+        this.recargar();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.trabajando.set(null);
+        this.toast.error(mensajeErrorDocumento(err));
+        // 404 o 409: el retiro cambió por otro lado, se muestra como quedó.
+        if (err.status === 404 || err.status === 409) this.recargar();
+      },
+    });
+  }
+
+  async quitar(slot: SlotDocumentoRetiro): Promise<void> {
+    const documento = this.retiro()?.documentos[slot];
+    if (!documento) return;
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Quitar documento',
+      mensaje: `¿Quitar «${documento.nombre_original}» de este retiro?`,
+      textoConfirmar: 'Quitar',
+    });
+    if (!confirmado) return;
+
+    this.trabajando.set(slot);
+    this.retirosService.quitarDocumento(this.retiroId, slot).subscribe({
+      next: () => {
+        this.trabajando.set(null);
+        if (this.visor()?.slot === slot) this.visor.set(null);
+        this.toast.success('Documento quitado.');
+        this.recargar();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.trabajando.set(null);
+        this.toast.error(mensajeErrorDocumento(err));
+        this.recargar();
+      },
+    });
   }
 
   readonly etiquetaEstado = ETIQUETA_ESTADO;

@@ -3,7 +3,7 @@
   <div class="modal modal--ancho">
     <header class="modal__header">
       <h3>Registrar retiro</h3>
-      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+      <button type="button" class="modal__close" (click)="cerrar()" [disabled]="enviando()" aria-label="Cerrar">×</button>
     </header>
 
     <!-- Paso 0: elegir persona (entrada desde el listado) -->
@@ -63,10 +63,28 @@
         <div class="field">
           <label for="orden">Número de orden</label>
           <input id="orden" type="text" formControlName="numero_orden" placeholder="O.D. 12455" />
+          <app-documento-adjunto
+            [nombre]="archivos().orden?.name ?? null"
+            [tamanio]="archivos().orden?.size ?? null"
+            [puedeEditar]="true"
+            [habilitado]="!!form.controls.numero_orden.value.trim()"
+            [ocupado]="enviando()"
+            (elegido)="elegirArchivo('orden', $event)"
+            (quitado)="quitarArchivo('orden')"
+          />
         </div>
         <div class="field">
           <label for="bol">Boletín</label>
           <input id="bol" type="text" formControlName="boletin" placeholder="B.P. 8891" />
+          <app-documento-adjunto
+            [nombre]="archivos().boletin?.name ?? null"
+            [tamanio]="archivos().boletin?.size ?? null"
+            [puedeEditar]="true"
+            [habilitado]="!!form.controls.boletin.value.trim()"
+            [ocupado]="enviando()"
+            (elegido)="elegirArchivo('boletin', $event)"
+            (quitado)="quitarArchivo('boletin')"
+          />
         </div>
       </div>
 
@@ -180,14 +198,14 @@
       </ng-container>
 
       <ng-container *ngIf="paso() === 'confirmar'">
-        <button type="button" class="btn" (click)="volverADatos()">Volver</button>
+        <button type="button" class="btn" (click)="volverADatos()" [disabled]="enviando()">Volver</button>
         <button
           type="button"
           class="btn btn--danger"
           [disabled]="enviando()"
           (click)="confirmar()"
         >
-          {{ enviando() ? 'Registrando...' : 'Confirmar retiro' }}
+          {{ subiendoDocumentos() ? 'Subiendo documentos...' : enviando() ? 'Registrando...' : 'Confirmar retiro' }}
         </button>
       </ng-container>
 

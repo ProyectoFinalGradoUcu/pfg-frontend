@@ -1,12 +1,13 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
   ActualizarReincorporacionBody,
   AnularRetiroBody,
   CorregirRetiroBody,
   CrearRetiroBody,
+  DocumentoRetiro,
   ListarRetirosQuery,
   Paginado,
   PreviaReincorporacion,
@@ -18,6 +19,7 @@ import {
   RetiroAnulado,
   RetiroCreado,
   RetiroDetalle,
+  SlotDocumentoRetiro,
 } from '../models/retiros.models';
 
 @Injectable({ providedIn: 'root' })
@@ -42,6 +44,34 @@ export class RetirosService {
 
   detalle(retiroId: string): Observable<RetiroDetalle> {
     return this.http.get<RetiroDetalle>(`${this.base}/${retiroId}`, { withCredentials: true });
+  }
+
+  /** Multipart sin `service_request` ni Content-Type: el navegador arma el boundary. */
+  subirDocumento(
+    retiroId: string,
+    slot: SlotDocumentoRetiro,
+    archivo: File,
+  ): Observable<DocumentoRetiro> {
+    const form = new FormData();
+    form.append('archivo', archivo);
+    return this.http.post<DocumentoRetiro>(this.urlDocumento(retiroId, slot), form);
+  }
+
+  quitarDocumento(retiroId: string, slot: SlotDocumentoRetiro): Observable<null> {
+    return this.http.delete<null>(this.urlDocumento(retiroId, slot));
+  }
+
+  inspeccionarDocumento(retiroId: string, slot: SlotDocumentoRetiro): Observable<void> {
+    return this.http.head(this.urlDocumento(retiroId, slot)).pipe(map(() => undefined));
+  }
+
+  /** Con `descarga: true` el backend responde `attachment` con el nombre original. */
+  urlDocumento(
+    retiroId: string,
+    slot: SlotDocumentoRetiro,
+    { descarga = false }: { descarga?: boolean } = {},
+  ): string {
+    return `${this.base}/${retiroId}/documentos/${slot}${descarga ? '?download=1' : ''}`;
   }
 
   registrar(body: CrearRetiroBody): Observable<RetiroCreado> {

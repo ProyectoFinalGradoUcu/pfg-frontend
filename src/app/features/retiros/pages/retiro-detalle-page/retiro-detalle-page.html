@@ -164,8 +164,46 @@
       <div class="retiro-detalle__respaldo">
         <h3>Respaldo documental</h3>
         <dl class="retiro-detalle__campos" *ngIf="tieneRespaldo(); else sinRespaldo">
-          <div *ngIf="r.numero_orden"><dt>Número de orden</dt><dd>{{ r.numero_orden }}</dd></div>
-          <div *ngIf="r.boletin"><dt>Boletín</dt><dd>{{ r.boletin }}</dd></div>
+          <div *ngIf="r.numero_orden || r.documentos.orden">
+            <dt>Número de orden</dt>
+            <dd>
+              {{ r.numero_orden ?? '—' }}
+              <app-documento-adjunto
+                [nombre]="r.documentos.orden?.nombre_original ?? null"
+                [tamanio]="r.documentos.orden?.tamanio_bytes ?? null"
+                [tipo]="r.documentos.orden?.content_type ?? null"
+                [puedeVer]="!!r.documentos.orden"
+                [visorUrl]="visorUrl('orden')"
+                [urlDescarga]="r.documentos.orden ? urlDocumento('orden', true) : null"
+                [puedeEditar]="puedeAdjuntar()"
+                [habilitado]="!!r.numero_orden"
+                [ocupado]="trabajando() !== null"
+                (elegido)="adjuntar('orden', $event)"
+                (quitado)="quitar('orden')"
+                (verAlternado)="alternarVisor('orden')"
+              />
+            </dd>
+          </div>
+          <div *ngIf="r.boletin || r.documentos.boletin">
+            <dt>Boletín</dt>
+            <dd>
+              {{ r.boletin ?? '—' }}
+              <app-documento-adjunto
+                [nombre]="r.documentos.boletin?.nombre_original ?? null"
+                [tamanio]="r.documentos.boletin?.tamanio_bytes ?? null"
+                [tipo]="r.documentos.boletin?.content_type ?? null"
+                [puedeVer]="!!r.documentos.boletin"
+                [visorUrl]="visorUrl('boletin')"
+                [urlDescarga]="r.documentos.boletin ? urlDocumento('boletin', true) : null"
+                [puedeEditar]="puedeAdjuntar()"
+                [habilitado]="!!r.boletin"
+                [ocupado]="trabajando() !== null"
+                (elegido)="adjuntar('boletin', $event)"
+                (quitado)="quitar('boletin')"
+                (verAlternado)="alternarVisor('boletin')"
+              />
+            </dd>
+          </div>
           <div *ngIf="r.observaciones"><dt>Observaciones</dt><dd>{{ r.observaciones }}</dd></div>
         </dl>
         <ng-template #sinRespaldo>
