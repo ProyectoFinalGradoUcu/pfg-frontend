@@ -172,6 +172,8 @@ export interface PersonaDetalle {
   codigo_postal: string | null;
   seccional: string | null;
   credencial_civica: string | null;
+  /** Cambia con cada foto nueva; null si no tiene. */
+  foto_id?: string | null;
   /** Nivel de pericia/idoneidad 3/5/7/9 del subalterno (ETA). null = sin definir. */
   nivel_idoneidad: number | null;
   es_civil: boolean;

@@ -21,7 +21,14 @@
     <!-- Header card -->
     <article class="pd__header-card">
       <div class="pd__identity">
-        <div class="pd__avatar">{{ initials(p) }}</div>
+        <app-foto-personal
+          [personaId]="p.id"
+          [fotoId]="p.foto_id"
+          [iniciales]="initials(p)"
+          [nombre]="p.nombre_completo"
+          [puedeEditar]="puedeEditarFoto()"
+          (fotoCambiada)="onFotoCambiada($event)"
+        ></app-foto-personal>
         <div class="pd__identity-info">
           <h1 class="pd__name">{{ p.nombre_completo }}</h1>
           <p class="pd__meta">
