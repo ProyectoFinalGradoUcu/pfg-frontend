@@ -97,7 +97,6 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   readonly tipoFuncionarioOpciones = [
     { value: 'oficial',    label: 'Oficial' },
     { value: 'subalterno', label: 'Subalterno' },
-    { value: 'civil',      label: 'Civil' },
   ];
   readonly tipoRelacionOpciones = ['Cónyuge', 'Padre', 'Madre', 'Hijo/a', 'Hermano/a', 'Otro'];
   readonly nivelesIdoneidad = NIVELES_IDONEIDAD;
