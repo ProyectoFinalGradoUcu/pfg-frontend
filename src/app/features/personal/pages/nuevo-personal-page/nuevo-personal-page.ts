@@ -1,14 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, merge, of, switchMap, takeUntil } from 'rxjs';
 import {
   BaseOpcion,
+  CandidatoFamiliar,
   FamiliarEntry,
   GradoItem,
   OpcionSelect,
-  PersonaListItem,
+  NIVELES_EDUCATIVOS,
   NIVELES_IDONEIDAD,
 } from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
@@ -33,6 +34,43 @@ function inicioPosteriorANacimiento(group: AbstractControl): ValidationErrors | 
   return inicio < nacimiento ? { inicioAntesDeNacimiento: true } : null;
 }
 
+/** El egreso de la ETA no puede ser anterior al ingreso. */
+function egresoEtaPosteriorAIngreso(group: AbstractControl): ValidationErrors | null {
+  // Los datos de ETA solo se cargan (y se mandan) para el personal subalterno.
+  if (group.get('tipo_funcionario')?.value !== 'subalterno') return null;
+  const ingreso: string = group.get('fecha_ingreso_eta')?.value;
+  const egreso: string = group.get('fecha_egreso_eta')?.value;
+  if (!ingreso || !egreso) return null;
+  return egreso < ingreso ? { etaInconsistente: true } : null;
+}
+
+export type TipoPersonal = 'oficial' | 'subalterno' | 'civil';
+export type SeccionAlta =
+  'tipo' | 'identificacion' | 'personales' | 'contacto' | 'laborales' | 'escalafon' | 'formacion' | 'familiares';
+
+interface SeccionAltaDef { key: SeccionAlta; titulo: string }
+interface Pendiente { label: string; control: string | null; seccion: SeccionAlta }
+
+/** Obligatorios de cada sección para un militar. El civil solo tiene los de identificación y un familiar. */
+const OBLIGATORIOS: Partial<Record<SeccionAlta, { control: string; label: string }[]>> = {
+  identificacion: [
+    { control: 'cedula', label: 'Cédula' },
+    { control: 'primer_nombre', label: 'Primer nombre' },
+    { control: 'primer_apellido', label: 'Primer apellido' },
+  ],
+  laborales: [
+    { control: 'fecha_inicio', label: 'Fecha de inicio' },
+    { control: 'situacion_id', label: 'Situación' },
+    { control: 'regimen_id', label: 'Régimen' },
+    { control: 'programa_id', label: 'Programa' },
+    { control: 'sub_unidad_id', label: 'Base' },
+  ],
+  escalafon: [
+    { control: 'escalafon_id', label: 'Escalafón' },
+    { control: 'grado_id', label: 'Grado' },
+  ],
+};
+
 @Component({
   selector: 'app-nuevo-personal-page',
   standalone: false,
@@ -47,6 +85,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   private readonly errorModal = inject(ErrorModalService);
   private readonly auth = inject(AuthService);
   private readonly derecha = inject(DerechaService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   // ─── Estado general ──────────────────────────────────────────────────────────
   readonly loading = signal(false);
@@ -85,7 +124,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
 
   // ─── Autocomplete búsqueda de familiar ───────────────────────────────────────
   readonly familiarSearch       = signal('');
-  readonly familiarResults      = signal<PersonaListItem[]>([]);
+  readonly familiarResults      = signal<CandidatoFamiliar[]>([]);
   readonly familiarDropdownOpen = signal(false);
 
   // ─── Opciones estáticas ───────────────────────────────────────────────────────
@@ -101,6 +140,12 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
   ];
   readonly tipoRelacionOpciones = ['Cónyuge', 'Padre', 'Madre', 'Hijo/a', 'Hermano/a', 'Otro'];
   readonly nivelesIdoneidad = NIVELES_IDONEIDAD;
+  readonly nivelEducativoOpciones = NIVELES_EDUCATIVOS;
+  readonly tiposPersonal: { value: TipoPersonal; label: string; descripcion: string }[] = [
+    { value: 'oficial',    label: 'Oficial',             descripcion: 'Personal superior. Habilita el campo Códigos.' },
+    { value: 'subalterno', label: 'Personal subalterno', descripcion: 'Habilita datos de ETA y nivel de idoneidad.' },
+    { value: 'civil',      label: 'Personal civil',      descripcion: 'Funcionario civil de la FAU. Sin datos laborales; requiere al menos un familiar militar.' },
+  ];
 
   // ─── Formulario ───────────────────────────────────────────────────────────────
   readonly form: FormGroup = this.fb.group({
@@ -135,9 +180,14 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     // Datos del subalterno (nivel ETA) y del legajo (oficial)
     nivel_idoneidad:  [null],
     codigos_legajo:   [''],
-    // Siempre presente
+    // Legajo militar (oficiales y subalternos); ETA y mutación, solo subalternos
+    nivel_educativo:         [''],
+    fecha_ingreso_eta:       [''],
+    fecha_egreso_eta:        [''],
+    numero_orden_egreso_eta: ['', Validators.maxLength(50)],
+    mutaciones:              [''],
     observaciones:    [''],
-  }, { validators: inicioPosteriorANacimiento });
+  }, { validators: [inicioPosteriorANacimiento, egresoEtaPosteriorAIngreso] });
 
   private readonly destroy$        = new Subject<void>();
   private readonly familiarSearch$ = new Subject<string>();
@@ -255,9 +305,10 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
           this.familiarResults.set([]);
           return;
         }
+        // Militares en actividad y civiles: cualquiera puede ser familiar.
         this.personalService
-          .findPaginado({ search: term, pageSize: 8 })
-          .subscribe({ next: res => this.familiarResults.set(res.items) });
+          .buscarCandidatosFamiliar(term)
+          .subscribe({ next: candidatos => this.familiarResults.set(candidatos) });
       });
   }
 
@@ -299,6 +350,120 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     }
   }
 
+  // ─── Tipo de personal ─────────────────────────────────────────────────────────
+
+  /** Civil, oficial o subalterno; '' mientras no se eligió. */
+  tipoPersonal(): TipoPersonal | '' {
+    if (this.form.get('es_civil')!.value) return 'civil';
+    return (this.form.get('tipo_funcionario')!.value as TipoPersonal) || '';
+  }
+
+  esCivil(): boolean {
+    return !!this.form.get('es_civil')!.value;
+  }
+
+  elegirTipo(tipo: TipoPersonal): void {
+    if (tipo === 'civil') {
+      this.form.patchValue({ tipo_funcionario: '' });
+      this.form.get('es_civil')!.setValue(true);
+    } else {
+      if (this.esCivil()) this.form.get('es_civil')!.setValue(false);
+      this.form.get('tipo_funcionario')!.setValue(tipo);
+    }
+  }
+
+  // ─── Secciones y obligatorios ─────────────────────────────────────────────────
+
+  seccionesVisibles(): SeccionAltaDef[] {
+    const civil = this.esCivil();
+    return [
+      { key: 'tipo', titulo: 'Tipo de personal' },
+      { key: 'identificacion', titulo: 'Identificación' },
+      { key: 'personales', titulo: 'Datos personales' },
+      { key: 'contacto', titulo: 'Contacto' },
+      ...(civil ? [] : [
+        { key: 'laborales' as const, titulo: 'Datos laborales' },
+        { key: 'escalafon' as const, titulo: 'Escalafón y derecha' },
+        { key: 'formacion' as const, titulo: 'Formación' },
+      ]),
+      { key: 'familiares', titulo: 'Familiares' },
+    ];
+  }
+
+  numeroSeccion(key: SeccionAlta): number {
+    return this.seccionesVisibles().findIndex((s) => s.key === key) + 1;
+  }
+
+  /** Cada obligatorio de la sección, cumplido o no. */
+  private obligatoriosDe(seccion: SeccionAlta): { pendiente: boolean; item: Pendiente }[] {
+    if (seccion === 'tipo') {
+      return [{ pendiente: !this.tipoPersonal(), item: { label: 'Tipo de personal', control: null, seccion } }];
+    }
+    if (seccion === 'familiares') {
+      return this.esCivil()
+        ? [{ pendiente: this.faltaFamiliarMilitar(), item: { label: 'Un familiar militar', control: null, seccion } }]
+        : [];
+    }
+    if (this.esCivil() && seccion !== 'identificacion') return [];
+    return (OBLIGATORIOS[seccion] ?? []).map(({ control, label }) => {
+      const ctrl = this.form.get(control)!;
+      // Un control deshabilitado (el grado sin escalafón) no es inválido para Angular: cuenta su valor.
+      const pendiente = ctrl.disabled ? ctrl.value == null || ctrl.value === '' : ctrl.invalid;
+      return { pendiente, item: { label, control, seccion } };
+    });
+  }
+
+  pendientesDe(seccion: SeccionAlta): number {
+    return this.obligatoriosDe(seccion).filter((o) => o.pendiente).length;
+  }
+
+  tieneObligatorios(seccion: SeccionAlta): boolean {
+    return this.obligatoriosDe(seccion).length > 0;
+  }
+
+  pendientes(): Pendiente[] {
+    return this.seccionesVisibles().flatMap((s) =>
+      this.obligatoriosDe(s.key).filter((o) => o.pendiente).map((o) => o.item),
+    );
+  }
+
+  totalObligatorios(): number {
+    return this.seccionesVisibles().reduce((n, s) => n + this.obligatoriosDe(s.key).length, 0);
+  }
+
+  obligatoriosCompletos(): number {
+    return this.totalObligatorios() - this.pendientes().length;
+  }
+
+  irASeccion(key: SeccionAlta): void {
+    this.host.nativeElement.querySelector(`#alta-${key}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }
+
+  irAPendiente(p: Pendiente): void {
+    const campo = p.control ? this.host.nativeElement.querySelector<HTMLElement>(`#${p.control}`) : null;
+    if (campo) {
+      campo.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      campo.focus({ preventScroll: true });
+    } else {
+      this.irASeccion(p.seccion);
+    }
+  }
+
+  etaInconsistente(): boolean {
+    return !!this.form.errors?.['etaInconsistente'];
+  }
+
+  /** Edad para mostrar bajo la fecha de nacimiento. */
+  edad(): number | null {
+    const iso: string = this.form.get('fecha_nacimiento')?.value;
+    if (!iso) return null;
+    const [y, m, d] = iso.split('-').map(Number);
+    const hoy = new Date();
+    let anios = hoy.getFullYear() - y;
+    if (hoy.getMonth() + 1 < m || (hoy.getMonth() + 1 === m && hoy.getDate() < d)) anios--;
+    return anios >= 0 ? anios : null;
+  }
+
   // ─── Gestión de familiares ────────────────────────────────────────────────────
 
   onFamiliarSearch(event: Event): void {
@@ -312,15 +477,21 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     setTimeout(() => this.familiarDropdownOpen.set(false), 200);
   }
 
-  addFamiliar(persona: PersonaListItem): void {
+  addFamiliar(persona: CandidatoFamiliar): void {
     const yaAgregado = this.familiares().some(f => f.persona.cedula === persona.cedula);
     if (yaAgregado) return;
     this.familiares.update(list => [...list, { persona, tipo_relacion: '' }]);
-    this.familiaresError.set(false);
+    // El error se va recién cuando hay un militar: un civil solo con familiares civiles no alcanza.
+    if (this.familiaresError()) this.familiaresError.set(this.faltaFamiliarMilitar());
     // Limpiar búsqueda para agregar otro
     this.familiarSearch.set('');
     this.familiarResults.set([]);
     this.familiarDropdownOpen.set(false);
+  }
+
+  /** Un civil necesita al menos un familiar militar: es lo que justifica que esté en el sistema. */
+  faltaFamiliarMilitar(): boolean {
+    return this.esCivil() && !this.familiares().some(f => !f.persona.es_civil);
   }
 
   removeFamiliar(index: number): void {
@@ -377,11 +548,15 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
     this.form.markAllAsTouched();
     const esCivil: boolean = this.form.get('es_civil')!.value;
 
-    if (esCivil && this.familiares().length === 0) {
+    if (this.faltaFamiliarMilitar()) {
       this.familiaresError.set(true);
     }
 
-    if (this.form.invalid || (esCivil && this.familiares().length === 0)) return;
+    if (this.form.invalid || this.faltaFamiliarMilitar()) {
+      const primero = this.pendientes()[0];
+      if (primero) this.irAPendiente(primero);
+      return;
+    }
 
     this.loading.set(true);
     const raw = this.form.getRawValue();
@@ -404,7 +579,8 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       ...(raw.email            && { email:            raw.email }),
       ...(raw.telefono         && { telefono:         raw.telefono }),
       ...(raw.direccion        && { direccion:        raw.direccion }),
-      ...(raw.observaciones    && { observaciones:    raw.observaciones }),
+      // Van a la relación laboral: el civil no tiene, así que no se mandan.
+      ...(!esCivil && raw.observaciones && { observaciones: raw.observaciones }),
     };
 
     if (this.familiares().length > 0) {
@@ -432,6 +608,14 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
       }
       if (raw.codigos_legajo && raw.tipo_funcionario === 'oficial') {
         payload['codigos_legajo'] = raw.codigos_legajo;
+      }
+      if (raw.nivel_educativo) payload['nivel_educativo'] = raw.nivel_educativo;
+      // ETA y mutación son del personal subalterno.
+      if (raw.tipo_funcionario === 'subalterno') {
+        if (raw.fecha_ingreso_eta) payload['fecha_ingreso_eta'] = raw.fecha_ingreso_eta;
+        if (raw.fecha_egreso_eta) payload['fecha_egreso_eta'] = raw.fecha_egreso_eta;
+        if (raw.numero_orden_egreso_eta?.trim()) payload['numero_orden_egreso_eta'] = raw.numero_orden_egreso_eta.trim();
+        if (raw.mutaciones?.trim()) payload['mutaciones'] = raw.mutaciones.trim();
       }
     }
 

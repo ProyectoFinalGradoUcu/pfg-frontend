@@ -15,51 +15,31 @@
     <nav class="breadcrumb">
       <a class="breadcrumb__item breadcrumb__item--link" (click)="volver()">Administración de Personal</a>
       <span class="breadcrumb__sep">/</span>
-      <span class="breadcrumb__item breadcrumb__item--current">{{ p.nombre_completo }}</span>
+      <span class="breadcrumb__item breadcrumb__item--current" *ngIf="!editMode()">{{ p.nombre_completo }}</span>
+      <ng-container *ngIf="editMode()">
+        <a class="breadcrumb__item breadcrumb__item--link" (click)="descartarEdicion()">{{ p.nombre_completo }}</a>
+        <span class="breadcrumb__sep">/</span>
+        <span class="breadcrumb__item breadcrumb__item--current">Editar</span>
+      </ng-container>
     </nav>
 
-    <!-- Header card -->
-    <article class="pd__header-card">
-      <div class="pd__identity">
-        <app-foto-personal
-          [personaId]="p.id"
-          [fotoId]="p.foto_id"
-          [iniciales]="initials(p)"
-          [nombre]="p.nombre_completo"
-          [puedeEditar]="puedeEditarFoto()"
-          (fotoCambiada)="onFotoCambiada($event)"
-        ></app-foto-personal>
-        <div class="pd__identity-info">
-          <h1 class="pd__name">{{ p.nombre_completo }}</h1>
-          <p class="pd__meta">
-            {{ p.relacion_laboral?.grado?.denominacion }}
-            <span class="pd__meta-dot">·</span>
-            {{ p.cedula }}
-            <span class="pd__meta-dot">·</span>
-            Derecha {{ p.relacion_laboral?.derecha ?? '—' }}
-            <span class="pd__meta-dot">·</span>
-            Numor {{ p.relacion_laboral?.numor ?? '—' }}
-          </p>
+    <!-- Header card (edición) -->
+    <article class="pd__header-card pd__header-card--edit" *ngIf="editMode()">
+      <div class="pd__header-top">
+        <div class="pd__identity">
+          <div class="pd__ed-avatar">{{ initials(p) }}</div>
+          <div class="pd__identity-info">
+            <h1 class="pd__name pd__name--edit">Editar a {{ p.nombre_completo }}</h1>
+            <p class="pd__ed-meta">
+              <ng-container *ngIf="p.relacion_laboral?.grado?.denominacion">{{ p.relacion_laboral?.grado?.denominacion }} · </ng-container>C.I. {{ p.cedula }}<ng-container *ngIf="p.relacion_laboral?.derecha != null"> · Derecha {{ p.relacion_laboral?.derecha }} · Numor {{ p.relacion_laboral?.numor ?? '—' }}</ng-container>
+            </p>
+          </div>
         </div>
-      </div>
-      <div class="pd__header-actions">
-        <span class="pd__status-badge"
-          [class.pd__status-badge--activo]="['SIT01','SIT07'].includes(p.relacion_laboral?.situacion?.codigo ?? '')"
-          [class.pd__status-badge--licencia]="['SIT03','SIT09'].includes(p.relacion_laboral?.situacion?.codigo ?? '')"
-          [class.pd__status-badge--baja]="p.relacion_laboral?.situacion?.codigo === 'BAJ'"
-        >{{ p.relacion_laboral?.situacion?.denominacion ?? 'Sin estado' }}</span>
-
-        <ng-container *ngIf="!editMode()">
-          <button type="button" class="pd__edit-btn" (click)="openEdit()">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
-            </svg>
-            Editar Perfil
-          </button>
-        </ng-container>
-
-        <ng-container *ngIf="editMode()">
-          <button type="button" class="pd__edit-btn pd__edit-btn--ghost" (click)="closeEdit()">Cancelar</button>
+        <div class="pd__header-actions">
+          <span class="pd__cambios-badge" *ngIf="cantidadCambios()">
+            {{ cantidadCambios() }} {{ cantidadCambios() === 1 ? 'cambio sin guardar' : 'cambios sin guardar' }}
+          </span>
+          <button type="button" class="pd__edit-btn pd__edit-btn--ghost" (click)="descartarEdicion()">Descartar</button>
           <button type="button" class="pd__edit-btn" (click)="saveEdit()" [disabled]="editLoading()">
             <svg *ngIf="editLoading()" class="pd__edit-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
@@ -67,12 +47,88 @@
             </svg>
             {{ editLoading() ? 'Guardando...' : 'Guardar cambios' }}
           </button>
-        </ng-container>
+        </div>
       </div>
     </article>
 
+    <!-- Header card -->
+    <article class="pd__header-card" *ngIf="!editMode()">
+      <div class="pd__header-top">
+        <div class="pd__identity">
+          <app-foto-personal
+            [personaId]="p.id"
+            [fotoId]="p.foto_id"
+            [iniciales]="initials(p)"
+            [nombre]="p.nombre_completo"
+            [puedeEditar]="puedeEditarFoto()"
+            (fotoCambiada)="onFotoCambiada($event)"
+          ></app-foto-personal>
+          <div class="pd__identity-info">
+            <div class="pd__name-row">
+              <h1 class="pd__name">{{ p.nombre_completo }}</h1>
+              <span class="pd__status-badge"
+                [class.pd__status-badge--activo]="['SIT01','SIT07'].includes(p.relacion_laboral?.situacion?.codigo ?? '')"
+                [class.pd__status-badge--licencia]="['SIT03','SIT09'].includes(p.relacion_laboral?.situacion?.codigo ?? '')"
+                [class.pd__status-badge--baja]="p.relacion_laboral?.situacion?.codigo === 'BAJ'"
+              >{{ p.relacion_laboral?.situacion?.denominacion ?? 'Sin estado' }}</span>
+            </div>
+            <div class="pd__chips">
+              <span class="pd__chip pd__chip--strong" *ngIf="p.relacion_laboral?.grado?.denominacion">
+                {{ p.relacion_laboral?.grado?.denominacion }}<ng-container *ngIf="p.relacion_laboral?.escalafon?.denominacion"> · {{ p.relacion_laboral?.escalafon?.denominacion }}</ng-container>
+              </span>
+              <span class="pd__chip" *ngIf="p.relacion_laboral?.tipo_funcionario">{{ capitalizar(p.relacion_laboral?.tipo_funcionario) }}</span>
+              <span class="pd__chip">C.I. {{ p.cedula }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pd__header-actions">
+          <button type="button" class="pd__edit-btn" (click)="openEdit()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+            </svg>
+            Editar perfil
+          </button>
+        </div>
+      </div>
+
+      <!-- Resumen -->
+      <dl class="pd__stats">
+        <div class="pd__stat" *ngIf="!p.es_civil">
+          <dt>Derecha · Numor</dt>
+          <dd>{{ p.relacion_laboral?.derecha ?? '—' }} · {{ p.relacion_laboral?.numor ?? '—' }}</dd>
+          <span class="pd__stat-sub">{{ p.relacion_laboral?.grado?.denominacion ?? 'Sin grado' }}</span>
+        </div>
+        <div class="pd__stat">
+          <dt>Base actual</dt>
+          <dd>{{ baseActual() }}</dd>
+          <span class="pd__stat-sub">{{ p.relacion_laboral ? 'Destino vigente' : 'Sin relación laboral' }}</span>
+        </div>
+        <div class="pd__stat">
+          <dt>Antigüedad</dt>
+          <dd>{{ tiempoDesde(p.relacion_laboral?.fecha_inicio) ?? '—' }}</dd>
+          <span class="pd__stat-sub" *ngIf="p.relacion_laboral?.fecha_inicio">Desde {{ formatDate(p.relacion_laboral?.fecha_inicio) }}</span>
+        </div>
+        <div class="pd__stat">
+          <dt>Edad</dt>
+          <dd>{{ aniosDesde(p.fecha_nacimiento) != null ? aniosDesde(p.fecha_nacimiento) + ' años' : '—' }}</dd>
+          <span class="pd__stat-sub" *ngIf="p.fecha_nacimiento">Nació el {{ formatDate(p.fecha_nacimiento) }}</span>
+        </div>
+        <div class="pd__stat">
+          <dt>Régimen</dt>
+          <dd>{{ p.relacion_laboral?.regimen?.denominacion ?? '—' }}</dd>
+          <span class="pd__stat-sub" *ngIf="p.relacion_laboral?.programa?.denominacion">{{ p.relacion_laboral?.programa?.denominacion }}</span>
+        </div>
+        <div class="pd__stat">
+          <dt>Tipo de funcionario</dt>
+          <dd>{{ capitalizar(p.relacion_laboral?.tipo_funcionario) ?? '—' }}</dd>
+          <span class="pd__stat-sub" *ngIf="p.relacion_laboral && !p.es_civil">{{ p.relacion_laboral.tiene_mando ? 'Con mando' : 'Sin mando' }}</span>
+        </div>
+      </dl>
+    </article>
+
     <!-- Tab bar -->
-    <nav class="pd__tabs-bar">
+    <nav class="pd__tabs-bar" *ngIf="!editMode()">
       <button
         *ngFor="let tab of visibleTabs()"
         type="button"
@@ -82,429 +138,708 @@
       >{{ tab.label }}</button>
     </nav>
 
-    <!-- ═══════════════════ TAB: DATOS PERSONALES ═══════════════════ -->
-    <article class="pd__card" *ngIf="activeTab() === 'personal'">
-      <form [formGroup]="editForm" novalidate>
-        <div class="pd__two-col">
+    <!-- ═══════════════════ TAB: DATOS PERSONALES (lectura) ═══════════════════ -->
+    <ng-container *ngIf="activeTab() === 'personal' && !editMode()">
 
-          <!-- Columna izquierda: información personal + contacto -->
-          <div class="pd__col">
-            <h3 class="pd__col-title">Información Personal</h3>
-            <div class="pd__field-list">
+      <!-- Completitud del legajo -->
+      <div class="pd__completitud" *ngIf="camposFaltantes().length">
+        <svg class="pd__completitud-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+        </svg>
+        <div class="pd__completitud-body">
+          <strong>Legajo {{ porcentajeLegajo() }} % completo · falta{{ camposFaltantes().length === 1 ? '' : 'n' }} {{ camposFaltantes().length }} dato{{ camposFaltantes().length === 1 ? '' : 's' }}</strong>
+          <span>{{ resumenFaltantes() }}</span>
+          <div class="pd__completitud-bar"><div [style.width.%]="porcentajeLegajo()"></div></div>
+        </div>
+        <button type="button" class="pd__completitud-btn" *ngIf="puedeEditar()" (click)="openEdit()">Completar datos</button>
+      </div>
 
-              <div class="pd__field" *ngIf="!editMode()">
-                <span class="pd__label">Nombre completo</span>
-                <span class="pd__value">{{ p.nombre_completo }}</span>
-              </div>
-
-              <ng-container *ngIf="editMode()">
-                <div class="pd__field">
-                  <span class="pd__label">Primer nombre</span>
-                  <input type="text" formControlName="primer_nombre" class="pd__edit-input"
-                    [class.pd__edit-input--error]="hasEditError('primer_nombre')" />
-                  <span class="pd__edit-error" *ngIf="hasEditError('primer_nombre')">Este campo es obligatorio</span>
-                </div>
-                <div class="pd__field">
-                  <span class="pd__label">Segundo nombre</span>
-                  <input type="text" formControlName="segundo_nombre" class="pd__edit-input" />
-                </div>
-                <div class="pd__field">
-                  <span class="pd__label">Primer apellido</span>
-                  <input type="text" formControlName="primer_apellido" class="pd__edit-input"
-                    [class.pd__edit-input--error]="hasEditError('primer_apellido')" />
-                  <span class="pd__edit-error" *ngIf="hasEditError('primer_apellido')">Este campo es obligatorio</span>
-                </div>
-                <div class="pd__field">
-                  <span class="pd__label">Segundo apellido</span>
-                  <input type="text" formControlName="segundo_apellido" class="pd__edit-input" />
-                </div>
-              </ng-container>
-
-              <div class="pd__field">
-                <span class="pd__label">Cédula</span>
-                <span class="pd__value">{{ p.cedula }}</span>
-              </div>
-
-              <div class="pd__field">
-                <span class="pd__label">Credencial Cívica</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.credencial_civica ?? '—' }}</span>
-                <input *ngIf="editMode()" type="text" formControlName="credencial_civica"
-                  class="pd__edit-input" maxlength="20" />
-              </div>
-
-              <div class="pd__field">
-                <span class="pd__label">Fecha de nacimiento</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ formatDate(p.fecha_nacimiento) }}</span>
-                <ng-container *ngIf="editMode()">
-                  <input type="date" formControlName="fecha_nacimiento" class="pd__edit-input"
-                    [attr.max]="maxFechaNacimiento()"
-                    [class.pd__edit-input--error]="fechasInconsistentes()" />
-                  <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
-                    No puede ser posterior a la fecha de inicio de la relación laboral
+      <div class="pd__layout">
+        <!-- Columna principal: secciones del legajo -->
+        <div class="pd__sections">
+          <article class="pd__section" *ngFor="let s of seccionesLegajo()">
+            <header class="pd__section-header">
+              <h3 class="pd__section-title">{{ s.titulo }}</h3>
+              <span class="pd__section-estado">{{ estadoSeccion(s) }}</span>
+            </header>
+            <div class="pd__grid">
+              <div class="pd__field" *ngFor="let c of s.campos">
+                <span class="pd__label">{{ c.label }}</span>
+                <ng-container *ngIf="c.valor; else sinDato">
+                  <span class="pd__value">
+                    {{ c.valor }}
+                    <button *ngIf="c.copiable" type="button" class="pd__copy" title="Copiar" aria-label="Copiar" (click)="copiar(c.valor!)">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-9.376a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+                      </svg>
+                    </button>
                   </span>
                 </ng-container>
+                <ng-template #sinDato>
+                  <span class="pd__value pd__value--vacio">
+                    Sin dato<ng-container *ngIf="c.cuenta !== false && puedeEditar()"> · <button type="button" class="pd__link" (click)="openEdit()">Agregar</button></ng-container>
+                  </span>
+                </ng-template>
+                <span class="pd__field-nota" *ngIf="c.nota">{{ c.nota }}</span>
               </div>
+            </div>
+            <p class="pd__section-nota" *ngIf="s.nota">{{ s.nota }}</p>
+          </article>
+        </div>
 
-              <div class="pd__field">
-                <span class="pd__label">Género</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ formatGenero(p.genero) }}</span>
-                <select *ngIf="editMode()" formControlName="genero" class="pd__edit-select">
-                  <option value="">Seleccionar...</option>
-                  <option *ngFor="let g of generoOpciones" [value]="g.value">{{ g.label }}</option>
-                </select>
+        <!-- Columna lateral -->
+        <aside class="pd__aside">
+          <article class="pd__side-card">
+            <h3 class="pd__side-title">Situación</h3>
+            <ng-container *ngIf="p.relacion_laboral as rl; else sinRelacion">
+              <p class="pd__situacion"
+                [class.pd__situacion--activo]="['SIT01','SIT07'].includes(rl.situacion?.codigo ?? '')"
+                [class.pd__situacion--licencia]="['SIT03','SIT09'].includes(rl.situacion?.codigo ?? '')"
+                [class.pd__situacion--baja]="rl.situacion?.codigo === 'BAJ'"
+              >{{ rl.situacion?.denominacion ?? '—' }}</p>
+              <p class="pd__side-help" *ngIf="!p.es_civil">Se modifica con un movimiento, como en liquidación.</p>
+              <button *ngIf="ofreceCambiarSituacion()" type="button"
+                class="pd__edit-btn pd__edit-btn--ghost pd__side-btn"
+                (click)="abrirCambiarSituacion()">Cambiar situación</button>
+            </ng-container>
+            <ng-template #sinRelacion>
+              <p class="pd__side-help">
+                Sin relación laboral vigente. Si el funcionario está retirado, el detalle está en
+                Historial Militar.
+              </p>
+            </ng-template>
+          </article>
+
+          <article class="pd__side-card pd__destino-actual" *ngIf="p.relacion_laboral as rl">
+            <h3 class="pd__side-title">Destino actual</h3>
+            <div class="pd__destino-row">
+              <span class="pd__destino-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                </svg>
+              </span>
+              <div>
+                <span class="pd__value pd__value--strong">{{ baseActual() }}</span>
+                <span class="pd__field-nota">{{ rl.sub_unidad ? 'Base asignada' : 'Sin base asignada' }}</span>
               </div>
+            </div>
+            <button *ngIf="ofreceRegistrarDestino()" type="button"
+              class="pd__edit-btn pd__edit-btn--ghost pd__side-btn pd__registrar-destino"
+              (click)="abrirRegistrarDestino()">Registrar destino</button>
+            <button type="button" class="pd__link" (click)="switchTab('destinos')">Ver historial de destinos</button>
+          </article>
 
-              <div class="pd__field">
-                <span class="pd__label">Estado civil</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.estado_civil ?? '—' }}</span>
-                <select *ngIf="editMode()" formControlName="estado_civil" class="pd__edit-select">
-                  <option value="">Seleccionar...</option>
-                  <option *ngFor="let ec of estadoCivilOpciones" [value]="ec">{{ ec }}</option>
-                </select>
+          <article class="pd__side-card" *ngIf="!p.es_civil && p.relacion_laboral?.derecha != null && p.relacion_laboral as rl">
+            <h3 class="pd__side-title">Ubicación en la derecha</h3>
+            <div class="pd__derecha-boxes">
+              <div class="pd__derecha-box">
+                <span class="pd__label">Derecha</span>
+                <strong>{{ rl.derecha }}</strong>
+                <span class="pd__field-nota">{{ rl.grado?.denominacion }}</span>
               </div>
-
-              <div class="pd__field">
-                <span class="pd__label">Lugar de nacimiento</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.lugar_nacimiento ?? '—' }}</span>
-                <input *ngIf="editMode()" type="text" formControlName="lugar_nacimiento" class="pd__edit-input" />
+              <div class="pd__derecha-box">
+                <span class="pd__label">Numor</span>
+                <strong>{{ rl.numor ?? '—' }}</strong>
+                <span class="pd__field-nota">{{ rl.grado?.denominacion }}<ng-container *ngIf="rl.escalafon?.denominacion"> · {{ rl.escalafon?.denominacion }}</ng-container></span>
               </div>
+            </div>
+            <button *ngIf="puedeVerDerecha()" type="button" class="pd__link" (click)="verDerecha()">Ver derecha completa</button>
+          </article>
+        </aside>
+      </div>
+    </ng-container>
 
-              <div class="pd__field">
-                <span class="pd__label">Etnia</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.etnia ?? '—' }}</span>
-                <input *ngIf="editMode()" type="text" formControlName="etnia" class="pd__edit-input" />
-              </div>
+    <!-- ═══════════════════ EDITOR DEL PERFIL ═══════════════════ -->
+    <div class="pd__editor" *ngIf="editMode()">
 
+      <!-- Índice de secciones -->
+      <aside class="pd__editor-nav">
+        <span class="pd__editor-nav-title">Secciones</span>
+        <ol>
+          <li *ngFor="let s of seccionesEdicion(); let i = index">
+            <button type="button" (click)="irASeccion(s.key)">
+              <span class="pd__step">{{ i + 1 }}</span>
+              <span class="pd__editor-nav-label">{{ s.titulo }}</span>
+              <span class="pd__pill pd__pill--mod" *ngIf="cambiosEnSeccion(s.key) as n">{{ n }} {{ n === 1 ? 'cambio' : 'cambios' }}</span>
+              <span class="pd__pill pd__pill--error" *ngIf="erroresEnSeccion(s.key) as n">{{ n }} {{ n === 1 ? 'error' : 'errores' }}</span>
+            </button>
+          </li>
+        </ol>
+        <p class="pd__editor-nav-note">
+          La base y la situación no se editan acá: se cambian con su propio movimiento.
+        </p>
+      </aside>
+
+      <form class="pd__editor-form" [formGroup]="editForm" novalidate>
+
+        <!-- 1 · Identificación -->
+        <section class="pd__ed-section" id="ed-identificacion">
+          <header class="pd__ed-header">
+            <span class="pd__step">{{ numeroSeccion('identificacion') }}</span>
+            <div>
+              <h3>Identificación</h3>
+              <p>Nombre y documentos.</p>
+            </div>
+          </header>
+          <div class="pd__ed-grid">
+            <div class="pd__field">
+              <span class="pd__label">Tipo de funcionario <span class="pd__req" *ngIf="puedeEditarTipo()">*</span>
+                <span class="pd__mod" *ngIf="modificado('tipo_funcionario')">Modificado</span></span>
+              <select *ngIf="puedeEditarTipo(); else tipoFijo" formControlName="tipo_funcionario" class="pd__edit-select"
+                [class.pd__edit-input--mod]="modificado('tipo_funcionario')">
+                <option *ngFor="let t of tipoFuncionarioOpciones" [value]="t.value">{{ t.label }}</option>
+              </select>
+              <ng-template #tipoFijo>
+                <div class="pd__locked">
+                  <span>{{ p.es_civil ? 'Civil' : (capitalizar(p.relacion_laboral?.tipo_funcionario) ?? '—') }}</span>
+                </div>
+                <span class="pd__edit-hint" *ngIf="!p.es_civil">Sin relación laboral vigente.</span>
+              </ng-template>
+              <span class="pd__edit-hint pd__edit-hint--warn" *ngIf="cambioTipoSinGrado()">
+                Elegí un grado de {{ tipoFuncionario() === 'oficial' ? 'oficiales' : 'personal subalterno' }} en «Escalafón, grado y derecha».
+              </span>
+              <span class="pd__antes" *ngIf="modificado('tipo_funcionario')">Antes: {{ antes('tipo_funcionario') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Cédula <span class="pd__req">*</span>
+                <span class="pd__mod" *ngIf="modificado('cedula')">Modificado</span></span>
+              <input type="text" formControlName="cedula" class="pd__edit-input" inputmode="numeric" maxlength="9"
+                placeholder="Ej: 12345678"
+                [class.pd__edit-input--mod]="modificado('cedula')"
+                [class.pd__edit-input--error]="hasEditError('cedula')" />
+              <span class="pd__edit-error" *ngIf="hasEditError('cedula')">Entre 6 y 9 dígitos, sin puntos ni guión</span>
+              <span class="pd__antes" *ngIf="modificado('cedula')">Antes: {{ antes('cedula') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Credencial cívica <span class="pd__opt">(opcional)</span>
+                <span class="pd__mod" *ngIf="modificado('credencial_civica')">Modificado</span></span>
+              <input type="text" formControlName="credencial_civica" class="pd__edit-input" maxlength="20"
+                placeholder="Ej: CC 1.234.567" [class.pd__edit-input--mod]="modificado('credencial_civica')" />
+              <span class="pd__antes" *ngIf="modificado('credencial_civica')">Antes: {{ antes('credencial_civica') }}</span>
             </div>
 
-            <h3 class="pd__col-title pd__col-title--mt">Contacto</h3>
-            <div class="pd__field-list">
+            <div class="pd__ed-divider"></div>
 
-              <div class="pd__field">
-                <span class="pd__label">Email</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.email ?? '—' }}</span>
-                <ng-container *ngIf="editMode()">
-                  <input type="email" formControlName="email" class="pd__edit-input"
-                    [class.pd__edit-input--error]="hasEditError('email')" />
-                  <span class="pd__edit-error" *ngIf="hasEditError('email')">Email inválido</span>
-                </ng-container>
-              </div>
-
-              <div class="pd__field">
-                <span class="pd__label">Teléfono</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.telefono ?? '—' }}</span>
-                <input *ngIf="editMode()" type="text" formControlName="telefono" class="pd__edit-input" />
-              </div>
-
-              <div class="pd__field">
-                <span class="pd__label">Dirección</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.direccion ?? '—' }}</span>
-                <input *ngIf="editMode()" type="text" formControlName="direccion" class="pd__edit-input" />
-              </div>
-
-              <div class="pd__field">
-                <span class="pd__label">Código postal</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.codigo_postal ?? '—' }}</span>
-                <input *ngIf="editMode()" type="text" formControlName="codigo_postal" class="pd__edit-input" maxlength="10" />
-              </div>
-
-              <div class="pd__field">
-                <span class="pd__label">Seccional</span>
-                <span class="pd__value" *ngIf="!editMode()">{{ p.seccional ?? '—' }}</span>
-                <input *ngIf="editMode()" type="text" formControlName="seccional" class="pd__edit-input" />
-              </div>
-
+            <div class="pd__field">
+              <span class="pd__label">Primer nombre <span class="pd__req">*</span>
+                <span class="pd__mod" *ngIf="modificado('primer_nombre')">Modificado</span></span>
+              <input type="text" formControlName="primer_nombre" class="pd__edit-input"
+                [class.pd__edit-input--mod]="modificado('primer_nombre')"
+                [class.pd__edit-input--error]="hasEditError('primer_nombre')" />
+              <span class="pd__edit-error" *ngIf="hasEditError('primer_nombre')">Este campo es obligatorio</span>
+              <span class="pd__antes" *ngIf="modificado('primer_nombre')">Antes: {{ antes('primer_nombre') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Segundo nombre
+                <span class="pd__mod" *ngIf="modificado('segundo_nombre')">Modificado</span></span>
+              <input type="text" formControlName="segundo_nombre" class="pd__edit-input"
+                [class.pd__edit-input--mod]="modificado('segundo_nombre')" />
+              <span class="pd__antes" *ngIf="modificado('segundo_nombre')">Antes: {{ antes('segundo_nombre') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Primer apellido <span class="pd__req">*</span>
+                <span class="pd__mod" *ngIf="modificado('primer_apellido')">Modificado</span></span>
+              <input type="text" formControlName="primer_apellido" class="pd__edit-input"
+                [class.pd__edit-input--mod]="modificado('primer_apellido')"
+                [class.pd__edit-input--error]="hasEditError('primer_apellido')" />
+              <span class="pd__edit-error" *ngIf="hasEditError('primer_apellido')">Este campo es obligatorio</span>
+              <span class="pd__antes" *ngIf="modificado('primer_apellido')">Antes: {{ antes('primer_apellido') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Segundo apellido
+                <span class="pd__mod" *ngIf="modificado('segundo_apellido')">Modificado</span></span>
+              <input type="text" formControlName="segundo_apellido" class="pd__edit-input"
+                [class.pd__edit-input--mod]="modificado('segundo_apellido')" />
+              <span class="pd__antes" *ngIf="modificado('segundo_apellido')">Antes: {{ antes('segundo_apellido') }}</span>
             </div>
           </div>
+        </section>
 
-          <!-- Columna derecha: información laboral -->
-          <div class="pd__col">
-            <h3 class="pd__col-title">Información Laboral</h3>
+        <!-- 2 · Datos personales -->
+        <section class="pd__ed-section" id="ed-personales">
+          <header class="pd__ed-header">
+            <span class="pd__step">{{ numeroSeccion('personales') }}</span>
+            <div><h3>Datos personales</h3></div>
+          </header>
+          <div class="pd__ed-grid">
+            <div class="pd__field">
+              <span class="pd__label">Fecha de nacimiento
+                <span class="pd__mod" *ngIf="modificado('fecha_nacimiento')">Modificado</span></span>
+              <input type="date" formControlName="fecha_nacimiento" class="pd__edit-input"
+                [attr.max]="maxFechaNacimiento()"
+                [class.pd__edit-input--mod]="modificado('fecha_nacimiento')"
+                [class.pd__edit-input--error]="fechasInconsistentes()" />
+              <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
+                No puede ser posterior a la fecha de inicio de la relación laboral
+              </span>
+              <span class="pd__edit-hint" *ngIf="aniosDesde(editForm.get('fecha_nacimiento')?.value) as edad">{{ edad }} años</span>
+              <span class="pd__antes" *ngIf="modificado('fecha_nacimiento')">Antes: {{ antes('fecha_nacimiento') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Género
+                <span class="pd__mod" *ngIf="modificado('genero')">Modificado</span></span>
+              <select formControlName="genero" class="pd__edit-select" [class.pd__edit-input--mod]="modificado('genero')">
+                <option value="">Seleccionar...</option>
+                <option *ngFor="let g of generoOpciones" [value]="g.value">{{ g.label }}</option>
+              </select>
+              <span class="pd__antes" *ngIf="modificado('genero')">Antes: {{ antes('genero') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Estado civil
+                <span class="pd__mod" *ngIf="modificado('estado_civil')">Modificado</span></span>
+              <select formControlName="estado_civil" class="pd__edit-select" [class.pd__edit-input--mod]="modificado('estado_civil')">
+                <option value="">Seleccionar...</option>
+                <option *ngFor="let ec of estadoCivilOpciones" [value]="ec">{{ ec }}</option>
+              </select>
+              <span class="pd__antes" *ngIf="modificado('estado_civil')">Antes: {{ antes('estado_civil') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Lugar de nacimiento
+                <span class="pd__mod" *ngIf="modificado('lugar_nacimiento')">Modificado</span></span>
+              <input type="text" formControlName="lugar_nacimiento" class="pd__edit-input" placeholder="Ciudad, país"
+                [class.pd__edit-input--mod]="modificado('lugar_nacimiento')" />
+              <span class="pd__antes" *ngIf="modificado('lugar_nacimiento')">Antes: {{ antes('lugar_nacimiento') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Etnia
+                <span class="pd__mod" *ngIf="modificado('etnia')">Modificado</span></span>
+              <input type="text" formControlName="etnia" class="pd__edit-input"
+                [class.pd__edit-input--mod]="modificado('etnia')" />
+              <span class="pd__antes" *ngIf="modificado('etnia')">Antes: {{ antes('etnia') }}</span>
+            </div>
+          </div>
+        </section>
 
-            <!-- Read view -->
-            <div class="pd__field-list" *ngIf="!editMode() && p.relacion_laboral as rl">
-              <div class="pd__field">
-                <span class="pd__label">Grado</span>
-                <span class="pd__value">{{ rl.grado?.denominacion ?? '—' }}</span>
+        <!-- 3 · Contacto -->
+        <section class="pd__ed-section" id="ed-contacto">
+          <header class="pd__ed-header">
+            <span class="pd__step">{{ numeroSeccion('contacto') }}</span>
+            <div><h3>Contacto</h3></div>
+          </header>
+          <div class="pd__ed-grid">
+            <div class="pd__field">
+              <span class="pd__label">Email
+                <span class="pd__mod" *ngIf="modificado('email')">Modificado</span></span>
+              <input type="email" formControlName="email" class="pd__edit-input"
+                [class.pd__edit-input--mod]="modificado('email')"
+                [class.pd__edit-input--error]="hasEditError('email')" />
+              <span class="pd__edit-error" *ngIf="hasEditError('email')">Email inválido</span>
+              <span class="pd__antes" *ngIf="modificado('email')">Antes: {{ antes('email') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Teléfono
+                <span class="pd__mod" *ngIf="modificado('telefono')">Modificado</span></span>
+              <input type="text" formControlName="telefono" class="pd__edit-input"
+                [class.pd__edit-input--mod]="modificado('telefono')" />
+              <span class="pd__antes" *ngIf="modificado('telefono')">Antes: {{ antes('telefono') }}</span>
+            </div>
+            <div class="pd__field pd__span-3">
+              <span class="pd__label">Dirección
+                <span class="pd__mod" *ngIf="modificado('direccion')">Modificado</span></span>
+              <input type="text" formControlName="direccion" class="pd__edit-input" placeholder="Calle, número, ciudad"
+                [class.pd__edit-input--mod]="modificado('direccion')" />
+              <span class="pd__antes" *ngIf="modificado('direccion')">Antes: {{ antes('direccion') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Código postal
+                <span class="pd__mod" *ngIf="modificado('codigo_postal')">Modificado</span></span>
+              <input type="text" formControlName="codigo_postal" class="pd__edit-input" maxlength="10"
+                [class.pd__edit-input--mod]="modificado('codigo_postal')"
+                [class.pd__edit-input--error]="hasEditError('codigo_postal')" />
+              <span class="pd__edit-error" *ngIf="hasEditError('codigo_postal')">Máximo 10 caracteres</span>
+              <span class="pd__antes" *ngIf="modificado('codigo_postal')">Antes: {{ antes('codigo_postal') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Seccional
+                <span class="pd__mod" *ngIf="modificado('seccional')">Modificado</span></span>
+              <input type="text" formControlName="seccional" class="pd__edit-input"
+                [class.pd__edit-input--mod]="modificado('seccional')" />
+              <span class="pd__antes" *ngIf="modificado('seccional')">Antes: {{ antes('seccional') }}</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4 · Datos laborales -->
+        <section class="pd__ed-section" id="ed-laborales" *ngIf="p.relacion_laboral as rl">
+          <header class="pd__ed-header">
+            <span class="pd__step">{{ numeroSeccion('laborales') }}</span>
+            <div><h3>Datos laborales</h3></div>
+          </header>
+          <div class="pd__ed-grid">
+            <div class="pd__field">
+              <span class="pd__label">Situación</span>
+              <div class="pd__locked pd__locked--situacion"
+                [class.pd__situacion--activo]="['SIT01','SIT07'].includes(rl.situacion?.codigo ?? '')"
+                [class.pd__situacion--licencia]="['SIT03','SIT09'].includes(rl.situacion?.codigo ?? '')"
+                [class.pd__situacion--baja]="rl.situacion?.codigo === 'BAJ'">
+                <span class="pd__dot"></span>
+                <span>{{ rl.situacion?.denominacion ?? '—' }}</span>
               </div>
-              <div class="pd__field">
-                <span class="pd__label">Derecha</span>
-                <span class="pd__value">{{ rl.estado === 'activo' ? (rl.derecha ?? '—') : '—' }}</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Numor</span>
-                <span class="pd__value">{{ rl.estado === 'activo' ? (rl.numor ?? '—') : '—' }}</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Base</span>
+              <button *ngIf="ofreceCambiarSituacion()" type="button"
+                class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__ed-inline-btn"
+                (click)="abrirCambiarSituacion()">Cambiar situación</button>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Base</span>
+              <div class="pd__locked">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
                 <span class="pd__value">{{ baseActual() }}</span>
-                <button *ngIf="puedeRegistrarDestino() && rl.estado === 'activo'" type="button"
-                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
-                  (click)="abrirRegistrarDestino()">Registrar destino</button>
               </div>
-              <div class="pd__field">
-                <span class="pd__label">Estado</span>
-                <span class="pd__status-badge"
-                  [class.pd__status-badge--activo]="['SIT01','SIT07'].includes(rl.situacion?.codigo ?? '')"
-                  [class.pd__status-badge--licencia]="['SIT03','SIT09'].includes(rl.situacion?.codigo ?? '')"
-                  [class.pd__status-badge--baja]="rl.situacion?.codigo === 'BAJ'"
-                >{{ rl.situacion?.denominacion ?? '—' }}</span>
-                <button *ngIf="puedeCambiarSituacion() && rl.estado === 'activo' && !p.es_civil" type="button"
-                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
-                  (click)="abrirCambiarSituacion()">Cambiar situación</button>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Tipo de funcionario</span>
-                <span class="pd__value pd__value--capitalize">{{ rl.tipo_funcionario }}</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Escalafón</span>
-                <span class="pd__value">{{ rl.escalafon?.denominacion ?? '—' }}</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Régimen</span>
-                <span class="pd__value">{{ rl.regimen?.denominacion ?? '—' }}</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Programa</span>
-                <span class="pd__value">{{ rl.programa?.denominacion ?? '—' }}</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Fecha de inicio</span>
-                <span class="pd__value">{{ formatDate(rl.fecha_inicio) }}</span>
-              </div>
-              <div class="pd__field" *ngIf="rl.prima_tecnica">
-                <span class="pd__label">Prima técnica</span>
-                <span class="pd__value">{{ rl.prima_tecnica }}</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Tiene mando</span>
-                <span class="pd__value">{{ rl.tiene_mando ? 'Sí' : 'No' }}</span>
-              </div>
-              <div class="pd__field" *ngIf="rl.observaciones">
-                <span class="pd__label">Observaciones</span>
-                <span class="pd__value">{{ rl.observaciones }}</span>
-              </div>
+              <span class="pd__edit-hint">La base no se edita acá: cambiarla es registrar un destino.</span>
+              <button *ngIf="ofreceRegistrarDestino()" type="button"
+                class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__ed-inline-btn pd__registrar-destino"
+                (click)="abrirRegistrarDestino()">Registrar destino</button>
+            </div>
+            <div class="pd__field" *ngIf="!p.es_civil">
+              <span class="pd__label">Fecha de inicio <span class="pd__req">*</span>
+                <span class="pd__mod" *ngIf="modificado('fecha_inicio')">Modificado</span></span>
+              <input type="date" formControlName="fecha_inicio" class="pd__edit-input"
+                [attr.min]="minFechaInicio()"
+                [class.pd__edit-input--mod]="modificado('fecha_inicio')"
+                [class.pd__edit-input--error]="fechasInconsistentes()" />
+              <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
+                No puede ser anterior a la fecha de nacimiento
+              </span>
+              <span class="pd__edit-hint" *ngIf="tiempoDesde(editForm.get('fecha_inicio')?.value) as t">{{ t }} de servicio</span>
+              <span class="pd__antes" *ngIf="modificado('fecha_inicio')">Antes: {{ antes('fecha_inicio') }}</span>
             </div>
 
-            <p class="pd__empty" *ngIf="!editMode() && !p.relacion_laboral">
-              Sin relación laboral vigente. Si el funcionario está retirado, el detalle está en
-              Historial Militar.
-            </p>
+            <div class="pd__field">
+              <span class="pd__label">Régimen <span class="pd__req">*</span>
+                <span class="pd__mod" *ngIf="modificado('regimen_id')">Modificado</span></span>
+              <select formControlName="regimen_id" class="pd__edit-select" [class.pd__edit-input--mod]="modificado('regimen_id')">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let reg of editRegimenes()" [ngValue]="reg.id">{{ reg.denominacion }}</option>
+              </select>
+              <span class="pd__antes" *ngIf="modificado('regimen_id')">Antes: {{ antes('regimen_id') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Programa <span class="pd__req">*</span>
+                <span class="pd__mod" *ngIf="modificado('programa_id')">Modificado</span></span>
+              <select formControlName="programa_id" class="pd__edit-select" [class.pd__edit-input--mod]="modificado('programa_id')">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let prog of editProgramas()" [ngValue]="prog.id">{{ prog.denominacion }}</option>
+              </select>
+              <span class="pd__antes" *ngIf="modificado('programa_id')">Antes: {{ antes('programa_id') }}</span>
+            </div>
+            <div class="pd__field" *ngIf="!p.es_civil">
+              <span class="pd__label">Prima técnica
+                <span class="pd__mod" *ngIf="modificado('prima_tecnica')">Modificado</span></span>
+              <input type="text" formControlName="prima_tecnica" class="pd__edit-input" placeholder="Ej: A"
+                [class.pd__edit-input--mod]="modificado('prima_tecnica')" />
+              <span class="pd__antes" *ngIf="modificado('prima_tecnica')">Antes: {{ antes('prima_tecnica') }}</span>
+            </div>
 
-            <p class="pd__empty" *ngIf="editMode() && !p.relacion_laboral">
-              Este funcionario no tiene relación laboral vigente, así que no hay datos laborales
-              que editar.
-            </p>
+            <label class="pd__mando pd__span-3" *ngIf="!p.es_civil" [class.pd__mando--mod]="modificado('tiene_mando')">
+              <input type="checkbox" formControlName="tiene_mando" class="pd__edit-checkbox" />
+              <span class="pd__edit-toggle-track"><span class="pd__edit-toggle-thumb"></span></span>
+              <span class="pd__mando-text">
+                <strong>Tiene mando <span class="pd__mod" *ngIf="modificado('tiene_mando')">Modificado</span></strong>
+                <span>{{ editForm.get('tiene_mando')?.value ? 'Sí' : 'No' }}</span>
+              </span>
+            </label>
+          </div>
+        </section>
 
-            <!-- Edit view: solo militares -->
-            <div class="pd__field-list" *ngIf="editMode() && !p.es_civil && p.relacion_laboral as rl">
-              <div class="pd__field">
-                <span class="pd__label">Fecha de inicio</span>
-                <input type="date" formControlName="fecha_inicio" class="pd__edit-input"
-                  [attr.min]="minFechaInicio()"
-                  [class.pd__edit-input--error]="fechasInconsistentes()" />
-                <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
-                  No puede ser anterior a la fecha de nacimiento
-                </span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Escalafón</span>
-                <select formControlName="escalafon_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let esc of editEscalafones()" [ngValue]="esc.id">{{ esc.denominacion }}</option>
-                </select>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">
-                  Grado
-                  <span class="pd__edit-hint" *ngIf="editForm.get('grado_id')?.disabled">(elegí un escalafón primero)</span>
-                </span>
-                <select formControlName="grado_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let gr of editGrados()" [ngValue]="gr.id">{{ gr.denominacion }}</option>
-                </select>
-              </div>
-              <ng-container *ngIf="puedeEditarDerecha()">
-                <div class="pd__field" *ngIf="!cambioGradoOEscalafon(); else derechaPorGrado">
-                  <span class="pd__label">Derecha y numor</span>
-                  <div class="pd__derecha-inputs">
-                    <label>
-                      <span>Derecha</span>
-                      <input type="number" formControlName="derecha" class="pd__edit-input"
-                        [min]="rangoDerecha()?.desde ?? 1" [max]="rangoDerecha()?.hasta ?? null" step="1" />
-                    </label>
-                    <label>
-                      <span>Numor</span>
-                      <input type="number" formControlName="numor" class="pd__edit-input"
-                        min="1" [max]="maxNumor() ?? null" step="1" />
-                    </label>
-                  </div>
-                  <span class="pd__edit-hint" *ngIf="rangoDerecha() as r">
-                    Derecha de {{ r.desde }} a {{ r.hasta }} ({{ rl.grado?.denominacion }})<ng-container *ngIf="maxNumor()"> · numor de 1 a {{ maxNumor() }} ({{ rl.grado?.denominacion }} {{ rl.escalafon?.denominacion }})</ng-container>
-                  </span>
-                  <span class="pd__edit-error" *ngIf="errorRangoDerecha() as e">{{ e }}</span>
-                  <ng-container *ngIf="cambioDerecha() && !errorRangoDerecha()">
-                    <app-panel-impacto
-                      class="pd__derecha-impacto"
-                      [impacto]="impactoDerecha()"
-                      [cargando]="calculandoDerecha()"
-                      [error]="errorDerecha()"
-                      [conAcciones]="false"
-                      textoVacio="Calculando a quiénes afecta…"
-                    ></app-panel-impacto>
-                    <input type="text" formControlName="motivo_derecha" class="pd__edit-input"
-                      placeholder="Motivo del cambio de derecha o numor (opcional)" />
-                    <span class="pd__edit-hint">Se aplica al guardar el perfil.</span>
-                  </ng-container>
+        <!-- 5 · Escalafón, grado y derecha -->
+        <section class="pd__ed-section" id="ed-escalafon" *ngIf="!p.es_civil && p.relacion_laboral as rl">
+          <header class="pd__ed-header">
+            <span class="pd__step">{{ numeroSeccion('escalafon') }}</span>
+            <div>
+              <h3>Escalafón, grado y derecha</h3>
+              <p>Para un ascenso usá el módulo Ascensos; acá se corrigen datos de carga.</p>
+            </div>
+          </header>
+          <div class="pd__ed-grid">
+            <div class="pd__field">
+              <span class="pd__label">Escalafón <span class="pd__req">*</span>
+                <span class="pd__mod" *ngIf="modificado('escalafon_id')">Modificado</span></span>
+              <select formControlName="escalafon_id" class="pd__edit-select" [class.pd__edit-input--mod]="modificado('escalafon_id')">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let esc of editEscalafones()" [ngValue]="esc.id">{{ esc.denominacion }}</option>
+              </select>
+              <span class="pd__antes" *ngIf="modificado('escalafon_id')">Antes: {{ antes('escalafon_id') }}</span>
+            </div>
+            <div class="pd__field">
+              <span class="pd__label">Grado <span class="pd__req">*</span>
+                <span class="pd__mod" *ngIf="modificado('grado_id')">Modificado</span></span>
+              <select formControlName="grado_id" class="pd__edit-select" [class.pd__edit-input--mod]="modificado('grado_id')">
+                <option [ngValue]="null">Seleccionar...</option>
+                <option *ngFor="let gr of editGrados()" [ngValue]="gr.id">{{ gr.denominacion }}</option>
+              </select>
+              <span class="pd__edit-hint" *ngIf="editForm.get('grado_id')?.disabled">Elegí un escalafón primero.</span>
+              <span class="pd__antes" *ngIf="modificado('grado_id')">Antes: {{ antes('grado_id') }}</span>
+            </div>
+
+            <!-- Derecha y numor -->
+            <ng-container *ngIf="puedeEditarDerecha(); else derechaSoloLectura">
+              <ng-container *ngIf="!cambioGradoOEscalafon(); else derechaPorGrado">
+                <div class="pd__field">
+                  <span class="pd__label">Derecha
+                    <span class="pd__mod" *ngIf="modificado('derecha')">Modificado</span></span>
+                  <input type="number" formControlName="derecha" class="pd__edit-input" step="1"
+                    [min]="rangoDerecha()?.desde ?? 1" [max]="rangoDerecha()?.hasta ?? null"
+                    [class.pd__edit-input--mod]="modificado('derecha')"
+                    [class.pd__edit-input--error]="!!errorRangoDerecha()" />
+                  <span class="pd__edit-hint" *ngIf="rangoDerecha() as r">De {{ r.desde }} a {{ r.hasta }} en {{ rl.grado?.denominacion }}</span>
+                  <span class="pd__antes" *ngIf="modificado('derecha')">Antes: {{ antes('derecha') }}</span>
                 </div>
-                <ng-template #derechaPorGrado>
-                  <div class="pd__field">
-                    <span class="pd__label">Derecha y numor</span>
-                    <span class="pd__edit-hint">Al cambiar el grado o el escalafón, queda al final de su nuevo grado y grupo de numor.</span>
-                  </div>
-                </ng-template>
+                <div class="pd__field">
+                  <span class="pd__label">Numor
+                    <span class="pd__mod" *ngIf="modificado('numor')">Modificado</span></span>
+                  <input type="number" formControlName="numor" class="pd__edit-input" min="1" step="1"
+                    [max]="maxNumor() ?? null"
+                    [class.pd__edit-input--mod]="modificado('numor')"
+                    [class.pd__edit-input--error]="!!errorRangoDerecha()" />
+                  <span class="pd__edit-hint" *ngIf="maxNumor()">De 1 a {{ maxNumor() }} en {{ rl.grado?.denominacion }} ({{ rl.escalafon?.denominacion }})</span>
+                  <span class="pd__antes" *ngIf="modificado('numor')">Antes: {{ antes('numor') }}</span>
+                </div>
+                <div class="pd__field pd__span-3" *ngIf="errorRangoDerecha() as e">
+                  <span class="pd__edit-error">{{ e }}</span>
+                </div>
+                <div class="pd__field pd__span-3" *ngIf="cambioDerecha() && !errorRangoDerecha()">
+                  <app-panel-impacto
+                    class="pd__derecha-impacto"
+                    [impacto]="impactoDerecha()"
+                    [cargando]="calculandoDerecha()"
+                    [error]="errorDerecha()"
+                    [conAcciones]="false"
+                    textoVacio="Calculando a quiénes afecta…"
+                  ></app-panel-impacto>
+                  <input type="text" formControlName="motivo_derecha" class="pd__edit-input"
+                    placeholder="Motivo del cambio de derecha o numor (opcional)" />
+                  <span class="pd__edit-hint">Se aplica al guardar el perfil.</span>
+                </div>
               </ng-container>
-              <div class="pd__field">
-                <span class="pd__label">Base</span>
-                <span class="pd__value">{{ baseActual() }}</span>
-                <span class="pd__edit-hint">La base no se edita acá: cambiarla es registrar un destino.</span>
-                <button *ngIf="puedeRegistrarDestino() && rl.estado === 'activo'" type="button"
-                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
-                  (click)="abrirRegistrarDestino()">Registrar destino</button>
+              <ng-template #derechaPorGrado>
+                <div class="pd__field pd__span-3">
+                  <span class="pd__label">Derecha y numor</span>
+                  <span class="pd__edit-hint">Al cambiar el grado o el escalafón, queda al final de su nuevo grado y grupo de numor.</span>
+                </div>
+              </ng-template>
+            </ng-container>
+            <ng-template #derechaSoloLectura>
+              <div class="pd__field" *ngIf="rl.derecha != null">
+                <span class="pd__label">Derecha · Numor</span>
+                <div class="pd__locked"><span>{{ rl.derecha }} · {{ rl.numor ?? '—' }}</span></div>
+                <span class="pd__edit-hint">Se corrige desde Configuración de derecha.</span>
               </div>
-              <div class="pd__field">
-                <span class="pd__label">Situación</span>
-                <span class="pd__value">{{ rl.situacion.denominacion }}</span>
-                <span class="pd__edit-hint">La situación no se edita acá: se cambia con "Cambiar situación", como en liquidación.</span>
-                <button *ngIf="puedeCambiarSituacion() && rl.estado === 'activo'" type="button"
-                  class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__registrar-destino"
-                  (click)="abrirCambiarSituacion()">Cambiar situación</button>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Régimen</span>
-                <select formControlName="regimen_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let reg of editRegimenes()" [ngValue]="reg.id">{{ reg.denominacion }}</option>
-                </select>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Programa</span>
-                <select formControlName="programa_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let prog of editProgramas()" [ngValue]="prog.id">{{ prog.denominacion }}</option>
-                </select>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Prima técnica</span>
-                <input type="text" formControlName="prima_tecnica" class="pd__edit-input" placeholder="Ej: A" />
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Tiene mando</span>
-                <label class="pd__edit-toggle-label">
-                  <input type="checkbox" formControlName="tiene_mando" class="pd__edit-checkbox" />
-                  <span class="pd__edit-toggle-track">
-                    <span class="pd__edit-toggle-thumb"></span>
-                  </span>
-                  <span>{{ editForm.get('tiene_mando')?.value ? 'Sí' : 'No' }}</span>
-                </label>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Observaciones laborales</span>
-                <textarea formControlName="observaciones_laborales" class="pd__edit-textarea" rows="3"></textarea>
-              </div>
+            </ng-template>
+          </div>
+        </section>
 
+        <!-- 6 · Formación y observaciones -->
+        <section class="pd__ed-section" id="ed-formacion" *ngIf="!p.es_civil || p.relacion_laboral">
+          <header class="pd__ed-header">
+            <span class="pd__step">{{ numeroSeccion('formacion') }}</span>
+            <div>
+              <h3>Formación y observaciones</h3>
+              <p *ngIf="esOficial()">Solo se muestran los campos que aplican a oficiales.</p>
+              <p *ngIf="esSubalterno()">Solo se muestran los campos que aplican a personal subalterno.</p>
+            </div>
+          </header>
+          <div class="pd__ed-grid">
+            <div class="pd__field" *ngIf="!p.es_civil">
+              <span class="pd__label">Nivel educativo
+                <span class="pd__mod" *ngIf="modificado('nivel_educativo')">Modificado</span></span>
+              <select formControlName="nivel_educativo" class="pd__edit-select" [class.pd__edit-input--mod]="modificado('nivel_educativo')">
+                <option value="">Sin dato</option>
+                <option *ngFor="let n of nivelEducativoOpciones" [value]="n.value">{{ n.label }}</option>
+              </select>
+              <span class="pd__edit-hint" *ngIf="esSubalterno()">Habilita el pasaje de Cbo. 2.ª a Cbo. 1.ª sin curso desde ciclo básico completo.</span>
+              <span class="pd__antes" *ngIf="modificado('nivel_educativo')">Antes: {{ antes('nivel_educativo') }}</span>
+            </div>
+            <div class="pd__field" *ngIf="esOficial()">
+              <span class="pd__label">Códigos
+                <span class="pd__mod" *ngIf="modificado('codigos_legajo')">Modificado</span></span>
+              <input type="text" formControlName="codigos_legajo" class="pd__edit-input" maxlength="20"
+                placeholder="Ej: -1-4-7-8-" [class.pd__edit-input--mod]="modificado('codigos_legajo')" />
+              <span class="pd__antes" *ngIf="modificado('codigos_legajo')">Antes: {{ antes('codigos_legajo') }}</span>
+            </div>
+
+            <ng-container *ngIf="esSubalterno()">
               <div class="pd__field">
-                <span class="pd__label">Nivel de idoneidad</span>
-                <select formControlName="nivel_idoneidad" class="pd__edit-select">
+                <span class="pd__label">Nivel de idoneidad
+                  <span class="pd__mod" *ngIf="modificado('nivel_idoneidad')">Modificado</span></span>
+                <select formControlName="nivel_idoneidad" class="pd__edit-select" [class.pd__edit-input--mod]="modificado('nivel_idoneidad')">
                   <option [ngValue]="null">Sin dato</option>
                   <option *ngFor="let n of nivelesIdoneidad" [ngValue]="n">Nivel {{ n }}</option>
                 </select>
-                <span class="pd__edit-hint">Nivel de pericia otorgado por la ETA (personal subalterno).</span>
+                <span class="pd__edit-hint">Nivel de pericia otorgado por la ETA.</span>
+                <span class="pd__antes" *ngIf="modificado('nivel_idoneidad')">Antes: {{ antes('nivel_idoneidad') }}</span>
               </div>
               <div class="pd__field">
-                <span class="pd__label">Códigos</span>
-                <input type="text" formControlName="codigos_legajo" class="pd__edit-input"
-                  maxlength="20" placeholder="Ej: -1-4-7-8-" />
-                <span class="pd__edit-hint">Solo para oficiales.</span>
-              </div>
-
-              <!-- Datos militares que consultan las reglas de ascenso -->
-              <div class="pd__field">
-                <span class="pd__label">Nivel educativo</span>
-                <select formControlName="nivel_educativo" class="pd__edit-select">
-                  <option value="">Sin dato</option>
-                  <option *ngFor="let n of nivelEducativoOpciones" [value]="n.value">{{ n.label }}</option>
-                </select>
-                <span class="pd__edit-hint">Habilita el pasaje de Cbo. 2.ª a Cbo. 1.ª sin curso desde ciclo básico completo.</span>
+                <span class="pd__label">Ingreso a la ETA
+                  <span class="pd__mod" *ngIf="modificado('fecha_ingreso_eta')">Modificado</span></span>
+                <input type="date" formControlName="fecha_ingreso_eta" class="pd__edit-input"
+                  [class.pd__edit-input--mod]="modificado('fecha_ingreso_eta')" />
+                <span class="pd__antes" *ngIf="modificado('fecha_ingreso_eta')">Antes: {{ antes('fecha_ingreso_eta') }}</span>
               </div>
               <div class="pd__field">
-                <span class="pd__label">Ingreso a la ETA</span>
-                <input type="date" formControlName="fecha_ingreso_eta" class="pd__edit-input" />
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Egreso de la ETA</span>
+                <span class="pd__label">Egreso de la ETA
+                  <span class="pd__mod" *ngIf="modificado('fecha_egreso_eta')">Modificado</span></span>
                 <input type="date" formControlName="fecha_egreso_eta" class="pd__edit-input"
                   [attr.min]="editForm.get('fecha_ingreso_eta')?.value || null"
+                  [class.pd__edit-input--mod]="modificado('fecha_egreso_eta')"
                   [class.pd__edit-input--error]="etaInconsistente()" />
-                <span class="pd__edit-error" *ngIf="etaInconsistente()">
-                  No puede ser anterior al ingreso a la ETA
-                </span>
+                <span class="pd__edit-error" *ngIf="etaInconsistente()">No puede ser anterior al ingreso a la ETA</span>
                 <span class="pd__edit-hint">Distingue al egresado del mutado en AT 2.ª a AT 1.ª.</span>
+                <span class="pd__antes" *ngIf="modificado('fecha_egreso_eta')">Antes: {{ antes('fecha_egreso_eta') }}</span>
               </div>
               <div class="pd__field">
-                <span class="pd__label">N.º de orden de egreso</span>
-                <input type="text" formControlName="numero_orden_egreso_eta" class="pd__edit-input" />
+                <span class="pd__label">N.º de orden de egreso
+                  <span class="pd__mod" *ngIf="modificado('numero_orden_egreso_eta')">Modificado</span></span>
+                <input type="text" formControlName="numero_orden_egreso_eta" class="pd__edit-input"
+                  [class.pd__edit-input--mod]="modificado('numero_orden_egreso_eta')" />
+                <span class="pd__antes" *ngIf="modificado('numero_orden_egreso_eta')">Antes: {{ antes('numero_orden_egreso_eta') }}</span>
               </div>
-              <div class="pd__field">
-                <span class="pd__label">Mutación de escalafón</span>
-                <textarea formControlName="mutaciones" class="pd__edit-textarea" rows="2"></textarea>
+              <div class="pd__field pd__span-3">
+                <span class="pd__label">Mutación de escalafón
+                  <span class="pd__mod" *ngIf="modificado('mutaciones')">Modificado</span></span>
+                <textarea formControlName="mutaciones" class="pd__edit-textarea" rows="2"
+                  [class.pd__edit-input--mod]="modificado('mutaciones')"></textarea>
                 <span class="pd__edit-hint">Cambio de escalafón conservando el grado. Con que tenga texto, el funcionario cuenta como mutado.</span>
               </div>
-            </div>
+            </ng-container>
 
-            <!-- Edit view: civiles -->
-            <div class="pd__field-list" *ngIf="editMode() && p.es_civil && p.relacion_laboral as rl">
-              <div class="pd__field">
-                <span class="pd__label">Base</span>
-                <span class="pd__value">{{ baseActual() }}</span>
-                <span class="pd__edit-hint">La base no se edita acá: cambiarla es registrar un destino.</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Situación</span>
-                <span class="pd__value">{{ rl.situacion.denominacion }}</span>
-                <span class="pd__edit-hint">La situación no se edita acá.</span>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Régimen</span>
-                <select formControlName="regimen_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let reg of editRegimenes()" [ngValue]="reg.id">{{ reg.denominacion }}</option>
-                </select>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Programa</span>
-                <select formControlName="programa_id" class="pd__edit-select">
-                  <option [ngValue]="null">Seleccionar...</option>
-                  <option *ngFor="let prog of editProgramas()" [ngValue]="prog.id">{{ prog.denominacion }}</option>
-                </select>
-              </div>
-              <div class="pd__field">
-                <span class="pd__label">Observaciones laborales</span>
-                <textarea formControlName="observaciones_laborales" class="pd__edit-textarea" rows="3"></textarea>
-              </div>
+            <div class="pd__field pd__span-3" *ngIf="p.relacion_laboral">
+              <span class="pd__label">Observaciones laborales
+                <span class="pd__mod" *ngIf="modificado('observaciones_laborales')">Modificado</span></span>
+              <textarea formControlName="observaciones_laborales" class="pd__edit-textarea" rows="3"
+                placeholder="Observaciones laborales..."
+                [class.pd__edit-input--mod]="modificado('observaciones_laborales')"></textarea>
             </div>
+          </div>
+        </section>
 
+        <!-- 7 · Familiares militares -->
+        <section class="pd__ed-section" id="ed-familiares">
+          <header class="pd__ed-header">
+            <span class="pd__step">{{ numeroSeccion('familiares') }}</span>
+            <div>
+              <h3>Familiares</h3>
+              <p>Buscá al personal militar o civil y agregalo. Se guarda al momento, sin esperar a "Guardar cambios".</p>
+            </div>
+          </header>
+
+          <div class="pd__loading" *ngIf="loadingFamiliar()">Cargando...</div>
+
+          <div class="pd__familiar-alert" *ngIf="!loadingFamiliar() && familiarError()">
+            {{ familiarError() }}
+            <button type="button" class="pd__familiar-retry-btn" (click)="retryFamiliares()">Reintentar</button>
           </div>
 
-        </div>
+          <ng-container *ngIf="!loadingFamiliar() && !familiarError()">
+            <div class="pd__familiar-add">
+              <div class="pd__familiar-add-search" *ngIf="!familiarAddElegido()">
+                <input
+                  type="text"
+                  class="pd__edit-input"
+                  placeholder="Buscar por cédula o nombre..."
+                  [value]="familiarAddSearch()"
+                  (input)="onFamiliarAddSearch($event)"
+                  (blur)="onFamiliarAddBlur()"
+                  (focus)="familiarAddDropdownOpen.set(familiarAddResults().length > 0)"
+                  autocomplete="off"
+                />
+                <div class="pd__familiar-add-dropdown" *ngIf="familiarAddDropdownOpen()">
+                  <button
+                    type="button"
+                    class="pd__familiar-add-item"
+                    *ngFor="let f of familiarAddResults()"
+                    (click)="elegirFamiliarAAgregar(f)"
+                  >
+                    <span>{{ f.nombre }}</span>
+                    <span class="pd__familiar-add-item-cedula">
+                      <span class="pd__badge-civil" *ngIf="f.es_civil">Civil</span>
+                      <ng-container *ngIf="!f.es_civil && f.grado">{{ f.grado }} · </ng-container>{{ f.cedula }}
+                    </span>
+                  </button>
+                  <p class="pd__familiar-add-empty"
+                    *ngIf="familiarAddResults().length === 0 && familiarAddSearch().length >= 2">
+                    Sin resultados
+                  </p>
+                </div>
+              </div>
+
+              <div class="pd__familiar-add-confirm" *ngIf="familiarAddElegido() as elegido">
+                <div class="pd__familiar-add-confirm-info">
+                  <strong>{{ elegido.nombre }}</strong>
+                  <span>{{ elegido.cedula }}</span>
+                </div>
+                <select class="pd__edit-select" [value]="familiarAddTipoRelacion()"
+                  (change)="familiarAddTipoRelacion.set($any($event.target).value)">
+                  <option value="">Tipo de relación (opcional)</option>
+                  <option *ngFor="let t of tipoRelacionOpciones" [value]="t">{{ t }}</option>
+                </select>
+                <button type="button" class="pd__edit-btn pd__edit-btn--sm" [disabled]="guardandoFamiliar()"
+                  (click)="confirmarAgregarFamiliar()">
+                  {{ guardandoFamiliar() ? 'Agregando...' : 'Agregar' }}
+                </button>
+                <button type="button" class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm"
+                  (click)="cancelarAgregarFamiliar()">Cancelar</button>
+              </div>
+            </div>
+
+            <p class="pd__ed-empty" *ngIf="familiares().length === 0">Sin familiares registrados.</p>
+
+            <ul class="pd__ed-familiares" *ngIf="familiares().length > 0">
+              <li *ngFor="let f of familiares()">
+                <div class="pd__familiar-avatar">{{ f.nombre_completo[0] }}</div>
+                <div class="pd__familiar-info">
+                  <span class="pd__familiar-nombre">{{ f.nombre_completo }}</span>
+                  <span class="pd__familiar-cedula">{{ f.cedula }}<ng-container *ngIf="f.grado"> · {{ f.grado }}</ng-container></span>
+                </div>
+                <span class="pd__familiar-relacion" *ngIf="f.tipo_relacion">{{ f.tipo_relacion }}</span>
+                <button type="button" class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm"
+                  (click)="quitarFamiliar(f)">Quitar</button>
+              </li>
+            </ul>
+          </ng-container>
+        </section>
+
+        <!-- Barra inferior -->
+        <footer class="pd__ed-footer">
+          <div class="pd__ed-footer-msg">
+            <ng-container *ngIf="erroresEdicion() as errores">
+              <ng-container *ngIf="errores.length; else sinErrores">
+                <svg class="pd__ed-footer-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
+                <span>
+                  <strong>{{ errores.length }} {{ errores.length === 1 ? 'campo con error' : 'campos con error' }}.</strong>
+                  Revisá
+                  <ng-container *ngFor="let e of errores; let last = last">
+                    <button type="button" class="pd__link" (click)="irAError(e)">{{ e.label }}</button><ng-container *ngIf="!last">, </ng-container>
+                  </ng-container>
+                  antes de guardar.
+                </span>
+              </ng-container>
+              <ng-template #sinErrores>
+                <span class="pd__ed-footer-ok">
+                  {{ cantidadCambios() ? cantidadCambios() + (cantidadCambios() === 1 ? ' cambio sin guardar' : ' cambios sin guardar') : 'Sin cambios' }}
+                </span>
+              </ng-template>
+            </ng-container>
+          </div>
+          <div class="pd__ed-footer-actions">
+            <button type="button" class="pd__edit-btn pd__edit-btn--ghost" (click)="descartarEdicion()">Descartar</button>
+            <button type="button" class="pd__edit-btn" (click)="saveEdit()" [disabled]="editLoading()">
+              {{ editLoading() ? 'Guardando...' : 'Guardar cambios' }}
+            </button>
+          </div>
+        </footer>
       </form>
-    </article>
+    </div>
 
     <!-- ═══════════════════ TAB: INFORMACIÓN FAMILIAR ═══════════════════ -->
     <article class="pd__card" *ngIf="activeTab() === 'familiar'">
       <div class="pd__tab-header">
-        <h3 class="pd__tab-title">Información Familiar</h3>
+        <h3 class="pd__tab-title">Información familiar</h3>
+        <button *ngIf="puedeEditar() && !agregandoFamiliar() && !loadingFamiliar() && !familiarError()" type="button"
+          class="pd__edit-btn pd__edit-btn--sm" (click)="abrirAgregarFamiliar()">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+          Agregar familiar
+        </button>
       </div>
 
       <div class="pd__loading" *ngIf="loadingFamiliar()">Cargando...</div>
@@ -514,12 +849,13 @@
         <button type="button" class="pd__familiar-retry-btn" (click)="retryFamiliares()">Reintentar</button>
       </div>
 
-      <div class="pd__familiar-add" *ngIf="!loadingFamiliar() && !familiarError() && editMode()">
-        <div class="pd__familiar-add-search" *ngIf="!familiarAddElegido()">
+      <div class="pd__familiar-add" *ngIf="agregandoFamiliar() && !loadingFamiliar() && !familiarError()">
+        <div class="pd__familiar-add-row" *ngIf="!familiarAddElegido()">
+        <div class="pd__familiar-add-search">
           <input
             type="text"
             class="pd__edit-input"
-            placeholder="Buscar familiar por cédula o nombre (debe ser oficial o subalterno)..."
+            placeholder="Buscar familiar por cédula o nombre (militar o civil)..."
             [value]="familiarAddSearch()"
             (input)="onFamiliarAddSearch($event)"
             (blur)="onFamiliarAddBlur()"
@@ -527,20 +863,21 @@
             autocomplete="off"
           />
           <div class="pd__familiar-add-dropdown" *ngIf="familiarAddDropdownOpen()">
-            <button
-              type="button"
-              class="pd__familiar-add-item"
-              *ngFor="let p of familiarAddResults()"
-              (click)="elegirFamiliarAAgregar(p)"
-            >
-              <span>{{ p.nombre }}</span>
-              <span class="pd__familiar-add-item-cedula">{{ p.cedula }}</span>
+            <button type="button" class="pd__familiar-add-item" *ngFor="let r of familiarAddResults()"
+              (click)="elegirFamiliarAAgregar(r)">
+              <span>{{ r.nombre }}</span>
+              <span class="pd__familiar-add-item-cedula">
+                <span class="pd__badge-civil" *ngIf="r.es_civil">Civil</span>
+                <ng-container *ngIf="!r.es_civil && r.grado">{{ r.grado }} · </ng-container>{{ r.cedula }}
+              </span>
             </button>
-            <p class="pd__familiar-add-empty"
-              *ngIf="familiarAddResults().length === 0 && familiarAddSearch().length >= 2">
+            <p class="pd__familiar-add-empty" *ngIf="familiarAddResults().length === 0 && familiarAddSearch().length >= 2">
               Sin resultados
             </p>
           </div>
+        </div>
+          <button type="button" class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm pd__familiar-add-cerrar"
+            (click)="cerrarAgregarFamiliar()">Cancelar</button>
         </div>
 
         <div class="pd__familiar-add-confirm" *ngIf="familiarAddElegido() as elegido">
@@ -558,7 +895,7 @@
             {{ guardandoFamiliar() ? 'Agregando...' : 'Agregar' }}
           </button>
           <button type="button" class="pd__edit-btn pd__edit-btn--ghost pd__edit-btn--sm"
-            (click)="cancelarAgregarFamiliar()">Cancelar</button>
+            (click)="cerrarAgregarFamiliar()">Cancelar</button>
         </div>
       </div>
 
@@ -580,8 +917,8 @@
             <span *ngIf="f.grado">{{ f.grado }}</span>
             <span *ngIf="f.sub_unidad || f.unidad" class="pd__familiar-unidad">{{ f.sub_unidad ? f.sub_unidad + ' (' + f.unidad + ')' : f.unidad }}</span>
           </div>
-          <button type="button" class="pd__familiar-remove" *ngIf="editMode()"
-            (click)="$event.stopPropagation(); quitarFamiliar(f)" aria-label="Quitar familiar">
+          <button type="button" class="pd__familiar-remove" *ngIf="puedeEditar()"
+            (click)="$event.stopPropagation(); quitarFamiliar(f)" aria-label="Quitar familiar" title="Quitar familiar">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
             </svg>

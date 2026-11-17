@@ -6,6 +6,7 @@ import {
   BaseOpcion,
   CambiarSituacionPayload,
   CambioSituacionResultado,
+  CandidatoFamiliar,
   CrearPersonaPayload,
   CrearPersonaResponse,
   CursoPersona,
@@ -123,6 +124,16 @@ export class PersonalService {
 
   getFamiliares(id: number): Observable<FamiliarItem[]> {
     return this.http.get<FamiliarItem[]>(`${API_BASE_URL}/personas/${id}/familiares`, { withCredentials: true });
+  }
+
+  /** Militares en actividad y civiles que se pueden vincular como familiar (máx. 10). */
+  buscarCandidatosFamiliar(search: string, excluir?: number): Observable<CandidatoFamiliar[]> {
+    const params: Record<string, string> = { search };
+    if (excluir != null) params['excluir'] = String(excluir);
+    return this.http.get<CandidatoFamiliar[]>(`${API_BASE_URL}/personas/familiares/candidatos`, {
+      params,
+      withCredentials: true,
+    });
   }
 
   agregarFamiliar(id: number, payload: FamiliarPayload): Observable<FamiliarItem> {

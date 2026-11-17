@@ -11,11 +11,12 @@ test.describe('base en el perfil y registro de destino', () => {
     await page.goto(`/personal/${id}`);
     await esperarPerfil(page);
 
+    // En lectura la base está en la tarjeta "Destino actual"; en edición, en el campo "Base".
+    await expect(page.locator('.pd__destino-actual .pd__value')).toHaveText('E.T.A. (C.A.P.)');
     const base = page.locator('.pd__field', { has: page.getByText('Base', { exact: true }) });
-    await expect(base.locator('.pd__value')).toHaveText('E.T.A. (C.A.P.)');
 
     await page.getByRole('button', { name: 'Editar Perfil' }).click();
-    await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guardar cambios' }).first()).toBeVisible();
     await expect(page.locator('[formcontrolname=sub_unidad_id]')).toHaveCount(0);
     await expect(base.getByText('La base no se edita acá')).toBeVisible();
 

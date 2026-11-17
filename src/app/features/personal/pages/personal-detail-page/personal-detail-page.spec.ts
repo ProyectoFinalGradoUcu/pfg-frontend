@@ -6,6 +6,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
 import { PersonalDetailPage } from './personal-detail-page';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
@@ -97,6 +98,7 @@ describe('PersonalDetailPage', () => {
     agregarFamiliar: ReturnType<typeof vi.fn>;
     quitarFamiliar: ReturnType<typeof vi.fn>;
     findPaginado: ReturnType<typeof vi.fn>;
+    buscarCandidatosFamiliar: ReturnType<typeof vi.fn>;
     getGrados: ReturnType<typeof vi.fn>;
     getHistorialMilitar: ReturnType<typeof vi.fn>;
     getCursos: ReturnType<typeof vi.fn>;
@@ -117,6 +119,7 @@ describe('PersonalDetailPage', () => {
       agregarFamiliar: vi.fn(),
       quitarFamiliar: vi.fn(),
       findPaginado: vi.fn().mockReturnValue(of({ items: [makePersonaListItem()], total: 1, page: 1, pageSize: 8 })),
+      buscarCandidatosFamiliar: vi.fn().mockReturnValue(of([makePersonaListItem()])),
       getGrados: vi.fn().mockReturnValue(of([])),
       getHistorialMilitar: vi.fn().mockReturnValue(of({ historial_rangos: [] })),
       getCursos: vi.fn().mockReturnValue(of([])),
@@ -263,19 +266,18 @@ describe('PersonalDetailPage', () => {
     it('el buscador descarta a la propia persona y a quienes ya son familiares', () => {
       vi.useFakeTimers();
       component.switchTab('familiar'); // carga [makeFamiliarItem()] -> cedula 60000016
-      svc.findPaginado.mockReturnValue(of({
-        items: [
-          makePersonaListItem({ id: '31', cedula: '12345678' }),   // es la propia persona
-          makePersonaListItem({ id: '16', cedula: '60000016' }),   // ya es familiar
-          makePersonaListItem({ id: '33', cedula: '88888801' }),   // candidato válido
-        ],
-        total: 3, page: 1, pageSize: 8,
-      }));
+      svc.buscarCandidatosFamiliar.mockReturnValue(of([
+        { id: '31', cedula: '12345678', nombre: 'Yo' },                       // es la propia persona
+        { id: '16', cedula: '60000016', nombre: 'Laura' },                    // ya es familiar
+        { id: '33', cedula: '88888801', nombre: 'Militar', grado: 'Sgto.' },  // candidato válido
+        { id: '34', cedula: '50000034', nombre: 'Civil', es_civil: true },    // un civil también
+      ]));
 
       component.onFamiliarAddSearch({ target: { value: 'algo' } } as unknown as Event);
       vi.advanceTimersByTime(400);
 
-      expect(component.familiarAddResults().map(p => p.cedula)).toEqual(['88888801']);
+      expect(svc.buscarCandidatosFamiliar).toHaveBeenCalledWith('algo', 31);
+      expect(component.familiarAddResults().map(p => p.cedula)).toEqual(['88888801', '50000034']);
       vi.useRealTimers();
     });
 
@@ -292,6 +294,28 @@ describe('PersonalDetailPage', () => {
       component.cancelarAgregarFamiliar();
       expect(component.familiarAddElegido()).toBeNull();
       expect(component.familiarAddTipoRelacion()).toBe('');
+    });
+
+    it('"Agregar familiar" abre el buscador en la pestaña y se cierra al agregar', () => {
+      vi.spyOn(TestBed.inject(AuthService), 'puedeConAlcance').mockReturnValue(true);
+      svc.agregarFamiliar.mockReturnValue(of(makeFamiliarItem({ id: 33, cedula: '88888801' })));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.switchTab('familiar');
+      fixture.detectChanges();
+
+      const boton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+        .find(b => b.textContent?.includes('Agregar familiar'));
+      expect(boton).toBeDefined();
+      boton!.click();
+      fixture.detectChanges();
+      expect(component.agregandoFamiliar()).toBe(true);
+      expect(fixture.nativeElement.querySelector('.pd__familiar-add input')).not.toBeNull();
+
+      component.elegirFamiliarAAgregar(makePersonaListItem());
+      component.confirmarAgregarFamiliar();
+      expect(component.agregandoFamiliar()).toBe(false);
     });
 
     it('confirmar agrega el familiar a la lista, resetea el panel y avisa', () => {
@@ -343,34 +367,36 @@ describe('PersonalDetailPage', () => {
   });
 
   describe('quitar familiar', () => {
-    let confirmSpy: ReturnType<typeof vi.spyOn>;
+    let confirmar: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
+      confirmar = vi.spyOn(TestBed.inject(ConfirmModalService), 'confirmar');
       component.switchTab('familiar'); // arranca con [Laura]
     });
 
-    afterEach(() => confirmSpy?.mockRestore());
+    afterEach(() => confirmar.mockRestore());
 
-    it('si el operador cancela la confirmación, no llama al backend', () => {
-      confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-      component.quitarFamiliar(makeFamiliarItem());
+    it('pregunta con el modal de la app; si el operador cancela, no llama al backend', async () => {
+      confirmar.mockResolvedValue(false);
+      await component.quitarFamiliar(makeFamiliarItem());
+      expect(confirmar).toHaveBeenCalledWith(expect.objectContaining({ titulo: 'Quitar familiar', textoConfirmar: 'Quitar' }));
       expect(svc.quitarFamiliar).not.toHaveBeenCalled();
       expect(component.familiares()).toEqual([makeFamiliarItem()]);
     });
 
-    it('si confirma, lo saca de la lista y avisa', () => {
-      confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('si confirma, lo saca de la lista y avisa', async () => {
+      confirmar.mockResolvedValue(true);
       svc.quitarFamiliar.mockReturnValue(of(undefined));
-      component.quitarFamiliar(makeFamiliarItem());
+      await component.quitarFamiliar(makeFamiliarItem());
       expect(svc.quitarFamiliar).toHaveBeenCalledWith(31, 16);
       expect(component.familiares()).toEqual([]);
       expect(toastService.success).toHaveBeenCalledWith('Familiar quitado correctamente');
     });
 
-    it('si el backend falla, deja la lista como estaba y avisa del error', () => {
-      confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('si el backend falla, deja la lista como estaba y avisa del error', async () => {
+      confirmar.mockResolvedValue(true);
       svc.quitarFamiliar.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
-      component.quitarFamiliar(makeFamiliarItem());
+      await component.quitarFamiliar(makeFamiliarItem());
       expect(component.familiares()).toEqual([makeFamiliarItem()]);
       expect(toastService.error).toHaveBeenCalledWith('No se pudo quitar el familiar. Intentá de nuevo.');
     });
@@ -704,6 +730,106 @@ describe('PersonalDetailPage', () => {
       component.saveEdit();
 
       expect(svc.update).not.toHaveBeenCalled();
+    });
+
+    it('al abrir el editor no hay cambios; editar un campo lo marca y muestra el valor anterior', () => {
+      conRelacion({}, { estado_civil: null, telefono: '099111222' });
+      component.openEdit();
+      expect(component.cantidadCambios()).toBe(0);
+
+      component.editForm.patchValue({ estado_civil: 'Casado', telefono: '099 123 456' });
+
+      expect(component.cantidadCambios()).toBe(2);
+      expect(component.modificado('estado_civil')).toBe(true);
+      expect(component.antes('estado_civil')).toBe('sin dato');
+      expect(component.antes('telefono')).toBe('099111222');
+      expect(component.cambiosEnSeccion('personales')).toBe(1);
+      expect(component.cambiosEnSeccion('contacto')).toBe(1);
+    });
+
+    it('volver al valor original deja de contarlo como cambio', () => {
+      conRelacion({}, { etnia: 'Mestizo' });
+      component.openEdit();
+      component.editForm.patchValue({ etnia: 'Otra' });
+      component.editForm.patchValue({ etnia: 'Mestizo ' });
+      expect(component.cantidadCambios()).toBe(0);
+    });
+
+    it('un campo inválido tocado aparece en el resumen de errores de su sección', () => {
+      conRelacion({});
+      component.openEdit();
+      component.editForm.patchValue({ codigo_postal: '12345678901' });
+      component.editForm.get('codigo_postal')!.markAsTouched();
+
+      expect(component.erroresEdicion().map(e => e.label)).toEqual(['Código postal']);
+      expect(component.erroresEnSeccion('contacto')).toBe(1);
+    });
+
+    it('manda la cédula solo si cambió, y rechaza una con puntos', () => {
+      conRelacion({ tipo_funcionario: 'oficial' });
+      component.openEdit();
+      component.saveEdit();
+      expect('cedula' in svc.update.mock.calls[0][1]).toBe(false);
+
+      component.openEdit();
+      component.editForm.patchValue({ cedula: '1.234.567' });
+      svc.update.mockClear();
+      component.saveEdit();
+      expect(svc.update).not.toHaveBeenCalled();
+
+      component.editForm.patchValue({ cedula: '87654321' });
+      component.saveEdit();
+      expect(svc.update.mock.calls[0][1].cedula).toBe('87654321');
+    });
+
+    it('pasar a subalterno habilita el nivel de idoneidad, deja de mandar los códigos y avisa del grado', () => {
+      conRelacion({ tipo_funcionario: 'oficial', codigos_legajo: '-1-4-' });
+      component.openEdit();
+      component.editForm.patchValue({ tipo_funcionario: 'subalterno' });
+
+      expect(component.esSubalterno()).toBe(true);
+      expect(component.editForm.get('nivel_idoneidad')!.enabled).toBe(true);
+      expect(component.editForm.get('codigos_legajo')!.disabled).toBe(true);
+      expect(component.cambioTipoSinGrado()).toBe(true);
+
+      component.saveEdit();
+      const payload = svc.update.mock.calls[0][1];
+      expect(payload.tipo_funcionario).toBe('subalterno');
+      expect('codigos_legajo' in payload).toBe(false);
+    });
+
+    it('un civil no manda tipo de funcionario', () => {
+      svc.getById.mockReturnValue(of(makePersonaDetalle({ es_civil: true, relacion_laboral: makeRelacion({ tipo_funcionario: 'civil' }) })));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.openEdit();
+      component.saveEdit();
+      expect('tipo_funcionario' in svc.update.mock.calls[0][1]).toBe(false);
+    });
+
+    it('descartar sin cambios cierra sin preguntar', async () => {
+      const confirmar = vi.spyOn(TestBed.inject(ConfirmModalService), 'confirmar');
+      conRelacion({});
+      component.openEdit();
+      await component.descartarEdicion();
+      expect(confirmar).not.toHaveBeenCalled();
+      expect(component.editMode()).toBe(false);
+    });
+
+    it('con cambios pregunta con el modal y, si sigue editando, no cierra', async () => {
+      const confirmar = vi.spyOn(TestBed.inject(ConfirmModalService), 'confirmar').mockResolvedValue(false);
+      conRelacion({});
+      component.openEdit();
+      component.editForm.patchValue({ etnia: 'Otra' });
+
+      await component.descartarEdicion();
+      expect(confirmar).toHaveBeenCalledWith(expect.objectContaining({ textoConfirmar: 'Descartar' }));
+      expect(component.editMode()).toBe(true);
+
+      confirmar.mockResolvedValue(true);
+      await component.descartarEdicion();
+      expect(component.editMode()).toBe(false);
     });
 
     it('después de guardar vuelve a pedir el historial al abrir la pestaña', () => {
