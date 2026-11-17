@@ -17,6 +17,7 @@ import {
   UsuarioDeUnidad,
 } from '../../../../core/models/unidades.models';
 import { Comando } from '../../../../core/models/destinos.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type Modal = null | 'gestionar' | 'agregarUsuarios';
 type TabDetalle = 'roles' | 'usuarios';
@@ -125,7 +126,7 @@ export class UnidadesPage implements OnInit, OnDestroy {
       .subscribe(() => this.cargar(1));
 
     this.busqueda.valueChanges
-      .pipe(debounceTime(300), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe(() => this.cargar(1));
   }
 

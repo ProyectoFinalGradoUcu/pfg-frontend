@@ -16,6 +16,7 @@ import {
   FuncionarioMisionItem,
   MisionDefinicion,
 } from '../../../../core/models/misiones.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -186,7 +187,7 @@ describe('MisionesPage', () => {
     it('onNombreInput actualiza el filtro y recarga tras el debounce', () => {
       vi.useFakeTimers();
       component.onNombreInput('Congo');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(component.filtroNombre()).toBe('Congo');
       expect(misionesService.findAllDefiniciones).toHaveBeenLastCalledWith(1, 10, 'Congo', undefined);
@@ -195,7 +196,7 @@ describe('MisionesPage', () => {
     it('onPaisInput actualiza el filtro y recarga tras el debounce', () => {
       vi.useFakeTimers();
       component.onPaisInput('Chipre');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(misionesService.findAllDefiniciones).toHaveBeenLastCalledWith(1, 10, undefined, 'Chipre');
     });
@@ -493,7 +494,7 @@ describe('MisionesPage', () => {
       vi.useFakeTimers();
       component.onBusquedaPersonalInput(' Ana ');
       expect(misionesService.findPersonalEnMision).toHaveBeenCalledTimes(llamadas);
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(component.busquedaPersonal()).toBe(' Ana ');
       expect(ultimaLlamada()).toEqual([1, 10, { query: 'Ana' }]);
@@ -502,7 +503,7 @@ describe('MisionesPage', () => {
     it('el filtro de orden o boletín va al backend tras el debounce', () => {
       vi.useFakeTimers();
       component.onOrdenBoletinPersonalInput('BOL-9');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(ultimaLlamada()).toEqual([1, 10, { orden: 'BOL-9' }]);
     });

@@ -17,6 +17,7 @@ import { CursosService } from '../../../../core/services/cursos.service';
 import { SlotVista } from '../../../../core/services/documentos-registro';
 import { DocumentosRegistro } from '../../../../core/models/documentos-registro.models';
 import { FamiliarItem, PersonaDetalle, PersonaListItem, RelacionLaboral } from '../../../../core/models/personal.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDetalle {
   return {
@@ -274,7 +275,7 @@ describe('PersonalDetailPage', () => {
       ]));
 
       component.onFamiliarAddSearch({ target: { value: 'algo' } } as unknown as Event);
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
 
       expect(svc.buscarCandidatosFamiliar).toHaveBeenCalledWith('algo', 31);
       expect(component.familiarAddResults().map(p => p.cedula)).toEqual(['88888801', '50000034']);

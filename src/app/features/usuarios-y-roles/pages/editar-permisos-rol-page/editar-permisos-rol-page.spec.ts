@@ -12,6 +12,7 @@ import { RolesService } from '../../../../core/services/roles.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { Permiso, Rol } from '../../../../core/models/auth.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 const permiso = (id: number): Permiso =>
   ({ id: String(id), nombre: `permiso.${id}`, descripcion: `Permiso ${id}` }) as unknown as Permiso;
@@ -74,6 +75,28 @@ describe('EditarPermisosRolPage: paginación', () => {
     await setup();
     expect(checks().length).toBe(10);
     expect(el().querySelector('app-paginator nav')).not.toBeNull();
+  });
+
+  it('la búsqueda espera a que se deje de teclear y vuelve a la página 1', async () => {
+    await setup();
+    component.onPageChange(2);
+    vi.useFakeTimers();
+    try {
+      permisos.findAll.mockClear();
+      const tipear = (texto: string) => component.onSearch({ target: { value: texto } } as unknown as Event);
+
+      tipear('cur');
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS - 1);
+      tipear('cursos');
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS - 1);
+      expect(permisos.findAll).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1);
+      expect(permisos.findAll).toHaveBeenCalledTimes(1);
+      expect(permisos.findAll).toHaveBeenCalledWith(expect.objectContaining({ search: 'cursos', page: 1 }));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('guardar un permiso en otra página no cambia de página ni recarga la tabla', async () => {

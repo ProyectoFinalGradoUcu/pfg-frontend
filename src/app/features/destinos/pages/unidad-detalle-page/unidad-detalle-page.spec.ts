@@ -10,6 +10,7 @@ import { UnidadDetallePage } from './unidad-detalle-page';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Destino, FuncionarioUnidad, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
@@ -132,7 +133,7 @@ describe('UnidadDetallePage', () => {
     component.page.set(2);
     component.onQueryInput('Pérez');
     expect(destinosService.listarFuncionariosSubUnidad).toHaveBeenCalledTimes(1); // solo la carga inicial
-    vi.advanceTimersByTime(400);
+    vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
     expect(component.page()).toBe(1);
     expect(destinosService.listarFuncionariosSubUnidad).toHaveBeenLastCalledWith('5', {
       page: 1,

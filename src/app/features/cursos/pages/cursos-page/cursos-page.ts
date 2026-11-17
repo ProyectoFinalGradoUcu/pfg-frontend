@@ -33,6 +33,8 @@ import {
   ModuloCurso,
   TipoCurso,
 } from '../../../../core/models/cursos.models';
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type TabKind = 'inscripciones' | 'catalogo';
 type ModalKind =
@@ -348,7 +350,7 @@ export class CursosPage implements OnInit, OnDestroy {
 
     this.cedulaSubject
       .pipe(
-        debounceTime(400),
+        debounceTime(ESPERA_BUSQUEDA_MS),
         distinctUntilChanged(),
         switchMap((cedula) => {
           this.buscandoCedula.set(true);
@@ -372,7 +374,7 @@ export class CursosPage implements OnInit, OnDestroy {
       });
 
     this.defTextSubject
-      .pipe(debounceTime(350))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS))
       .subscribe(() => {
         this.defPage.set(1);
         this.cargarDefiniciones();

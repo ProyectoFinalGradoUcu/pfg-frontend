@@ -22,6 +22,7 @@ import {
   MisionDefinicion,
   UpdateFuncionarioConvocatoriaPayload,
 } from '../../../../core/models/misiones.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 @Component({
   selector: 'app-convocatoria-detalle-page',
@@ -131,7 +132,7 @@ export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
     this.cargar(convocatoriaId);
     this.buscador.vincular(this.asignarForm.controls.persona_id);
 
-    this.busquedaSubject.pipe(debounceTime(350)).subscribe(() => {
+    this.busquedaSubject.pipe(debounceTime(ESPERA_BUSQUEDA_MS)).subscribe(() => {
       const c = this.convocatoria();
       if (!c) return;
       this.cargarFuncionarios(c.id, 1);

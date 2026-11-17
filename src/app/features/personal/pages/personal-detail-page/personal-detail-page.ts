@@ -29,6 +29,7 @@ import {
   Elegibilidad,
   EstadoElegibilidad,
 } from '../../../../core/models/ascensos.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'comisiones' | 'misiones' | 'documentos';
 
@@ -934,7 +935,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   private setupFamiliarAddSearch(): void {
     this.familiarAddSearch$
-      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe(term => {
         if (!term || term.length < 2) {
           this.familiarAddResults.set([]);

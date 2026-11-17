@@ -13,6 +13,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ComandoCatalogo, Paginado, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
 import { Select } from '../../../../shared/components/select/select';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 function makeSubUnidad(overrides: Partial<SubUnidadConDestinados> = {}): SubUnidadConDestinados {
   return {
@@ -317,7 +318,7 @@ describe('UnidadesPage (sub-unidades)', () => {
     vi.useFakeTimers();
     component.onQueryInput('B.A.');
     expect(destinosService.listarSubUnidades).toHaveBeenCalledTimes(1); // solo la carga inicial
-    vi.advanceTimersByTime(400);
+    vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
     expect(destinosService.listarSubUnidades).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, query: 'B.A.', vigente: true });
   });
 

@@ -12,6 +12,7 @@ import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Destino, ListaDestinos, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
 import { Select } from '../../../../shared/components/select/select';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -178,7 +179,7 @@ describe('AsignacionesPage', () => {
       component.page.set(3);
       component.onQueryInput('Pérez');
       expect(destinosService.listar).toHaveBeenCalledTimes(1);
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       expect(component.page()).toBe(1);
       expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, query: 'Pérez' });
     });

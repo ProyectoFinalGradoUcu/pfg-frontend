@@ -14,6 +14,7 @@ import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { Invitacion, PermisoEfectivo, Rol, Usuario } from '../../../../core/models/auth.models';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type Tab = 'usuarios' | 'invitaciones' | 'roles' | 'unidades';
 type ModalKind =
@@ -181,7 +182,7 @@ export class UsuariosYRolesPage implements OnInit {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.usuariosBusqueda$
-      .pipe(debounceTime(400), takeUntilDestroyed(this.destroyRef))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         // Limpiar o elegir un filtro durante la espera ya aplicó este mismo texto.
         if (this.usuariosBusqueda().trim() !== this.usuariosBusquedaAplicada) this.aplicarFiltrosUsuarios();

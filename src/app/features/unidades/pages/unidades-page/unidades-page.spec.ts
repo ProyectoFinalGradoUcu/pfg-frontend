@@ -13,6 +13,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { UnidadDetalle, UnidadListItem } from '../../../../core/models/unidades.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 const CAO = { id: '3', codigo: 'CAO', denominacion: 'C.A.O.' };
 const CAP = { id: '4', codigo: 'CAP', denominacion: 'C.A.P.' };
@@ -174,7 +175,7 @@ describe('UnidadesPage', () => {
       try {
         component.comandoFiltro.setValue('3');
         component.busqueda.setValue('B.A.');
-        vi.advanceTimersByTime(300);
+        vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
 
         expect(unidades.findAll).toHaveBeenLastCalledWith(
           expect.objectContaining({ page: 1, search: 'B.A.', unidad_id: '3' }),

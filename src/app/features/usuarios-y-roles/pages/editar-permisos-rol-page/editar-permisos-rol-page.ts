@@ -1,7 +1,8 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subject, Subscription, debounceTime } from 'rxjs';
 import { AuthService } from '../../../../core/services/auth.service';
 import { PermisosService } from '../../../../core/services/permisos.service';
 import { RolesService } from '../../../../core/services/roles.service';
@@ -10,6 +11,7 @@ import { ErrorModalService } from '../../../../core/services/error-modal.service
 import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
 import { Permiso, Rol } from '../../../../core/models/auth.models';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 @Component({
   selector: 'app-editar-permisos-rol-page',
@@ -26,6 +28,8 @@ export class EditarPermisosRolPage implements OnInit {
   private readonly toast = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
   private readonly confirmModal = inject(ConfirmModalService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly busqueda$ = new Subject<void>();
 
   private rolId = '';
 
@@ -58,6 +62,12 @@ export class EditarPermisosRolPage implements OnInit {
     this.rolId = id;
     this.cargarRol();
     this.cargarPermisos();
+    this.busqueda$
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.page.set(1);
+        this.cargarPermisos();
+      });
   }
 
   private cargarRol(): void {
@@ -102,8 +112,7 @@ export class EditarPermisosRolPage implements OnInit {
 
   onSearch(event: Event): void {
     this.search.set((event.target as HTMLInputElement).value);
-    this.page.set(1);
-    this.cargarPermisos();
+    this.busqueda$.next();
   }
 
   onPageChange(p: number): void {

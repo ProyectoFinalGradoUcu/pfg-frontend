@@ -22,6 +22,7 @@ import {
   MisionesStats,
   MisionOpcion,
 } from '../../../../core/models/misiones.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type TabKind = 'catalogo' | 'personal-en-mision';
 type ModalKind =
@@ -176,12 +177,12 @@ export class MisionesPage implements OnInit, OnDestroy {
       this.misionesService.findMisionesOpciones().subscribe((m) => this.misionesOpciones.set(m));
     }
 
-    this.defTextSubject.pipe(debounceTime(350)).subscribe(() => {
+    this.defTextSubject.pipe(debounceTime(ESPERA_BUSQUEDA_MS)).subscribe(() => {
       this.defPage.set(1);
       this.cargarDefiniciones();
     });
 
-    this.personalTextSubject.pipe(debounceTime(350)).subscribe(() => this.recargarPersonalDesdeInicio());
+    this.personalTextSubject.pipe(debounceTime(ESPERA_BUSQUEDA_MS)).subscribe(() => this.recargarPersonalDesdeInicio());
   }
 
   ngOnDestroy(): void {

@@ -10,6 +10,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { AsignacionComision, Comision, ComisionesQuery, ComisionesStats, EditarAsignacionComision } from '../../../core/models/comisiones.models';
 import { OPCIONES_FILTRO_CATEGORIA, PersonaListItem } from '../../../core/models/personal.models';
 import { parseError } from '../../../shared/utils/parse-error';
+import { ESPERA_BUSQUEDA_MS } from '../../../shared/utils/espera-busqueda';
 
 type Modal = 'comision' | 'asignacion' | 'cerrar' | 'reabrir' | 'eliminar' | null;
 
@@ -104,8 +105,8 @@ export class ComisionesPage {
       }
       this.loading.set(false);
     });
-    this.buscarTexto.pipe(debounceTime(300), takeUntilDestroyed(this.destroy)).subscribe(() => this.filtrar());
-    this.buscarPersona.pipe(debounceTime(300), switchMap(text => {
+    this.buscarTexto.pipe(debounceTime(ESPERA_BUSQUEDA_MS), takeUntilDestroyed(this.destroy)).subscribe(() => this.filtrar());
+    this.buscarPersona.pipe(debounceTime(ESPERA_BUSQUEDA_MS), switchMap(text => {
       return this.personal.findPaginado({ search: text.trim() || undefined, pageSize: 10, incluir_inactivos: false }).pipe(catchError(err => { this.modalError.set(parseError(err)); return of(null); }));
     }), takeUntilDestroyed(this.destroy)).subscribe(res => { this.personas.set(res?.items ?? []); this.buscandoPersona.set(false); });
     this.selectorPersona.valueChanges.pipe(takeUntilDestroyed(this.destroy)).subscribe(id => {
@@ -113,10 +114,10 @@ export class ComisionesPage {
       if (persona) this.elegirPersona(persona);
       this.selectorPersona.setValue(null, { emitEvent: false });
     });
-    this.buscarComision.pipe(debounceTime(250), switchMap(() => this.service.listar({ query: this.textoComision.trim(), vigente: true, page: this.paginaSelector(), pageSize: 10 }).pipe(catchError(err => { this.errorSelector.set(parseError(err)); return of(null); }))), takeUntilDestroyed(this.destroy)).subscribe(res => {
+    this.buscarComision.pipe(debounceTime(ESPERA_BUSQUEDA_MS), switchMap(() => this.service.listar({ query: this.textoComision.trim(), vigente: true, page: this.paginaSelector(), pageSize: 10 }).pipe(catchError(err => { this.errorSelector.set(parseError(err)); return of(null); }))), takeUntilDestroyed(this.destroy)).subscribe(res => {
       this.opcionesComision.set(res?.items ?? []); this.totalSelector.set(res?.total ?? 0); this.buscandoComision.set(false);
     });
-    this.buscarFiltro.pipe(debounceTime(250), switchMap(() => this.service.listar({ query: this.filtroComisionTexto.trim(), page: this.paginaFiltro(), pageSize: 10 }).pipe(catchError(err => { this.error.set(parseError(err)); return of(null); }))), takeUntilDestroyed(this.destroy)).subscribe(res => {
+    this.buscarFiltro.pipe(debounceTime(ESPERA_BUSQUEDA_MS), switchMap(() => this.service.listar({ query: this.filtroComisionTexto.trim(), page: this.paginaFiltro(), pageSize: 10 }).pipe(catchError(err => { this.error.set(parseError(err)); return of(null); }))), takeUntilDestroyed(this.destroy)).subscribe(res => {
       this.opcionesFiltro.set(res?.items ?? []); this.totalFiltro.set(res?.total ?? 0); this.buscandoFiltro.set(false);
     });
     this.cargar();

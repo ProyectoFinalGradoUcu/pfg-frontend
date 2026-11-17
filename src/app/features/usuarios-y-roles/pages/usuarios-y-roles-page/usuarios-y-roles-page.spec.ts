@@ -22,6 +22,7 @@ import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { Invitacion, Rol } from '../../../../core/models/auth.models';
 import { BaseOpcion } from '../../../../core/models/personal.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 const invitacion = (id: number): Invitacion =>
   ({
@@ -263,9 +264,9 @@ describe('UsuariosYRolesPage: paginación', () => {
       usuariosFindAll.mockClear();
 
       component.onUsuariosBusqueda('je');
-      vi.advanceTimersByTime(399);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS - 1);
       component.onUsuariosBusqueda('jefe');
-      vi.advanceTimersByTime(399);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS - 1);
       expect(usuariosFindAll).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(1);
@@ -277,7 +278,7 @@ describe('UsuariosYRolesPage: paginación', () => {
       await setup();
       vi.useFakeTimers();
       component.onUsuariosBusqueda('jefe');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
 
       component.onUsuariosRolChange('2');
       component.onUsuariosEstadoChange('activo');
@@ -313,7 +314,7 @@ describe('UsuariosYRolesPage: paginación', () => {
       usuariosFindAll.mockClear();
 
       component.limpiarFiltrosUsuarios();
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
 
       expect(usuariosFindAll).toHaveBeenCalledTimes(1);
       expect(ultimoPedido()).toEqual({ page: 1, pageSize: 10, search: '', rolId: null, estado: null });

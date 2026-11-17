@@ -20,6 +20,7 @@ import { DerechaService } from '../../../../core/services/derecha.service';
 import { Impacto } from '../../../../core/models/derecha.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 import { requeridoSinEspacios, validadorCedula } from '../../../../shared/utils/validadores';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 /**
  * La relación laboral no puede empezar antes de que la
@@ -299,7 +300,7 @@ export class NuevoPersonalPage implements OnInit, OnDestroy {
 
   private setupFamiliarSearch(): void {
     this.familiarSearch$
-      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe(term => {
         if (!term || term.length < 2) {
           this.familiarResults.set([]);

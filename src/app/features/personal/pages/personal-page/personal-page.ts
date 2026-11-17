@@ -23,6 +23,7 @@ import {
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 /** Lista de ids separada por coma ('3,4'); descarta lo que no sea un id válido. */
 const idsDeUrl = (valor: string | null): number[] =>
@@ -159,10 +160,9 @@ export class PersonalPage implements OnInit, OnDestroy {
         this.loading.set(false);
       });
 
-    // Buscador con 400 ms de margen antes de disparar la petición.
     this.searchSubject$
       .pipe(
-        debounceTime(400),
+        debounceTime(ESPERA_BUSQUEDA_MS),
         filter(term => (term.trim() || undefined) !== this.busquedaAplicada),
         takeUntil(this.destroy$),
       )

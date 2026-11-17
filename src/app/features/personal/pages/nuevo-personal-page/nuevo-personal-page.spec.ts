@@ -10,6 +10,7 @@ import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { BaseOpcion, PersonaListItem } from '../../../../core/models/personal.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 function makeBase(id: number, denominacion: string, comando = 'C.A.O.'): BaseOpcion {
   return {
@@ -180,7 +181,7 @@ describe('NuevoPersonalPage', () => {
       vi.useFakeTimers();
       personalService.buscarCandidatosFamiliar.mockReturnValue(of([makePersona(), civil]));
       component.onFamiliarSearch({ target: { value: 'ru' } } as unknown as Event);
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       expect(personalService.buscarCandidatosFamiliar).toHaveBeenCalledWith('ru');
       expect(component.familiarResults().map(p => p.cedula)).toEqual(['60000016', '50000050']);
       vi.useRealTimers();
