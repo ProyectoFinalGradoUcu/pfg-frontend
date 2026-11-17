@@ -826,6 +826,7 @@ export class CursosPage implements OnInit, OnDestroy {
                 this.subirDocumentos(nuevo.id, res.designaciones, () => {
                   this.cerrarModal();
                   this.toast.success(`Curso "${nuevo.nombre_curso}" creado y designado`);
+                  this.cargarDefiniciones();
                   this.cargar();
                 });
               },
