@@ -180,6 +180,7 @@ export class CursosPage implements OnInit, OnDestroy {
     const result: { id: string; nombre: string; institucion: string }[] = [];
     for (const fila of this.filasFlat()) {
       if (fila.curso.dadoDeBaja) continue;
+      if (!this.puedeGestionarCurso(fila.curso.baseId)) continue;
       if (!fila.curso.fechaFin) continue;
       if (new Date(fila.curso.fechaFin) >= hoy) continue;
       if (fila.curso.aprobado !== null) continue;
@@ -232,6 +233,17 @@ export class CursosPage implements OnInit, OnDestroy {
 
   /** Gestiona solo los cursos de sus bases: no puede crear cursos generales. */
   readonly gestionaPorBase = computed(() => this.auth.alcanceDe('cursos.gestionar') === 'unidad');
+
+  private readonly basesPropias = computed(
+    () => new Set((this.auth.currentUser()?.unidades ?? []).map((u) => String(u.id))),
+  );
+
+  // Con alcance de base solo gestiona los cursos de sus bases
+  puedeGestionarCurso(baseId: string | null | undefined): boolean {
+    if (!this.puedeGestionar()) return false;
+    if (!this.gestionaPorBase()) return true;
+    return !!baseId && this.basesPropias().has(baseId);
+  }
 
   /** Bases que se ofrecen al crear un curso: las propias con alcance de unidad, todas con alcance global. */
   readonly basesCurso = signal<{ id: number; etiqueta: string }[]>([]);
