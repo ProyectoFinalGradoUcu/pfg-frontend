@@ -1,4 +1,5 @@
 import { APIRequestContext, Page, expect, request, test } from '@playwright/test';
+import { randomInt } from 'node:crypto';
 import { ADMIN_STORAGE_STATE } from './auth';
 
 /** Usuarios del seed de demo. Todos menos el admin comparten la contraseña. */
@@ -14,17 +15,9 @@ export const USUARIOS = {
 /** Sin sesión: para specs que entran con otro usuario. */
 export const SIN_SESION = { cookies: [], origins: [] };
 
-// Arranca en un valor al azar para que dos workers no choquen en el mismo milisegundo.
-let secuencia = Math.floor(Math.random() * 100);
-
-/**
- * Cédula de 8 dígitos que empieza con 7. La base es compartida y los tests se
- * vuelven a correr, así que sale del reloj más un contador por proceso.
- */
+// Cédula de 8 dígitos al azar que empieza con 7.
 export function cedulaUnica(): string {
-  secuencia = (secuencia + 1) % 100;
-  const reloj = Date.now() % 100_000;
-  return `7${String(reloj).padStart(5, '0')}${String(secuencia).padStart(2, '0')}`;
+  return `7${String(randomInt(10_000_000)).padStart(7, '0')}`;
 }
 
 type Envoltorio<T> = { service_response: { service_data: T } };
@@ -75,8 +68,7 @@ export async function crearSubalternoEnBase(
   const escalafon = escalafones.find((e) => e.denominacion === '(S.T.)')!;
   const grados = await leer<Item[]>(api, `/api/catalogos/grados?escalafon_id=${escalafon.id}`);
 
-  const cedula = cedulaUnica();
-  const res = await api.post('/api/personas', {
+  const alta = (cedula: string) => api.post('/api/personas', {
     data: {
       cedula,
       primer_nombre: 'Test',
@@ -93,6 +85,10 @@ export async function crearSubalternoEnBase(
       tiene_mando: false,
     },
   });
+  let cedula = cedulaUnica();
+  let res = await alta(cedula);
+  // Si la cédula ya existe, se prueba con otra.
+  if (res.status() === 409) res = await alta((cedula = cedulaUnica()));
   expect(res.ok(), `alta de ${cedula} respondió ${res.status()}: ${await res.text()}`).toBeTruthy();
   return { id: await idPorCedula(api, cedula), cedula };
 }
