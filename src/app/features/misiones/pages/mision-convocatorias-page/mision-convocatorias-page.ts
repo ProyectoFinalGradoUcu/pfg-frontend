@@ -11,6 +11,7 @@ import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
 import { ArchivosPendientes, subirPendientes } from '../../../../core/services/documentos-registro';
 import { Convocatoria, MisionDefinicion } from '../../../../core/models/misiones.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type ModalKind = 'nuevaConvocatoria' | 'editarConvocatoria' | 'confirmarEliminar' | null;
 type EstadoFiltro = '' | 'activa' | 'finalizada';
@@ -75,7 +76,7 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
     this.cargarConvocatorias();
     this.buscador.vincular(this.convocatoriaForm.controls.persona_ids);
 
-    this.filtroSubject.pipe(debounceTime(350)).subscribe(() => {
+    this.filtroSubject.pipe(debounceTime(ESPERA_BUSQUEDA_MS)).subscribe(() => {
       this.convPage.set(1);
       this.cargarConvocatorias(1);
     });

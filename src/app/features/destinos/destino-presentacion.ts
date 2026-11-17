@@ -1,11 +1,12 @@
 import { Destino, SubUnidadConDestinados } from '../../core/models/destinos.models';
+import { ESPERA_BUSQUEDA_MS } from '../../shared/utils/espera-busqueda';
 
 /**
  * Compartido entre los componentes del módulo Destinos: antes vivía duplicado
  * (byte a byte) en `asignaciones-page.ts`, `unidad-detalle-page.ts`, `unidades-page.ts`
  * y `destino-form-modal.ts`.
  */
-export const DEBOUNCE_MS = 350;
+export const DEBOUNCE_MS = ESPERA_BUSQUEDA_MS;
 
 export function nombreFuncionario(d: Destino): string {
   if (!d.persona) return '—';

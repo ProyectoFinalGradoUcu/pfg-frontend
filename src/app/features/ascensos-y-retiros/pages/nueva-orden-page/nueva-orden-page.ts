@@ -26,6 +26,7 @@ import { ArchivosPendientes, subirPendientes } from '../../../../core/services/d
 import { parseError } from '../../../../shared/utils/parse-error';
 import { DerechaService } from '../../../../core/services/derecha.service';
 import { Impacto } from '../../../../core/models/derecha.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 /** Un funcionario ya agregado a la orden. */
 interface FilaDeOrden {
@@ -175,7 +176,7 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.busqueda$
-      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe((texto) => this.buscar(texto));
 
     this.selectorFuncionario.valueChanges

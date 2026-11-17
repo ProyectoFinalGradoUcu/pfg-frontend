@@ -5,6 +5,7 @@ import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { OrdenAscenso, OrdenesPaginadas } from '../../../../core/models/ascensos.models';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 const PAGE_SIZE = 10;
 
@@ -75,7 +76,7 @@ export class OrdenesPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.busqueda$
-      .pipe(debounceTime(400), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), takeUntil(this.destroy$))
       .subscribe((texto) => {
         // Se compara con lo aplicado y no con la emisión anterior: limpiar filtros
         // lo cambia por fuera, y volver a escribir lo mismo tiene que recargar.

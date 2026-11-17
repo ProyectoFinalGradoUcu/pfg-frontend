@@ -20,7 +20,8 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { parseError } from '../../../../shared/utils/parse-error';
 import { mensajeCierres } from '../../components/retiro-form-modal/retiro-form-modal';
-import { DEBOUNCE_MS, ETIQUETA_ESTADO, estadoRetiro, nombreFuncionario } from '../../retiro-presentacion';
+import { ETIQUETA_ESTADO, estadoRetiro, nombreFuncionario } from '../../retiro-presentacion';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 const PAGE_SIZE = 10;
 
@@ -83,7 +84,7 @@ export class RetirosPage implements OnInit, OnDestroy {
     this.catalogos.getMotivosBaja().subscribe({ next: (m) => this.motivos.set(m) });
 
     this.busqueda$
-      .pipe(debounceTime(DEBOUNCE_MS), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe(() => this.reiniciarPaginado());
 
     this.recargar$

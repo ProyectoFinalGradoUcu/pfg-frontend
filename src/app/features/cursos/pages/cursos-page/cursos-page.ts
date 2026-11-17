@@ -33,6 +33,8 @@ import {
   ModuloCurso,
   TipoCurso,
 } from '../../../../core/models/cursos.models';
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type TabKind = 'inscripciones' | 'catalogo';
 type ModalKind =
@@ -86,6 +88,7 @@ export class CursosPage implements OnInit, OnDestroy {
   private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
+  private readonly confirmModal = inject(ConfirmModalService);
   private readonly route = inject(ActivatedRoute);
 
   // ── Estado general ─────────────────────────────────────────────────────────
@@ -178,6 +181,7 @@ export class CursosPage implements OnInit, OnDestroy {
     const result: { id: string; nombre: string; institucion: string }[] = [];
     for (const fila of this.filasFlat()) {
       if (fila.curso.dadoDeBaja) continue;
+      if (!this.puedeGestionarCurso(fila.curso.baseId)) continue;
       if (!fila.curso.fechaFin) continue;
       if (new Date(fila.curso.fechaFin) >= hoy) continue;
       if (fila.curso.aprobado !== null) continue;
@@ -230,6 +234,17 @@ export class CursosPage implements OnInit, OnDestroy {
 
   /** Gestiona solo los cursos de sus bases: no puede crear cursos generales. */
   readonly gestionaPorBase = computed(() => this.auth.alcanceDe('cursos.gestionar') === 'unidad');
+
+  private readonly basesPropias = computed(
+    () => new Set((this.auth.currentUser()?.unidades ?? []).map((u) => String(u.id))),
+  );
+
+  // Con alcance de base solo gestiona los cursos de sus bases
+  puedeGestionarCurso(baseId: string | null | undefined): boolean {
+    if (!this.puedeGestionar()) return false;
+    if (!this.gestionaPorBase()) return true;
+    return !!baseId && this.basesPropias().has(baseId);
+  }
 
   /** Bases que se ofrecen al crear un curso: las propias con alcance de unidad, todas con alcance global. */
   readonly basesCurso = signal<{ id: number; etiqueta: string }[]>([]);
@@ -348,7 +363,7 @@ export class CursosPage implements OnInit, OnDestroy {
 
     this.cedulaSubject
       .pipe(
-        debounceTime(400),
+        debounceTime(ESPERA_BUSQUEDA_MS),
         distinctUntilChanged(),
         switchMap((cedula) => {
           this.buscandoCedula.set(true);
@@ -372,7 +387,7 @@ export class CursosPage implements OnInit, OnDestroy {
       });
 
     this.defTextSubject
-      .pipe(debounceTime(350))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS))
       .subscribe(() => {
         this.defPage.set(1);
         this.cargarDefiniciones();
@@ -811,6 +826,7 @@ export class CursosPage implements OnInit, OnDestroy {
                 this.subirDocumentos(nuevo.id, res.designaciones, () => {
                   this.cerrarModal();
                   this.toast.success(`Curso "${nuevo.nombre_curso}" creado y designado`);
+                  this.cargarDefiniciones();
                   this.cargar();
                 });
               },
@@ -894,9 +910,15 @@ export class CursosPage implements OnInit, OnDestroy {
     });
   }
 
-  eliminarModulo(modulo: ModuloCurso): void {
+  async eliminarModulo(modulo: ModuloCurso): Promise<void> {
     const curso = this.cursoSeleccionado();
     if (!curso) return;
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Eliminar módulo',
+      mensaje: `¿Eliminar el módulo "${modulo.nombre}"? Las personas designadas a este módulo dejan de figurar en él. No se puede deshacer.`,
+      textoConfirmar: 'Eliminar',
+    });
+    if (!confirmado) return;
 
     this.cursosService.deleteModulo(curso.id, modulo.id).subscribe({
       next: () => {
@@ -908,6 +930,7 @@ export class CursosPage implements OnInit, OnDestroy {
         this.definiciones.update((lista) =>
           lista.map((d) => (d.id === curso.id ? actualizado : d)),
         );
+        this.toast.success(`Módulo "${modulo.nombre}" eliminado`);
       },
       error: (err: HttpErrorResponse) => this.reportarError(err),
     });

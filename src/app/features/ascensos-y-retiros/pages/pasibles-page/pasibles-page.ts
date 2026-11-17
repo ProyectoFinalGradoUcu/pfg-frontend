@@ -20,6 +20,7 @@ import {
   categoriaParam,
 } from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 const PAGE_SIZE = 10;
 const ESTADOS_POR_DEFECTO: EstadoElegibilidad[] = ['PASIBLE', 'PROXIMO'];
@@ -114,7 +115,7 @@ export class PasiblesPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.busqueda$
-      .pipe(debounceTime(400), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), takeUntil(this.destroy$))
       .subscribe((texto) => {
         this.filtroTexto.set(texto);
         this.page.set(1);

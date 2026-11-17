@@ -16,6 +16,7 @@ import { Select } from '../../../../shared/components/select/select';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
 import { Convocatoria, MisionDefinicion } from '../../../../core/models/misiones.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -273,7 +274,7 @@ describe('MisionConvocatoriasPage', () => {
       vi.useFakeTimers();
       component.convPage.set(5);
       component.onOrdenBoletinInput('ORD-9');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(component.filtroOrdenBoletin()).toBe('ORD-9');
       expect(component.convPage()).toBe(1);
@@ -282,7 +283,7 @@ describe('MisionConvocatoriasPage', () => {
     it('onEstadoFiltroChange actualiza el filtro y recarga (con debounce)', () => {
       vi.useFakeTimers();
       component.onEstadoFiltroChange('finalizada');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(component.filtroEstado()).toBe('finalizada');
       expect(misionesService.findConvocatorias).toHaveBeenLastCalledWith('1', 1, 10, undefined, true);

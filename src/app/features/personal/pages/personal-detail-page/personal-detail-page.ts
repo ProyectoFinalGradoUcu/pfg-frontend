@@ -29,6 +29,7 @@ import {
   Elegibilidad,
   EstadoElegibilidad,
 } from '../../../../core/models/ascensos.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'comisiones' | 'misiones' | 'documentos';
 
@@ -760,7 +761,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
-    if (!this.editMode()) this.openEdit();
+    if (!this.editMode() && this.puedeEditar()) this.openEdit();
   }
 
   private setupEscalafonCascade(): void {
@@ -934,7 +935,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   private setupFamiliarAddSearch(): void {
     this.familiarAddSearch$
-      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe(term => {
         if (!term || term.length < 2) {
           this.familiarAddResults.set([]);
@@ -1219,9 +1220,17 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.editLoading.set(false);
-        if (err.status === 403 || err.status === 400) {
+        const mensaje = parseError(err);
+        if (err.status === 409 && /c[eé]dula/i.test(mensaje)) {
+          const cedula = this.editForm.get('cedula')!;
+          cedula.setErrors({ cedulaDuplicada: true });
+          cedula.markAsTouched();
+          this.toast.error(mensaje);
+          return;
+        }
+        if (err.status === 403 || err.status === 400 || err.status === 409) {
           // 400 acá puede ser una regla de negocio, no solo validación de formulario.
-          this.errorModal.show(parseError(err));
+          this.errorModal.show(mensaje);
           return;
         }
         this.toast.error('Error al guardar los cambios. Intentá de nuevo.');

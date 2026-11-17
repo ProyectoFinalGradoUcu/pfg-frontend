@@ -33,6 +33,8 @@ export interface CursoFuncionarioItem {
   nombre_curso: string;
   institucion: string;
   tipo: TipoCurso;
+  /** null si es un curso general. */
+  baseId?: string | null;
   fechaInicio: string;
   fechaFin: string;
   aprobado: boolean | null;

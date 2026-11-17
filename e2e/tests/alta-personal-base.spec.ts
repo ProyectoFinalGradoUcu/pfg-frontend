@@ -57,7 +57,7 @@ test.describe('alta de personal con base', () => {
     await elegir(page, 'situacion_id', 'Personal Subalterno en actividad.');
 
     await page.getByRole('button', { name: 'Guardar personal' }).last().click();
-    await expect(page).toHaveURL(/\/personal$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/personal(\?|$)/, { timeout: 15_000 });
 
     await page.getByLabel('Buscar por nombre o cédula').fill(cedula);
     const fila = page.locator('tr.personal-page__row--clickable', { hasText: cedula });
@@ -66,7 +66,6 @@ test.describe('alta de personal con base', () => {
     await fila.click();
 
     await esperarPerfil(page);
-    const base = page.locator('.pd__field', { has: page.getByText('Base', { exact: true }) });
-    await expect(base.locator('.pd__value')).toHaveText('E.T.A. (C.A.P.)');
+    await expect(page.locator('.pd__destino-actual .pd__value')).toHaveText('E.T.A. (C.A.P.)');
   });
 });

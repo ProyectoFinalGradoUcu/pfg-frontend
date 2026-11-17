@@ -5,8 +5,9 @@ import { Subject, catchError, debounceTime, of, switchMap } from 'rxjs';
 
 import { PersonalService } from '../../core/services/personal.service';
 import { PersonaListItem } from '../../core/models/personal.models';
+import { ESPERA_BUSQUEDA_MS } from './espera-busqueda';
 
-export const DEBOUNCE_BUSQUEDA_MS = 300;
+export const DEBOUNCE_BUSQUEDA_MS = ESPERA_BUSQUEDA_MS;
 const TAMANO_PAGINA = 20;
 
 export interface OpcionPersona extends PersonaListItem {

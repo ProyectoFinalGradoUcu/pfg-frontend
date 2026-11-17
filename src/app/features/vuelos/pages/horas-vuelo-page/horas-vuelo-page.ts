@@ -25,8 +25,9 @@ import {
 import { parseError } from '../../../../shared/utils/parse-error';
 import { RegistroGuardado } from '../../components/registro-vuelo-modal/registro-vuelo-modal';
 import { formatoHoras, sinParentesis } from '../../horas';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
-const DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = ESPERA_BUSQUEDA_MS;
 
 /** Valor del filtro de unidad que pide a quienes no tienen ninguna. */
 const SIN_UNIDAD = 'sin';

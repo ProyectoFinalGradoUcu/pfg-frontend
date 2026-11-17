@@ -50,13 +50,13 @@
       <table *ngIf="!catalogo"><thead><tr><th>Persona</th><th>Cédula</th><th>Categoría</th><th>Comisión</th><th>Cargo</th><th>Desde</th><th>Hasta</th><th>Orden / Boletín</th><th>Estado</th><th *ngIf="puedeGestionar()" class="comisiones__col-actions">Acciones</th></tr></thead><tbody>
         <tr *ngFor="let a of asignaciones()">
           <td>{{ a.persona.primer_nombre }} {{ a.persona.primer_apellido }}</td><td>{{ a.persona.cedula }}</td><td>{{ categoriaTexto(a.categoria) }}</td><td><a [routerLink]="['/comisiones/catalogo', a.comision.id]">{{ a.comision.denominacion }}</a><div *ngIf="a.importada" class="comisiones__importada" [title]="a.texto_original || ''">Importada del Access<ng-container *ngIf="a.periodo"> · período {{ a.periodo.fecha_inicio || '?' }} – {{ a.periodo.fecha_fin || 'actual' }}</ng-container></div></td><td>{{ a.cargo || 'Sin cargo' }}</td><td>{{ a.fecha_inicio || 'Sin fecha' }}</td><td>{{ a.fecha_fin || 'Sin fecha de finalización' }}</td>
-          <td><div *ngIf="a.numero_orden">Orden: {{ a.numero_orden }}</div><div *ngIf="a.boletin">Boletín: {{ a.boletin }}</div><div *ngIf="!a.numero_orden && !a.boletin">Sin documento</div></td><td><span class="comisiones__badge" [class.comisiones__badge--closed]="!a.activo">{{ a.activo ? 'Abierta' : 'Cerrada' }}</span></td>
+          <td><div *ngIf="a.numero_orden">Orden: {{ a.numero_orden }}</div><div *ngIf="a.boletin">Boletín: {{ a.boletin }}</div><div *ngIf="!a.numero_orden && !a.boletin">Sin documento</div></td><td><span class="comisiones__badge" [class.comisiones__badge--closed]="!a.activo && !a.futura">{{ a.activo ? 'Abierta' : a.futura ? 'Programada' : 'Cerrada' }}</span></td>
           <td *ngIf="puedeGestionar()" class="comisiones__col-actions">
             <button type="button" class="btn comisiones__dots" aria-label="Acciones de asignación" aria-haspopup="menu" [attr.aria-expanded]="openMenuId() === a.id" (click)="toggleMenu(a.id, $event)">⋯</button>
             <div class="comisiones__menu" role="menu" *ngIf="openMenuId() === a.id" [style.top.px]="menuPosition()?.top" [style.right.px]="menuPosition()?.right" (click)="$event.stopPropagation()">
               <button role="menuitem" (click)="abrirAsignacion(a)">Editar</button>
-              <button role="menuitem" *ngIf="a.activo" (click)="abrirAccion('cerrar', a)">Cerrar pertenencia</button>
-              <button role="menuitem" *ngIf="!a.activo && a.comision.vigente" (click)="abrirAccion('reabrir', a)">Reabrir</button>
+              <button role="menuitem" *ngIf="a.activo || a.futura" (click)="abrirAccion('cerrar', a)">Cerrar pertenencia</button>
+              <button role="menuitem" *ngIf="!a.activo && !a.futura && a.comision.vigente" (click)="abrirAccion('reabrir', a)">Reabrir</button>
               <button role="menuitem" class="comisiones__menu-danger" (click)="abrirAccion('eliminar', a)">Eliminar</button>
             </div>
           </td>

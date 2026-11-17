@@ -9,6 +9,7 @@ import { PersonalPage } from './personal-page';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 // Cubre la barra de filtros de la búsqueda avanzada: componentes compartidos, búsqueda y derecha/numor.
 describe('PersonalPage · filtros', () => {
@@ -39,6 +40,7 @@ describe('PersonalPage · filtros', () => {
     };
     const authService = {
       alcanceDe: vi.fn().mockReturnValue(alcance),
+      puedeConAlcance: vi.fn().mockReturnValue(true),
       currentUser: signal(alcance === 'unidad' ? ({ unidades } as any) : null),
     };
 
@@ -190,7 +192,7 @@ describe('PersonalPage · filtros', () => {
       expect(el().querySelector('select')).toBeNull();
     });
 
-    it('la búsqueda espera 400 ms sin teclear antes de pedir', async () => {
+    it('la búsqueda espera a que se deje de teclear antes de pedir', async () => {
       vi.useFakeTimers();
       try {
         await setup();
@@ -199,7 +201,7 @@ describe('PersonalPage · filtros', () => {
         component.onSearch('pe');
         vi.advanceTimersByTime(200);
         component.onSearch('perez');
-        vi.advanceTimersByTime(399);
+        vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS - 1);
         expect(personalService.findPaginado).not.toHaveBeenCalled();
 
         vi.advanceTimersByTime(1);
@@ -325,12 +327,12 @@ describe('PersonalPage · filtros', () => {
       try {
         await setup();
         component.onSearch('perez');
-        vi.advanceTimersByTime(400);
+        vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
         component.limpiarFiltros();
         personalService.findPaginado.mockClear();
 
         component.onSearch('perez');
-        vi.advanceTimersByTime(400);
+        vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
         expect(personalService.findPaginado).toHaveBeenLastCalledWith(
           expect.objectContaining({ search: 'perez' }),
         );

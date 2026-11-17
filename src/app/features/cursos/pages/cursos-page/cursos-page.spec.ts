@@ -21,6 +21,7 @@ import {
   FuncionarioConCursos,
   ModuloCurso,
 } from '../../../../core/models/cursos.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -352,7 +353,7 @@ describe('CursosPage', () => {
     it('filtra por nombre: llama al service con el nombre correcto', () => {
       vi.useFakeTimers();
       component.onNombreInput('javascript');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(cursosService.findAllDefiniciones).toHaveBeenCalledWith(1, 10, 'javascript', undefined, undefined);
     });
@@ -360,7 +361,7 @@ describe('CursosPage', () => {
     it('filtra por institución: llama al service con la institución correcta', () => {
       vi.useFakeTimers();
       component.onInstitucionInput('UCU');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(cursosService.findAllDefiniciones).toHaveBeenCalledWith(1, 10, undefined, 'UCU', undefined);
     });
@@ -380,7 +381,7 @@ describe('CursosPage', () => {
       component.filtroNombre.set('cursoX');
       component.filtroInstitucion.set('UCU');
       component.onTipoFilterChange('true');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       const calls = cursosService.findAllDefiniciones.mock.calls;
       const lastCall = calls[calls.length - 1];

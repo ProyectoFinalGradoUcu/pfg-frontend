@@ -7,7 +7,7 @@ import { permissionGuard } from '../../core/guards/permission.guard';
 
 const routes: Routes = [
   { path: '', component: PersonalPage },
-  { path: 'nuevo', component: NuevoPersonalPage },
+  { path: 'nuevo', component: NuevoPersonalPage, canActivate: [permissionGuard(['personas.crear'])] },
   {
     path: 'configuracion-derecha',
     canActivate: [permissionGuard(['derecha.gestionar'])],

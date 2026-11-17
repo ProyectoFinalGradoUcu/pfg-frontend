@@ -17,6 +17,7 @@ import { CursosService } from '../../../../core/services/cursos.service';
 import { SlotVista } from '../../../../core/services/documentos-registro';
 import { DocumentosRegistro } from '../../../../core/models/documentos-registro.models';
 import { FamiliarItem, PersonaDetalle, PersonaListItem, RelacionLaboral } from '../../../../core/models/personal.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDetalle {
   return {
@@ -175,6 +176,7 @@ describe('PersonalDetailPage', () => {
     });
 
     it('con ?editar=1 abre la ficha en modo edición y saca el parámetro de la URL', () => {
+      (component as any).puedeEditar = () => true;
       const router = TestBed.inject(Router) as unknown as { navigate: ReturnType<typeof vi.fn> };
       (component as any).route = {
         snapshot: { paramMap: { get: () => '31' }, queryParamMap: { get: () => '1' } },
@@ -187,6 +189,17 @@ describe('PersonalDetailPage', () => {
         queryParams: { editar: null },
         replaceUrl: true,
       }));
+    });
+
+    it('con ?editar=1 no abre la edición a quien solo puede ver', () => {
+      (component as any).puedeEditar = () => false;
+      (component as any).route = {
+        snapshot: { paramMap: { get: () => '31' }, queryParamMap: { get: () => '1' } },
+      };
+
+      (component as any).abrirEdicionSiSePidio();
+
+      expect(component.editMode()).toBe(false);
     });
 
     it('sin el parámetro no entra en modo edición', () => {
@@ -274,7 +287,7 @@ describe('PersonalDetailPage', () => {
       ]));
 
       component.onFamiliarAddSearch({ target: { value: 'algo' } } as unknown as Event);
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
 
       expect(svc.buscarCandidatosFamiliar).toHaveBeenCalledWith('algo', 31);
       expect(component.familiarAddResults().map(p => p.cedula)).toEqual(['88888801', '50000034']);

@@ -12,6 +12,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { Destino } from '../../../../core/models/destinos.models';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { Select } from '../../../../shared/components/select/select';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
@@ -101,7 +102,7 @@ describe('DestinoFormModal (crear)', () => {
       vi.useFakeTimers();
       component.onBuscarPersona('Pérez');
       expect(personalService.findPaginado).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       expect(personalService.findPaginado).toHaveBeenCalledWith({ search: 'Pérez', pageSize: 10 });
       expect(component.resultados().length).toBe(1);
     });
@@ -109,7 +110,7 @@ describe('DestinoFormModal (crear)', () => {
     it('no busca con menos de 2 caracteres y limpia los resultados', () => {
       vi.useFakeTimers();
       component.onBuscarPersona('P');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       expect(personalService.findPaginado).not.toHaveBeenCalled();
       expect(component.resultados()).toEqual([]);
     });

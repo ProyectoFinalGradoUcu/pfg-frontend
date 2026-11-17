@@ -243,6 +243,7 @@ export class CursosService {
       nombre_curso:  cursoObj?.nombre_curso ?? raw.nombre ?? '',
       institucion:   cursoObj?.institucion  ?? raw.institucion ?? '',
       tipo:          cursoObj?.es_obligatorio ? 'obligatorio' : 'optativo',
+      baseId:        cursoObj?.sub_unidad_id != null ? String(cursoObj.sub_unidad_id) : null,
       fechaInicio:   raw.fecha_inicio ?? raw.fechaInicio ?? '',
       fechaFin:      raw.fecha_fin    ?? raw.fechaFin    ?? '',
       aprobado:      raw.aprobado ?? null,

@@ -16,6 +16,7 @@ import { Select } from '../../../../shared/components/select/select';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
 import { Convocatoria, FuncionarioConvocatoria, MisionDefinicion } from '../../../../core/models/misiones.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -281,7 +282,7 @@ describe('ConvocatoriaDetallePage', () => {
     it('onBusquedaFuncionarioInput actualiza el filtro y recarga tras el debounce', () => {
       vi.useFakeTimers();
       component.onBusquedaFuncionarioInput('García');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(component.busquedaFuncionario()).toBe('García');
       expect(misionesService.findFuncionariosByConvocatoria).toHaveBeenLastCalledWith('1', 'c1', 1, 5, 'García', undefined);
