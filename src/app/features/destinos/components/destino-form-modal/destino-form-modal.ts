@@ -248,6 +248,12 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       this.error.set('El funcionario ya revista en esa base. Elegí otro destino.');
       return;
     }
+    const cierreAnterior = (raw.fecha_fin_anterior ?? '').trim();
+    // Cerrar el anterior el mismo día o después del inicio del nuevo deja los dos superpuestos (SCRUM-183).
+    if (cierreAnterior && cierreAnterior >= raw.fecha_inicio) {
+      this.error.set('El destino anterior tiene que cerrar antes de la fecha de inicio del nuevo.');
+      return;
+    }
 
     const payload: CrearDestinoPayload = {
       persona_id: Number(this.personaElegida()!.id),
@@ -267,8 +273,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     if (raw.fecha_resolucion) payload.fecha_resolucion = raw.fecha_resolucion;
     const observaciones = (raw.observaciones ?? '').trim();
     if (observaciones) payload.observaciones = observaciones;
-    const cierre = (raw.fecha_fin_anterior ?? '').trim();
-    if (cierre) payload.fecha_fin_anterior = cierre;
+    if (cierreAnterior) payload.fecha_fin_anterior = cierreAnterior;
 
     this.guardando.set(true);
     this.destinosService.crear(payload).subscribe({

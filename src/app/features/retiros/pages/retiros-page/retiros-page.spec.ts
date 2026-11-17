@@ -2,7 +2,8 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { RetirosPage } from './retiros-page';
@@ -95,6 +96,18 @@ describe('RetirosPage', () => {
     expect(retiros.listar).toHaveBeenCalledWith(
       expect.not.objectContaining({ incluir_anulados: true }),
     );
+  });
+
+  it('después de un error muestra el mensaje y el listado sigue respondiendo (SCRUM-197)', () => {
+    retiros.listar.mockReturnValueOnce(
+      throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'Parámetro inválido' } })),
+    );
+    component.setBase(5);
+    expect(toast.error).toHaveBeenCalledWith('Parámetro inválido');
+    expect(component.loading()).toBe(false);
+
+    component.setBase(6);
+    expect(retiros.listar).toHaveBeenLastCalledWith(expect.objectContaining({ sub_unidad_id: 6 }));
   });
 
   it('cambiar de base reinicia el paginado', () => {

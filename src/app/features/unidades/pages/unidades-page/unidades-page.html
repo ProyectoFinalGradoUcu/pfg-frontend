@@ -44,7 +44,6 @@
             <th>Código</th>
             <th class="un__col-center">Roles</th>
             <th class="un__col-center">Usuarios</th>
-            <th class="un__col-center">Personal</th>
             <th>Estado</th>
             <th class="un__col-actions">Acciones</th>
           </tr>
@@ -52,7 +51,7 @@
         <tbody>
           <ng-container *ngFor="let f of filas()">
           <tr *ngIf="f.empiezaComando" class="un__grupo">
-            <td colspan="7">{{ f.unidad.comando.denominacion }}</td>
+            <td colspan="6">{{ f.unidad.comando.denominacion }}</td>
           </tr>
           <tr *ngIf="f.unidad as u">
             <td><strong>{{ u.denominacion }}</strong></td>
@@ -62,9 +61,6 @@
             </td>
             <td class="un__col-center">
               <span class="un__count-badge">{{ u.cantidadUsuarios }}</span>
-            </td>
-            <td class="un__col-center">
-              <span class="un__count-badge">{{ u.cantidadFuncionarios }}</span>
             </td>
             <td>
               <span class="un__estado" [class.un__estado--baja]="!u.vigente">
@@ -105,7 +101,6 @@
         <h3>{{ seleccionada()?.denominacion }} <span class="un__muted">({{ seleccionada()?.comando?.denominacion }})</span></h3>
         <p class="modal__sub" *ngIf="seleccionada() as u">
           {{ u.codigo }} · {{ u.cantidadUsuarios }} {{ u.cantidadUsuarios === 1 ? 'usuario' : 'usuarios' }}
-          · {{ u.cantidadFuncionarios }} {{ u.cantidadFuncionarios === 1 ? 'funcionario' : 'funcionarios' }}
         </p>
       </div>
       <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">×</button>
@@ -168,13 +163,8 @@
         personal destinado acá. No confundir con el personal en sí, que se gestiona desde Personal.
       </p>
 
-      <div class="un__card-header">
-        <span class="un__muted" *ngIf="seleccionada() as u">
-          {{ u.cantidadFuncionarios }} {{ u.cantidadFuncionarios === 1 ? 'funcionario' : 'funcionarios' }}
-          destinado{{ u.cantidadFuncionarios === 1 ? '' : 's' }} en esta base
-        </span>
+      <div class="un__card-header un__card-header--fin" *ngIf="puedeAsignarUsuarios()">
         <button
-          *ngIf="puedeAsignarUsuarios()"
           type="button"
           class="btn btn--primary btn--sm"
           (click)="abrirAgregarUsuarios()"

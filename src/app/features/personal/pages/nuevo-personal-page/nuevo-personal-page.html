@@ -21,7 +21,7 @@
         <div class="nf__field">
           <label class="nf__label" for="cedula">Cédula <span class="nf__req">*</span></label>
           <input id="cedula" type="text" formControlName="cedula" class="nf__input"
-            [class.nf__input--error]="hasError('cedula')" maxlength="12" placeholder="Ej: 12345678" />
+            [class.nf__input--error]="hasError('cedula')" maxlength="9" inputmode="numeric" placeholder="Ej: 12345678" />
           <span class="nf__error" *ngIf="hasError('cedula')">{{ getError('cedula') }}</span>
         </div>
 

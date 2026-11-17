@@ -21,6 +21,7 @@ import { MisionesService } from '../../../../core/services/misiones.service';
 import { CursosService } from '../../../../core/services/cursos.service';
 import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import { Impacto } from '../../../../core/models/derecha.models';
+import { requeridoSinEspacios } from '../../../../shared/utils/validadores';
 import { parseError } from '../../../../shared/utils/parse-error';
 import {
   ESTADOS_ELEGIBILIDAD,
@@ -35,10 +36,6 @@ interface TabDef { key: TabKey; label: string }
 type CursoVista = CursoPersona & { slots: SlotVista[] };
 type MisionVista = MisionPersona & { slots: SlotVista[] };
 type DestinoVista = DestinoDePersona & { slots: SlotVista[] };
-
-// Required que no acepta solo espacios.
-const requeridoSinEspacios = (c: AbstractControl): ValidationErrors | null =>
-  typeof c.value === 'string' && c.value.trim() === '' ? { required: true } : null;
 
 @Component({
   selector: 'app-personal-detail-page',
@@ -167,6 +164,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     return this.comisiones().filter(c => !query || [c.comision, c.cargo, c.numero_orden, c.boletin].some(v => v?.toLowerCase().includes(query)));
   });
   readonly loadingDestinos   = signal(false);
+  /** Sin esto un 403/404 dejaba la pestaña vacía como si no tuviera destinos (SCRUM-163). */
+  readonly destinosError = signal<string | null>(null);
   readonly busquedaDestinos  = signal('');
   readonly destinosFiltrados = computed<DestinoVista[]>(() => {
     const q = this.busquedaDestinos().trim().toLowerCase();
@@ -221,7 +220,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     estado_civil:          [''],
     lugar_nacimiento:      [''],
     etnia:                 [''],
-    codigo_postal:         [''],
+    codigo_postal:         ['', Validators.maxLength(10)],
     seccional:             [''],
     credencial_civica:     [''],
     email:                 ['', Validators.email],
@@ -503,11 +502,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         });
         break;
       case 'destinos':
-        this.loadingDestinos.set(true);
-        this.svc.getDestinos(this.personaId).subscribe({
-          next: d => { this.destinos.set(d.map(x => this.conSlotsDestino(x))); this.loadingDestinos.set(false); },
-          error: () => this.loadingDestinos.set(false),
-        });
+        this.cargarDestinos();
         break;
       case 'comisiones':
         this.cargarComisiones();
@@ -520,6 +515,15 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         });
         break;
     }
+  }
+
+  cargarDestinos(): void {
+    this.loadingDestinos.set(true);
+    this.destinosError.set(null);
+    this.svc.getDestinos(this.personaId).pipe(takeUntil(this.destroy$)).subscribe({
+      next: d => { this.destinos.set(d.map(x => this.conSlotsDestino(x))); this.loadingDestinos.set(false); },
+      error: err => { this.destinosError.set(parseError(err)); this.loadingDestinos.set(false); },
+    });
   }
 
   cargarComisiones(): void {
@@ -739,6 +743,12 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       this.editForm.get('grado_id')!.enable({ emitEvent: false });
     }
 
+    // [disabled] no tiene efecto con formControlName: se habilitan acá según el tipo.
+    const nivelCtrl = this.editForm.get('nivel_idoneidad')!;
+    const codigosCtrl = this.editForm.get('codigos_legajo')!;
+    if (this.esSubalterno()) nivelCtrl.enable({ emitEvent: false }); else nivelCtrl.disable({ emitEvent: false });
+    if (this.esOficial()) codigosCtrl.enable({ emitEvent: false }); else codigosCtrl.disable({ emitEvent: false });
+
     if (!this.catalogsLoaded) {
       this.catalogsLoaded = true;
       this.svc.getRegimenes().subscribe({ next: d => this.editRegimenes.set(d) });
@@ -789,8 +799,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       prima_tecnica:                   raw.prima_tecnica || null,
       tiene_mando:                     raw.tiene_mando,
       observaciones_laborales:         raw.observaciones_laborales || null,
-      nivel_idoneidad:                 raw.nivel_idoneidad ?? null,
-      codigos_legajo:                  raw.codigos_legajo || null,
+      // Cada uno va solo para su tipo: mandarlo vacío borraría el dato de la persona.
+      ...(this.esSubalterno()         && { nivel_idoneidad:       raw.nivel_idoneidad ?? null }),
+      ...(this.esOficial()            && { codigos_legajo:        raw.codigos_legajo || null }),
       // Legajo militar: vacío se manda como null para poder borrar el dato.
       nivel_educativo:                 raw.nivel_educativo || null,
       fecha_ingreso_eta:               raw.fecha_ingreso_eta || null,
@@ -808,6 +819,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         this.editLoading.set(false);
         this.editMode.set(false);
         this.cancelarAgregarFamiliar();
+        // La edición puede cambiar lo que muestran las otras pestañas: se vuelven a pedir al abrirlas.
+        this.loadedTabs.clear();
+        this.loadedTabs.add('personal');
         this.toast.success('Perfil actualizado correctamente');
       },
       error: (err: HttpErrorResponse) => {

@@ -281,4 +281,47 @@ describe('NuevoPersonalPage', () => {
       expect(component.bases()).toEqual([]);
     });
   });
+  describe('validaciones del alta (SCRUM-181)', () => {
+    it('rechaza una cédula que no sean entre 6 y 9 dígitos', () => {
+      const cedula = component.form.get('cedula')!;
+      cedula.setValue('QA-abc');
+      expect(cedula.invalid).toBe(true);
+      cedula.setValue('12345');
+      expect(cedula.invalid).toBe(true);
+      cedula.setValue('12345678');
+      expect(cedula.valid).toBe(true);
+    });
+
+    it('rechaza nombres y apellidos de solo espacios', () => {
+      component.form.patchValue({ primer_nombre: '   ', primer_apellido: '  ' });
+      expect(component.form.get('primer_nombre')!.invalid).toBe(true);
+      expect(component.form.get('primer_apellido')!.invalid).toBe(true);
+    });
+
+    it('rechaza un código postal de más de 10 caracteres', () => {
+      component.form.get('codigo_postal')!.setValue('12345678901');
+      expect(component.form.get('codigo_postal')!.invalid).toBe(true);
+    });
+  });
+
+  describe('tildar y destildar "Es personal civil" (SCRUM-198)', () => {
+    it('con escalafón elegido vuelve a habilitar el grado y a cargar sus grados', () => {
+      component.form.get('escalafon_id')!.setValue(1);
+      personalService.getGrados.mockClear();
+
+      component.form.get('es_civil')!.setValue(true);
+      expect(component.form.get('grado_id')!.disabled).toBe(true);
+
+      component.form.get('es_civil')!.setValue(false);
+      expect(component.form.get('grado_id')!.enabled).toBe(true);
+      expect(component.form.get('grado_id')!.hasError('required')).toBe(true);
+      expect(personalService.getGrados).toHaveBeenCalledWith(1);
+    });
+
+    it('sin escalafón el grado queda deshabilitado', () => {
+      component.form.get('es_civil')!.setValue(true);
+      component.form.get('es_civil')!.setValue(false);
+      expect(component.form.get('grado_id')!.disabled).toBe(true);
+    });
+  });
 });

@@ -45,24 +45,16 @@
       ></app-select>
 
       <app-select
-        *ngIf="!alcanceAcotado()"
-        [items]="bases()"
+        [items]="basesDelFiltro()"
         bindLabel="etiqueta"
         bindValue="id"
         placeholder="Destino"
+        [attr.title]="alcanceAcotado() ? 'Solo podés ver el personal de tus bases' : null"
         [multiple]="true"
         [searchable]="true"
         [clearable]="true"
         [ngModel]="selectedDestinos()"
         (ngModelChange)="onDestinosChange($event)"
-      ></app-select>
-
-      <app-select
-        *ngIf="alcanceAcotado()"
-        title="Solo podés ver el personal de tu unidad"
-        [items]="[{ value: 'propia', label: unidadPropia() }]"
-        [ngModel]="'propia'"
-        [disabled]="true"
       ></app-select>
 
       <app-select

@@ -1,12 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NO_ERRORS_SCHEMA, signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { PersonalPage } from './personal-page';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { ToastService } from '../../../../core/services/toast.service';
 
 // Cubre la barra de filtros de la búsqueda avanzada: componentes compartidos, búsqueda y derecha/numor.
 describe('PersonalPage · filtros', () => {
@@ -20,7 +22,14 @@ describe('PersonalPage · filtros', () => {
     getEscalafones: ReturnType<typeof vi.fn>;
   };
 
-  async function setup() {
+  let toast: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
+
+  async function setup(
+    alcance: 'global' | 'unidad' = 'global',
+    unidades: { id: string }[] = [],
+    queryParams: Record<string, string> = {},
+  ) {
+    toast = { error: vi.fn(), success: vi.fn() };
     personalService = {
       findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
       getBases: vi.fn().mockReturnValue(of([])),
@@ -28,7 +37,10 @@ describe('PersonalPage · filtros', () => {
       getGrados: vi.fn().mockReturnValue(of([{ id: 14, denominacion: 'Brig. Gral.', escalafon_id: 1, orden: 1 }])),
       getEscalafones: vi.fn().mockReturnValue(of([{ id: 1, denominacion: 'AV' }])),
     };
-    const authService = { alcanceDe: vi.fn().mockReturnValue('global'), currentUser: signal(null) };
+    const authService = {
+      alcanceDe: vi.fn().mockReturnValue(alcance),
+      currentUser: signal(alcance === 'unidad' ? ({ unidades } as any) : null),
+    };
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
@@ -38,6 +50,8 @@ describe('PersonalPage · filtros', () => {
         { provide: PersonalService, useValue: personalService },
         { provide: AuthService, useValue: authService },
         { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } } },
+        { provide: ToastService, useValue: toast },
       ],
     }).compileComponents();
 
@@ -220,6 +234,50 @@ describe('PersonalPage · filtros', () => {
       expect(destino.properties['items']).toEqual([expect.objectContaining({ id: 1, etiqueta: 'B.A.I. (C.A.O.)' })]);
     });
 
+    describe('con alcance de unidad', () => {
+      const BASES = [
+        { id: 1, denominacion: 'B.A.I.', unidad_id: 1, comando: { id: 1, denominacion: 'C.A.O.' }, etiqueta: 'B.A.I. (C.A.O.)' },
+        { id: 2, denominacion: 'B.A.II.', unidad_id: 1, comando: { id: 1, denominacion: 'C.A.O.' }, etiqueta: 'B.A.II. (C.A.O.)' },
+        { id: 5, denominacion: 'E.T.A.', unidad_id: 2, comando: { id: 2, denominacion: 'C.A.P.' }, etiqueta: 'E.T.A. (C.A.P.)' },
+      ];
+      const selectDestino = () =>
+        fixture.debugElement.queryAll((d) => d.name === 'app-select')
+          .find((d) => d.attributes['placeholder'] === 'Destino')!;
+
+      async function setupUnidad() {
+        await setup('unidad', [{ id: '1' }, { id: '5' }]);
+        personalService.getBases.mockReturnValue(of(BASES));
+        (component as any).loadFilterOptions();
+        fixture.detectChanges();
+      }
+
+      it('el filtro Destino está habilitado y solo ofrece las bases del usuario', async () => {
+        await setupUnidad();
+
+        const destino = selectDestino();
+        expect(destino).toBeDefined();
+        expect(destino.properties['disabled']).toBeFalsy();
+        expect(destino.properties['items'].map((b: { id: number }) => b.id)).toEqual([1, 5]);
+      });
+
+      it('manda al backend solo las bases elegidas', async () => {
+        await setupUnidad();
+
+        component.onDestinosChange([5]);
+
+        expect(personalService.findPaginado).toHaveBeenLastCalledWith(expect.objectContaining({ destino: [5] }));
+      });
+
+      it('sin bases elegidas no manda el filtro: el backend lista todas las del usuario', async () => {
+        await setupUnidad();
+
+        component.onDestinosChange([5]);
+        component.onDestinosChange([]);
+
+        expect(personalService.findPaginado).toHaveBeenLastCalledWith(expect.objectContaining({ destino: undefined }));
+      });
+    });
+
     it('vaciar grados no deja filtro activo', async () => {
       await setup();
       component.onGradosChange([14]);
@@ -292,6 +350,8 @@ describe('PersonalPage · filtros', () => {
     async function conUnaFila() {
       await setup();
       router = TestBed.inject(Router) as unknown as { navigate: ReturnType<typeof vi.fn> };
+      // La carga inicial escribe el estado en la URL: acá solo interesan las navegaciones de la fila.
+      router.navigate.mockClear();
       component.items.set([item as any]);
       fixture.detectChanges();
     }
@@ -321,6 +381,69 @@ describe('PersonalPage · filtros', () => {
 
       expect(router.navigate).toHaveBeenCalledTimes(1);
       expect(router.navigate).toHaveBeenCalledWith(['/personal', '7'], { queryParams: { editar: 1 } });
+    });
+  });
+  describe('después de un error (SCRUM-197)', () => {
+    it('muestra el error y el listado sigue respondiendo', async () => {
+      await setup();
+      personalService.findPaginado.mockReturnValueOnce(
+        throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'Parámetro inválido' } })),
+      );
+      component.onPageChange(2);
+
+      expect(toast.error).toHaveBeenCalledWith('Parámetro inválido');
+      expect(component.loading()).toBe(false);
+
+      personalService.findPaginado.mockReturnValueOnce(of({ items: [{ id: '9' }], total: 11, page: 3, pageSize: 10 }));
+      component.onPageChange(3);
+
+      expect(personalService.findPaginado).toHaveBeenLastCalledWith(expect.objectContaining({ page: 3 }));
+      expect(component.total()).toBe(11);
+    });
+  });
+
+  describe('estado en la URL (SCRUM-201)', () => {
+    it('escribe la página, los filtros y el orden en la URL sin sumar pasos al historial', async () => {
+      await setup();
+      const router = TestBed.inject(Router) as unknown as { navigate: ReturnType<typeof vi.fn> };
+      component.onDestinosChange([3, 4]);
+      component.onCategoriaChange('oficial');
+      component.ordenarPor('numor');
+      component.onPageChange(3);
+
+      expect(router.navigate).toHaveBeenLastCalledWith([], expect.objectContaining({
+        replaceUrl: true,
+        queryParams: expect.objectContaining({
+          page: 3, destino: '3,4', categoria: 'oficial', ordenarPor: 'numor', direccion: 'ASC',
+        }),
+      }));
+    });
+
+    it('al volver, recupera la página, los filtros y el orden de la URL', async () => {
+      await setup('global', [], {
+        page: '3', q: 'perez', destino: '3,4', estado: '2', categoria: 'subalterno', retirados: '1',
+        gradoId: '14', derechaDesde: '5', ordenarPor: 'numor', direccion: 'DESC',
+      });
+
+      expect(personalService.findPaginado).toHaveBeenCalledWith(expect.objectContaining({
+        page: 3,
+        search: 'perez',
+        destino: [3, 4],
+        estado: [2],
+        incluir_inactivos: true,
+        filtroDerecha: expect.objectContaining({ gradoId: [14], derechaDesde: 5, ordenarPor: 'numor', direccion: 'DESC' }),
+      }));
+      expect(component.selectedCategoria()).toBe('subalterno');
+      expect(component.searchTerm()).toBe('perez');
+    });
+
+    it('ignora valores inválidos de la URL', async () => {
+      await setup('global', [], { page: 'abc', destino: 'x,7', categoria: 'otra', ordenarPor: 'cualquiera' });
+
+      expect(component.currentPage()).toBe(1);
+      expect(component.selectedDestinos()).toEqual([7]);
+      expect(component.selectedCategoria()).toBe('todos');
+      expect(component.filtroDerecha().ordenarPor).toBe('derecha');
     });
   });
 });

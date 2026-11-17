@@ -1,6 +1,7 @@
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { Subject, switchMap, takeUntil, debounceTime, filter } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute, Params, Router } from '@angular/router';
+import { EMPTY, Subject, catchError, switchMap, takeUntil, debounceTime, filter } from 'rxjs';
 import {
   BaseOpcion,
   FiltroCategoria,
@@ -15,10 +16,24 @@ import { AuthService } from '../../../../core/services/auth.service';
 import {
   FILTRO_DERECHA_NUMOR_INICIAL,
   FiltroDerechaNumor,
+  filtroDerechaNumorParams,
   hayFiltroDerechaNumor,
   OrdenarPorDerechaNumor,
 } from '../../../../core/models/derecha.models';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
+import { ToastService } from '../../../../core/services/toast.service';
+import { parseError } from '../../../../shared/utils/parse-error';
+
+/** Lista de ids separada por coma ('3,4'); descarta lo que no sea un id válido. */
+const idsDeUrl = (valor: string | null): number[] =>
+  (valor ?? '').split(',').map(Number).filter(n => Number.isInteger(n) && n > 0);
+
+const numeroDeUrl = (valor: string | null): number | null => {
+  const n = valor == null || valor === '' ? NaN : Number(valor);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
+const CLAVES_FILTRO_DERECHA = ['derechaDesde', 'derechaHasta', 'numorDesde', 'numorHasta'] as const;
 
 @Component({
   selector: 'app-personal-page',
@@ -28,21 +43,23 @@ import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 })
 export class PersonalPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly toast = inject(ToastService);
   private readonly personalService = inject(PersonalService);
   private readonly auth = inject(AuthService);
 
   /**
-   * Con alcance de unidad el backend fuerza el filtro y descarta `destino` del query. El select
-   * se muestra fijo y deshabilitado en vez de ocultarse, para que quede claro por qué el
-   * listado está acotado.
+   * Con alcance de unidad el backend nunca lista fuera de las bases del usuario: sin destino
+   * elegido muestra todas las suyas, y con destino solo las elegidas que sean suyas.
    */
   readonly alcanceAcotado = computed(
     () => this.auth.alcanceDe('personas.ver') === 'unidad',
   );
-  readonly unidadPropia = computed(() => {
-    const user = this.auth.currentUser();
-    if (!user || user.unidades.length === 0) return null;
-    return user.unidades.map((u) => u.denominacion).join(', ');
+  /** Opciones del filtro Destino: con alcance de unidad, solo las bases del usuario. */
+  readonly basesDelFiltro = computed(() => {
+    if (!this.alcanceAcotado()) return this.bases();
+    const propias = new Set((this.auth.currentUser()?.unidades ?? []).map((u) => String(u.id)));
+    return this.bases().filter((b) => propias.has(String(b.id)));
   });
 
   readonly PAGE_SIZE = 10;
@@ -104,6 +121,9 @@ export class PersonalPage implements OnInit, OnDestroy {
   private busquedaAplicada: string | undefined;
 
   ngOnInit(): void {
+    // La página, los filtros y el orden viven en la URL: al volver atrás desde una ficha se recuperan.
+    this.leerEstadoDeUrl();
+
     // Todas las peticiones pasan por triggerLoad$ con switchMap para cancelar
     // la anterior si llega una nueva antes de que responda.
     this.triggerLoad$
@@ -111,6 +131,7 @@ export class PersonalPage implements OnInit, OnDestroy {
         switchMap(() => {
           this.loading.set(true);
           this.busquedaAplicada = this.searchTerm().trim() || undefined;
+          this.escribirEstadoEnUrl();
           return this.personalService.findPaginado({
             page:     this.currentPage(),
             pageSize: this.PAGE_SIZE,
@@ -120,17 +141,22 @@ export class PersonalPage implements OnInit, OnDestroy {
             filtroDerecha: this.filtroDerecha(),
             incluir_inactivos: this.incluirRetirados() || undefined,
             categoria: categoriaParam(this.selectedCategoria()),
-          });
+          }).pipe(
+            // El error se maneja acá adentro: si llegara al subscribe cortaría el stream
+            // y el listado dejaría de responder hasta recargar la página.
+            catchError((err: HttpErrorResponse) => {
+              this.loading.set(false);
+              this.toast.error(parseError(err));
+              return EMPTY;
+            }),
+          );
         }),
         takeUntil(this.destroy$),
       )
-      .subscribe({
-        next: res => {
-          this.items.set(res.items);
-          this.total.set(res.total);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
+      .subscribe(res => {
+        this.items.set(res.items);
+        this.total.set(res.total);
+        this.loading.set(false);
       });
 
     // Buscador con 400 ms de margen antes de disparar la petición.
@@ -152,6 +178,50 @@ export class PersonalPage implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  private leerEstadoDeUrl(): void {
+    const q = this.route.snapshot.queryParamMap;
+    if (!q.keys.length) return;
+
+    this.currentPage.set(numeroDeUrl(q.get('page')) ?? 1);
+    this.searchTerm.set(q.get('q') ?? '');
+    this.selectedDestinos.set(idsDeUrl(q.get('destino')));
+    this.selectedEstados.set(idsDeUrl(q.get('estado')));
+    const categoria = q.get('categoria');
+    if (this.opcionesCategoria.some(o => o.value === categoria)) {
+      this.selectedCategoria.set(categoria as FiltroCategoria);
+    }
+    this.incluirRetirados.set(q.get('retirados') === '1');
+
+    const filtro: FiltroDerechaNumor = { ...FILTRO_DERECHA_NUMOR_INICIAL };
+    for (const clave of CLAVES_FILTRO_DERECHA) filtro[clave] = numeroDeUrl(q.get(clave));
+    filtro.gradoId = idsDeUrl(q.get('gradoId'));
+    filtro.escalafonId = idsDeUrl(q.get('escalafonId'));
+    const escala = q.get('escala');
+    if (escala === 'OFICIALES' || escala === 'SUBALTERNOS') filtro.escala = escala;
+    const ordenarPor = q.get('ordenarPor');
+    if (ordenarPor === 'derecha' || ordenarPor === 'numor' || ordenarPor === 'apellido') filtro.ordenarPor = ordenarPor;
+    const direccion = q.get('direccion');
+    if (direccion === 'ASC' || direccion === 'DESC') filtro.direccion = direccion;
+    this.filtroDerecha.set(filtro);
+
+    // Los filtros de la fila desplegable se muestran abiertos si vienen cargados.
+    if (this.hayFiltroExtra()) this.filtrosExtraAbiertos.set(true);
+  }
+
+  /** Reemplaza la entrada del historial: cambiar un filtro no suma un paso más al botón atrás. */
+  private escribirEstadoEnUrl(): void {
+    const queryParams: Params = {
+      ...filtroDerechaNumorParams(this.filtroDerecha()),
+      ...(this.currentPage() > 1 && { page: this.currentPage() }),
+      ...(this.busquedaAplicada && { q: this.busquedaAplicada }),
+      ...(this.selectedDestinos().length && { destino: this.selectedDestinos().join(',') }),
+      ...(this.selectedEstados().length && { estado: this.selectedEstados().join(',') }),
+      ...(this.selectedCategoria() !== 'todos' && { categoria: this.selectedCategoria() }),
+      ...(this.incluirRetirados() && { retirados: '1' }),
+    };
+    this.router.navigate([], { relativeTo: this.route, queryParams, replaceUrl: true });
   }
 
   private loadFilterOptions(): void {

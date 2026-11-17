@@ -408,6 +408,19 @@ describe('DestinoFormModal (crear)', () => {
       expect(destinosService.crear.mock.calls[0][0].fecha_fin_anterior).toBe('2026-08-15');
     });
 
+    it('rechaza cerrar el anterior después del inicio del nuevo (SCRUM-183)', () => {
+      component.form.patchValue({ fecha_fin_anterior: '2026-09-10' });
+      component.guardar();
+      expect(destinosService.crear).not.toHaveBeenCalled();
+      expect(component.error()).toBe('El destino anterior tiene que cerrar antes de la fecha de inicio del nuevo.');
+    });
+
+    it('rechaza cerrar el anterior el mismo día que empieza el nuevo (SCRUM-183)', () => {
+      component.form.patchValue({ fecha_fin_anterior: '2026-09-01' });
+      component.guardar();
+      expect(destinosService.crear).not.toHaveBeenCalled();
+    });
+
     it('emite guardado con el destino que devuelve el backend', () => {
       const emitido: Destino[] = [];
       component.guardado.subscribe((d) => emitido.push(d));

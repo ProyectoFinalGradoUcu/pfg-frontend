@@ -26,8 +26,6 @@ export interface UnidadListItem {
   cantidadRoles: number;
   /** Usuarios del sistema asignados a la unidad: los que quedarían deslogueados. */
   cantidadUsuarios: number;
-  /** Funcionarios con relación laboral activa destinados en la unidad. */
-  cantidadFuncionarios: number;
 }
 
 export interface UnidadDetalle {
@@ -38,7 +36,6 @@ export interface UnidadDetalle {
   comando: ComandoDeUnidad;
   roles: RolDeUnidad[];
   cantidadUsuarios: number;
-  cantidadFuncionarios: number;
 }
 
 /** Cuenta de la aplicación asignada a la unidad. No es un funcionario del padrón. */
