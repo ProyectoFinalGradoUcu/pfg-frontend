@@ -88,6 +88,7 @@ export class CursosPage implements OnInit, OnDestroy {
   private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
+  private readonly confirmModal = inject(ConfirmModalService);
   private readonly route = inject(ActivatedRoute);
 
   // ── Estado general ─────────────────────────────────────────────────────────
@@ -908,9 +909,15 @@ export class CursosPage implements OnInit, OnDestroy {
     });
   }
 
-  eliminarModulo(modulo: ModuloCurso): void {
+  async eliminarModulo(modulo: ModuloCurso): Promise<void> {
     const curso = this.cursoSeleccionado();
     if (!curso) return;
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Eliminar módulo',
+      mensaje: `¿Eliminar el módulo "${modulo.nombre}"? Las personas designadas a este módulo dejan de figurar en él. No se puede deshacer.`,
+      textoConfirmar: 'Eliminar',
+    });
+    if (!confirmado) return;
 
     this.cursosService.deleteModulo(curso.id, modulo.id).subscribe({
       next: () => {
@@ -922,6 +929,7 @@ export class CursosPage implements OnInit, OnDestroy {
         this.definiciones.update((lista) =>
           lista.map((d) => (d.id === curso.id ? actualizado : d)),
         );
+        this.toast.success(`Módulo "${modulo.nombre}" eliminado`);
       },
       error: (err: HttpErrorResponse) => this.reportarError(err),
     });
