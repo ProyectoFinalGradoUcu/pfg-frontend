@@ -97,6 +97,7 @@ export async function crearSubalternoEnBase(
   return { id: await idPorCedula(api, cedula), cedula };
 }
 
+// Espera el nombre: sin personas.editar no hay botón de editar.
 export async function esperarPerfil(page: Page): Promise<void> {
-  await expect(page.getByRole('button', { name: 'Editar Perfil' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('h1.pd__name')).toBeVisible({ timeout: 15_000 });
 }

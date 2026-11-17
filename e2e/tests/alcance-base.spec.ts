@@ -27,8 +27,10 @@ test.describe('alcance por base', () => {
     expect(destinos.length).toBeGreaterThan(0);
     for (const destino of destinos) expect(destino.trim()).toBe('B.A.I.');
 
-    // El filtro de destino queda fijo en su base.
-    await expect(page.getByTitle('Solo podés ver el personal de tu unidad').getByRole('button').first()).toBeDisabled();
+    // El filtro de destino solo ofrece su base.
+    const filtro = page.getByTitle('Solo podés ver el personal de tus bases');
+    await filtro.getByRole('button').first().click();
+    await expect(filtro.getByRole('option')).toHaveText(['B.A.I. (C.A.O.)']);
   });
 
   test('un usuario de B.A.I. no puede abrir el perfil de alguien de B.A.II.', async ({ page }) => {
@@ -37,7 +39,7 @@ test.describe('alcance por base', () => {
     await page.goto(`/personal/${idBaII}`);
 
     await expect(page.getByText('Personal no encontrado')).toBeVisible();
-    await expect(page).toHaveURL(/\/personal$/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
   });
 
   test('con dos bases se abre el perfil de una de ellas pero no el de otra', async ({ page }) => {
@@ -54,7 +56,7 @@ test.describe('alcance por base', () => {
     await expect(page.getByText('E.T.A. (C.A.P.)').first()).toBeVisible();
 
     await page.goto(`/personal/${idEma}`);
-    await expect(page).toHaveURL(/\/personal$/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
   });
 
   test('con alcance global se ve a cualquiera y el filtro de destino está habilitado', async ({ page }) => {
