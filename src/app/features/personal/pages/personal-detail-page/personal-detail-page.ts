@@ -761,7 +761,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
-    if (!this.editMode()) this.openEdit();
+    if (!this.editMode() && this.puedeEditar()) this.openEdit();
   }
 
   private setupEscalafonCascade(): void {

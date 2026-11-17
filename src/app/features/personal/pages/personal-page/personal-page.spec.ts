@@ -40,6 +40,7 @@ describe('PersonalPage · filtros', () => {
     };
     const authService = {
       alcanceDe: vi.fn().mockReturnValue(alcance),
+      puedeConAlcance: vi.fn().mockReturnValue(true),
       currentUser: signal(alcance === 'unidad' ? ({ unidades } as any) : null),
     };
 

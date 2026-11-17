@@ -176,6 +176,7 @@ describe('PersonalDetailPage', () => {
     });
 
     it('con ?editar=1 abre la ficha en modo edición y saca el parámetro de la URL', () => {
+      (component as any).puedeEditar = () => true;
       const router = TestBed.inject(Router) as unknown as { navigate: ReturnType<typeof vi.fn> };
       (component as any).route = {
         snapshot: { paramMap: { get: () => '31' }, queryParamMap: { get: () => '1' } },
@@ -188,6 +189,17 @@ describe('PersonalDetailPage', () => {
         queryParams: { editar: null },
         replaceUrl: true,
       }));
+    });
+
+    it('con ?editar=1 no abre la edición a quien solo puede ver', () => {
+      (component as any).puedeEditar = () => false;
+      (component as any).route = {
+        snapshot: { paramMap: { get: () => '31' }, queryParamMap: { get: () => '1' } },
+      };
+
+      (component as any).abrirEdicionSiSePidio();
+
+      expect(component.editMode()).toBe(false);
     });
 
     it('sin el parámetro no entra en modo edición', () => {

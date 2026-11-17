@@ -49,6 +49,9 @@ export class PersonalPage implements OnInit, OnDestroy {
   private readonly personalService = inject(PersonalService);
   private readonly auth = inject(AuthService);
 
+  readonly puedeCrear = computed(() => this.auth.puedeConAlcance('personas.crear'));
+  readonly puedeEditar = computed(() => this.auth.puedeConAlcance('personas.editar'));
+
   /**
    * Con alcance de unidad el backend nunca lista fuera de las bases del usuario: sin destino
    * elegido muestra todas las suyas, y con destino solo las elegidas que sean suyas.
