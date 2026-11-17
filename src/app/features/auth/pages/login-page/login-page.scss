@@ -83,6 +83,15 @@
   }
 }
 
+.login__input--error {
+  border-color: #b91c1c !important;
+}
+
+.login__field-error {
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
 .login__success {
   margin-bottom: 1rem;
   padding: 0.6rem 0.75rem;

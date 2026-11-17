@@ -18,7 +18,7 @@ export class LoginPage implements OnInit {
 
   readonly form = this.fb.group({
     username: ['', [Validators.required, Validators.email, Validators.maxLength(60)]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
+    password: ['', [Validators.required]],
   });
 
   readonly loading = signal(false);
@@ -27,6 +27,11 @@ export class LoginPage implements OnInit {
 
   ngOnInit(): void {
     this.successMessage.set(this.route.snapshot.queryParamMap.get('mensaje'));
+  }
+
+  campoInvalido(nombre: 'username' | 'password'): boolean {
+    const ctrl = this.form.get(nombre)!;
+    return ctrl.invalid && ctrl.touched;
   }
 
   submit(): void {
