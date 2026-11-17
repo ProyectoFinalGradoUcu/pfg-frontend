@@ -28,6 +28,8 @@ export interface AsignacionComision extends DatosImportada {
   numero_orden: string | null;
   boletin: string | null;
   activo: boolean;
+  /** Empieza más adelante. */
+  futura?: boolean;
 }
 export interface ComisionDePersona extends DatosImportada {
   id: string;
