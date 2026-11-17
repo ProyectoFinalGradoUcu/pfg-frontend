@@ -24,7 +24,7 @@ test.describe('alta de personal con base', () => {
     await expect(base.locator('option', { hasText: 'B.A.I. (C.A.O.)' })).toBeAttached();
     await expect(page.locator('#unidad_id')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Guardar' }).click();
+    await page.getByRole('button', { name: 'Guardar personal' }).last().click();
     await expect(base).toHaveClass(/nf__select--error/);
   });
 
@@ -45,7 +45,7 @@ test.describe('alta de personal con base', () => {
     await page.locator('#primer_nombre').fill('Test');
     await page.locator('#primer_apellido').fill('Alta Base');
 
-    await page.locator('#tipo_funcionario').selectOption({ label: 'Subalterno' });
+    await page.locator('#tipo-subalterno').check();
     await page.locator('#fecha_inicio').fill('2021-05-10');
     await elegir(page, 'regimen_id', 'Ley Nueva');
     await elegir(page, 'sub_unidad_id', 'E.T.A. (C.A.P.)');
@@ -56,7 +56,7 @@ test.describe('alta de personal con base', () => {
     await elegir(page, 'programa_id', 'Programa 300');
     await elegir(page, 'situacion_id', 'Personal Subalterno en actividad.');
 
-    await page.getByRole('button', { name: 'Guardar' }).click();
+    await page.getByRole('button', { name: 'Guardar personal' }).last().click();
     await expect(page).toHaveURL(/\/personal$/, { timeout: 15_000 });
 
     await page.getByLabel('Buscar por nombre o cédula').fill(cedula);

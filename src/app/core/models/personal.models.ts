@@ -83,8 +83,18 @@ export interface FamiliarPayload {
   tipo_relacion?: string;
 }
 
+/** Persona que se puede vincular como familiar: militar en actividad o civil. */
+export interface CandidatoFamiliar {
+  id: string;
+  cedula: string;
+  nombre: string;
+  es_civil?: boolean;
+  /** Grado del militar; null para un civil. */
+  grado?: string | null;
+}
+
 export interface FamiliarEntry {
-  persona: PersonaListItem;
+  persona: CandidatoFamiliar;
   tipo_relacion: string;
 }
 
@@ -279,6 +289,10 @@ export const SITUACIONES_FUERA_DE_ACTIVIDAD = ['SIT03', 'SIT04', 'SIT09'];
 export const SITUACIONES_DE_ACTIVIDAD = ['SIT01', 'SIT07', 'SIT16', 'SIT17'];
 
 export interface PatchPersonaPayload {
+  /** Entre 6 y 9 dígitos; el backend rechaza una que ya tenga otra persona. */
+  cedula?: string;
+  /** Solo militares con relación vigente; el grado tiene que corresponder al tipo. */
+  tipo_funcionario?: 'oficial' | 'subalterno';
   primer_nombre?: string;
   segundo_nombre?: string | null;
   primer_apellido?: string;

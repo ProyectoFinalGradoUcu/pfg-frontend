@@ -39,6 +39,7 @@ describe('NuevoPersonalPage', () => {
     getBases: ReturnType<typeof vi.fn>;
     getGrados: ReturnType<typeof vi.fn>;
     findPaginado: ReturnType<typeof vi.fn>;
+    buscarCandidatosFamiliar: ReturnType<typeof vi.fn>;
     crear: ReturnType<typeof vi.fn>;
   };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
@@ -71,6 +72,7 @@ describe('NuevoPersonalPage', () => {
       getBases: vi.fn().mockReturnValue(of(BASES)),
       getGrados: vi.fn().mockReturnValue(of([])),
       findPaginado: vi.fn().mockReturnValue(of({ items: [makePersona()], total: 1, page: 1, pageSize: 8 })),
+      buscarCandidatosFamiliar: vi.fn().mockReturnValue(of([makePersona()])),
       crear: vi.fn().mockReturnValue(of({})),
     };
     toastService = { success: vi.fn(), error: vi.fn() };
@@ -137,12 +139,122 @@ describe('NuevoPersonalPage', () => {
     });
   });
 
-  describe('tipo de funcionario', () => {
-    it('solo ofrece Oficial y Subalterno: los civiles se cargan con el checkbox', () => {
-      const opciones = Array.from(
-        fixture.nativeElement.querySelectorAll('#tipo_funcionario option') as NodeListOf<HTMLOptionElement>,
-      ).filter(o => o.value).map(o => o.textContent!.trim());
-      expect(opciones).toEqual(['Oficial', 'Subalterno']);
+  describe('tipo de personal', () => {
+    it('ofrece Oficial, Personal subalterno y Personal civil como tarjetas', () => {
+      const tipos = Array.from(
+        fixture.nativeElement.querySelectorAll('input[name=tipo_personal]') as NodeListOf<HTMLInputElement>,
+      ).map(i => i.value);
+      expect(tipos).toEqual(['oficial', 'subalterno', 'civil']);
+    });
+
+    it('elegir civil marca es_civil y oculta los datos laborales; volver a oficial lo desmarca', () => {
+      component.elegirTipo('civil');
+      fixture.detectChanges();
+      expect(component.form.get('es_civil')!.value).toBe(true);
+      expect(component.tipoPersonal()).toBe('civil');
+      expect(fixture.nativeElement.querySelector('#sub_unidad_id')).toBeNull();
+      expect(component.seccionesVisibles().map(s => s.key)).toEqual(['tipo', 'identificacion', 'personales', 'contacto', 'familiares']);
+
+      component.elegirTipo('oficial');
+      expect(component.form.get('es_civil')!.value).toBe(false);
+      expect(component.form.get('tipo_funcionario')!.value).toBe('oficial');
+    });
+
+    it('cuenta 11 obligatorios para un militar y 5 para un civil', () => {
+      expect(component.totalObligatorios()).toBe(11);
+      expect(component.obligatoriosCompletos()).toBe(3); // cédula, nombre y apellido
+      component.elegirTipo('civil');
+      expect(component.totalObligatorios()).toBe(5);
+      expect(component.pendientes().map(p => p.label)).toEqual(['Un familiar militar']);
+    });
+
+    it('el grado sin escalafón cuenta como pendiente aunque esté deshabilitado', () => {
+      expect(component.pendientes().map(p => p.label)).toContain('Grado');
+    });
+  });
+
+  describe('familiares civiles', () => {
+    const civil = { id: '50', cedula: '50000050', nombre: 'Ana Ruiz', es_civil: true };
+
+    it('el buscador usa los candidatos (militares y civiles)', () => {
+      vi.useFakeTimers();
+      personalService.buscarCandidatosFamiliar.mockReturnValue(of([makePersona(), civil]));
+      component.onFamiliarSearch({ target: { value: 'ru' } } as unknown as Event);
+      vi.advanceTimersByTime(400);
+      expect(personalService.buscarCandidatosFamiliar).toHaveBeenCalledWith('ru');
+      expect(component.familiarResults().map(p => p.cedula)).toEqual(['60000016', '50000050']);
+      vi.useRealTimers();
+    });
+
+    it('un militar puede tener solo un familiar civil', () => {
+      llenarDatosLaborales();
+      component.addFamiliar(civil);
+      component.submit();
+      expect(personalService.crear.mock.calls[0][0].familiares).toEqual([{ cedula: '50000050' }]);
+    });
+
+    it('un civil con solo familiares civiles no se guarda hasta tener un militar', () => {
+      component.elegirTipo('civil');
+      component.addFamiliar(civil);
+      component.submit();
+      expect(personalService.crear).not.toHaveBeenCalled();
+      expect(component.familiaresError()).toBe(true);
+      expect(component.pendientes().map(p => p.label)).toEqual(['Un familiar militar']);
+
+      component.addFamiliar(makePersona());
+      expect(component.familiaresError()).toBe(false);
+      component.submit();
+      expect(personalService.crear).toHaveBeenCalled();
+    });
+  });
+
+  describe('formación según el tipo', () => {
+    it('a un subalterno le manda los datos de ETA, la mutación y el nivel educativo', () => {
+      llenarDatosLaborales();
+      component.form.patchValue({
+        tipo_funcionario: 'subalterno',
+        nivel_educativo: 'CICLO_BASICO',
+        fecha_ingreso_eta: '2018-03-01',
+        fecha_egreso_eta: '2020-12-15',
+        numero_orden_egreso_eta: 'O.D. 1',
+        mutaciones: 'Mutado',
+      });
+      component.submit();
+      expect(personalService.crear.mock.calls[0][0]).toMatchObject({
+        nivel_educativo: 'CICLO_BASICO',
+        fecha_ingreso_eta: '2018-03-01',
+        fecha_egreso_eta: '2020-12-15',
+        numero_orden_egreso_eta: 'O.D. 1',
+        mutaciones: 'Mutado',
+      });
+    });
+
+    it('a un oficial no le manda datos de ETA aunque hayan quedado cargados', () => {
+      llenarDatosLaborales();
+      component.form.patchValue({ fecha_ingreso_eta: '2018-03-01', mutaciones: 'x', nivel_educativo: 'TERCIARIO' });
+      component.submit();
+      const payload = personalService.crear.mock.calls[0][0];
+      expect(payload.nivel_educativo).toBe('TERCIARIO');
+      expect('fecha_ingreso_eta' in payload).toBe(false);
+      expect('mutaciones' in payload).toBe(false);
+    });
+
+    it('rechaza un egreso de la ETA anterior al ingreso solo para un subalterno', () => {
+      llenarDatosLaborales();
+      component.form.patchValue({ fecha_ingreso_eta: '2020-01-01', fecha_egreso_eta: '2019-01-01' });
+      expect(component.etaInconsistente()).toBe(false);
+      component.form.patchValue({ tipo_funcionario: 'subalterno' });
+      expect(component.etaInconsistente()).toBe(true);
+      component.submit();
+      expect(personalService.crear).not.toHaveBeenCalled();
+    });
+
+    it('a un civil no le manda observaciones: no tiene relación laboral donde guardarlas', () => {
+      component.elegirTipo('civil');
+      component.addFamiliar(makePersona());
+      component.form.patchValue({ observaciones: 'algo' });
+      component.submit();
+      expect('observaciones' in personalService.crear.mock.calls[0][0]).toBe(false);
     });
   });
 

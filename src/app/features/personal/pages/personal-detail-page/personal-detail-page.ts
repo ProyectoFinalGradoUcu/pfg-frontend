@@ -1,12 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, merge, of, switchMap, takeUntil } from 'rxjs';
 import {
   CambioSituacionResultado, CursoPersona, FamiliarItem, GradoItem, HistorialMilitar,
   MisionPersona, NIVELES_EDUCATIVOS, NIVELES_IDONEIDAD, OpcionSelect, PatchPersonaPayload,
-  PersonaDetalle, PersonaListItem,
+  CandidatoFamiliar, PersonaDetalle,
 } from '../../../../core/models/personal.models';
 import { DestinoDePersona } from '../../../../core/models/destinos.models';
 import { ComisionDePersona } from '../../../../core/models/comisiones.models';
@@ -15,6 +15,7 @@ import { AscensosService } from '../../../../core/services/ascensos.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
 import { DerechaService } from '../../../../core/services/derecha.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
@@ -32,6 +33,56 @@ import {
 export type TabKey = 'personal' | 'familiar' | 'historial' | 'cursos' | 'destinos' | 'comisiones' | 'misiones' | 'documentos';
 
 interface TabDef { key: TabKey; label: string }
+
+/** Un dato del legajo en la vista de lectura de "Datos personales". */
+interface CampoLegajo {
+  label: string;
+  valor: string | null;
+  /** Texto chico debajo del valor (ej. la edad bajo la fecha de nacimiento). */
+  nota?: string | null;
+  copiable?: boolean;
+  /** false: puede quedar vacío sin que falte nada (no suma a la completitud). */
+  cuenta?: boolean;
+}
+
+export type SeccionEdicionKey =
+  'identificacion' | 'personales' | 'contacto' | 'laborales' | 'escalafon' | 'formacion' | 'familiares';
+
+interface SeccionEdicion { key: SeccionEdicionKey; titulo: string }
+
+/** Qué controles del formulario viven en cada sección del editor (para los contadores del índice). */
+const CONTROLES_POR_SECCION: Record<SeccionEdicionKey, string[]> = {
+  identificacion: ['cedula', 'tipo_funcionario', 'credencial_civica', 'primer_nombre', 'segundo_nombre', 'primer_apellido', 'segundo_apellido'],
+  personales:     ['fecha_nacimiento', 'genero', 'estado_civil', 'lugar_nacimiento', 'etnia'],
+  contacto:       ['email', 'telefono', 'direccion', 'codigo_postal', 'seccional'],
+  laborales:      ['fecha_inicio', 'regimen_id', 'programa_id', 'prima_tecnica', 'tiene_mando'],
+  escalafon:      ['escalafon_id', 'grado_id', 'derecha', 'numor'],
+  formacion:      ['nivel_educativo', 'codigos_legajo', 'observaciones_laborales', 'nivel_idoneidad',
+                   'fecha_ingreso_eta', 'fecha_egreso_eta', 'numero_orden_egreso_eta', 'mutaciones'],
+  familiares:     [],
+};
+
+/** Nombre de cada control, para el resumen de errores. */
+const LABEL_CONTROL: Record<string, string> = {
+  cedula: 'Cédula', tipo_funcionario: 'Tipo de funcionario',
+  primer_nombre: 'Primer nombre', segundo_nombre: 'Segundo nombre', primer_apellido: 'Primer apellido',
+  segundo_apellido: 'Segundo apellido', credencial_civica: 'Credencial cívica', fecha_nacimiento: 'Fecha de nacimiento',
+  genero: 'Género', estado_civil: 'Estado civil', lugar_nacimiento: 'Lugar de nacimiento', etnia: 'Etnia',
+  email: 'Email', telefono: 'Teléfono', direccion: 'Dirección', codigo_postal: 'Código postal', seccional: 'Seccional',
+  fecha_inicio: 'Fecha de inicio', regimen_id: 'Régimen', programa_id: 'Programa', prima_tecnica: 'Prima técnica',
+  tiene_mando: 'Tiene mando', escalafon_id: 'Escalafón', grado_id: 'Grado', derecha: 'Derecha', numor: 'Numor',
+  nivel_educativo: 'Nivel educativo', codigos_legajo: 'Códigos', observaciones_laborales: 'Observaciones laborales',
+  nivel_idoneidad: 'Nivel de idoneidad', fecha_ingreso_eta: 'Ingreso a la ETA', fecha_egreso_eta: 'Egreso de la ETA',
+  numero_orden_egreso_eta: 'N.º de orden de egreso', mutaciones: 'Mutación de escalafón',
+};
+
+interface ErrorEdicion { control: string; label: string; seccion: SeccionEdicionKey }
+
+interface SeccionLegajo {
+  titulo: string;
+  campos: CampoLegajo[];
+  nota?: string;
+}
 
 type CursoVista = CursoPersona & { slots: SlotVista[] };
 type MisionVista = MisionPersona & { slots: SlotVista[] };
@@ -51,11 +102,13 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private readonly auth     = inject(AuthService);
   private readonly toast    = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
+  private readonly confirmModal = inject(ConfirmModalService);
   private readonly fb       = inject(FormBuilder);
   private readonly derecha  = inject(DerechaService);
   private readonly destinosApi = inject(DestinosService);
   private readonly misionesApi = inject(MisionesService);
   private readonly cursosApi   = inject(CursosService);
+  private readonly host        = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected personaId!: number;
 
@@ -74,11 +127,11 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     const p = this.persona();
     if (!p) return [];
     return [
-      { key: 'personal',       label: 'Datos Personales'     },
-      { key: 'familiar',       label: 'Información Familiar' },
+      { key: 'personal',       label: 'Datos personales'     },
+      { key: 'familiar',       label: 'Información familiar' },
       ...(p.es_civil
         ? []
-        : [{ key: 'historial' as TabKey, label: 'Historial Militar'   }]),
+        : [{ key: 'historial' as TabKey, label: 'Historial militar'   }]),
       { key: 'cursos',         label: 'Cursos'               },
       { key: 'destinos',       label: 'Destinos'             },
       { key: 'comisiones',     label: 'Comisiones'           },
@@ -96,9 +149,9 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   // ─── Agregar familiar (modo edición) ─────────────────────────────────────
   readonly tipoRelacionOpciones = ['Cónyuge', 'Padre', 'Madre', 'Hijo/a', 'Hermano/a', 'Otro'];
   readonly familiarAddSearch    = signal('');
-  readonly familiarAddResults   = signal<PersonaListItem[]>([]);
+  readonly familiarAddResults   = signal<CandidatoFamiliar[]>([]);
   readonly familiarAddDropdownOpen = signal(false);
-  readonly familiarAddElegido   = signal<PersonaListItem | null>(null);
+  readonly familiarAddElegido   = signal<CandidatoFamiliar | null>(null);
   readonly familiarAddTipoRelacion = signal('');
   readonly guardandoFamiliar    = signal(false);
   private readonly familiarAddSearch$ = new Subject<string>();
@@ -130,6 +183,138 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     const comando = rl.unidad?.denominacion;
     if (!rl.sub_unidad) return comando ? `Sin base (${comando})` : '—';
     return comando ? `${rl.sub_unidad.denominacion} (${comando})` : rl.sub_unidad.denominacion;
+  });
+
+  /** Para los links "Agregar" de los datos vacíos. */
+  readonly puedeEditar = computed(() => this.auth.puedeConAlcance('personas.editar'));
+  readonly puedeVerDerecha = computed(() => this.auth.hasPermiso('derecha.gestionar'));
+
+  /** Los datos del legajo agrupados como en la vista de lectura. */
+  readonly seccionesLegajo = computed<SeccionLegajo[]>(() => {
+    const p = this.persona();
+    if (!p) return [];
+    const rl = p.relacion_laboral;
+    const lm = p.legajo_militar;
+    const militar = !p.es_civil;
+    const tipo = rl?.tipo_funcionario ?? '';
+    const edad = this.aniosDesde(p.fecha_nacimiento);
+
+    const secciones: SeccionLegajo[] = [
+      {
+        titulo: 'Identificación y datos personales',
+        campos: [
+          { label: 'Nombre completo', valor: p.nombre_completo },
+          { label: 'Cédula de identidad', valor: p.cedula, copiable: true },
+          { label: 'Credencial cívica', valor: p.credencial_civica },
+          { label: 'Fecha de nacimiento', valor: p.fecha_nacimiento ? this.formatDate(p.fecha_nacimiento) : null,
+            nota: edad != null ? `${edad} años` : null },
+          { label: 'Género', valor: p.genero ? this.formatGenero(p.genero) : null },
+          { label: 'Estado civil', valor: p.estado_civil },
+          { label: 'Lugar de nacimiento', valor: p.lugar_nacimiento },
+          { label: 'Etnia', valor: p.etnia },
+        ],
+      },
+      {
+        titulo: 'Contacto',
+        campos: [
+          { label: 'Email', valor: p.email },
+          { label: 'Teléfono', valor: p.telefono },
+          { label: 'Dirección', valor: p.direccion },
+          { label: 'Código postal', valor: p.codigo_postal },
+          { label: 'Seccional', valor: p.seccional },
+        ],
+      },
+    ];
+
+    if (rl) {
+      const carrera: CampoLegajo[] = [
+        { label: 'Tipo de funcionario', valor: this.capitalizar(rl.tipo_funcionario) },
+        { label: 'Escalafón', valor: rl.escalafon?.denominacion ?? null },
+        { label: 'Grado', valor: rl.grado?.denominacion ?? null },
+      ];
+      if (militar) {
+        const enActividad = rl.estado === 'activo';
+        carrera.push(
+          { label: 'Derecha', valor: enActividad && rl.derecha != null ? String(rl.derecha) : null, cuenta: false,
+            nota: enActividad && rl.derecha != null ? null : 'Sin derecha asignada' },
+          { label: 'Numor', valor: enActividad && rl.numor != null ? String(rl.numor) : null, cuenta: false },
+        );
+      }
+      const servicio = this.tiempoDesde(rl.fecha_inicio);
+      carrera.push({ label: 'Fecha de inicio', valor: rl.fecha_inicio ? this.formatDate(rl.fecha_inicio) : null,
+        nota: servicio ? `${servicio} de servicio` : null });
+      if (militar) {
+        carrera.push(
+          { label: 'Último ascenso', valor: rl.fecha_ultimo_ascenso ? this.formatDate(rl.fecha_ultimo_ascenso) : null, cuenta: false },
+          { label: 'Tiene mando', valor: rl.tiene_mando ? 'Sí' : 'No' },
+        );
+      }
+      secciones.push(
+        { titulo: 'Carrera', campos: carrera },
+        {
+          titulo: 'Régimen y remuneración',
+          campos: [
+            { label: 'Régimen', valor: rl.regimen?.denominacion ?? null },
+            { label: 'Programa', valor: rl.programa?.denominacion ?? null },
+            ...(militar ? [{ label: 'Prima técnica', valor: rl.prima_tecnica }] : []),
+          ],
+        },
+      );
+    }
+
+    const formacion: CampoLegajo[] = [];
+    if (militar) {
+      formacion.push({ label: 'Nivel educativo', valor: lm?.nivel_educativo_label ?? this.etiquetaNivelEducativo(lm?.nivel_educativo) });
+    }
+    if (tipo === 'oficial') formacion.push({ label: 'Códigos', valor: rl?.codigos_legajo ?? null });
+    if (rl) formacion.push({ label: 'Observaciones laborales', valor: rl.observaciones });
+    if (tipo === 'subalterno') {
+      formacion.push(
+        { label: 'Nivel de idoneidad', valor: p.nivel_idoneidad != null ? `Nivel ${p.nivel_idoneidad}` : null },
+        { label: 'Ingreso a la ETA', valor: lm?.fecha_ingreso_eta ? this.formatDate(lm.fecha_ingreso_eta) : null },
+        { label: 'Egreso de la ETA', valor: lm?.fecha_egreso_eta ? this.formatDate(lm.fecha_egreso_eta) : null },
+        { label: 'N.º de orden de egreso', valor: lm?.numero_orden_egreso_eta ?? null },
+        { label: 'Mutación de escalafón', valor: lm?.mutaciones ?? null, cuenta: false },
+      );
+    }
+    if (formacion.length) {
+      secciones.push({
+        titulo: 'Formación y observaciones',
+        campos: formacion,
+        nota: tipo === 'oficial'
+          ? 'Los datos de ETA (ingreso, egreso, orden de egreso y nivel de idoneidad) aplican solo a personal subalterno y no se muestran para oficiales.'
+          : undefined,
+      });
+    }
+    return secciones;
+  });
+
+  /** Datos que se esperan cargados y están vacíos, en el orden en que aparecen. */
+  readonly camposFaltantes = computed(() =>
+    this.seccionesLegajo().flatMap((s) => s.campos.filter((c) => c.cuenta !== false && !c.valor)),
+  );
+
+  readonly porcentajeLegajo = computed(() => {
+    const total = this.seccionesLegajo().reduce((n, s) => n + this.camposQueCuentan(s).length, 0);
+    return total ? Math.round(((total - this.camposFaltantes().length) / total) * 100) : 100;
+  });
+
+  /** "Credencial cívica, estado civil, lugar de nacimiento y otros." */
+  readonly resumenFaltantes = computed(() => {
+    const labels = this.camposFaltantes().map((c, i) => (i === 0 ? c.label : c.label.toLowerCase()));
+    if (labels.length <= 6) {
+      return labels.length > 1 ? `${labels.slice(0, -1).join(', ')} y ${labels.at(-1)}.` : `${labels[0] ?? ''}.`;
+    }
+    return `${labels.slice(0, 5).join(', ')} y otros.`;
+  });
+
+  // ─── Destino y situación ────────────────────────────────────────────────
+  readonly ofreceRegistrarDestino = computed(
+    () => this.puedeRegistrarDestino() && this.persona()?.relacion_laboral?.estado === 'activo',
+  );
+  readonly ofreceCambiarSituacion = computed(() => {
+    const p = this.persona();
+    return this.puedeCambiarSituacion() && p?.relacion_laboral?.estado === 'activo' && !p.es_civil;
   });
 
   readonly personaDelPase = computed(() => {
@@ -202,15 +387,34 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
   /** El nivel de idoneidad aplica al personal subalterno. */
   esSubalterno(): boolean {
-    return (this.persona()?.relacion_laboral?.tipo_funcionario ?? '') === 'subalterno';
+    return this.tipoFuncionario() === 'subalterno';
   }
 
   /** Los códigos del legajo los carga el oficial. */
   esOficial(): boolean {
-    return (this.persona()?.relacion_laboral?.tipo_funcionario ?? '') === 'oficial';
+    return this.tipoFuncionario() === 'oficial';
   }
 
+  /** En edición manda el tipo elegido en el formulario: cambia qué campos aplican. */
+  tipoFuncionario(): string {
+    if (this.editMode()) return String(this.valoresEdicion()['tipo_funcionario'] ?? '');
+    return this.persona()?.relacion_laboral?.tipo_funcionario ?? '';
+  }
+
+  /** El tipo se edita solo para un militar con relación vigente. */
+  puedeEditarTipo(): boolean {
+    const p = this.persona();
+    return !!p && !p.es_civil && !!p.relacion_laboral;
+  }
+
+  readonly tipoFuncionarioOpciones = [
+    { value: 'oficial', label: 'Oficial' },
+    { value: 'subalterno', label: 'Subalterno' },
+  ];
+
   readonly editForm: FormGroup = this.fb.group({
+    cedula:                ['', [requeridoSinEspacios, Validators.pattern(/^\d{6,9}$/)]],
+    tipo_funcionario:      [''],
     primer_nombre:         ['', requeridoSinEspacios],
     segundo_nombre:        [''],
     primer_apellido:       ['', requeridoSinEspacios],
@@ -305,6 +509,135 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     return this.persona()?.relacion_laboral?.fecha_inicio?.split('T')[0] ?? null;
   }
 
+  // ─── Editor: cambios sin guardar ─────────────────────────────────────────
+  /** Lo que tenía el formulario al abrir el editor. */
+  private readonly valoresIniciales = signal<Record<string, unknown> | null>(null);
+  /** Copia de getRawValue() que se actualiza con cada cambio: hace reactivos los contadores. */
+  readonly valoresEdicion = signal<Record<string, unknown>>({});
+
+  readonly seccionesEdicion = computed<SeccionEdicion[]>(() => {
+    const p = this.persona();
+    if (!p) return [];
+    const rl = p.relacion_laboral;
+    return [
+      { key: 'identificacion', titulo: 'Identificación' },
+      { key: 'personales',     titulo: 'Datos personales' },
+      { key: 'contacto',       titulo: 'Contacto' },
+      ...(rl ? [{ key: 'laborales' as const, titulo: 'Datos laborales' }] : []),
+      ...(rl && !p.es_civil ? [{ key: 'escalafon' as const, titulo: 'Escalafón y derecha' }] : []),
+      ...(!p.es_civil || rl ? [{ key: 'formacion' as const, titulo: 'Formación' }] : []),
+      { key: 'familiares',     titulo: 'Familiares' },
+    ];
+  });
+
+  /** Controles cuyo valor difiere del que tenían al abrir el editor. */
+  readonly controlesModificados = computed<Set<string>>(() => {
+    const inicial = this.valoresIniciales();
+    const actual = this.valoresEdicion();
+    const cambiados = new Set<string>();
+    if (!inicial) return cambiados;
+    for (const key of Object.keys(LABEL_CONTROL)) {
+      if (this.normalizar(inicial[key]) !== this.normalizar(actual[key])) cambiados.add(key);
+    }
+    return cambiados;
+  });
+
+  readonly cantidadCambios = computed(() => this.controlesModificados().size);
+
+  modificado(control: string): boolean {
+    return this.controlesModificados().has(control);
+  }
+
+  /** Número de la sección en el editor (las laborales no aparecen para todos). */
+  numeroSeccion(key: SeccionEdicionKey): number {
+    return this.seccionesEdicion().findIndex((s) => s.key === key) + 1;
+  }
+
+  cambiosEnSeccion(key: SeccionEdicionKey): number {
+    return CONTROLES_POR_SECCION[key].filter((c) => this.modificado(c)).length;
+  }
+
+  /** Errores visibles: controles inválidos ya tocados y las reglas que cruzan campos. */
+  erroresEdicion(): ErrorEdicion[] {
+    const errores: ErrorEdicion[] = [];
+    for (const seccion of Object.keys(CONTROLES_POR_SECCION) as SeccionEdicionKey[]) {
+      for (const control of CONTROLES_POR_SECCION[seccion]) {
+        if (this.hasEditError(control)) errores.push({ control, label: LABEL_CONTROL[control], seccion });
+      }
+    }
+    if (this.fechasInconsistentes()) {
+      errores.push({ control: 'fecha_nacimiento', label: 'Fecha de nacimiento', seccion: 'personales' });
+    }
+    if (this.etaInconsistente()) {
+      errores.push({ control: 'fecha_egreso_eta', label: 'Egreso de la ETA', seccion: 'formacion' });
+    }
+    if (this.cambioDerecha() && this.errorRangoDerecha()) {
+      errores.push({ control: 'derecha', label: 'Derecha y numor', seccion: 'escalafon' });
+    }
+    return errores;
+  }
+
+  erroresEnSeccion(key: SeccionEdicionKey): number {
+    return this.erroresEdicion().filter((e) => e.seccion === key).length;
+  }
+
+  /** Cómo se veía el dato antes de editarlo, para "Antes: …". */
+  antes(control: string): string {
+    const v = this.valoresIniciales()?.[control];
+    if (v === null || v === undefined || v === '') return 'sin dato';
+    const rl = this.persona()?.relacion_laboral;
+    switch (control) {
+      case 'genero':          return this.formatGenero(String(v));
+      case 'tipo_funcionario': return this.capitalizar(String(v)) ?? String(v);
+      case 'tiene_mando':     return v ? 'Sí' : 'No';
+      case 'escalafon_id':    return rl?.escalafon?.denominacion ?? String(v);
+      case 'grado_id':        return rl?.grado?.denominacion ?? String(v);
+      case 'regimen_id':      return rl?.regimen?.denominacion ?? String(v);
+      case 'programa_id':     return rl?.programa?.denominacion ?? String(v);
+      case 'nivel_idoneidad': return `Nivel ${v}`;
+      case 'nivel_educativo': return this.etiquetaNivelEducativo(String(v)) ?? String(v);
+    }
+    if (control.startsWith('fecha_')) return this.formatDate(String(v));
+    return String(v);
+  }
+
+  irASeccion(key: SeccionEdicionKey): void {
+    (this.host.nativeElement as HTMLElement)
+      .querySelector(`#ed-${key}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  irAError(e: ErrorEdicion): void {
+    const campo = (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>(`[formControlName="${e.control}"]`);
+    if (campo) {
+      campo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      campo.focus({ preventScroll: true });
+    } else {
+      this.irASeccion(e.seccion);
+    }
+  }
+
+  /** "Descartar": pide confirmación solo si hay algo que perder. */
+  async descartarEdicion(): Promise<void> {
+    const n = this.cantidadCambios();
+    if (n) {
+      const confirmado = await this.confirmModal.confirmar({
+        titulo: 'Descartar cambios',
+        mensaje: `Tenés ${n} ${n === 1 ? 'cambio sin guardar' : 'cambios sin guardar'}. Si salís de la edición se pierden.`,
+        textoConfirmar: 'Descartar',
+        textoCancelar: 'Seguir editando',
+      });
+      if (!confirmado) return;
+    }
+    this.closeEdit();
+  }
+
+  private normalizar(v: unknown): string {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'string') return v.trim();
+    return String(v);
+  }
+
   private readonly destroy$ = new Subject<void>();
 
   ngOnInit(): void {
@@ -318,6 +651,12 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     this.setupEscalafonCascade();
     this.setupFamiliarAddSearch();
     this.setupEdicionDerecha();
+    this.editForm.get('tipo_funcionario')!.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((tipo: string) => this.habilitarCamposDelTipo(tipo ?? ''));
+    this.editForm.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.valoresEdicion.set(this.editForm.getRawValue()));
   }
 
   /** Mientras se escribe, se previsualiza a quiénes corre el cambio. */
@@ -601,11 +940,12 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
           this.familiarAddResults.set([]);
           return;
         }
-        this.svc.findPaginado({ search: term, pageSize: 8 }).subscribe({
-          next: res => {
+        // Militares en actividad y civiles; el backend ya saca a la propia persona.
+        this.svc.buscarCandidatosFamiliar(term, this.personaId).subscribe({
+          next: candidatos => {
             const cedulasActuales = new Set(this.familiares().map(f => f.cedula));
             this.familiarAddResults.set(
-              res.items.filter(p => p.id !== String(this.personaId) && !cedulasActuales.has(p.cedula)),
+              candidatos.filter(p => p.id !== String(this.personaId) && !cedulasActuales.has(p.cedula)),
             );
           },
         });
@@ -623,7 +963,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     setTimeout(() => this.familiarAddDropdownOpen.set(false), 200);
   }
 
-  elegirFamiliarAAgregar(persona: PersonaListItem): void {
+  elegirFamiliarAAgregar(persona: CandidatoFamiliar): void {
     this.familiarAddElegido.set(persona);
     this.familiarAddSearch.set('');
     this.familiarAddResults.set([]);
@@ -633,6 +973,24 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   cancelarAgregarFamiliar(): void {
     this.familiarAddElegido.set(null);
     this.familiarAddTipoRelacion.set('');
+  }
+
+  /** "Agregar familiar" de la pestaña Información familiar: abre el buscador. */
+  readonly agregandoFamiliar = signal(false);
+
+  abrirAgregarFamiliar(): void {
+    this.cancelarAgregarFamiliar();
+    this.familiarAddSearch.set('');
+    this.familiarAddResults.set([]);
+    this.agregandoFamiliar.set(true);
+  }
+
+  cerrarAgregarFamiliar(): void {
+    this.cancelarAgregarFamiliar();
+    this.familiarAddSearch.set('');
+    this.familiarAddResults.set([]);
+    this.familiarAddDropdownOpen.set(false);
+    this.agregandoFamiliar.set(false);
   }
 
   confirmarAgregarFamiliar(): void {
@@ -648,6 +1006,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         this.familiares.update(list => [...list, nuevo]);
         this.guardandoFamiliar.set(false);
         this.cancelarAgregarFamiliar();
+        this.agregandoFamiliar.set(false);
         this.toast.success('Familiar agregado correctamente');
       },
       error: (err: HttpErrorResponse) => {
@@ -664,8 +1023,13 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     });
   }
 
-  quitarFamiliar(f: FamiliarItem): void {
-    if (!confirm(`¿Quitar a ${f.nombre_completo} de los familiares?`)) return;
+  async quitarFamiliar(f: FamiliarItem): Promise<void> {
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Quitar familiar',
+      mensaje: `${f.nombre_completo} deja de figurar como familiar de este funcionario. La persona no se borra del sistema.`,
+      textoConfirmar: 'Quitar',
+    });
+    if (!confirmado) return;
 
     this.svc.quitarFamiliar(this.personaId, f.id).subscribe({
       next: () => {
@@ -691,6 +1055,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
 
     // Patch sin emitir eventos para no disparar la cascada de escalafon→grado
     this.editForm.patchValue({
+      cedula:                p.cedula            ?? '',
+      tipo_funcionario:      rl?.tipo_funcionario ?? '',
       primer_nombre:         p.primer_nombre     ?? '',
       segundo_nombre:        p.segundo_nombre    ?? '',
       primer_apellido:       p.primer_apellido   ?? '',
@@ -744,10 +1110,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     }
 
     // [disabled] no tiene efecto con formControlName: se habilitan acá según el tipo.
-    const nivelCtrl = this.editForm.get('nivel_idoneidad')!;
-    const codigosCtrl = this.editForm.get('codigos_legajo')!;
-    if (this.esSubalterno()) nivelCtrl.enable({ emitEvent: false }); else nivelCtrl.disable({ emitEvent: false });
-    if (this.esOficial()) codigosCtrl.enable({ emitEvent: false }); else codigosCtrl.disable({ emitEvent: false });
+    this.habilitarCamposDelTipo(rl?.tipo_funcionario ?? '');
 
     if (!this.catalogsLoaded) {
       this.catalogsLoaded = true;
@@ -759,12 +1122,39 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       }
     }
 
+    this.editForm.markAsPristine();
+    this.editForm.markAsUntouched();
+    const valores = this.editForm.getRawValue();
+    this.valoresIniciales.set(valores);
+    this.valoresEdicion.set(valores);
+
+    // Los familiares se gestionan desde el editor: se piden si todavía no se habían cargado.
+    if (!this.loadedTabs.has('familiar')) {
+      this.loadedTabs.add('familiar');
+      this.loadFamiliares();
+    }
+
     this.activeTab.set('personal');
     this.editMode.set(true);
   }
 
+  /** El nivel de idoneidad es del subalterno y los códigos, del oficial. */
+  private habilitarCamposDelTipo(tipo: string): void {
+    const nivelCtrl = this.editForm.get('nivel_idoneidad')!;
+    const codigosCtrl = this.editForm.get('codigos_legajo')!;
+    if (tipo === 'subalterno') nivelCtrl.enable({ emitEvent: false }); else nivelCtrl.disable({ emitEvent: false });
+    if (tipo === 'oficial') codigosCtrl.enable({ emitEvent: false }); else codigosCtrl.disable({ emitEvent: false });
+  }
+
+  /** Cambió el tipo pero el grado sigue siendo el que tenía: el backend lo va a rechazar. */
+  cambioTipoSinGrado(): boolean {
+    const rl = this.persona()?.relacion_laboral;
+    return this.modificado('tipo_funcionario') && !this.modificado('grado_id') && !!rl;
+  }
+
   closeEdit(): void {
     this.editMode.set(false);
+    this.valoresIniciales.set(null);
     this.cancelarAgregarFamiliar();
   }
 
@@ -776,6 +1166,8 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     if (this.cambioDerecha() && this.errorRangoDerecha()) return;
     const raw = this.editForm.getRawValue();
     const payload: PatchPersonaPayload = {
+      ...(raw.cedula?.trim() && raw.cedula.trim() !== this.persona()?.cedula && { cedula: raw.cedula.trim() }),
+      ...(this.puedeEditarTipo() && raw.tipo_funcionario && { tipo_funcionario: raw.tipo_funcionario }),
       ...(raw.primer_nombre?.trim()   && { primer_nombre:         raw.primer_nombre.trim() }),
       segundo_nombre:                  raw.segundo_nombre?.trim()   || null,
       ...(raw.primer_apellido?.trim() && { primer_apellido:       raw.primer_apellido.trim() }),
@@ -818,6 +1210,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
         this.persona.set(updated);
         this.editLoading.set(false);
         this.editMode.set(false);
+        this.valoresIniciales.set(null);
         this.cancelarAgregarFamiliar();
         // La edición puede cambiar lo que muestran las otras pestañas: se vuelven a pedir al abrirlas.
         this.loadedTabs.clear();
@@ -857,6 +1250,63 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       day: '2-digit', month: '2-digit', year: 'numeric',
       timeZone: 'UTC',
     });
+  }
+
+  camposQueCuentan(s: SeccionLegajo): CampoLegajo[] {
+    return s.campos.filter((c) => c.cuenta !== false);
+  }
+
+  /** "Completo" o "4 de 8 cargados". */
+  estadoSeccion(s: SeccionLegajo): string {
+    const campos = this.camposQueCuentan(s);
+    const cargados = campos.filter((c) => !!c.valor).length;
+    return cargados === campos.length ? 'Completo' : `${cargados} de ${campos.length} cargados`;
+  }
+
+  /** Años cumplidos desde la fecha (edad). */
+  aniosDesde(iso: string | null | undefined): number | null {
+    const d = this.diferencia(iso);
+    return d ? d.anios : null;
+  }
+
+  /** "28 años, 8 meses" desde la fecha hasta hoy. */
+  tiempoDesde(iso: string | null | undefined): string | null {
+    const d = this.diferencia(iso);
+    if (!d) return null;
+    const anios = `${d.anios} ${d.anios === 1 ? 'año' : 'años'}`;
+    if (!d.meses) return anios;
+    return `${anios}, ${d.meses} ${d.meses === 1 ? 'mes' : 'meses'}`;
+  }
+
+  private diferencia(iso: string | null | undefined): { anios: number; meses: number } | null {
+    if (!iso) return null;
+    const [y, m, day] = iso.split('T')[0].split('-').map(Number);
+    if (!y || !m || !day) return null;
+    const hoy = new Date();
+    let meses = (hoy.getFullYear() - y) * 12 + (hoy.getMonth() + 1 - m);
+    if (hoy.getDate() < day) meses--;
+    if (meses < 0) return null;
+    return { anios: Math.floor(meses / 12), meses: meses % 12 };
+  }
+
+  copiar(texto: string): void {
+    navigator.clipboard?.writeText(texto).then(
+      () => this.toast.success('Copiado al portapapeles'),
+      () => this.toast.error('No se pudo copiar'),
+    );
+  }
+
+  verDerecha(): void {
+    this.router.navigate(['/personal/configuracion-derecha']);
+  }
+
+  capitalizar(texto: string | null | undefined): string | null {
+    return texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : null;
+  }
+
+  private etiquetaNivelEducativo(valor: string | null | undefined): string | null {
+    if (!valor) return null;
+    return NIVELES_EDUCATIVOS.find((n) => n.value === valor)?.label ?? valor;
   }
 
   formatGenero(g: string | null): string {
