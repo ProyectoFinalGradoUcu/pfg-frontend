@@ -568,12 +568,13 @@ export class UsuariosYRolesPage implements OnInit {
     const { nombre, descripcion } = this.rolForm.getRawValue();
     this.modalError.set(null);
 
+    const target = this.editRolTarget();
+    // Al editar se manda vacía para que se borre
     const payload = {
       nombre: nombre!,
-      descripcion: descripcion ? descripcion : undefined,
+      descripcion: descripcion?.trim() || (target ? '' : undefined),
     };
 
-    const target = this.editRolTarget();
     const op = target
       ? this.rolesService.update(target.id, payload)
       : this.rolesService.create(payload);
