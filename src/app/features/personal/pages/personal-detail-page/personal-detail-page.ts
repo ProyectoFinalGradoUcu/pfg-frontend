@@ -1220,9 +1220,17 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.editLoading.set(false);
-        if (err.status === 403 || err.status === 400) {
+        const mensaje = parseError(err);
+        if (err.status === 409 && /c[eé]dula/i.test(mensaje)) {
+          const cedula = this.editForm.get('cedula')!;
+          cedula.setErrors({ cedulaDuplicada: true });
+          cedula.markAsTouched();
+          this.toast.error(mensaje);
+          return;
+        }
+        if (err.status === 403 || err.status === 400 || err.status === 409) {
           // 400 acá puede ser una regla de negocio, no solo validación de formulario.
-          this.errorModal.show(parseError(err));
+          this.errorModal.show(mensaje);
           return;
         }
         this.toast.error('Error al guardar los cambios. Intentá de nuevo.');

@@ -308,7 +308,7 @@
                 placeholder="Ej: 12345678"
                 [class.pd__edit-input--mod]="modificado('cedula')"
                 [class.pd__edit-input--error]="hasEditError('cedula')" />
-              <span class="pd__edit-error" *ngIf="hasEditError('cedula')">Entre 6 y 9 dígitos, sin puntos ni guión</span>
+              <span class="pd__edit-error" *ngIf="hasEditError('cedula')">{{ editForm.get('cedula')?.hasError('cedulaDuplicada') ? 'Ya existe otro personal con esa cédula' : 'Entre 6 y 9 dígitos, sin puntos ni guión' }}</span>
               <span class="pd__antes" *ngIf="modificado('cedula')">Antes: {{ antes('cedula') }}</span>
             </div>
             <div class="pd__field">
