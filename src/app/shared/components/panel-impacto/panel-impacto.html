@@ -54,7 +54,7 @@
     <label class="impacto__motivo">
       <span>Motivo <small>(opcional)</small></span>
       <textarea rows="2" [value]="motivo()" (input)="motivo.set($any($event.target).value)"
-        [disabled]="!pendiente || confirmando" placeholder="Ej.: corrección según Boletín 12/2026"></textarea>
+        [disabled]="!pendiente || confirmando" placeholder="Ej.: corrección según Resolución 12/2026"></textarea>
     </label>
     <div class="impacto__botones">
       <button type="button" class="btn btn--ghost" [disabled]="!pendiente || confirmando" (click)="onDescartar()">

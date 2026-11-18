@@ -66,7 +66,7 @@ describe('CambiarSituacionModal', () => {
     await crear(SIT('SIT01'));
     component.form.controls.cambio.setValue('LICENCIA_SIN_GOCE');
     component.guardar();
-    expect(component.error()).toContain('orden o el boletín');
+    expect(component.error()).toContain('orden o la resolución');
     expect(svc.cambiarSituacion).not.toHaveBeenCalled();
   });
 

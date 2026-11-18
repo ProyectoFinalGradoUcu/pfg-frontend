@@ -456,14 +456,14 @@ describe('ConfiguracionDerechaPage', () => {
       esperarPreview();
       derechaService.listarPersonal.mockClear();
 
-      component.confirmar('Boletín 12/2026');
+      component.confirmar('Resolución 12/2026');
 
       expect(derechaService.aplicarCambios).toHaveBeenCalledWith({
         cambios: [
           { persona_id: 4, derecha: 2 },
           { persona_id: 9, numor: 1 },
         ],
-        motivo: 'Boletín 12/2026',
+        motivo: 'Resolución 12/2026',
       });
       expect(toastService.success).toHaveBeenCalledWith('Cambios guardados: 3 funcionarios.');
       expect(component.cambios()).toEqual([]);

@@ -248,7 +248,7 @@
             <input
               type="text"
               class="misiones__search-input"
-              placeholder="N° orden o boletín..."
+              placeholder="N° orden o resolución..."
               [value]="ordenBoletinFiltroPersonal()"
               (input)="onOrdenBoletinPersonalInput($any($event.target).value)"
               autocomplete="off"
@@ -304,7 +304,7 @@
               <th>Cédula</th>
               <th>Misión</th>
               <th>N° Orden</th>
-              <th>Boletín</th>
+              <th>Resolución</th>
               <th>Fecha Salida</th>
               <th>Fecha Llegada</th>
               <th>Estado</th>
@@ -570,16 +570,16 @@
       <form [formGroup]="editarFuncionarioForm" (ngSubmit)="guardarEdicionFuncionarioPersonal()" novalidate>
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
-        <p class="misiones__form-note">Al menos uno entre N° Orden y Boletín es requerido.</p>
+        <p class="misiones__form-note">Al menos uno entre N° Orden y Resolución es requerido.</p>
 
         <div class="modal__grid-2">
           <label class="modal__field">
-            <span>N° Orden <small>(o boletín)</small></span>
+            <span>N° Orden <small>(o resolución)</small></span>
             <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542-A" autocomplete="off" />
           </label>
           <label class="modal__field">
-            <span>Boletín <small>(o N° orden)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-123" autocomplete="off" />
+            <span>Resolución <small>(o N° orden)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: RES-123" autocomplete="off" />
           </label>
         </div>
         <label class="modal__field">

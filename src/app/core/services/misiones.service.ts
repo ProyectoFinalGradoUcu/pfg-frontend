@@ -323,7 +323,7 @@ export class MisionesService {
   ): Observable<Convocatoria> {
     if (misionesServiceConfig.useMockData) {
       if (!payload.numero_orden?.trim() && !payload.boletin?.trim()) {
-        return this.mockBadRequest('Debés ingresar al menos el N° de orden o el boletín.');
+        return this.mockBadRequest('Debés ingresar al menos el N° de orden o la resolución.');
       }
       const nueva: Convocatoria = {
         id: this.nextId(),
@@ -437,7 +437,7 @@ export class MisionesService {
     if (misionesServiceConfig.useMockData) {
       const sinOrdenNiBoletin = funcionarios.some((f) => !f.numero_orden?.trim() && !f.boletin?.trim());
       if (sinOrdenNiBoletin) {
-        return this.mockBadRequest('Cada funcionario debe tener al menos N° de orden o boletín.');
+        return this.mockBadRequest('Cada funcionario debe tener al menos N° de orden o resolución.');
       }
       const existentes = this.mockFuncionarios[convocatoriaId] ?? (this.mockFuncionarios[convocatoriaId] = []);
       const yaAsignado = funcionarios.some((f) =>
@@ -485,7 +485,7 @@ export class MisionesService {
       const numeroOrden = data.numero_orden !== undefined ? data.numero_orden ?? null : fila.numero_orden;
       const boletin = data.boletin !== undefined ? data.boletin ?? null : fila.boletin;
       if (!numeroOrden?.trim() && !boletin?.trim()) {
-        return this.mockBadRequest('El funcionario debe tener al menos N° de orden o boletín.');
+        return this.mockBadRequest('El funcionario debe tener al menos N° de orden o resolución.');
       }
       fila.numero_orden = numeroOrden;
       fila.boletin = boletin;

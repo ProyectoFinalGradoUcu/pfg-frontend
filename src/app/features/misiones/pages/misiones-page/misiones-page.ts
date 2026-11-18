@@ -526,7 +526,7 @@ export class MisionesPage implements OnInit, OnDestroy {
 
     const raw = this.editarFuncionarioForm.getRawValue();
     if (!raw.numero_orden?.trim() && !raw.boletin?.trim()) {
-      this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
+      this.modalError.set('Debés ingresar al menos el N° de orden o la resolución.');
       return;
     }
 

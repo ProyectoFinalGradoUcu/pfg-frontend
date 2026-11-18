@@ -168,7 +168,7 @@ test.describe('cambio de situación', () => {
     await expect(modal.getByText('Liquidación deja de pagarle desde el próximo cálculo.')).toBeVisible();
 
     await modal.getByRole('button', { name: 'Confirmar cambio' }).click();
-    await expect(modal.getByText('Indicá el número de orden o el boletín.')).toBeVisible();
+    await expect(modal.getByText('Indicá el número de orden o la resolución.')).toBeVisible();
 
     await modal.getByLabel('N° de orden').fill('O.D. licencia e2e');
     await modal.getByRole('button', { name: 'Confirmar cambio' }).click();
@@ -180,7 +180,7 @@ test.describe('cambio de situación', () => {
     // Desde la licencia solo se puede volver, y ya viene elegido.
     await page.locator('.pd__aside').getByRole('button', { name: 'Cambiar situación' }).click();
     await expect(modal.getByRole('radio', { name: /Volver a actividad/ })).toBeChecked();
-    await modal.getByLabel('Boletín').fill('B.O. vuelta e2e');
+    await modal.getByLabel('Resolución').fill('B.O. vuelta e2e');
     await modal.getByRole('button', { name: 'Confirmar cambio' }).click();
 
     await expect(modal).toHaveCount(0);

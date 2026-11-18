@@ -55,7 +55,7 @@ export interface SlotVista {
 
 const ETIQUETAS_POR_DEFECTO: Record<SlotDocumento, string> = {
   orden: 'N° de orden',
-  boletin: 'Boletín',
+  boletin: 'Resolución',
 };
 
 export function armarSlots(

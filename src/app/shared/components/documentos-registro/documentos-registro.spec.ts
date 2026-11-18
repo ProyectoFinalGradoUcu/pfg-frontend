@@ -42,7 +42,7 @@ describe('DocumentosRegistroComponent', () => {
     ...over,
   });
   const boletin = (over: Partial<SlotVista> = {}) =>
-    slot({ slot: 'boletin', etiqueta: 'Boletín', numero: 'B.P. 2', ...over });
+    slot({ slot: 'boletin', etiqueta: 'Resolución', numero: 'B.P. 2', ...over });
 
   async function montar(slots: SlotVista[], registro?: string, mostrarNumero = true): Promise<void> {
     fixture = TestBed.createComponent(DocumentosRegistroComponent);
@@ -93,7 +93,7 @@ describe('DocumentosRegistroComponent', () => {
 
     expect(texto()).toContain('N° de orden');
     expect(texto()).toContain('O.D. 1');
-    expect(texto()).toContain('Boletín');
+    expect(texto()).toContain('Resolución');
     expect(texto()).toContain('B.P. 2');
   });
 
@@ -108,13 +108,13 @@ describe('DocumentosRegistroComponent', () => {
     await montar([slot({ numero: null }), boletin()]);
 
     expect(texto()).not.toContain('N° de orden');
-    expect(texto()).toContain('Boletín');
+    expect(texto()).toContain('Resolución');
   });
 
   it('sin ningún slot visible avisa que no hay número de orden ni boletín', async () => {
     await montar([slot({ numero: null }), boletin({ numero: '  ' })]);
 
-    expect(texto()).toContain('Sin número de orden ni boletín.');
+    expect(texto()).toContain('Sin número de orden ni resolución.');
   });
 
   it('con mostrarNumero en false no muestra el número pero sí la etiqueta y el documento', async () => {

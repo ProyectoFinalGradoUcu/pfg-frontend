@@ -56,7 +56,7 @@
           <strong>{{ c.numero_orden || '—' }}</strong>
         </div>
         <div class="detalle__info-field">
-          <span>Boletín</span>
+          <span>Resolución</span>
           <strong>{{ c.boletin || '—' }}</strong>
         </div>
         <div class="detalle__info-field">
@@ -145,7 +145,7 @@
               <th>Nombre</th>
               <th>Cédula</th>
               <th>N° Orden</th>
-              <th>Boletín</th>
+              <th>Resolución</th>
               <th>Observaciones</th>
               <th *ngIf="mostrarAcciones()" class="detalle__col-actions">Acciones</th>
             </tr>
@@ -252,16 +252,16 @@
       <form [formGroup]="editarFuncionarioForm" (ngSubmit)="guardarEdicionFuncionario()" novalidate>
         <div *ngIf="modalErrorEditarFuncionario()" class="modal__error" role="alert">{{ modalErrorEditarFuncionario() }}</div>
 
-        <p class="detalle__form-note">Al menos uno entre N° Orden y Boletín es requerido.</p>
+        <p class="detalle__form-note">Al menos uno entre N° Orden y Resolución es requerido.</p>
 
         <div class="detalle__form-grid detalle__form-grid--modal">
           <label class="detalle__field">
-            <span>N° Orden <small>(o boletín)</small></span>
+            <span>N° Orden <small>(o resolución)</small></span>
             <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542-A" autocomplete="off" />
           </label>
           <label class="detalle__field">
-            <span>Boletín <small>(o N° orden)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-123" autocomplete="off" />
+            <span>Resolución <small>(o N° orden)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: RES-123" autocomplete="off" />
           </label>
           <label class="detalle__field detalle__field--full">
             <span>Observaciones <small>(opcional)</small></span>
@@ -303,8 +303,8 @@
             <input type="text" formControlName="numero_orden" placeholder="ej: ORD-12345" autocomplete="off" />
           </label>
           <label class="modal__field">
-            <span>Boletín <small>(opcional)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-987" autocomplete="off" />
+            <span>Resolución <small>(opcional)</small></span>
+            <input type="text" formControlName="boletin" placeholder="ej: RES-987" autocomplete="off" />
           </label>
           <label class="modal__field">
             <span>Fecha Salida</span>
@@ -389,12 +389,12 @@
           ></app-select>
         </label>
 
-        <p class="detalle__form-note">Al menos uno entre N° Orden y Boletín es requerido.</p>
+        <p class="detalle__form-note">Al menos uno entre N° Orden y Resolución es requerido.</p>
 
         <div class="modal__grid-2">
           <div class="modal__campo-adjunto">
             <label class="modal__field">
-              <span>N° Orden <small>(o boletín)</small></span>
+              <span>N° Orden <small>(o resolución)</small></span>
               <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542-A" autocomplete="off" />
             </label>
             <app-documento-adjunto
@@ -409,8 +409,8 @@
           </div>
           <div class="modal__campo-adjunto">
             <label class="modal__field">
-              <span>Boletín <small>(o N° orden)</small></span>
-              <input type="text" formControlName="boletin" placeholder="ej: BOL-123" autocomplete="off" />
+              <span>Resolución <small>(o N° orden)</small></span>
+              <input type="text" formControlName="boletin" placeholder="ej: RES-123" autocomplete="off" />
             </label>
             <app-documento-adjunto
               [nombre]="pendientes.archivos().boletin?.name ?? null"

@@ -319,7 +319,7 @@ export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
 
     const raw = this.asignarForm.getRawValue();
     if (!raw.numero_orden?.trim() && !raw.boletin?.trim()) {
-      this.modalErrorAsignar.set('Debés ingresar al menos el N° de orden o el boletín.');
+      this.modalErrorAsignar.set('Debés ingresar al menos el N° de orden o la resolución.');
       return;
     }
 
@@ -473,7 +473,7 @@ export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
 
     const raw = this.editarFuncionarioForm.getRawValue();
     if (!raw.numero_orden?.trim() && !raw.boletin?.trim()) {
-      this.modalErrorEditarFuncionario.set('Debés ingresar al menos el N° de orden o el boletín.');
+      this.modalErrorEditarFuncionario.set('Debés ingresar al menos el N° de orden o la resolución.');
       return;
     }
 
