@@ -103,7 +103,7 @@ export class CambiarSituacionModal implements OnInit {
     if (this.form.invalid || !v.cambio) {
       this.error.set(
         this.form.hasError('faltaRespaldo')
-          ? 'Indicá el número de orden o el boletín.'
+          ? 'Indicá el número de orden o la resolución.'
           : 'Completá los campos obligatorios.',
       );
       return;

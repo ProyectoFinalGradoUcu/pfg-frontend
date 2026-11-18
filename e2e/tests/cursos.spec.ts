@@ -193,7 +193,7 @@ test.describe.serial('cursos', () => {
     await m.locator('input[formcontrolname=fecha_inicio]').fill(FIN);
     await m.locator('input[formcontrolname=fecha_fin]').fill(INICIO);
     await m.getByRole('button', { name: 'Designar', exact: true }).click();
-    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o el boletín.');
+    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o la resolución.');
 
     await m.locator('input[formcontrolname=numero_orden]').fill(`E2E-${uid}`);
     await m.getByRole('button', { name: 'Designar', exact: true }).click();

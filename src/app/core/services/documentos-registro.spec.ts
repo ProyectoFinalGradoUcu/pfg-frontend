@@ -153,7 +153,7 @@ describe('armarSlots', () => {
     );
     expect(slots.map((s) => [s.slot, s.etiqueta, s.numero])).toEqual([
       ['orden', 'N° de orden', '1'],
-      ['boletin', 'Boletín', null],
+      ['boletin', 'Resolución', null],
     ]);
     expect(slots[0].editable).toBe(true);
   });

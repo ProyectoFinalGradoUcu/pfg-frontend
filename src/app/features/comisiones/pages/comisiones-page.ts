@@ -219,7 +219,7 @@ export class ComisionesPage {
     if (!tienePersonas || !c || this.formAsignacion.invalid) { this.modalError.set('Seleccioná al menos una persona, una comisión y una fecha desde válida. El cargo admite hasta 200 caracteres y los documentos hasta 50.'); return; }
     if (!this.seleccionada() && this.personasElegidas().length > 200) { this.modalError.set('Podés asignar hasta 200 personas por lote'); return; }
     const importada = !!this.seleccionada()?.importada;
-    if (!importada && !raw.numero_orden.trim() && !raw.boletin.trim()) { this.modalError.set('Ingresá al menos el N.º de orden o el boletín'); return; }
+    if (!importada && !raw.numero_orden.trim() && !raw.boletin.trim()) { this.modalError.set('Ingresá al menos el N.º de orden o la resolución'); return; }
     if (raw.fecha_fin && raw.fecha_inicio && raw.fecha_fin < raw.fecha_inicio) { this.modalError.set('La fecha hasta no puede ser anterior a la fecha desde'); return; }
     const valores = { cargo: this.esLote() ? null : raw.cargo.trim() || null, fecha_inicio: raw.fecha_inicio || null, fecha_fin: raw.fecha_fin || null, numero_orden: raw.numero_orden.trim() || null, boletin: raw.boletin.trim() || null };
     const a = this.seleccionada();

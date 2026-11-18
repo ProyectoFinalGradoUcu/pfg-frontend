@@ -185,7 +185,7 @@
             </dd>
           </div>
           <div *ngIf="r.boletin || r.documentos.boletin">
-            <dt>Boletín</dt>
+            <dt>Resolución</dt>
             <dd>
               {{ r.boletin ?? '—' }}
               <app-documento-adjunto
@@ -208,7 +208,7 @@
         </dl>
         <ng-template #sinRespaldo>
           <p class="retiro-detalle__vacio">
-            No se cargó número de orden, boletín ni observaciones.
+            No se cargó número de orden, resolución ni observaciones.
           </p>
         </ng-template>
       </div>

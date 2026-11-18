@@ -614,7 +614,7 @@
         <label class="cursos__toggle-row">
           <div class="cursos__toggle-info">
             <strong>Designar ahora</strong>
-            <small>Designá personal a este curso en el mismo paso. Requiere fechas y al menos orden o boletín.</small>
+            <small>Designá personal a este curso en el mismo paso. Requiere fechas y al menos orden o resolución.</small>
           </div>
           <span
             class="cursos__toggle"
@@ -632,12 +632,12 @@
         <div *ngIf="nuevoCursoForm.get('designar_ahora')!.value" class="cursos__designar-box">
           <p class="cursos__form-note">
             <em>*</em> Campos obligatorios para la designación &nbsp;·&nbsp;
-            Al menos uno entre N° Orden y Boletín es requerido.
+            Al menos uno entre N° Orden y Resolución es requerido.
           </p>
           <div class="modal__grid-2">
             <div class="modal__field">
               <label class="modal__field-label">
-                <span>N° Orden <em>*</em> <small>(o boletín)</small></span>
+                <span>N° Orden <em>*</em> <small>(o resolución)</small></span>
                 <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
               </label>
               <app-documento-adjunto
@@ -652,8 +652,8 @@
             </div>
             <div class="modal__field">
               <label class="modal__field-label">
-                <span>Boletín <em>*</em> <small>(o N° orden)</small></span>
-                <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+                <span>Resolución <em>*</em> <small>(o N° orden)</small></span>
+                <input type="text" formControlName="boletin" placeholder="ej: RES-2026-04" autocomplete="off" />
               </label>
               <app-documento-adjunto
                 [nombre]="pendientes.archivos().boletin?.name ?? null"
@@ -791,7 +791,7 @@
       <header class="modal__header">
         <div>
           <h3>Designar / Dictar</h3>
-          <p>{{ curso.nombre_curso }} — designá personal bajo una orden/boletín. Sirve para un nuevo dictado.</p>
+          <p>{{ curso.nombre_curso }} — designá personal bajo una orden/resolución. Sirve para un nuevo dictado.</p>
         </div>
         <button type="button" class="modal__close" [disabled]="designando() || subiendoDocumentos()" (click)="cerrarModal()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -805,13 +805,13 @@
 
         <p class="cursos__form-note">
           <em>*</em> Campos obligatorios &nbsp;·&nbsp;
-          Al menos uno entre N° Orden y Boletín es requerido.
+          Al menos uno entre N° Orden y Resolución es requerido.
         </p>
 
         <div class="modal__grid-2">
           <div class="modal__field">
             <label class="modal__field-label">
-              <span>N° Orden <em>*</em> <small>(o boletín)</small></span>
+              <span>N° Orden <em>*</em> <small>(o resolución)</small></span>
               <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
             </label>
             <app-documento-adjunto
@@ -826,8 +826,8 @@
           </div>
           <div class="modal__field">
             <label class="modal__field-label">
-              <span>Boletín <em>*</em> <small>(o N° orden)</small></span>
-              <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+              <span>Resolución <em>*</em> <small>(o N° orden)</small></span>
+              <input type="text" formControlName="boletin" placeholder="ej: RES-2026-04" autocomplete="off" />
             </label>
             <app-documento-adjunto
               [nombre]="pendientes.archivos().boletin?.name ?? null"

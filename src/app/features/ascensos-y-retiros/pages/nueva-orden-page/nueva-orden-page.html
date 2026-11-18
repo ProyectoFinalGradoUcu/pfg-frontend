@@ -62,9 +62,9 @@
             </div>
             <span class="identificacion__o" aria-hidden="true">o</span>
             <div class="identificacion__opcion">
-              <label for="boletin">Boletín</label>
+              <label for="boletin">Resolución</label>
               <input id="boletin" type="text" class="input" formControlName="boletin"
-                placeholder="BOL-2027-02"
+                placeholder="RES-2027-02"
                 [attr.aria-invalid]="faltaOrdenYBoletin()"
                 [attr.aria-describedby]="faltaOrdenYBoletin() ? 'identificacion-error' : 'identificacion-hint'" />
               <app-documento-adjunto
@@ -79,7 +79,7 @@
             </div>
           </div>
           <span id="identificacion-error" class="field__error" role="alert" *ngIf="faltaOrdenYBoletin(); else ayudaIdentificacion">
-            Completá el N.º de orden o el boletín.
+            Completá el N.º de orden o la resolución.
           </span>
           <ng-template #ayudaIdentificacion>
             <span id="identificacion-hint" class="field__hint">Alcanza con uno de los dos.</span>
@@ -271,7 +271,7 @@
     <dl class="resumen">
       <div><dt>N.º de orden</dt><dd>{{ ordenForm.get('numero_orden')?.value || '—' }}<span class="resumen__archivo" *ngIf="pendientes.archivos().orden as a"><br />{{ a.name }}</span></dd></div>
       <div><dt>Fecha</dt><dd>{{ ordenForm.get('fecha_orden')?.value | date:'d/M/yyyy':'UTC' }}</dd></div>
-      <div><dt>Boletín</dt><dd>{{ ordenForm.get('boletin')?.value || '—' }}<span class="resumen__archivo" *ngIf="pendientes.archivos().boletin as a"><br />{{ a.name }}</span></dd></div>
+      <div><dt>Resolución</dt><dd>{{ ordenForm.get('boletin')?.value || '—' }}<span class="resumen__archivo" *ngIf="pendientes.archivos().boletin as a"><br />{{ a.name }}</span></dd></div>
       <div><dt>Funcionarios</dt><dd>{{ filas().length }}</dd></div>
       <div><dt>Por excepción</dt><dd>{{ porExcepcion() }}</dd></div>
     </dl>

@@ -7,7 +7,7 @@ import { debounceTime, map, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
-import { ArchivosPendientes, SlotVista, armarSlots, subirPendientes } from '../../../../core/services/documentos-registro';
+import { ArchivosPendientes, SlotVista, armarSlots, ETIQUETAS_BOLETIN, subirPendientes } from '../../../../core/services/documentos-registro';
 import { MisionesService } from '../../../../core/services/misiones.service';
 import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 import {
@@ -85,6 +85,7 @@ export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
       c.documentos,
       { orden: c.numero_orden, boletin: c.boletin },
       this.puedeGestionar(),
+      ETIQUETAS_BOLETIN,
     );
   });
 
@@ -96,6 +97,7 @@ export class ConvocatoriaDetallePage implements OnInit, OnDestroy {
       f.documentos,
       { orden: f.numero_orden, boletin: f.boletin },
       this.puedeGestionar(),
+      ETIQUETAS_BOLETIN,
     );
   });
   readonly tituloDocumentosFuncionario = computed(() => {
