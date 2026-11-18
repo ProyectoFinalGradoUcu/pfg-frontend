@@ -10,7 +10,7 @@ import { AuthService } from '../services/auth.service';
  * `personas.ver.unidad`: es la misma pantalla, solo que va a ver menos filas. Sin esto, todo
  * usuario con alcance acotado quedaría afuera de las secciones que sí puede usar.
  */
-const conVariantesDeUnidad = (permisos: string[]): string[] =>
+export const conVariantesDeUnidad = (permisos: string[]): string[] =>
   permisos.flatMap((p) =>
     p.endsWith('.unidad') ? [p] : [p, `${p}.unidad`],
   );
@@ -44,7 +44,7 @@ export const permissionGuard = (permisos: string[]): CanActivateFn => {
       return true;
     }
 
-    return router.createUrlTree(['/dashboard']);
+    return router.createUrlTree(['/']);
   };
 };
 
@@ -69,6 +69,6 @@ export const permissionGuardAll = (permisos: string[]): CanActivateFn => {
       return true;
     }
 
-    return router.createUrlTree(['/dashboard']);
+    return router.createUrlTree(['/']);
   };
 };

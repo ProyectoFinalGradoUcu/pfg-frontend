@@ -46,7 +46,7 @@ export class LoginPage implements OnInit {
     const { username, password } = this.form.getRawValue();
     this.auth.signIn({ username: username!, password: password! }).subscribe({
       next: () => {
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/dashboard';
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
         this.router.navigateByUrl(returnUrl);
       },
       error: (err: HttpErrorResponse) => {

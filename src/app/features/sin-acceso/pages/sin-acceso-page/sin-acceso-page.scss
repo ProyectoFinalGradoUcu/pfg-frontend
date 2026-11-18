@@ -1,0 +1,92 @@
+$navy: #132744;
+$navy-soft: #1e3a5f;
+$text: #334155;
+$muted: #475569;
+
+:host {
+  display: block;
+}
+
+.sin-acceso {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // Sin layout: el menú estaría vacío.
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+.sin-acceso__card {
+  width: 100%;
+  max-width: 480px;
+  padding: 2.5rem 2rem 2rem;
+  border-radius: 14px;
+  background-color: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  text-align: center;
+
+  h1 {
+    margin: 0 0 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: $navy;
+  }
+}
+
+.sin-acceso__shield {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: $navy;
+  color: #ffffff;
+
+  svg {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+.sin-acceso__code {
+  margin: 1rem 0 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $muted;
+}
+
+.sin-acceso__text {
+  margin: 0 0 1.75rem;
+  color: $muted;
+  font-size: 0.95rem;
+  line-height: 1.5;
+
+  strong {
+    color: $text;
+  }
+}
+
+.sin-acceso__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.6rem;
+  padding: 0 1.25rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background-color: $navy;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background-color: $navy-soft;
+  }
+}

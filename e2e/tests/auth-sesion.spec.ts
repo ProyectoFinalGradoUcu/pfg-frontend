@@ -5,8 +5,11 @@ import { api, asegurarRol, asegurarUsuario, datos, loginUI, rolPorNombre, usuari
 const LECTOR = usuarioE2E('lector');
 const SESION = usuarioE2E('sesion');
 const BLOQ = usuarioE2E('bloq');
+const SIN_PERMISOS = usuarioE2E('sinpermisos');
+const ROL_VACIO_USR = usuarioE2E('rolvacio');
 const ROL_LECTOR = 'E2E Lector';
 const ROL_SESION = 'E2E Sesion';
+const ROL_VACIO = 'E2E Sin Permisos';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -19,6 +22,9 @@ test.describe('auth: login / logout / sesión expirada', () => {
     await asegurarRol(a, ROL_SESION, ['personas.ver', 'auditoria.ver']);
     await asegurarUsuario(a, LECTOR.username, [ROL_LECTOR]);
     await asegurarUsuario(a, SESION.username, [ROL_SESION]);
+    await asegurarUsuario(a, SIN_PERMISOS.username, []);
+    await asegurarRol(a, ROL_VACIO, []);
+    await asegurarUsuario(a, ROL_VACIO_USR.username, [ROL_VACIO]);
     const b = await asegurarUsuario(a, BLOQ.username, [ROL_LECTOR]);
     const res = await a.patch(`/api/usuarios/${b.id}`, { data: { estado: 'bloqueado' } });
     expect(res.ok(), `bloquear: ${res.status()} ${await res.text()}`).toBeTruthy();
@@ -46,20 +52,44 @@ test.describe('auth: login / logout / sesión expirada', () => {
     await expect(page).toHaveURL(/\/personal(\?|$)/);
   });
 
-  test('con sesión, /auth/login manda al dashboard', async ({ page }) => {
+  test('con sesión, /auth/login manda a la primera sección', async ({ page }) => {
     await loginUI(page, LECTOR);
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
     await page.goto('/auth/login');
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
   });
 
-  test('un usuario sin permiso de la sección vuelve al dashboard', async ({ page }) => {
+  test('un usuario sin permiso de la sección vuelve a la suya', async ({ page }) => {
     await loginUI(page, LECTOR);
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
     for (const ruta of ['/auditoria', '/usuarios-y-roles', '/personal/configuracion-derecha']) {
       await page.goto(ruta);
-      await expect(page, ruta).toHaveURL(/\/dashboard/);
+      await expect(page, ruta).toHaveURL(/\/personal(\?|$)/);
     }
+  });
+
+  test('sin permisos ve el aviso fuera del layout y puede cerrar sesión', async ({ page }) => {
+    await loginUI(page, SIN_PERMISOS);
+    await expect(page).toHaveURL(/\/sin-acceso/);
+    await expect(page.getByRole('heading', { name: 'No tenés secciones habilitadas' })).toBeVisible();
+    await expect(page.locator('app-sidebar')).toHaveCount(0);
+    await page.goto('/personal');
+    await expect(page).toHaveURL(/\/sin-acceso/);
+    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await expect(page).toHaveURL(/\/auth\/login/);
+  });
+
+  test('con un rol sin permisos también ve el aviso, con el nombre del rol', async ({ page }) => {
+    await loginUI(page, ROL_VACIO_USR);
+    await expect(page).toHaveURL(/\/sin-acceso/);
+    await expect(page.locator('.sin-acceso__text')).toContainText(`el rol ${ROL_VACIO}`);
+  });
+
+  test('con permisos, /sin-acceso manda a su sección', async ({ page }) => {
+    await loginUI(page, LECTOR);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
+    await page.goto('/sin-acceso');
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
   });
 
   test('usuario bloqueado ve el motivo', async ({ page }) => {
@@ -70,7 +100,7 @@ test.describe('auth: login / logout / sesión expirada', () => {
 
   test('cerrar sesión: vuelve al login, protege rutas y el token viejo ya no sirve', async ({ page, context }) => {
     await loginUI(page, SESION);
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
     const viejo = (await context.cookies()).find((c) => c.name === 'auth_token');
     expect(viejo, 'cookie auth_token').toBeTruthy();
 
@@ -78,8 +108,8 @@ test.describe('auth: login / logout / sesión expirada', () => {
     await expect(page).toHaveURL(/\/auth\/login/);
     expect((await context.cookies()).find((c) => c.name === 'auth_token')).toBeFalsy();
 
-    await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/auth\/login\?returnUrl=%2Fdashboard/);
+    await page.goto('/personal');
+    await expect(page).toHaveURL(/\/auth\/login\?returnUrl=%2Fpersonal/);
 
     // El token anterior ya no sirve.
     const res = await page.request.get('/api/auth/me', { headers: { cookie: `auth_token=${viejo!.value}` } });
@@ -88,7 +118,7 @@ test.describe('auth: login / logout / sesión expirada', () => {
 
   test('sesión expirada por cambio de permisos: redirige al login con el motivo', async ({ page }) => {
     await loginUI(page, SESION);
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
 
     // Sacarle un permiso al rol invalida las sesiones de quienes lo tienen.
     const a = await api();
@@ -99,10 +129,9 @@ test.describe('auth: login / logout / sesión expirada', () => {
 
     try {
       // Sin recargar: la próxima request da 401 y el interceptor manda al login.
-      await page.locator('app-sidebar .sidebar__item--trigger', { hasText: 'Personal' }).click();
-      await page.locator('app-sidebar .sidebar__sub-item').first().click();
+      await page.locator('app-sidebar').getByText('Auditoría').click();
       await expect(page).toHaveURL(/\/auth\/login/, { timeout: 15_000 });
-      await expect(page.getByRole('status')).toContainText(/sesión/i);
+      await expect(page.locator('.login__success')).toContainText(/sesión/i);
     } finally {
       // Se devuelve el permiso para poder volver a correrlo.
       await a.put(`/api/roles/${rol.id}/permisos/${permiso.id}`);
@@ -112,11 +141,11 @@ test.describe('auth: login / logout / sesión expirada', () => {
 
   test('cookie borrada en caliente: la próxima request lleva al login', async ({ page, context }) => {
     await loginUI(page, LECTOR);
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
     await context.clearCookies();
     // Sin recargar: el front cree que hay sesión y el backend no.
-    await page.locator('app-sidebar .sidebar__item--trigger', { hasText: 'Personal' }).click();
-    await page.locator('app-sidebar .sidebar__sub-item').first().click();
+    // Ordenar dispara otro pedido.
+    await page.locator('.personal-page__sort').first().click();
     await expect(page).toHaveURL(/\/auth\/login/, { timeout: 15_000 });
   });
 
@@ -133,7 +162,7 @@ test.describe('auth: login / logout / sesión expirada', () => {
     await expect(page.locator('app-sidebar')).toHaveCount(0);
 
     await loginUI(page, LECTOR);
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
     await page.goto('/otra-ruta-inexistente');
     await expect(page).toHaveURL(/otra-ruta-inexistente/);
     await expect(page.locator('app-sidebar')).toBeVisible();

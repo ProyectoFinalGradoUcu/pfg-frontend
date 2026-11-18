@@ -264,18 +264,18 @@ test.describe('reglas de ascenso', () => {
 
     test('entra a pasibles pero no a reglas ni a nueva orden', async ({ page }) => {
       await loginUI(page, LECTOR);
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/ascensos-y-retiros\/pasibles/);
 
       await page.goto('/ascensos-y-retiros/pasibles');
       await expect(page.getByRole('heading', { name: 'Pasibles de ascenso' })).toBeVisible();
       await expect(page.getByRole('button', { name: /Registrar orden/ })).toHaveCount(0);
 
       await page.goto('/ascensos-y-retiros/reglas');
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/ascensos-y-retiros\/pasibles/);
       await expect(page.getByRole('heading', { name: 'Reglas de ascenso' })).toHaveCount(0);
 
       await page.goto('/ascensos-y-retiros/ordenes/nueva');
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/ascensos-y-retiros\/pasibles/);
     });
   });
 });

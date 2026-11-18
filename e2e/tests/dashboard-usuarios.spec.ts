@@ -1,6 +1,6 @@
 import { Page, expect, test } from '@playwright/test';
 import { SIN_SESION } from '../fixtures/personal';
-import { api, asegurarRol, asegurarUsuario, datos, loginUI, rolPorNombre, usuarioE2E, usuarioPorNombre, filaConEmail } from '../fixtures/usuarios';
+import { api, asegurarRol, asegurarUsuario, loginUI, rolPorNombre, usuarioE2E, usuarioPorNombre, filaConEmail } from '../fixtures/usuarios';
 
 const LECTOR = usuarioE2E('lector');
 const VISOR = usuarioE2E('visor');
@@ -23,33 +23,29 @@ test.beforeAll(async () => {
   await a.dispose();
 });
 
-// ───────────────────────────────── Dashboard ─────────────────────────────────
-test.describe('dashboard', () => {
-  test('admin: saludo, rol y cantidad de permisos coinciden con /auth/me', async ({ page }) => {
+// ─────────────────────────────────── Inicio ──────────────────────────────────
+test.describe('inicio', () => {
+  test('admin: la raíz y el link viejo al dashboard llevan a Personal', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
     await page.goto('/dashboard');
-    const me = await datos<{ username: string; roles: string[]; permisos: string[] }>(
-      await page.request.get('/api/auth/me'),
-    );
-    await expect(page.getByRole('heading', { name: 'Dashboard Principal' })).toBeVisible();
-    await expect(page.getByText(`Bienvenido, ${me.username}`)).toBeVisible();
-    const cards = page.locator('.dashboard__card');
-    await expect(cards.nth(1).locator('strong')).toHaveText(String(me.roles.length));
-    await expect(cards.nth(2).locator('strong')).toHaveText(String(me.permisos.length));
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
+    await expect(page.locator('app-sidebar').getByText('Dashboard')).toHaveCount(0);
   });
 
-  test.describe('con un usuario de un solo permiso', () => {
+  test.describe('con usuarios de permisos acotados', () => {
     test.use({ storageState: SIN_SESION });
-    test('muestra su rol, 1 permiso y el menú acotado', async ({ page }) => {
+    test('con un solo permiso entra a su sección y ve el menú acotado', async ({ page }) => {
       await loginUI(page, LECTOR);
-      await expect(page).toHaveURL(/\/dashboard/);
-      const cards = page.locator('.dashboard__card');
-      await expect(cards.nth(0)).toContainText(LECTOR.username);
-      await expect(cards.nth(0)).toContainText(ROL_LECTOR);
-      await expect(cards.nth(2).locator('strong')).toHaveText('1');
-      // Solo Dashboard y Personal en el menú.
+      await expect(page).toHaveURL(/\/personal(\?|$)/);
       await expect(page.locator('app-sidebar').getByText('Auditoría')).toHaveCount(0);
       await expect(page.locator('app-sidebar').getByText('Usuarios y Roles')).toHaveCount(0);
       await expect(page.locator('app-sidebar .sidebar__item--trigger', { hasText: 'Personal' })).toBeVisible();
+    });
+
+    test('sin Personal entra a la primera sección que tenga', async ({ page }) => {
+      await loginUI(page, VISOR);
+      await expect(page).toHaveURL(/\/auditoria/);
     });
   });
 });
@@ -216,7 +212,7 @@ test.describe('usuarios y roles', () => {
     test.use({ storageState: SIN_SESION });
     test('ve usuarios y roles pero sin acciones, y no entra a editar permisos', async ({ page }) => {
       await loginUI(page, VISOR);
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/auditoria/);
       await page.goto('/usuarios-y-roles');
       await expect(page.locator('.ur__table tbody tr').first()).toBeVisible();
       await expect(page.getByRole('button', { name: 'Nuevo Usuario' })).toHaveCount(0);
@@ -229,7 +225,7 @@ test.describe('usuarios y roles', () => {
       const admin = (await rolPorNombre(a, 'Administrador del sistema'))!;
       await a.dispose();
       await page.goto(`/usuarios-y-roles/roles/${admin.id}/permisos`);
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/auditoria/);
     });
   });
 });
