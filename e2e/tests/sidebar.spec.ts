@@ -11,7 +11,7 @@ test.describe('sidebar', () => {
   const subItems = (page: Page) => page.locator('app-sidebar .sidebar__sub--open');
 
   test('abrir un grupo cierra el que estaba abierto', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/reportes');
     await expect(grupo(page, 'Personal')).toBeVisible();
     await expect(abiertos(page)).toHaveCount(0);
 
@@ -30,7 +30,7 @@ test.describe('sidebar', () => {
   });
 
   test('abrir todos uno por uno deja solo el último abierto', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/reportes');
     const triggers = page.locator('app-sidebar .sidebar__item--trigger');
     await expect(triggers.first()).toBeVisible();
     const total = await triggers.count();

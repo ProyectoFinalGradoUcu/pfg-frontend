@@ -108,7 +108,8 @@ test.describe('auditoría', () => {
     test.use({ storageState: SIN_SESION });
     test('entra desde el menú', async ({ page }) => {
       await loginUI(page, VISOR);
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/auditoria/);
+      await page.goto('/usuarios-y-roles');
       await page.locator('app-sidebar').getByText('Auditoría').click();
       await expect(page).toHaveURL(/\/auditoria/);
       await expect(filas(page).first()).toBeVisible();
@@ -181,9 +182,9 @@ test.describe('configuración de derecha y numor', () => {
     test.use({ storageState: SIN_SESION });
     test('no ve Configuración en el menú ni la API de cambios', async ({ page }) => {
       await loginUI(page, VISOR);
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/auditoria/);
       await page.goto('/personal/configuracion-derecha');
-      await expect(page).toHaveURL(/\/dashboard/);
+      await expect(page).toHaveURL(/\/auditoria/);
       const r = await page.request.patch('/api/configuracion-derecha/cambios', { data: { cambios: [] } });
       expect(r.status()).toBe(403);
     });

@@ -26,12 +26,12 @@ test.describe('autenticación', () => {
     await expect(page.getByRole('button', { name: 'Iniciar Sesión' })).toBeVisible();
   });
 
-  test('login exitoso lleva al dashboard', async ({ page }) => {
+  test('login exitoso lleva a la primera sección del menú', async ({ page }) => {
     await page.goto('/auth/login');
     await page.getByLabel('Email').fill(ADMIN_USER.username);
     await page.getByLabel('Contraseña').fill(ADMIN_USER.password);
     await page.getByRole('button', { name: 'Iniciar Sesión' }).click();
 
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/personal(\?|$)/);
   });
 });

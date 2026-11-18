@@ -13,7 +13,7 @@
       Revise que esté bien escrita.
     </p>
 
-    <a *ngIf="conSesion(); else irAlLogin" class="not-found__action" routerLink="/dashboard">Volver al inicio</a>
+    <a *ngIf="conSesion(); else irAlLogin" class="not-found__action" routerLink="/">Volver al inicio</a>
     <ng-template #irAlLogin>
       <a class="not-found__action" routerLink="/auth/login">Ir al inicio de sesión</a>
     </ng-template>

@@ -29,48 +29,21 @@ $transition: 0.2s ease;
 .sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1.25rem 1rem;
+  justify-content: center;
+  padding: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   min-height: 72px;
 }
 
 .sidebar__logo {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  background-color: $sidebar-active-indicator;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-
-  svg {
-    width: 20px;
-    height: 20px;
-  }
+  display: block;
+  width: 100%;
+  max-width: 170px;
+  height: auto;
 }
 
-.sidebar__brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.sidebar__brand-name {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #fff;
-  line-height: 1.2;
-}
-
-.sidebar__brand-sub {
-  font-size: 0.7rem;
-  color: $sidebar-text-muted;
-  font-weight: 500;
+.sidebar--collapsed .sidebar__brand {
+  padding: 1rem 0.5rem;
 }
 
 // Nav
