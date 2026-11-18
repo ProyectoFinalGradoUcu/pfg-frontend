@@ -66,7 +66,7 @@ describe('DerechaService', () => {
           { persona_id: 4, derecha: 2 },
           { grado_id: 14, orden: [3, 4, 2] },
         ],
-        motivo: 'Boletín 12/2026',
+        motivo: 'Resolución 12/2026',
       };
       let respuesta: ResultadoCambio | undefined;
       service.aplicarCambios(payload).subscribe((r) => (respuesta = r));

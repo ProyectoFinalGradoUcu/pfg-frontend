@@ -105,7 +105,7 @@ test.describe('comisiones', () => {
     await m.locator('[formcontrolname=fecha_inicio]').fill('2025-01-10');
 
     await m.getByRole('button', { name: 'Guardar asignación' }).click();
-    await expect(m.locator('.comisiones__error')).toHaveText('Ingresá al menos el N.º de orden o el boletín');
+    await expect(m.locator('.comisiones__error')).toHaveText('Ingresá al menos el N.º de orden o la resolución');
 
     await m.locator('[formcontrolname=numero_orden]').fill('E2E OC 1');
     await m.getByRole('button', { name: 'Guardar asignación' }).click();
@@ -134,7 +134,7 @@ test.describe('comisiones', () => {
 
     const fila = page.locator('tbody tr', { hasText: uno.cedula });
     await expect(fila).toContainText('Presidente');
-    await expect(fila).toContainText('Boletín: E2E BOL 7');
+    await expect(fila).toContainText('Resolución: E2E BOL 7');
   });
 
   test('cierra la pertenencia y no la deja cerrar antes de su inicio', async ({ page }) => {

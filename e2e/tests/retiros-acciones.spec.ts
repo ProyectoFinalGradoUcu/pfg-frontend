@@ -150,7 +150,7 @@ test.describe('detalle del retiro', () => {
     await modal.getByLabel('Haber de retiro mensual').fill('');
 
     await modal.getByRole('button', { name: 'Continuar' }).click();
-    await expect(modal.getByText('Indicá el número de orden o el boletín del acto.')).toBeVisible();
+    await expect(modal.getByText('Indicá el número de orden o la resolución del acto.')).toBeVisible();
     await modal.getByLabel('Número de orden').fill('O.D. reincorporación e2e');
 
     await modal.getByRole('button', { name: 'Continuar' }).click();

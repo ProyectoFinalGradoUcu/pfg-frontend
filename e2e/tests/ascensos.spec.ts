@@ -68,7 +68,7 @@ test.describe('orden de ascenso', () => {
     await expect(page.getByRole('heading', { name: 'Registrar orden de ascenso' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Siguiente' }).click();
-    await expect(page.getByText('Completá el N.º de orden o el boletín.')).toBeVisible();
+    await expect(page.getByText('Completá el N.º de orden o la resolución.')).toBeVisible();
 
     await page.locator('#fecha').fill(ayer());
     await page.locator('#numero').fill(numero);

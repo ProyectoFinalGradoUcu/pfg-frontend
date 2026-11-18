@@ -7,7 +7,7 @@ import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
-import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
+import { SlotVista, armarSlots, ETIQUETAS_BOLETIN } from '../../../../core/services/documentos-registro';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { PaisesService, PaisOpcion } from '../../../../core/services/paises.service';
 import {
@@ -125,6 +125,7 @@ export class MisionesPage implements OnInit, OnDestroy {
       f.documentos,
       { orden: f.mision.numero_orden, boletin: f.mision.boletin },
       this.puedeGestionar(),
+      ETIQUETAS_BOLETIN,
     );
   });
   readonly tituloDocumentos = computed(() => {

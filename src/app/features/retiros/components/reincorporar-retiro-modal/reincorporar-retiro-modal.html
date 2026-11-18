@@ -134,12 +134,12 @@
             <input id="ri-orden" type="text" formControlName="numero_orden" maxlength="50" placeholder="O.D. 13001" />
           </div>
           <div class="field">
-            <label for="ri-boletin">Boletín</label>
-            <input id="ri-boletin" type="text" formControlName="boletin" maxlength="50" placeholder="B.P. 9012" />
+            <label for="ri-boletin">Resolución</label>
+            <input id="ri-boletin" type="text" formControlName="boletin" maxlength="50" placeholder="R. 9012" />
           </div>
         </div>
         <p class="field__error ri__suelto" *ngIf="faltaRespaldo(); else hintRespaldo">
-          Indicá el número de orden o el boletín del acto.
+          Indicá el número de orden o la resolución del acto.
         </p>
         <ng-template #hintRespaldo>
           <p class="field__hint ri__suelto">Al menos uno de los dos.</p>
@@ -230,7 +230,7 @@
         </ng-template>
         <li *ngIf="efectoDestino() as efecto">{{ efecto }}</li>
         <li *ngIf="form.controls.numero_orden.value.trim() as orden">Número de orden: {{ orden }}</li>
-        <li *ngIf="form.controls.boletin.value.trim() as boletin">Boletín: {{ boletin }}</li>
+        <li *ngIf="form.controls.boletin.value.trim() as boletin">Resolución: {{ boletin }}</li>
       </ul>
     </div>
 

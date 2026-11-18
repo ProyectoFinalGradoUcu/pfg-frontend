@@ -586,7 +586,7 @@ export class CursosPage implements OnInit, OnDestroy {
       return;
     }
     if (!raw.numero_orden?.trim() && !raw.boletin?.trim()) {
-      this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
+      this.modalError.set('Debés ingresar al menos el N° de orden o la resolución.');
       return;
     }
 
@@ -791,7 +791,7 @@ export class CursosPage implements OnInit, OnDestroy {
       return;
     }
     if (designarAhora && !raw.numero_orden?.trim() && !raw.boletin?.trim()) {
-      this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
+      this.modalError.set('Debés ingresar al menos el N° de orden o la resolución.');
       return;
     }
 

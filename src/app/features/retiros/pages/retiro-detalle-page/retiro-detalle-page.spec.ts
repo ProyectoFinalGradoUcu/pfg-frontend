@@ -525,7 +525,7 @@ describe('RetiroDetallePage', () => {
         d.textContent?.trim(),
       );
       expect(etiquetas).toContain('Número de orden');
-      expect(etiquetas).not.toContain('Boletín');
+      expect(etiquetas).not.toContain('Resolución');
       const adjuntar = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).filter((b) =>
         b.textContent?.includes('Adjuntar'),
       );
@@ -536,7 +536,7 @@ describe('RetiroDetallePage', () => {
       retiros.detalle.mockReturnValue(of(makeDetalle({ numero_orden: null })));
       await montar();
 
-      expect(texto()).toContain('No se cargó número de orden, boletín ni observaciones.');
+      expect(texto()).toContain('No se cargó número de orden, resolución ni observaciones.');
       expect(botonQueContiene('Adjuntar')).toBeUndefined();
     });
 

@@ -157,7 +157,7 @@ describe('NuevaOrdenPage', () => {
     expect(el.querySelector('.identificacion--error')).not.toBeNull();
     expect(el.querySelectorAll('.field__error')).toHaveLength(1);
     expect(el.querySelector('.field__error')!.textContent).toContain(
-      'Completá el N.º de orden o el boletín.',
+      'Completá el N.º de orden o la resolución.',
     );
 
     component.ordenForm.patchValue({ boletin: 'BOL-2027-02' });
