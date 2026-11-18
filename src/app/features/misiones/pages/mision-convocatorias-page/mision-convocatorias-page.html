@@ -42,7 +42,7 @@
             <input
               type="text"
               class="convs__search-input"
-              placeholder="N° orden o resolución..."
+              placeholder="N° orden o boletín..."
               [value]="filtroOrdenBoletin()"
               (input)="onOrdenBoletinInput($any($event.target).value)"
               autocomplete="off"
@@ -86,7 +86,7 @@
           <thead>
             <tr>
               <th>N° Orden</th>
-              <th>Resolución</th>
+              <th>Boletín</th>
               <th>Fecha Salida</th>
               <th>Fecha Llegada</th>
               <th>Personal</th>
@@ -183,7 +183,7 @@
       <header class="modal__header">
         <div>
           <h3>{{ modal() === 'editarConvocatoria' ? 'Editar Convocatoria' : 'Nueva Convocatoria' }}</h3>
-          <p>{{ mision()?.nombre_mision }} — {{ modal() === 'editarConvocatoria' ? 'modificá los datos de la convocatoria.' : 'creá una nueva convocatoria con orden/resolución y personal designado.' }}</p>
+          <p>{{ mision()?.nombre_mision }} — {{ modal() === 'editarConvocatoria' ? 'modificá los datos de la convocatoria.' : 'creá una nueva convocatoria con orden/boletín y personal designado.' }}</p>
         </div>
         <button type="button" class="modal__close" (click)="cerrarModal()" [disabled]="guardando()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -196,13 +196,13 @@
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
 
         <p class="convs__form-note">
-          Al menos uno entre N° Orden y Resolución es requerido.
+          Al menos uno entre N° Orden y Boletín es requerido.
         </p>
 
         <div class="modal__grid-2">
           <div class="modal__campo-adjunto">
             <label class="modal__field">
-              <span>N° Orden <small>(o resolución)</small></span>
+              <span>N° Orden <small>(o boletín)</small></span>
               <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
             </label>
             <app-documento-adjunto
@@ -218,8 +218,8 @@
           </div>
           <div class="modal__campo-adjunto">
             <label class="modal__field">
-              <span>Resolución <small>(o N° orden)</small></span>
-              <input type="text" formControlName="boletin" placeholder="ej: RES-2026-04" autocomplete="off" />
+              <span>Boletín <small>(o N° orden)</small></span>
+              <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
             </label>
             <app-documento-adjunto
               *ngIf="modal() === 'nuevaConvocatoria'"

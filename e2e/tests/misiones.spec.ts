@@ -154,7 +154,7 @@ test.describe('convocatorias', () => {
 
     await campo(m, 'fecha_salida').fill('2026-05-10');
     await m.getByRole('button', { name: 'Crear Convocatoria' }).click();
-    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o la resolución.');
+    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o el boletín.');
 
     await campo(m, 'numero_orden').fill(ORDEN);
     await campo(m, 'fecha_llegada').fill('2026-05-01');
@@ -199,7 +199,7 @@ test.describe('convocatorias', () => {
     const filas = page.locator('tbody tr');
     await expect(filas).toHaveCount(2);
 
-    await page.getByPlaceholder('N° orden o resolución...').fill(ORDEN_FIN);
+    await page.getByPlaceholder('N° orden o boletín...').fill(ORDEN_FIN);
     await expect(filas).toHaveCount(1);
     await expect(fila(page, ORDEN_FIN)).toContainText('Finalizada');
     await page.getByRole('button', { name: 'Borrar filtros' }).click();
@@ -218,7 +218,7 @@ test.describe('convocatorias', () => {
     // Con texto y "Activa" el backend arma un OR y aparecen las finalizadas que coinciden.
     test.fixme(true, 'texto + finalizada=false combina con OR en el listado de convocatorias');
     await page.goto(`/misiones/catalogo/${misionId}`);
-    await page.getByPlaceholder('N° orden o resolución...').fill(ORDEN_FIN);
+    await page.getByPlaceholder('N° orden o boletín...').fill(ORDEN_FIN);
     await page.locator('select.convs__estado-select').selectOption('activa');
     await expect(page.getByText('No se encontraron convocatorias con esos filtros')).toBeVisible();
   });
@@ -272,7 +272,7 @@ test.describe('detalle de la convocatoria', () => {
     await campo(m, 'persona_id').locator('.appsel__control').click();
     await page.locator('.appsel__dropdown .appsel__option').first().click();
     await m.getByRole('button', { name: 'Asignar funcionario' }).click();
-    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o la resolución.');
+    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o el boletín.');
     await m.getByRole('button', { name: 'Cancelar' }).click();
     expect(await asignaciones(api, misionId!, convId)).toHaveLength(0);
   });
@@ -327,7 +327,7 @@ test.describe('detalle de la convocatoria', () => {
     await expect(page.getByText('Convocatoria actualizada correctamente')).toBeVisible();
 
     const datosCard = page.locator('.detalle__info-grid');
-    await expect(datosCard.locator('.detalle__info-field', { hasText: 'Resolución' })).toContainText('—');
+    await expect(datosCard.locator('.detalle__info-field', { hasText: 'Boletín' })).toContainText('—');
     await expect(datosCard.locator('.detalle__info-field', { hasText: 'Observaciones' })).toContainText('—');
     expect(await leerConvocatoria(api, misionId!, convId)).toMatchObject({
       numero_orden: ORDEN,
@@ -367,10 +367,10 @@ test.describe('personal en misión', () => {
     await estado.selectOption('');
     await expect(filas).toHaveCount(2);
 
-    await page.getByPlaceholder('N° orden o resolución...').fill(ORDEN_FIN);
+    await page.getByPlaceholder('N° orden o boletín...').fill(ORDEN_FIN);
     await expect(filas).toHaveCount(1);
     await expect(filas.first()).toContainText(uno.cedula);
-    await page.getByPlaceholder('N° orden o resolución...').fill('');
+    await page.getByPlaceholder('N° orden o boletín...').fill('');
     await expect(filas).toHaveCount(2);
 
     await page.getByPlaceholder('Cédula o nombre...').fill(dos.cedula);

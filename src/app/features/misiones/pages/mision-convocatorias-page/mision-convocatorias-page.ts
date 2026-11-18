@@ -224,7 +224,7 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
     const raw = this.convocatoriaForm.getRawValue();
 
     if (!raw.numero_orden?.trim() && !raw.boletin?.trim()) {
-      this.modalError.set('Debés ingresar al menos el N° de orden o la resolución.');
+      this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
       return;
     }
 
