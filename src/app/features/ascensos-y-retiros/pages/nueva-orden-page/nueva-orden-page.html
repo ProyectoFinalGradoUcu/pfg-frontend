@@ -46,7 +46,7 @@
           <div class="identificacion" [class.identificacion--error]="faltaOrdenYBoletin()">
             <div class="identificacion__opcion">
               <label for="numero">N.º de orden</label>
-              <input id="numero" type="text" class="input" formControlName="numero_orden"
+              <input id="numero" type="text" class="input" formControlName="numero_orden" maxlength="50"
                 placeholder="O.C.G.F.A. N.º 12.345"
                 [attr.aria-invalid]="faltaOrdenYBoletin()"
                 [attr.aria-describedby]="faltaOrdenYBoletin() ? 'identificacion-error' : 'identificacion-hint'" />
@@ -63,7 +63,7 @@
             <span class="identificacion__o" aria-hidden="true">o</span>
             <div class="identificacion__opcion">
               <label for="boletin">Resolución</label>
-              <input id="boletin" type="text" class="input" formControlName="boletin"
+              <input id="boletin" type="text" class="input" formControlName="boletin" maxlength="50"
                 placeholder="RES-2027-02"
                 [attr.aria-invalid]="faltaOrdenYBoletin()"
                 [attr.aria-describedby]="faltaOrdenYBoletin() ? 'identificacion-error' : 'identificacion-hint'" />

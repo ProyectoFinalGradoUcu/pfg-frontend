@@ -65,7 +65,7 @@
       <div class="grid-2">
         <div class="field">
           <label for="orden">Número de orden</label>
-          <input id="orden" type="text" formControlName="numero_orden" placeholder="O.D. 12455" />
+          <input id="orden" type="text" formControlName="numero_orden" maxlength="50" placeholder="O.D. 12455" />
           <app-documento-adjunto
             [nombre]="archivos().orden?.name ?? null"
             [tamanio]="archivos().orden?.size ?? null"
@@ -78,7 +78,7 @@
         </div>
         <div class="field">
           <label for="bol">Resolución</label>
-          <input id="bol" type="text" formControlName="boletin" placeholder="R. 8891" />
+          <input id="bol" type="text" formControlName="boletin" maxlength="50" placeholder="R. 8891" />
           <app-documento-adjunto
             [nombre]="archivos().boletin?.name ?? null"
             [tamanio]="archivos().boletin?.size ?? null"

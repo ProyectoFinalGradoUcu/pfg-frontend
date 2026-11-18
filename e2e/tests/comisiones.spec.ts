@@ -122,7 +122,7 @@ test.describe('comisiones', () => {
     }
   });
 
-  test('edita el cargo y el boletín de una pertenencia', async ({ page }) => {
+  test('edita el cargo y la resolución de una pertenencia', async ({ page }) => {
     await buscarPersona(page, uno.cedula);
     await accionDeFila(page, uno.cedula, 'Editar');
     const m = modal(page);

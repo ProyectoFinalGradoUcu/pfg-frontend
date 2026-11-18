@@ -30,8 +30,6 @@ export interface CamposEditablesDestino {
   numero_destino: string;
   fecha_orden: string;
   fecha_boletin: string;
-  numero_resolucion: string;
-  fecha_resolucion: string;
   observaciones: string;
 }
 
@@ -65,8 +63,6 @@ export function payloadEdicion(original: Destino, valores: CamposEditablesDestin
     ['numero_destino', original.numero_destino],
     ['fecha_orden', fechaASlice(original.fecha_orden)],
     ['fecha_boletin', fechaASlice(original.fecha_boletin)],
-    ['numero_resolucion', original.numero_resolucion],
-    ['fecha_resolucion', fechaASlice(original.fecha_resolucion)],
     ['observaciones', original.observaciones],
   ];
 

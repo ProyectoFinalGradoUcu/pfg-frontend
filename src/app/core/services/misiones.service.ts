@@ -39,9 +39,9 @@ const SIN_DOCUMENTOS = { orden: null, boletin: null };
 @Injectable({ providedIn: 'root' })
 export class MisionesService {
   private mockMisiones: MisionDefinicion[] = [
-    { id: '1', nombre_mision: 'Congo (MONUSCO)', pais: 'República Democrática del Congo', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
-    { id: '2', nombre_mision: 'Chipre (UNFICYP)', pais: 'Chipre', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
-    { id: '3', nombre_mision: 'Sinaí (MFO)', pais: 'Egipto', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
+    { id: '1', nombre_mision: 'Congo (MONUSCO)', pais: 'República Democrática del Congo', fecha_orden: null, boletin: null, fecha_boletin: null, resolucion_cje: null, total_convocatorias: 0 },
+    { id: '2', nombre_mision: 'Chipre (UNFICYP)', pais: 'Chipre', fecha_orden: null, boletin: null, fecha_boletin: null, resolucion_cje: null, total_convocatorias: 0 },
+    { id: '3', nombre_mision: 'Sinaí (MFO)', pais: 'Egipto', fecha_orden: null, boletin: null, fecha_boletin: null, resolucion_cje: null, total_convocatorias: 0 },
   ];
 
   private mockConvocatorias: Convocatoria[] = [
@@ -49,7 +49,7 @@ export class MisionesService {
       id: '101',
       mision_id: '1',
       numero_orden: 'ORD-1542',
-      boletin: 'BOL-2026-04',
+      boletin: 'RES-2026-04',
       fecha_salida: '2026-03-01',
       fecha_llegada: '2026-09-01',
       observaciones: 'Rotación anual del contingente.',
@@ -73,7 +73,7 @@ export class MisionesService {
       id: '201',
       mision_id: '2',
       numero_orden: null,
-      boletin: 'BOL-2025-11',
+      boletin: 'RES-2025-11',
       fecha_salida: '2025-06-15',
       fecha_llegada: null,
       observaciones: 'Observadores en zona de amortiguación, sin fecha de regreso definida.',
@@ -92,7 +92,7 @@ export class MisionesService {
         primer_nombre: 'Juan',
         primer_apellido: 'Pérez',
         numero_orden: null,
-        boletin: 'BOL-2026-04',
+        boletin: 'RES-2026-04',
         observaciones: null,
         documentos: SIN_DOCUMENTOS,
       },
@@ -103,7 +103,7 @@ export class MisionesService {
         primer_nombre: 'María',
         primer_apellido: 'Gómez',
         numero_orden: 'ORD-1542-A',
-        boletin: 'BOL-2026-04',
+        boletin: 'RES-2026-04',
         observaciones: 'Jefa de equipo',
         documentos: SIN_DOCUMENTOS,
       },
@@ -129,7 +129,7 @@ export class MisionesService {
         primer_nombre: 'Juan',
         primer_apellido: 'Pérez',
         numero_orden: null,
-        boletin: 'BOL-2025-11',
+        boletin: 'RES-2025-11',
         observaciones: null,
         documentos: SIN_DOCUMENTOS,
       },
@@ -223,8 +223,7 @@ export class MisionesService {
         pais: payload.pais,
         fecha_orden: payload.fecha_orden ?? null,
         fecha_boletin: payload.fecha_boletin ?? null,
-        numero_resolucion: payload.numero_resolucion ?? null,
-        fecha_resolucion: payload.fecha_resolucion ?? null,
+        boletin: payload.boletin ?? null,
         resolucion_cje: payload.resolucion_cje ?? null,
         total_convocatorias: 0,
       };
@@ -323,7 +322,7 @@ export class MisionesService {
   ): Observable<Convocatoria> {
     if (misionesServiceConfig.useMockData) {
       if (!payload.numero_orden?.trim() && !payload.boletin?.trim()) {
-        return this.mockBadRequest('Debés ingresar al menos el N° de orden o el boletín.');
+        return this.mockBadRequest('Debés ingresar al menos el N° de orden o la resolución.');
       }
       const nueva: Convocatoria = {
         id: this.nextId(),
@@ -437,7 +436,7 @@ export class MisionesService {
     if (misionesServiceConfig.useMockData) {
       const sinOrdenNiBoletin = funcionarios.some((f) => !f.numero_orden?.trim() && !f.boletin?.trim());
       if (sinOrdenNiBoletin) {
-        return this.mockBadRequest('Cada funcionario debe tener al menos N° de orden o boletín.');
+        return this.mockBadRequest('Cada funcionario debe tener al menos N° de orden o resolución.');
       }
       const existentes = this.mockFuncionarios[convocatoriaId] ?? (this.mockFuncionarios[convocatoriaId] = []);
       const yaAsignado = funcionarios.some((f) =>
@@ -485,7 +484,7 @@ export class MisionesService {
       const numeroOrden = data.numero_orden !== undefined ? data.numero_orden ?? null : fila.numero_orden;
       const boletin = data.boletin !== undefined ? data.boletin ?? null : fila.boletin;
       if (!numeroOrden?.trim() && !boletin?.trim()) {
-        return this.mockBadRequest('El funcionario debe tener al menos N° de orden o boletín.');
+        return this.mockBadRequest('El funcionario debe tener al menos N° de orden o resolución.');
       }
       fila.numero_orden = numeroOrden;
       fila.boletin = boletin;

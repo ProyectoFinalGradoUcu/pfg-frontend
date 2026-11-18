@@ -8,7 +8,7 @@ import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
-import { SlotVista, armarSlots, ETIQUETAS_BOLETIN } from '../../../../core/services/documentos-registro';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import {
   Comando,
   Destino,
@@ -113,7 +113,6 @@ export class AsignacionesPage implements OnInit, OnDestroy {
       d.documentos,
       { orden: d.numero_orden, boletin: d.boletin },
       this.puedeGestionar(),
-      ETIQUETAS_BOLETIN,
     );
   });
   readonly tituloDocumentos = computed(() => {

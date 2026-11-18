@@ -868,7 +868,7 @@ describe('CursosPage', () => {
       expect(cursosService.crearDesignacion).not.toHaveBeenCalled();
     });
 
-    it('guardarDesignar setea error si faltan N° Orden y Boletín', () => {
+    it('guardarDesignar setea error si faltan N° Orden y Resolución', () => {
       openDesignar();
       component.designarForm.patchValue({ numero_orden: '', boletin: '', persona_ids: ['1'], fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01' });
       component.guardarDesignar();
@@ -876,14 +876,14 @@ describe('CursosPage', () => {
       expect(cursosService.crearDesignacion).not.toHaveBeenCalled();
     });
 
-    it('guardarDesignar se habilita si solo hay N° Orden (sin Boletín)', () => {
+    it('guardarDesignar se habilita si solo hay N° Orden (sin Resolución)', () => {
       openDesignar();
       component.designarForm.patchValue({ numero_orden: 'N1', boletin: '', persona_ids: ['1'], fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01' });
       component.guardarDesignar();
       expect(cursosService.crearDesignacion).toHaveBeenCalled();
     });
 
-    it('guardarDesignar se habilita si solo hay Boletín (sin N° Orden)', () => {
+    it('guardarDesignar se habilita si solo hay Resolución (sin N° Orden)', () => {
       openDesignar();
       component.designarForm.patchValue({ numero_orden: '', boletin: 'B1', persona_ids: ['1'], fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01' });
       component.guardarDesignar();

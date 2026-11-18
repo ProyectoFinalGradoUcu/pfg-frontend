@@ -638,7 +638,7 @@
             <div class="modal__field">
               <label class="modal__field-label">
                 <span>N° Orden <em>*</em> <small>(o resolución)</small></span>
-                <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
+                <input type="text" formControlName="numero_orden" maxlength="50" placeholder="ej: ORD-1542" autocomplete="off" />
               </label>
               <app-documento-adjunto
                 [nombre]="pendientes.archivos().orden?.name ?? null"
@@ -653,7 +653,7 @@
             <div class="modal__field">
               <label class="modal__field-label">
                 <span>Resolución <em>*</em> <small>(o N° orden)</small></span>
-                <input type="text" formControlName="boletin" placeholder="ej: RES-2026-04" autocomplete="off" />
+                <input type="text" formControlName="boletin" maxlength="50" placeholder="ej: RES-2026-04" autocomplete="off" />
               </label>
               <app-documento-adjunto
                 [nombre]="pendientes.archivos().boletin?.name ?? null"
@@ -812,7 +812,7 @@
           <div class="modal__field">
             <label class="modal__field-label">
               <span>N° Orden <em>*</em> <small>(o resolución)</small></span>
-              <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
+              <input type="text" formControlName="numero_orden" maxlength="50" placeholder="ej: ORD-1542" autocomplete="off" />
             </label>
             <app-documento-adjunto
               [nombre]="pendientes.archivos().orden?.name ?? null"
@@ -827,7 +827,7 @@
           <div class="modal__field">
             <label class="modal__field-label">
               <span>Resolución <em>*</em> <small>(o N° orden)</small></span>
-              <input type="text" formControlName="boletin" placeholder="ej: RES-2026-04" autocomplete="off" />
+              <input type="text" formControlName="boletin" maxlength="50" placeholder="ej: RES-2026-04" autocomplete="off" />
             </label>
             <app-documento-adjunto
               [nombre]="pendientes.archivos().boletin?.name ?? null"

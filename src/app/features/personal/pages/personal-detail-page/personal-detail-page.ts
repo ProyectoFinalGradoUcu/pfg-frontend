@@ -20,7 +20,7 @@ import { DerechaService } from '../../../../core/services/derecha.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
 import { CursosService } from '../../../../core/services/cursos.service';
-import { SlotVista, armarSlots, ETIQUETAS_BOLETIN } from '../../../../core/services/documentos-registro';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import { Impacto } from '../../../../core/models/derecha.models';
 import { requeridoSinEspacios } from '../../../../shared/utils/validadores';
 import { parseError } from '../../../../shared/utils/parse-error';
@@ -1341,7 +1341,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   }
 
   private conSlotsDestino(d: DestinoDePersona): DestinoVista {
-    const slots = armarSlots(this.destinosApi.documentos(d.id), d.documentos, { orden: d.numero_orden, boletin: d.boletin }, false, ETIQUETAS_BOLETIN);
+    const slots = armarSlots(this.destinosApi.documentos(d.id), d.documentos, { orden: d.numero_orden, boletin: d.boletin }, false);
     return { ...d, slots: this.slotsVisibles('destinos.ver', slots) };
   }
 
@@ -1354,7 +1354,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private conSlotsMision(m: MisionPersona): MisionVista {
     const apiConvocatoria = this.misionesApi.documentosConvocatoria(m.convocatoria_id);
     const slots = armarSlots(
-      this.misionesApi.documentosAsignacion(m.id), m.documentos, { orden: m.numero_orden, boletin: m.boletin }, false, ETIQUETAS_BOLETIN,
+      this.misionesApi.documentosAsignacion(m.id), m.documentos, { orden: m.numero_orden, boletin: m.boletin }, false,
     ).map((s): SlotVista => {
       const heredado = m.documentos_convocatoria[s.slot];
       return !s.documento && heredado

@@ -243,7 +243,7 @@ describe('MisionesService', () => {
         req.flush({ id: '5', mision_id: '1', ...payload, total_funcionarios: 2, finalizada: false });
       });
 
-      it('propaga error HTTP 400 (sin orden ni boletín)', () => {
+      it('propaga error HTTP 400 (sin orden ni resolución)', () => {
         let err: any;
         service.crearConvocatoria('1', {}).subscribe({ error: (e) => (err = e) });
         http.expectOne(`${API_BASE_URL}/misiones/1/convocatorias`).flush({ message: 'requerido' }, { status: 400, statusText: 'Bad Request' });
@@ -619,8 +619,8 @@ describe('MisionesService', () => {
         expect(value!.items[0].numero_orden).toBe('ORD-1542');
       });
 
-      it('filtra por query (boletin) cuando no matchea numero_orden', () => {
-        const { value } = runMock(service.findConvocatorias('2', 1, 10, 'bol-2025'));
+      it('filtra por query (resolución) cuando no matchea numero_orden', () => {
+        const { value } = runMock(service.findConvocatorias('2', 1, 10, 'res-2025'));
         expect(value!.items).toHaveLength(1);
       });
 
@@ -762,7 +762,7 @@ describe('MisionesService', () => {
         );
       });
 
-      it('rechaza con 400 si algún funcionario no tiene orden ni boletín', () => {
+      it('rechaza con 400 si algún funcionario no tiene orden ni resolución', () => {
         const { error } = runMock(service.addFuncionarios('1', '101', [{ persona_id: '999' }]));
         expect(error.status).toBe(400);
       });
@@ -809,7 +809,7 @@ describe('MisionesService', () => {
     });
 
     describe('updateFuncionario', () => {
-      it('actualiza boletín y observaciones', () => {
+      it('actualiza resolución y observaciones', () => {
         runMock(service.updateFuncionario('1', '101', '1001', { boletin: 'BOL-NUEVO', observaciones: 'nota' }));
         const { value } = runMock(service.findFuncionariosByConvocatoria('1', '101'));
         const f = value!.items.find((x) => x.persona_id === '1001')!;
@@ -822,14 +822,14 @@ describe('MisionesService', () => {
         expect(error.status).toBe(404);
       });
 
-      it('rechaza con 400 si el resultado final se queda sin orden ni boletín', () => {
+      it('rechaza con 400 si el resultado final se queda sin orden ni resolución', () => {
         // persona_id 1001 en convocatoria 101 solo tiene boletin (sin numero_orden);
-        // intentar vaciar el boletín sin poner un numero_orden debe fallar.
+        // intentar vaciar la resolución sin poner un numero_orden debe fallar.
         const { error } = runMock(service.updateFuncionario('1', '101', '1001', { boletin: '' }));
         expect(error.status).toBe(400);
       });
 
-      it('permite actualizar solo observaciones sin tocar orden/boletín', () => {
+      it('permite actualizar solo observaciones sin tocar orden/resolución', () => {
         const { value: before } = runMock(service.findFuncionariosByConvocatoria('1', '101'));
         const boletinPrevio = before!.items.find((f) => f.persona_id === '1001')!.boletin;
         runMock(service.updateFuncionario('1', '101', '1001', { observaciones: 'solo esto' }));

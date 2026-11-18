@@ -7,7 +7,7 @@ import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
-import { SlotVista, armarSlots, ETIQUETAS_BOLETIN } from '../../../../core/services/documentos-registro';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { PaisesService, PaisOpcion } from '../../../../core/services/paises.service';
 import {
@@ -125,7 +125,6 @@ export class MisionesPage implements OnInit, OnDestroy {
       f.documentos,
       { orden: f.mision.numero_orden, boletin: f.mision.boletin },
       this.puedeGestionar(),
-      ETIQUETAS_BOLETIN,
     );
   });
   readonly tituloDocumentos = computed(() => {
@@ -153,9 +152,8 @@ export class MisionesPage implements OnInit, OnDestroy {
     nombre_mision: ['', [Validators.required, Validators.maxLength(150)]],
     pais: ['', Validators.required],
     fecha_orden: [''],
+    boletin: ['', Validators.maxLength(50)],
     fecha_boletin: [''],
-    numero_resolucion: [''],
-    fecha_resolucion: [''],
     resolucion_cje: [''],
   });
 
@@ -358,9 +356,8 @@ export class MisionesPage implements OnInit, OnDestroy {
       nombre_mision: '',
       pais: '',
       fecha_orden: '',
+      boletin: '',
       fecha_boletin: '',
-      numero_resolucion: '',
-      fecha_resolucion: '',
       resolucion_cje: '',
     });
     this.modalError.set(null);
@@ -375,9 +372,8 @@ export class MisionesPage implements OnInit, OnDestroy {
       nombre_mision: mision.nombre_mision,
       pais: mision.pais,
       fecha_orden: mision.fecha_orden ?? '',
+      boletin: mision.boletin ?? '',
       fecha_boletin: mision.fecha_boletin ?? '',
-      numero_resolucion: mision.numero_resolucion ?? '',
-      fecha_resolucion: mision.fecha_resolucion ?? '',
       resolucion_cje: mision.resolucion_cje ?? '',
     });
     this.modalError.set(null);
@@ -420,9 +416,8 @@ export class MisionesPage implements OnInit, OnDestroy {
       nombre_mision: raw.nombre_mision!,
       pais: raw.pais!,
       fecha_orden: raw.fecha_orden || vacio,
+      boletin: raw.boletin?.trim() || vacio,
       fecha_boletin: raw.fecha_boletin || vacio,
-      numero_resolucion: raw.numero_resolucion || vacio,
-      fecha_resolucion: raw.fecha_resolucion || vacio,
       resolucion_cje: raw.resolucion_cje || vacio,
     };
 
@@ -527,7 +522,7 @@ export class MisionesPage implements OnInit, OnDestroy {
 
     const raw = this.editarFuncionarioForm.getRawValue();
     if (!raw.numero_orden?.trim() && !raw.boletin?.trim()) {
-      this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
+      this.modalError.set('Debés ingresar al menos el N° de orden o la resolución.');
       return;
     }
 

@@ -307,7 +307,7 @@ describe('ReincorporarRetiroModal', () => {
     expect(component.form.controls.porcentaje.invalid).toBe(true);
   });
 
-  it('exige número de orden o boletín', async () => {
+  it('exige número de orden o resolución', async () => {
     await montar();
     completar({ numero_orden: '', boletin: '' });
     expect(component.form.hasError('ordenOBoletin')).toBe(true);

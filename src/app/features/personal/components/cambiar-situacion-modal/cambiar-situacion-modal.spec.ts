@@ -62,7 +62,7 @@ describe('CambiarSituacionModal', () => {
     fixture.detectChanges();
   };
 
-  it('pide orden o boletín antes de llamar al backend', async () => {
+  it('pide orden o resolución antes de llamar al backend', async () => {
     await crear(SIT('SIT01'));
     component.form.controls.cambio.setValue('LICENCIA_SIN_GOCE');
     component.guardar();

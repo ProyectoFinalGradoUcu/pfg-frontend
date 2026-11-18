@@ -664,7 +664,7 @@ describe('PersonalDetailPage', () => {
       expect((boletin.api as any).id).toBe('asignacion:5');
     });
 
-    it('cursos: ya no hay link al boletín y el número se ve como texto', () => {
+    it('cursos: ya no hay link a la resolución y el número se ve como texto', () => {
       svc.getCursos.mockReturnValue(of([{
         id: '3', curso_id: 8, nombre_curso: 'Curso', institucion: 'ETA', es_obligatorio: true, boletin: 'B-9',
         numero_orden: 'O-2', fecha_inicio: '2024-01-01', fecha_fin: '2024-02-01', aprobado: null,

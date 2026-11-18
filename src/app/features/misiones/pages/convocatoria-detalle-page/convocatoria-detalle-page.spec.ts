@@ -21,7 +21,7 @@ import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function makeMision(overrides: Partial<MisionDefinicion> = {}): MisionDefinicion {
-  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0, ...overrides };
+  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', fecha_orden: null, boletin: null, fecha_boletin: null, resolucion_cje: null, total_convocatorias: 0, ...overrides };
 }
 
 function makeConvocatoria(overrides: Partial<Convocatoria> = {}): Convocatoria {
@@ -418,7 +418,7 @@ describe('ConvocatoriaDetallePage', () => {
       expect(misionesService.addFuncionarios).not.toHaveBeenCalled();
     });
 
-    it('asignarFuncionario setea error si falta orden y boletín', () => {
+    it('asignarFuncionario setea error si falta orden y resolución', () => {
       component.convocatoria.set(makeConvocatoria());
       component.asignarForm.patchValue({ persona_id: '5', numero_orden: '', boletin: '' });
       component.asignarFuncionario();
@@ -732,7 +732,7 @@ describe('ConvocatoriaDetallePage', () => {
       expect(misionesService.updateFuncionario).not.toHaveBeenCalled();
     });
 
-    it('guardarEdicionFuncionario setea error si falta orden y boletín', () => {
+    it('guardarEdicionFuncionario setea error si falta orden y resolución', () => {
       component.convocatoria.set(makeConvocatoria());
       component.funcionarioEditando.set(makeFuncionario());
       component.editarFuncionarioForm.patchValue({ numero_orden: '', boletin: '' });

@@ -6,9 +6,8 @@ export type Mision = {
   nombre_mision: string;
   pais: string;
   fecha_orden: string | null;
+  boletin: string | null;
   fecha_boletin: string | null;
-  numero_resolucion: string | null;
-  fecha_resolucion: string | null;
   resolucion_cje: string | null;
   total_convocatorias: number;
 };
