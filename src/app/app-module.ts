@@ -5,6 +5,7 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { AppRoutingModule } from './app-routing-module';
 import { App } from './app';
 import { NotFoundPage } from './features/not-found/pages/not-found-page/not-found-page';
+import { SinAccesoPage } from './features/sin-acceso/pages/sin-acceso-page/sin-acceso-page';
 import { MainLayout } from './core/layout/main-layout/main-layout';
 import { Sidebar } from './core/layout/sidebar/sidebar';
 import { SidebarAccordionItem } from './core/layout/sidebar/sidebar-accordion-item';
@@ -18,7 +19,7 @@ import { authErrorInterceptor } from './core/interceptors/auth-error.interceptor
 import { responseUnwrapInterceptor } from './core/interceptors/response-unwrap.interceptor';
 
 @NgModule({
-  declarations: [App, NotFoundPage, MainLayout, Sidebar, Topbar, ToastContainer, ErrorModal, ConfirmModal],
+  declarations: [App, NotFoundPage, SinAccesoPage, MainLayout, Sidebar, Topbar, ToastContainer, ErrorModal, ConfirmModal],
   imports: [BrowserModule, CoreModule, AppRoutingModule, SidebarAccordionItem],
   exports: [ToastContainer, ErrorModal, ConfirmModal],
   providers: [

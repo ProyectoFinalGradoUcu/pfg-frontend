@@ -2,8 +2,10 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { MainLayout } from './core/layout/main-layout/main-layout';
 import { NotFoundPage } from './features/not-found/pages/not-found-page/not-found-page';
+import { SinAccesoPage } from './features/sin-acceso/pages/sin-acceso-page/sin-acceso-page';
 import { authGuard, sesionActivaMatch } from './core/guards/auth.guard';
 import { permissionGuard } from './core/guards/permission.guard';
+import { inicioGuard, sinAccesoGuard } from './core/guards/inicio.guard';
 
 const routes: Routes = [
   { path: 'login', redirectTo: 'auth/login', pathMatch: 'full' },
@@ -11,16 +13,15 @@ const routes: Routes = [
     path: 'auth',
     loadChildren: () => import('./features/auth/auth-module').then((m) => m.AuthModule),
   },
+  { path: 'sin-acceso', component: SinAccesoPage, canActivate: [sinAccesoGuard] },
   {
     path: '',
     component: MainLayout,
     canActivate: [authGuard],
     children: [
-      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-      {
-        path: 'dashboard',
-        loadChildren: () => import('./features/dashboard/dashboard-module').then((m) => m.DashboardModule),
-      },
+      { path: '', pathMatch: 'full', canActivate: [inicioGuard], children: [] },
+      // Links viejos al dashboard.
+      { path: 'dashboard', redirectTo: '', pathMatch: 'full' },
       {
         path: 'personal',
         canActivate: [permissionGuard(['personas.ver', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar', 'derecha.gestionar'])],

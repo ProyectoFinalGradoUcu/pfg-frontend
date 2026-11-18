@@ -32,7 +32,7 @@ describe('NotFoundPage', () => {
   it('con sesión ofrece volver al inicio, dentro del layout', () => {
     const el = render();
     const accion = el.querySelector('.not-found__action');
-    expect(accion?.getAttribute('href')).toBe('/dashboard');
+    expect(accion?.getAttribute('href')).toBe('/');
     expect(el.querySelector('.not-found--suelta')).toBeNull();
   });
 
