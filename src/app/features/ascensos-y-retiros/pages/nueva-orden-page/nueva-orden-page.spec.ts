@@ -114,7 +114,7 @@ describe('NuevaOrdenPage', () => {
     expect(component.paso()).toBe(2);
   });
 
-  it('no avanza con la fecha pero sin orden ni boletín', async () => {
+  it('no avanza con la fecha pero sin orden ni resolución', async () => {
     await montar();
     component.ordenForm.patchValue({ fecha_orden: '2027-02-01' });
 
@@ -124,7 +124,7 @@ describe('NuevaOrdenPage', () => {
     expect(component.ordenForm.hasError('sinOrdenNiBoletin')).toBe(true);
   });
 
-  it('alcanza con el boletín para avanzar', async () => {
+  it('alcanza con la resolución para avanzar', async () => {
     await montar();
     component.ordenForm.patchValue({
       boletin: 'BOL-2027-02',
@@ -136,7 +136,7 @@ describe('NuevaOrdenPage', () => {
     expect(component.paso()).toBe(2);
   });
 
-  it('avisa que falta la orden o el boletín recién al tocar «Siguiente»', async () => {
+  it('avisa que falta la orden o la resolución recién al tocar «Siguiente»', async () => {
     await montar();
     component.ordenForm.patchValue({ fecha_orden: '2027-02-01' });
     component.ordenForm.get('numero_orden')!.markAsTouched();

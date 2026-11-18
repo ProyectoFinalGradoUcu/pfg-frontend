@@ -83,8 +83,6 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     numero_destino: ['', Validators.maxLength(20)],
     fecha_orden: [''],
     fecha_boletin: [''],
-    numero_resolucion: ['', Validators.maxLength(50)],
-    fecha_resolucion: [''],
     observaciones: [''],
     /** Solo se manda si el operador la corrige. */
     fecha_fin_anterior: [''],
@@ -241,7 +239,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       return;
     }
     if (!numeroOrden && !boletin) {
-      this.error.set('Ingresá al menos el N° de orden o el boletín.');
+      this.error.set('Ingresá al menos el N° de orden o la resolución.');
       return;
     }
     if (this.mismoDestinoQueElActual()) {
@@ -268,9 +266,6 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     if (numeroDestino) payload.numero_destino = numeroDestino;
     if (raw.fecha_orden) payload.fecha_orden = raw.fecha_orden;
     if (raw.fecha_boletin) payload.fecha_boletin = raw.fecha_boletin;
-    const resolucion = (raw.numero_resolucion ?? '').trim();
-    if (resolucion) payload.numero_resolucion = resolucion;
-    if (raw.fecha_resolucion) payload.fecha_resolucion = raw.fecha_resolucion;
     const observaciones = (raw.observaciones ?? '').trim();
     if (observaciones) payload.observaciones = observaciones;
     if (cierreAnterior) payload.fecha_fin_anterior = cierreAnterior;
@@ -322,8 +317,6 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       numero_destino: destino.numero_destino ?? '',
       fecha_orden: fechaTexto(destino.fecha_orden),
       fecha_boletin: fechaTexto(destino.fecha_boletin),
-      numero_resolucion: destino.numero_resolucion ?? '',
-      fecha_resolucion: fechaTexto(destino.fecha_resolucion),
       observaciones: destino.observaciones ?? '',
     });
   }
@@ -335,7 +328,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     const numeroOrden = (raw.numero_orden ?? '').trim();
     const boletin = (raw.boletin ?? '').trim();
     if (!numeroOrden && !boletin) {
-      this.error.set('El destino debe conservar al menos el N° de orden o el boletín.');
+      this.error.set('El destino debe conservar al menos el N° de orden o la resolución.');
       return;
     }
 
@@ -348,8 +341,6 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       numero_destino: raw.numero_destino ?? '',
       fecha_orden: raw.fecha_orden ?? '',
       fecha_boletin: raw.fecha_boletin ?? '',
-      numero_resolucion: raw.numero_resolucion ?? '',
-      fecha_resolucion: raw.fecha_resolucion ?? '',
       observaciones: raw.observaciones ?? '',
     });
 

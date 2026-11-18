@@ -73,7 +73,7 @@ interface OpcionFuncionario {
  * Registro de una orden en tres pasos. Se llega desde el listado de pasibles con
  * una selección, desde el perfil con una persona, o vacío.
  */
-/** La orden se identifica por el N.º de O.C.G.F.A. o por el boletín: al menos uno. */
+/** La orden se identifica por el N.º de O.C.G.F.A. o por la resolución: al menos uno. */
 function alMenosOrdenOBoletin(group: AbstractControl): ValidationErrors | null {
   const numero = String(group.get('numero_orden')?.value ?? '').trim();
   const boletin = String(group.get('boletin')?.value ?? '').trim();
@@ -104,7 +104,7 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   readonly resultados = signal<Elegibilidad[]>([]);
   readonly filas = signal<FilaDeOrden[]>([]);
 
-  /** El error del grupo N.º de orden / boletín se muestra recién al tocar «Siguiente». */
+  /** El error del grupo N.º de orden / resolución se muestra recién al tocar «Siguiente». */
   readonly intentoSiguiente = signal(false);
 
   /** Lo que se escribió en el buscador del combobox, para elegir el texto del estado vacío. */

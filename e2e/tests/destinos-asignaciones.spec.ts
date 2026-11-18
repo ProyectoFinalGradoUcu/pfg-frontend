@@ -50,7 +50,7 @@ test.describe('registrar un pase', () => {
     await m.locator('[formcontrolname=posicion_destino]').fill('Jefe de sección');
 
     await m.getByRole('button', { name: 'Registrar destino' }).click();
-    await expect(m.locator('.modal__error')).toHaveText('Ingresá al menos el N° de orden o el boletín.');
+    await expect(m.locator('.modal__error')).toHaveText('Ingresá al menos el N° de orden o la resolución.');
 
     await m.locator('[formcontrolname=numero_orden]').fill(`O.D. ${cedula}`);
     await m.getByRole('button', { name: 'Registrar destino' }).click();
@@ -96,7 +96,7 @@ test.describe('editar un destino', () => {
 
     const m = modal(page);
     await expect(m.getByRole('heading', { name: 'Editar destino' })).toBeVisible();
-    // El destino que crea el alta no trae orden ni boletín.
+    // El destino que crea el alta no trae orden ni resolución.
     await m.locator('[formcontrolname=numero_orden]').fill(`O.D. ${cedula}`);
     await m.locator('[formcontrolname=fecha_fin]').fill('2019-01-01');
     await m.getByRole('button', { name: 'Guardar cambios' }).click();

@@ -21,7 +21,7 @@ import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function makeMision(overrides: Partial<MisionDefinicion> = {}): MisionDefinicion {
-  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0, ...overrides };
+  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', fecha_orden: null, boletin: null, fecha_boletin: null, resolucion_cje: null, total_convocatorias: 0, ...overrides };
 }
 
 function makeMisionItem(overrides: Partial<FuncionarioMisionItem> = {}): FuncionarioMisionItem {
@@ -266,9 +266,8 @@ describe('MisionesPage', () => {
         nombre_mision: '',
         pais: '',
         fecha_orden: '',
+        boletin: '',
         fecha_boletin: '',
-        numero_resolucion: '',
-        fecha_resolucion: '',
         resolucion_cje: '',
       });
       expect(component.modal()).toBe('nuevaMision');
@@ -282,9 +281,8 @@ describe('MisionesPage', () => {
         nombre_mision: 'Haití',
         pais: 'Haití',
         fecha_orden: '',
+        boletin: '',
         fecha_boletin: '',
-        numero_resolucion: '',
-        fecha_resolucion: '',
         resolucion_cje: '',
       });
       expect(component.modal()).toBe('editarMision');
@@ -341,9 +339,8 @@ describe('MisionesPage', () => {
         nombre_mision: 'Nuevo',
         pais: 'Y',
         fecha_orden: null,
+        boletin: null,
         fecha_boletin: null,
-        numero_resolucion: null,
-        fecha_resolucion: null,
         resolucion_cje: null,
       });
     });
@@ -500,7 +497,7 @@ describe('MisionesPage', () => {
       expect(ultimaLlamada()).toEqual([1, 10, { query: 'Ana' }]);
     });
 
-    it('el filtro de orden o boletín va al backend tras el debounce', () => {
+    it('el filtro de orden o resolución va al backend tras el debounce', () => {
       vi.useFakeTimers();
       component.onOrdenBoletinPersonalInput('BOL-9');
       vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
@@ -694,7 +691,7 @@ describe('MisionesPage', () => {
       expect(component.filaEditando()).toEqual(fila());
     });
 
-    it('guardarEdicionFuncionarioPersonal setea error si faltan orden y boletín', () => {
+    it('guardarEdicionFuncionarioPersonal setea error si faltan orden y resolución', () => {
       component.abrirEditarFuncionarioPersonal(fila());
       component.editarFuncionarioForm.patchValue({ numero_orden: '', boletin: '' });
       component.guardarEdicionFuncionarioPersonal();

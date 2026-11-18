@@ -345,7 +345,7 @@ describe('RetiroFormModal', () => {
     });
   });
 
-  describe('documentos de orden y boletín', () => {
+  describe('documentos de orden y resolución', () => {
     const pdf = (nombre: string) => new File(['%PDF-1.4'], nombre, { type: 'application/pdf' });
 
     async function listoParaConfirmar(): Promise<void> {
@@ -458,7 +458,7 @@ describe('RetiroFormModal', () => {
       expect(retiros.subirDocumento).not.toHaveBeenCalled();
     });
 
-    it('Adjuntar del boletín está deshabilitado mientras el campo boletín está vacío', async () => {
+    it('Adjuntar de la resolución está deshabilitado mientras el campo resolución está vacío', async () => {
       await montar();
       const adjuntarBoletin = () =>
         (fixture.nativeElement as HTMLElement)

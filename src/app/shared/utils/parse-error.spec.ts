@@ -25,8 +25,8 @@ describe('parseError', () => {
   });
 
   it('devuelve message cuando es un string', () => {
-    expect(parseError(error({ message: 'Se requiere al menos número de orden o boletín' })))
-      .toBe('Se requiere al menos número de orden o boletín');
+    expect(parseError(error({ message: 'Se requiere al menos número de orden o resolución' })))
+      .toBe('Se requiere al menos número de orden o resolución');
   });
 
   it('devuelve el body cuando el backend responde texto plano', () => {

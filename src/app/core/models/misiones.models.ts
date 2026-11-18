@@ -7,11 +7,10 @@ export interface MisionDefinicion {
   id: string;
   nombre_mision: string;
   pais: string;
-  /** Acto administrativo (orden, boletín, resolución) generado por C.G. */
+  /** Acto administrativo (orden y resolución) generado por C.G. La resolución viaja como boletin. */
   fecha_orden: string | null;
+  boletin: string | null;
   fecha_boletin: string | null;
-  numero_resolucion: string | null;
-  fecha_resolucion: string | null;
   resolucion_cje: string | null;
   total_convocatorias: number;
 }
@@ -20,9 +19,8 @@ export interface CreateMisionDefinicionPayload {
   nombre_mision: string;
   pais: string;
   fecha_orden?: string | null;
+  boletin?: string | null;
   fecha_boletin?: string | null;
-  numero_resolucion?: string | null;
-  fecha_resolucion?: string | null;
   resolucion_cje?: string | null;
 }
 

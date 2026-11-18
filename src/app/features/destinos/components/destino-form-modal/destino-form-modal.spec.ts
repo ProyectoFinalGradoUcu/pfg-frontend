@@ -28,8 +28,6 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
     numero_destino: null,
     fecha_orden: null,
     fecha_boletin: null,
-    numero_resolucion: null,
-    fecha_resolucion: null,
     observaciones: null,
     activo: true,
     documentos: { orden: null, boletin: null },
@@ -273,10 +271,10 @@ describe('DestinoFormModal (crear)', () => {
       component.form.patchValue({ sub_unidad_id: '7', fecha_inicio: '2026-09-01' });
     });
 
-    it('exige número de orden o boletín', () => {
+    it('exige número de orden o resolución', () => {
       component.guardar();
       expect(destinosService.crear).not.toHaveBeenCalled();
-      expect(component.error()).toBe('Ingresá al menos el N° de orden o el boletín.');
+      expect(component.error()).toBe('Ingresá al menos el N° de orden o la resolución.');
     });
 
     it('exige persona, sub-unidad y fecha de inicio', () => {
@@ -539,12 +537,12 @@ describe('DestinoFormModal (editar)', () => {
     expect(cerrados.length).toBe(1);
   });
 
-  it('exige conservar al menos el número de orden o el boletín', () => {
+  it('exige conservar al menos el número de orden o la resolución', () => {
     crearFixtureEditando(makeDestino());
     component.form.patchValue({ numero_orden: '', boletin: '' });
     component.guardar();
     expect(destinosService.editar).not.toHaveBeenCalled();
-    expect(component.error()).toBe('El destino debe conservar al menos el N° de orden o el boletín.');
+    expect(component.error()).toBe('El destino debe conservar al menos el N° de orden o la resolución.');
   });
 });
 

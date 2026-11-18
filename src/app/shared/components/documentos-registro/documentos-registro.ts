@@ -9,7 +9,7 @@ import { ConfirmModalService } from '../../../core/services/confirm-modal.servic
 import { ErrorModalService } from '../../../core/services/error-modal.service';
 import { parseError } from '../../utils/parse-error';
 
-/** Orden y boletín de un registro: cada slot habla con su propia API. */
+/** Orden y resolución de un registro: cada slot habla con su propia API. */
 @Component({
   selector: 'app-documentos-registro',
   standalone: false,

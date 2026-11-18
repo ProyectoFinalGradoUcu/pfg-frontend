@@ -21,7 +21,7 @@ import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function makeMision(overrides: Partial<MisionDefinicion> = {}): MisionDefinicion {
-  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0, ...overrides };
+  return { id: '1', nombre_mision: 'Congo', pais: 'RD Congo', fecha_orden: null, boletin: null, fecha_boletin: null, resolucion_cje: null, total_convocatorias: 0, ...overrides };
 }
 
 function makeConvocatoria(overrides: Partial<Convocatoria> = {}): Convocatoria {
@@ -237,7 +237,7 @@ describe('MisionConvocatoriasPage', () => {
       expect(misionesService.findConvocatorias).toHaveBeenLastCalledWith('1', 1, 10, undefined, true);
     });
 
-    it('pasa el query de orden/boletín recortado', () => {
+    it('pasa el query de orden/resolución recortado', () => {
       component.filtroOrdenBoletin.set('  ORD-1  ');
       component.cargarConvocatorias();
       expect(misionesService.findConvocatorias).toHaveBeenLastCalledWith('1', 1, 10, 'ORD-1', undefined);
@@ -289,7 +289,7 @@ describe('MisionConvocatoriasPage', () => {
       expect(misionesService.findConvocatorias).toHaveBeenLastCalledWith('1', 1, 10, undefined, true);
     });
 
-    it('hayFiltrosConv es true si hay texto de orden/boletín', () => {
+    it('hayFiltrosConv es true si hay texto de orden/resolución', () => {
       component.filtroOrdenBoletin.set('X');
       expect(component.hayFiltrosConv()).toBe(true);
     });
@@ -394,7 +394,7 @@ describe('MisionConvocatoriasPage', () => {
       expect(component.convocatoriaSeleccionada()).toBeNull();
     });
 
-    it('guardarConvocatoria setea error si no hay orden ni boletín', () => {
+    it('guardarConvocatoria setea error si no hay orden ni resolución', () => {
       component.abrirNuevaConvocatoria();
       component.convocatoriaForm.patchValue({ numero_orden: '', boletin: '' });
       component.guardarConvocatoria();
