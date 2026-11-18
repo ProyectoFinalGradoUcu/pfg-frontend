@@ -23,7 +23,11 @@
           formControlName="username"
           placeholder="usuario@fau.mil.uy"
           autocomplete="username"
+          [class.login__input--error]="campoInvalido('username')"
         />
+        <span *ngIf="campoInvalido('username')" class="login__field-error">
+          {{ form.get('username')?.hasError('required') ? 'Ingresá tu email' : 'Ingresá un email válido' }}
+        </span>
       </div>
 
       <div class="login__field">
@@ -34,7 +38,9 @@
           formControlName="password"
           placeholder="Ingrese su contraseña"
           autocomplete="current-password"
+          [class.login__input--error]="campoInvalido('password')"
         />
+        <span *ngIf="campoInvalido('password')" class="login__field-error">Ingresá tu contraseña</span>
       </div>
 
       <div *ngIf="errorMessage()" class="login__error" role="alert">

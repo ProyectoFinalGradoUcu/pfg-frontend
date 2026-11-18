@@ -18,7 +18,7 @@ export class LoginPage implements OnInit {
 
   readonly form = this.fb.group({
     username: ['', [Validators.required, Validators.email, Validators.maxLength(60)]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
+    password: ['', [Validators.required]],
   });
 
   readonly loading = signal(false);
@@ -27,6 +27,11 @@ export class LoginPage implements OnInit {
 
   ngOnInit(): void {
     this.successMessage.set(this.route.snapshot.queryParamMap.get('mensaje'));
+  }
+
+  campoInvalido(nombre: 'username' | 'password'): boolean {
+    const ctrl = this.form.get(nombre)!;
+    return ctrl.invalid && ctrl.touched;
   }
 
   submit(): void {
@@ -52,7 +57,15 @@ export class LoginPage implements OnInit {
   }
 
   private parseError(err: HttpErrorResponse): string {
-    if (err.status === 401) return 'Usuario o contraseña incorrectos';
+    if (err.status === 401) {
+      // El backend distingue al usuario bloqueado ("Usuario bloqueado" /
+      // "Usuario bloqueado temporalmente"); ese mensaje se muestra tal cual.
+      const mensaje = err.error?.service_response?.service_status?.http_message;
+      if (typeof mensaje === 'string' && mensaje.startsWith('Usuario bloqueado')) {
+        return mensaje;
+      }
+      return 'Usuario o contraseña incorrectos';
+    }
     if (err.status === 429) return 'Demasiados intentos. Intentá en unos minutos';
     if (err.status === 0) return 'No se pudo conectar con el servidor';
     return 'Error inesperado. Intentá nuevamente';

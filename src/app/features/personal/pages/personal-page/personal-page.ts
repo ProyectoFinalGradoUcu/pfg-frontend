@@ -1,9 +1,40 @@
 import { Component, HostListener, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { Subject, switchMap, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
-import { CargaMasivaResult, GradoItem, OpcionSelect, PersonaListItem } from '../../../../core/models/personal.models';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute, Params, Router } from '@angular/router';
+import { EMPTY, Subject, catchError, switchMap, takeUntil, debounceTime, filter } from 'rxjs';
+import {
+  BaseOpcion,
+  FiltroCategoria,
+  GradoItem,
+  OPCIONES_FILTRO_CATEGORIA,
+  OpcionSelect,
+  PersonaListItem,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import {
+  FILTRO_DERECHA_NUMOR_INICIAL,
+  FiltroDerechaNumor,
+  filtroDerechaNumorParams,
+  hayFiltroDerechaNumor,
+  OrdenarPorDerechaNumor,
+} from '../../../../core/models/derecha.models';
+import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
+import { ToastService } from '../../../../core/services/toast.service';
+import { parseError } from '../../../../shared/utils/parse-error';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
+
+/** Lista de ids separada por coma ('3,4'); descarta lo que no sea un id válido. */
+const idsDeUrl = (valor: string | null): number[] =>
+  (valor ?? '').split(',').map(Number).filter(n => Number.isInteger(n) && n > 0);
+
+const numeroDeUrl = (valor: string | null): number | null => {
+  const n = valor == null || valor === '' ? NaN : Number(valor);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
+const CLAVES_FILTRO_DERECHA = ['derechaDesde', 'derechaHasta', 'numorDesde', 'numorHasta'] as const;
 
 @Component({
   selector: 'app-personal-page',
@@ -13,93 +44,131 @@ import { AuthService } from '../../../../core/services/auth.service';
 })
 export class PersonalPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly toast = inject(ToastService);
   private readonly personalService = inject(PersonalService);
   private readonly auth = inject(AuthService);
 
+  readonly puedeCrear = computed(() => this.auth.puedeConAlcance('personas.crear'));
+  readonly puedeEditar = computed(() => this.auth.puedeConAlcance('personas.editar'));
+
   /**
-   * Con alcance de unidad el backend fuerza el filtro y descarta `destino` del query. El select
-   * se muestra fijo y deshabilitado en vez de ocultarse, para que quede claro por qué el
-   * listado está acotado.
+   * Con alcance de unidad el backend nunca lista fuera de las bases del usuario: sin destino
+   * elegido muestra todas las suyas, y con destino solo las elegidas que sean suyas.
    */
   readonly alcanceAcotado = computed(
     () => this.auth.alcanceDe('personas.ver') === 'unidad',
   );
-  readonly unidadPropia = computed(() => {
-    const user = this.auth.currentUser();
-    if (!user || user.unidades.length === 0) return null;
-    return user.unidades.map((u) => u.denominacion).join(', ');
+  /** Opciones del filtro Destino: con alcance de unidad, solo las bases del usuario. */
+  readonly basesDelFiltro = computed(() => {
+    if (!this.alcanceAcotado()) return this.bases();
+    const propias = new Set((this.auth.currentUser()?.unidades ?? []).map((u) => String(u.id)));
+    return this.bases().filter((b) => propias.has(String(b.id)));
   });
 
   readonly PAGE_SIZE = 10;
 
   readonly searchTerm     = signal('');
-  readonly selectedDestino = signal<number | null>(null);
-  readonly selectedRango   = signal<number | null>(null);
-  readonly selectedEstado  = signal<number | null>(null);
+  /** En los filtros de lista, vacío equivale a «Todos». */
+  readonly selectedDestinos = signal<number[]>([]);
+  readonly selectedEstados = signal<number[]>([]);
+  readonly selectedCategoria = signal<FiltroCategoria>('todos');
+  readonly opcionesCategoria = OPCIONES_FILTRO_CATEGORIA;
   /**
    * `GET /personas` excluye a los retirados por defecto: exige una relación con
    * `fecha_fin: null`. Sin este toggle, un retirado simplemente no está en la grilla.
    */
   readonly incluirRetirados = signal(false);
+  /** Grado, escalafón, rangos de derecha y numor, y el orden del listado. */
+  readonly filtroDerecha = signal<FiltroDerechaNumor>({ ...FILTRO_DERECHA_NUMOR_INICIAL });
   readonly currentPage     = signal(1);
 
   readonly items   = signal<PersonaListItem[]>([]);
   readonly total   = signal(0);
   readonly loading = signal(false);
 
-  readonly unidades    = signal<OpcionSelect[]>([]);
-  readonly todosGrados = signal<GradoItem[]>([]);
+  readonly bases       = signal<BaseOpcion[]>([]);
   readonly situaciones = signal<OpcionSelect[]>([]);
+  readonly grados      = signal<GradoItem[]>([]);
+  readonly escalafones = signal<OpcionSelect[]>([]);
 
-  readonly hayFiltrosActivos = computed(() =>
-    !!this.searchTerm() || !!this.selectedDestino() || !!this.selectedRango() || !!this.selectedEstado() || this.incluirRetirados()
-  );
+  /** Segunda fila de filtros (derecha, numor, estado y retirados): se despliega con la flecha. */
+  readonly filtrosExtraAbiertos = signal(false);
+
+  /** Solo lo que está en la fila desplegable: es lo que avisa el punto de la flecha. */
+  readonly hayFiltroExtra = computed(() => {
+    const f = this.filtroDerecha();
+    return this.selectedEstados().length > 0 || this.incluirRetirados()
+      || [f.derechaDesde, f.derechaHasta, f.numorDesde, f.numorHasta].some((v) => v != null);
+  });
+
+  readonly hayFiltrosActivos = computed(() => {
+    const f = this.filtroDerecha();
+    return !!this.searchTerm() || this.selectedDestinos().length > 0 || this.selectedEstados().length > 0
+      || this.selectedCategoria() !== 'todos' || this.incluirRetirados() || hayFiltroDerechaNumor(f);
+  });
 
   readonly openMenuId    = signal<string | null>(null);
   readonly menuPosition  = signal<{ top: number; right: number } | null>(null);
 
   // ─── Import ───────────────────────────────────────────────────────────────────
   readonly importPanelOpen = signal(false);
-  readonly importFile      = signal<File | null>(null);
-  readonly importLoading   = signal(false);
-  readonly importResult    = signal<CargaMasivaResult | null>(null);
-  readonly importError     = signal<string | null>(null);
+  readonly cargaPersonal = CARGAS_MASIVAS.personal;
 
   private readonly destroy$       = new Subject<void>();
   private readonly searchSubject$ = new Subject<string>();
   private readonly triggerLoad$   = new Subject<void>();
+  /**
+   * Término con el que salió la última petición. Reemplaza a `distinctUntilChanged`, que tras
+   * 'Borrar filtros' seguía recordando el término viejo y no recargaba al volver a escribirlo.
+   */
+  private busquedaAplicada: string | undefined;
 
   ngOnInit(): void {
+    // La página, los filtros y el orden viven en la URL: al volver atrás desde una ficha se recuperan.
+    this.leerEstadoDeUrl();
+
     // Todas las peticiones pasan por triggerLoad$ con switchMap para cancelar
     // la anterior si llega una nueva antes de que responda.
     this.triggerLoad$
       .pipe(
         switchMap(() => {
           this.loading.set(true);
+          this.busquedaAplicada = this.searchTerm().trim() || undefined;
+          this.escribirEstadoEnUrl();
           return this.personalService.findPaginado({
             page:     this.currentPage(),
             pageSize: this.PAGE_SIZE,
-            search:   this.searchTerm().trim() || undefined,
-            destino:  this.selectedDestino() ?? undefined,
-            rango:    this.selectedRango()   ?? undefined,
-            estado:   this.selectedEstado()  ?? undefined,
+            search:   this.busquedaAplicada,
+            destino:  this.selectedDestinos().length ? this.selectedDestinos() : undefined,
+            estado:   this.selectedEstados().length ? this.selectedEstados() : undefined,
+            filtroDerecha: this.filtroDerecha(),
             incluir_inactivos: this.incluirRetirados() || undefined,
-          });
+            categoria: categoriaParam(this.selectedCategoria()),
+          }).pipe(
+            // El error se maneja acá adentro: si llegara al subscribe cortaría el stream
+            // y el listado dejaría de responder hasta recargar la página.
+            catchError((err: HttpErrorResponse) => {
+              this.loading.set(false);
+              this.toast.error(parseError(err));
+              return EMPTY;
+            }),
+          );
         }),
         takeUntil(this.destroy$),
       )
-      .subscribe({
-        next: res => {
-          this.items.set(res.items);
-          this.total.set(res.total);
-          this.loading.set(false);
-        },
-        error: () => this.loading.set(false),
+      .subscribe(res => {
+        this.items.set(res.items);
+        this.total.set(res.total);
+        this.loading.set(false);
       });
 
-    // Buscador con 400 ms de margen antes de disparar la petición.
     this.searchSubject$
-      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(
+        debounceTime(ESPERA_BUSQUEDA_MS),
+        filter(term => (term.trim() || undefined) !== this.busquedaAplicada),
+        takeUntil(this.destroy$),
+      )
       .subscribe(() => {
         this.currentPage.set(1);
         this.triggerLoad$.next();
@@ -114,34 +183,109 @@ export class PersonalPage implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  private leerEstadoDeUrl(): void {
+    const q = this.route.snapshot.queryParamMap;
+    if (!q.keys.length) return;
+
+    this.currentPage.set(numeroDeUrl(q.get('page')) ?? 1);
+    this.searchTerm.set(q.get('q') ?? '');
+    this.selectedDestinos.set(idsDeUrl(q.get('destino')));
+    this.selectedEstados.set(idsDeUrl(q.get('estado')));
+    const categoria = q.get('categoria');
+    if (this.opcionesCategoria.some(o => o.value === categoria)) {
+      this.selectedCategoria.set(categoria as FiltroCategoria);
+    }
+    this.incluirRetirados.set(q.get('retirados') === '1');
+
+    const filtro: FiltroDerechaNumor = { ...FILTRO_DERECHA_NUMOR_INICIAL };
+    for (const clave of CLAVES_FILTRO_DERECHA) filtro[clave] = numeroDeUrl(q.get(clave));
+    filtro.gradoId = idsDeUrl(q.get('gradoId'));
+    filtro.escalafonId = idsDeUrl(q.get('escalafonId'));
+    const escala = q.get('escala');
+    if (escala === 'OFICIALES' || escala === 'SUBALTERNOS') filtro.escala = escala;
+    const ordenarPor = q.get('ordenarPor');
+    if (ordenarPor === 'derecha' || ordenarPor === 'numor' || ordenarPor === 'apellido') filtro.ordenarPor = ordenarPor;
+    const direccion = q.get('direccion');
+    if (direccion === 'ASC' || direccion === 'DESC') filtro.direccion = direccion;
+    this.filtroDerecha.set(filtro);
+
+    // Los filtros de la fila desplegable se muestran abiertos si vienen cargados.
+    if (this.hayFiltroExtra()) this.filtrosExtraAbiertos.set(true);
+  }
+
+  /** Reemplaza la entrada del historial: cambiar un filtro no suma un paso más al botón atrás. */
+  private escribirEstadoEnUrl(): void {
+    const queryParams: Params = {
+      ...filtroDerechaNumorParams(this.filtroDerecha()),
+      ...(this.currentPage() > 1 && { page: this.currentPage() }),
+      ...(this.busquedaAplicada && { q: this.busquedaAplicada }),
+      ...(this.selectedDestinos().length && { destino: this.selectedDestinos().join(',') }),
+      ...(this.selectedEstados().length && { estado: this.selectedEstados().join(',') }),
+      ...(this.selectedCategoria() !== 'todos' && { categoria: this.selectedCategoria() }),
+      ...(this.incluirRetirados() && { retirados: '1' }),
+    };
+    this.router.navigate([], { relativeTo: this.route, queryParams, replaceUrl: true });
+  }
+
   private loadFilterOptions(): void {
-    this.personalService.getUnidades().subscribe({ next: d => this.unidades.set(d) });
-    this.personalService.getGrados().subscribe({ next: d => this.todosGrados.set(d) });
+    this.personalService.getBases().subscribe({ next: d => this.bases.set(d) });
     this.personalService.getSituaciones().subscribe({ next: d => this.situaciones.set(d) });
+    this.personalService.getGrados().subscribe({ next: d => this.grados.set(d) });
+    this.personalService.getEscalafones().subscribe({ next: d => this.escalafones.set(d) });
   }
 
-  onSearch(event: Event): void {
-    this.searchTerm.set((event.target as HTMLInputElement).value);
-    this.searchSubject$.next(this.searchTerm());
+  onSearch(term: string): void {
+    this.searchTerm.set(term);
+    this.searchSubject$.next(term);
   }
 
-  onDestinoChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedDestino.set(val ? Number(val) : null);
+  onDestinosChange(ids: number[] | null): void {
+    this.selectedDestinos.set(ids ?? []);
     this.currentPage.set(1);
     this.triggerLoad$.next();
   }
 
-  onRangoChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedRango.set(val ? Number(val) : null);
+  onFiltroDerecha(filtro: FiltroDerechaNumor): void {
+    this.filtroDerecha.set(filtro);
     this.currentPage.set(1);
     this.triggerLoad$.next();
   }
 
-  onEstadoChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedEstado.set(val ? Number(val) : null);
+  onGradosChange(ids: number[] | null): void {
+    this.onFiltroDerecha({ ...this.filtroDerecha(), gradoId: ids ?? [] });
+  }
+
+  onEscalafonesChange(ids: number[] | null): void {
+    this.onFiltroDerecha({ ...this.filtroDerecha(), escalafonId: ids ?? [] });
+  }
+
+  /** Click en el encabezado: el mismo campo invierte la dirección, otro arranca ascendente. */
+  ordenarPor(campo: OrdenarPorDerechaNumor): void {
+    const actual = this.filtroDerecha();
+    const direccion = actual.ordenarPor === campo && actual.direccion === 'ASC' ? 'DESC' : 'ASC';
+    this.onFiltroDerecha({ ...actual, ordenarPor: campo, direccion });
+  }
+
+  indicadorOrden(campo: OrdenarPorDerechaNumor): string {
+    const f = this.filtroDerecha();
+    if (f.ordenarPor !== campo) return '';
+    return f.direccion === 'DESC' ? '↓' : '↑';
+  }
+
+  ariaSort(campo: OrdenarPorDerechaNumor): 'ascending' | 'descending' | 'none' {
+    const f = this.filtroDerecha();
+    if (f.ordenarPor !== campo) return 'none';
+    return f.direccion === 'DESC' ? 'descending' : 'ascending';
+  }
+
+  onEstadosChange(ids: number[] | null): void {
+    this.selectedEstados.set(ids ?? []);
+    this.currentPage.set(1);
+    this.triggerLoad$.next();
+  }
+
+  onCategoriaChange(categoria: FiltroCategoria): void {
+    this.selectedCategoria.set(categoria);
     this.currentPage.set(1);
     this.triggerLoad$.next();
   }
@@ -159,9 +303,12 @@ export class PersonalPage implements OnInit, OnDestroy {
 
   limpiarFiltros(): void {
     this.searchTerm.set('');
-    this.selectedDestino.set(null);
-    this.selectedRango.set(null);
-    this.selectedEstado.set(null);
+    this.selectedDestinos.set([]);
+    this.selectedEstados.set([]);
+    // Se conserva el orden elegido en la tabla: limpiar borra filtros, no el orden.
+    const { ordenarPor, direccion } = this.filtroDerecha();
+    this.filtroDerecha.set({ ...FILTRO_DERECHA_NUMOR_INICIAL, ordenarPor, direccion });
+    this.selectedCategoria.set('todos');
     this.incluirRetirados.set(false);
     this.currentPage.set(1);
     this.triggerLoad$.next();
@@ -186,49 +333,12 @@ export class PersonalPage implements OnInit, OnDestroy {
   }
 
   abrirImportar(): void {
-    this.importFile.set(null);
-    this.importResult.set(null);
-    this.importError.set(null);
     this.importPanelOpen.set(true);
   }
 
-  cerrarImportar(): void {
-    if (this.importResult()?.exitosos) {
-      this.triggerLoad$.next();
-    }
+  cerrarImportar(huboCambios: boolean): void {
     this.importPanelOpen.set(false);
-  }
-
-  onImportFileChange(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0] ?? null;
-    this.importFile.set(file);
-    this.importError.set(null);
-    this.importResult.set(null);
-  }
-
-  procesarImportacion(): void {
-    const file = this.importFile();
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      this.importError.set('El archivo no puede superar los 5 MB.');
-      return;
-    }
-    this.importLoading.set(true);
-    this.importError.set(null);
-    this.personalService.cargaMasiva(file).subscribe({
-      next: result => {
-        this.importResult.set(result);
-        this.importLoading.set(false);
-      },
-      error: () => {
-        this.importError.set('Error al procesar el archivo. Verificá el formato e intentá de nuevo.');
-        this.importLoading.set(false);
-      },
-    });
-  }
-
-  descargarPlantilla(): void {
-    this.personalService.descargarPlantilla();
+    if (huboCambios) this.triggerLoad$.next();
   }
 
   abrirNuevoPersonal(): void {
@@ -240,7 +350,7 @@ export class PersonalPage implements OnInit, OnDestroy {
   }
 
   editar(item: PersonaListItem): void {
-    this.router.navigate(['/personal', item.id]);
+    this.router.navigate(['/personal', item.id], { queryParams: { editar: 1 } });
   }
 
   trackPersonal = (_index: number, item: PersonaListItem) => item.id;

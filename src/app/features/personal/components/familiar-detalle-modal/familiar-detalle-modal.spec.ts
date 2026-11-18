@@ -31,6 +31,8 @@ function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDet
     etnia: null,
     codigo_postal: null,
     seccional: null,
+    credencial_civica: null,
+    nivel_idoneidad: null,
     es_civil: false,
     relacion_laboral: null as unknown as PersonaDetalle['relacion_laboral'],
     legajo_militar: {

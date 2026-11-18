@@ -1,5 +1,6 @@
 import { Component, ViewEncapsulation, computed, inject } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
+import { SidebarAccordionState } from './sidebar-accordion-state';
 
 @Component({
   selector: 'app-sidebar',
@@ -7,6 +8,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
   encapsulation: ViewEncapsulation.None,
+  providers: [SidebarAccordionState],
 })
 export class Sidebar {
   private readonly auth = inject(AuthService);
@@ -16,6 +18,22 @@ export class Sidebar {
   readonly puedeVerPersonal = computed(() =>
     this.auth.hasAnyPermiso(['personas.ver', 'personas.ver.unidad', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar']),
   );
+  readonly puedeGestionarDerecha = computed(() => this.auth.hasPermiso('derecha.gestionar'));
+
+  readonly itemsPersonal = computed(() => {
+    const items: { label: string; route: string; excluir?: string[] }[] = [];
+    if (this.puedeVerPersonal()) {
+      items.push({
+        label: 'Administración',
+        route: '/personal',
+        excluir: ['/personal/configuracion-derecha'],
+      });
+    }
+    if (this.puedeGestionarDerecha()) {
+      items.push({ label: 'Configuración', route: '/personal/configuracion-derecha' });
+    }
+    return items;
+  });
   readonly puedeVerAscensos = computed(() =>
     this.auth.hasAnyPermiso([
       'ascensos.ver', 'ascensos.ver.unidad', 'ascensos.registrar', 'ascensos.anular',
@@ -46,6 +64,10 @@ export class Sidebar {
   readonly puedeVerDestinos = computed(() =>
     this.auth.hasAnyPermiso(['destinos.ver', 'destinos.gestionar']),
   );
+  readonly puedeVerVuelos = computed(() =>
+    this.auth.hasAnyPermiso(['vuelos.ver', 'vuelos.ver.unidad', 'vuelos.gestionar', 'vuelos.gestionar.unidad']),
+  );
+  readonly puedeVerComisiones = computed(() => this.auth.puedeConAlcance('comisiones.ver'));
   readonly puedeVerReportes = computed(() =>
     this.auth.hasAnyPermiso(['reportes.ejecutar', 'reportes.ejecutar.unidad']),
   );

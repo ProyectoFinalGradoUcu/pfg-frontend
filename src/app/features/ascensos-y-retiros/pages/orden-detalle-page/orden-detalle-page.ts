@@ -21,6 +21,7 @@ import {
   OrdenAscensoDetalle,
   VigenteDeOrden,
 } from '../../../../core/models/ascensos.models';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import { parseError } from '../../../../shared/utils/parse-error';
 
 type ModalKind = 'anular-orden' | 'anular-ascenso' | null;
@@ -58,6 +59,17 @@ export class OrdenDetallePage implements OnInit {
   readonly PAGE_SIZE = PAGE_SIZE;
   readonly page = signal(1);
 
+  readonly slotsOrden = computed<SlotVista[]>(() => {
+    const o = this.orden();
+    if (!o) return [];
+    return armarSlots(
+      this.svc.documentosOrden(o.id),
+      o.documentos,
+      { orden: o.numero_orden, boletin: o.boletin },
+      this.auth.hasPermiso('ascensos.registrar') && !o.anulada,
+    );
+  });
+
   readonly modal = signal<ModalKind>(null);
   readonly ascensoSeleccionado = signal<AscensoDeOrden | null>(null);
   readonly motivo = signal('');
@@ -93,6 +105,11 @@ export class OrdenDetallePage implements OnInit {
         this.error.set(parseError(err));
       },
     });
+  }
+
+  /** Tras adjuntar o quitar un documento: se queda en la página de funcionarios que se estaba viendo. */
+  recargarDocumentos(): void {
+    this.refrescarPagina();
   }
 
   irAPagina(pagina: number): void {

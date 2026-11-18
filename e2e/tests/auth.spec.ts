@@ -19,16 +19,10 @@ test.describe('autenticación', () => {
   });
 
   test('protege las rutas privadas redirigiendo al login', async ({ page }) => {
-    await page.goto('/misiones/gestion');
+    await page.goto('/misiones/catalogo');
 
-    // Se afirma /auth/login SIN returnUrl, que es lo que la app hace hoy.
-    //
-    // authGuard construye un UrlTree con queryParams.returnUrl (auth.guard.ts:18-20),
-    // pero en una carga en frío nunca llega a aplicarse: el guard llama a
-    // loadCurrentUser(), el GET /auth/me responde 401, y authErrorInterceptor
-    // navega a /auth/login sin returnUrl (auth-error.interceptor.ts:15),
-    // adelantándose al UrlTree del guard.
-    await expect(page).toHaveURL(/\/auth\/login$/);
+    // authGuard manda al login con la ruta pedida en returnUrl, para volver ahí después.
+    await expect(page).toHaveURL(/\/auth\/login\?returnUrl=%2Fmisiones%2Fcatalogo$/);
     await expect(page.getByRole('button', { name: 'Iniciar Sesión' })).toBeVisible();
   });
 

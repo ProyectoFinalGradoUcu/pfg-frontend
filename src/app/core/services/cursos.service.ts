@@ -2,9 +2,13 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { FiltroDerechaNumor, filtroDerechaNumorParams } from '../models/derecha.models';
 import { API_BASE_URL } from '../api.config';
+import { ApiDocumentos, apiDocumentos } from './documentos-registro';
+import { SlotDocumento } from '../models/documentos-registro.models';
 import { PaginatedResponse } from '../models/auth.models';
 import {
+  CalificacionMasivaItem,
   CalificacionResponse,
   RegistrarCalificacionPayload,
   CursoDefinicion,
@@ -38,9 +42,9 @@ export class CursosService {
   ): Observable<HistorialCurso> {
     if (documento) {
       const form = new FormData();
-      (Object.keys(payload) as (keyof CreateHistorialCursoPayload)[]).forEach((key) =>
-        form.append(key, payload[key]),
-      );
+      (Object.keys(payload) as (keyof CreateHistorialCursoPayload)[]).forEach((key) => {
+        if (payload[key] !== undefined) form.append(key, String(payload[key]));
+      });
       form.append('documento', documento);
       return this.http.post<HistorialCurso>(`${API_BASE_URL}/historial-cursos`, form, {
         withCredentials: true,
@@ -58,10 +62,16 @@ export class CursosService {
     page = 1,
     pageSize = 100,
     incluirBajas = false,
+    categoria?: 'oficial' | 'subalterno',
+    filtroDerecha?: FiltroDerechaNumor,
   ): Observable<FuncionarioConCursos[]> {
     const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
     if (cedula) qs.set('cedula', cedula);
     if (incluirBajas) qs.set('incluir_bajas', 'true');
+    if (categoria) qs.set('categoria', categoria);
+    if (filtroDerecha) {
+      for (const [k, v] of Object.entries(filtroDerechaNumorParams(filtroDerecha))) qs.set(k, v);
+    }
     return this.http
       .get<PaginatedResponse<any>>(`${API_BASE_URL}/cursos/funcionarios?${qs}`, { withCredentials: true })
       .pipe(
@@ -78,7 +88,16 @@ export class CursosService {
                 .filter(Boolean)
                 .join(' ')
                 .trim() || (persona.nombre ?? '');
-              agrupados.set(personaId, { id: personaId, cedula: persona.cedula ?? '', nombre, cursos: [] });
+              agrupados.set(personaId, {
+                id: personaId,
+                cedula: persona.cedula ?? '',
+                nombre,
+                cursos: [],
+                grado: persona.grado ?? null,
+                escalafon: persona.escalafon ?? null,
+                derecha: persona.derecha ?? null,
+                numor: persona.numor ?? null,
+              });
             }
             agrupados.get(personaId)!.cursos.push(this.mapCursoFuncionario(row));
           }
@@ -154,6 +173,18 @@ export class CursosService {
     );
   }
 
+  // El backend guarda todas o ninguna, así que no hay estado parcial que reconciliar.
+  registrarCalificacionesMasivas(
+    cursoId: string,
+    resultados: CalificacionMasivaItem[],
+  ): Observable<CalificacionResponse[]> {
+    return this.http.patch<CalificacionResponse[]>(
+      `${API_BASE_URL}/cursos/${cursoId}/designaciones`,
+      { resultados },
+      { withCredentials: true },
+    );
+  }
+
   // ── Designaciones / Instancias ─────────────────────────────────────────────
 
   crearDesignacion(cursoId: string, payload: CreateDesignacionPayload): Observable<any> {
@@ -161,6 +192,26 @@ export class CursosService {
       `${API_BASE_URL}/cursos/${cursoId}/designaciones`,
       payload,
       { withCredentials: true },
+    );
+  }
+
+  documentosDesignacion(cursoId: string, id: string): ApiDocumentos {
+    return apiDocumentos(this.http, `${API_BASE_URL}/cursos/${cursoId}/designaciones/${id}`);
+  }
+
+  // Una sola subida por slot para todas las designaciones recién creadas.
+  subirDocumentoDesignaciones(
+    cursoId: string,
+    slot: SlotDocumento,
+    archivo: File,
+    designacionIds: string[],
+  ): Observable<{ adjuntados: number }> {
+    const form = new FormData();
+    form.append('archivo', archivo);
+    form.append('designacion_ids', designacionIds.join(','));
+    return this.http.post<{ adjuntados: number }>(
+      `${API_BASE_URL}/cursos/${cursoId}/designaciones/documentos/${slot}`,
+      form,
     );
   }
 
@@ -192,6 +243,7 @@ export class CursosService {
       nombre_curso:  cursoObj?.nombre_curso ?? raw.nombre ?? '',
       institucion:   cursoObj?.institucion  ?? raw.institucion ?? '',
       tipo:          cursoObj?.es_obligatorio ? 'obligatorio' : 'optativo',
+      baseId:        cursoObj?.sub_unidad_id != null ? String(cursoObj.sub_unidad_id) : null,
       fechaInicio:   raw.fecha_inicio ?? raw.fechaInicio ?? '',
       fechaFin:      raw.fecha_fin    ?? raw.fechaFin    ?? '',
       aprobado:      raw.aprobado ?? null,
@@ -200,6 +252,11 @@ export class CursosService {
       numero_orden:  raw.numero_orden ?? null,
       boletin:       raw.boletin      ?? null,
       documentoUrl:  raw.documentoUrl ?? raw.documento_url ?? null,
+      documentos:    raw.documentos ?? { orden: null, boletin: null },
+      modulos:       (raw.modulos ?? []).map((m: any) => ({
+        numero_orden: m.numero_orden ?? null,
+        boletin:      m.boletin      ?? null,
+      })),
       dadoDeBaja:    raw.dado_de_baja ?? false,
       motivoBaja:    raw.motivo_baja  ?? null,
       fechaBaja:     raw.fecha_baja   ?? null,
@@ -235,6 +292,7 @@ export class CursosService {
       nombre_curso: raw.nombre_curso,
       institucion: raw.institucion,
       es_obligatorio: raw.es_obligatorio ?? false,
+      base: raw.base ?? null,
       modulos: modulosRaw.map((m) => this.mapModulo(m)),
     };
   }

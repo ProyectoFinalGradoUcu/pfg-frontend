@@ -22,10 +22,40 @@
       <button type="button" *ngIf="puedeCorregir()" class="btn" (click)="abrir('corregir')">
         Corregir
       </button>
-      <button type="button" *ngIf="puedeAnular()" class="btn btn--danger" (click)="abrir('anular')">
+      <button
+        type="button"
+        *ngIf="puedeReincorporar()"
+        class="btn btn--primary"
+        [disabled]="!reincorporacionHabilitada()"
+        (click)="abrir('reincorporar')"
+      >
+        Reincorporar
+      </button>
+      <button
+        type="button"
+        *ngIf="puedeAnular()"
+        class="btn btn--danger"
+        [disabled]="!!noAnulable()"
+        (click)="abrir('anular')"
+      >
         Anular
       </button>
     </div>
+
+    <!-- Texto visible y no tooltip: un botón deshabilitado no siempre muestra el title. -->
+    <ul
+      class="retiro-detalle__bloqueos"
+      *ngIf="(puedeReincorporar() && bloqueosReincorporacion().length) || (puedeAnular() && noAnulable())"
+    >
+      <ng-container *ngIf="puedeReincorporar()">
+        <li *ngFor="let b of bloqueosReincorporacion()">
+          <strong>Reincorporar no disponible.</strong> {{ b }}
+        </li>
+      </ng-container>
+      <li *ngIf="puedeAnular() && noAnulable() as motivo">
+        <strong>Anular no disponible.</strong> {{ motivo }}
+      </li>
+    </ul>
 
     <!-- Primero: si el retiro no cuenta, cambia cómo se lee todo lo de abajo. -->
     <article class="retiro-detalle__card retiro-detalle__card--anulado" *ngIf="r.anulacion as an">
@@ -38,6 +68,77 @@
         <div><dt>Fecha</dt><dd>{{ an.fecha ? (an.fecha | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd></div>
         <div><dt>Anulado por</dt><dd>{{ an.por?.username ?? 'No registrado' }}</dd></div>
       </dl>
+    </article>
+
+    <article class="retiro-detalle__card retiro-detalle__card--reincorporado" *ngIf="r.reincorporacion as re">
+      <div class="retiro-detalle__card-header">
+        <h2>El funcionario fue reincorporado</h2>
+        <div class="retiro-detalle__card-acciones">
+          <button
+            type="button"
+            class="btn"
+            *ngIf="puedeEditarDatosCalculo() && !re.faltan_datos_de_calculo"
+            (click)="abrir('datos-calculo')"
+          >
+            Corregir datos de cálculo
+          </button>
+          <button
+            type="button"
+            class="btn btn--danger"
+            *ngIf="puedeAnularReincorporacion()"
+            (click)="abrir('anular-reincorporacion')"
+          >
+            Anular reincorporación
+          </button>
+        </div>
+      </div>
+      <p class="retiro-detalle__nota">
+        Tiene una relación laboral nueva posterior a este retiro. El retiro queda en el historial.
+      </p>
+      <div class="retiro-detalle__aviso" *ngIf="re.faltan_datos_de_calculo">
+        <p>
+          <strong>Falta cargar el haber de retiro y el porcentaje progresivo del acto de reincorporación.</strong>
+        </p>
+        <button
+          type="button"
+          class="btn btn--primary"
+          *ngIf="puedeEditarDatosCalculo()"
+          (click)="abrir('datos-calculo')"
+        >
+          Cargar datos
+        </button>
+      </div>
+      <dl class="retiro-detalle__campos">
+        <div>
+          <dt>Fecha</dt>
+          <dd class="retiro-detalle__fuerte">{{ re.fecha ? (re.fecha | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Situación</dt>
+          <dd>{{ re.situacion ? re.situacion.codigo + ' · ' + re.situacion.denominacion : '—' }}</dd>
+        </div>
+        <ng-container *ngIf="conDatosCalculo()">
+          <div>
+            <dt>Grado de reincorporación</dt>
+            <dd>{{ re.grado_reincorporacion?.denominacion ?? '—' }}</dd>
+          </div>
+          <div>
+            <dt>Haber de retiro</dt>
+            <dd>{{ re.haber_retiro !== null ? '$ ' + formatoMoneda(re.haber_retiro) : 'Sin cargar' }}</dd>
+          </div>
+          <div>
+            <dt>Porcentaje progresivo</dt>
+            <dd>{{ re.porcentaje_progresivo !== null ? formatoPorcentaje(re.porcentaje_progresivo) : 'Sin cargar' }}</dd>
+          </div>
+        </ng-container>
+        <div>
+          <dt>Legajo</dt>
+          <dd><a [routerLink]="['/personal', r.persona.id]">Ver legajo</a></dd>
+        </div>
+      </dl>
+      <p class="retiro-detalle__vacio retiro-detalle__cerrada" *ngIf="mostrarRelacionCerrada()">
+        La relación de la reincorporación ya está cerrada: sus datos de cálculo no se cambian.
+      </p>
     </article>
 
     <article class="retiro-detalle__card">
@@ -63,8 +164,46 @@
       <div class="retiro-detalle__respaldo">
         <h3>Respaldo documental</h3>
         <dl class="retiro-detalle__campos" *ngIf="tieneRespaldo(); else sinRespaldo">
-          <div *ngIf="r.numero_orden"><dt>Número de orden</dt><dd>{{ r.numero_orden }}</dd></div>
-          <div *ngIf="r.boletin"><dt>Boletín</dt><dd>{{ r.boletin }}</dd></div>
+          <div *ngIf="r.numero_orden || r.documentos.orden">
+            <dt>Número de orden</dt>
+            <dd>
+              {{ r.numero_orden ?? '—' }}
+              <app-documento-adjunto
+                [nombre]="r.documentos.orden?.nombre_original ?? null"
+                [tamanio]="r.documentos.orden?.tamanio_bytes ?? null"
+                [tipo]="r.documentos.orden?.content_type ?? null"
+                [puedeVer]="!!r.documentos.orden"
+                [visorUrl]="visorUrl('orden')"
+                [urlDescarga]="r.documentos.orden ? urlDocumento('orden', true) : null"
+                [puedeEditar]="puedeAdjuntar()"
+                [habilitado]="!!r.numero_orden"
+                [ocupado]="trabajando() !== null"
+                (elegido)="adjuntar('orden', $event)"
+                (quitado)="quitar('orden')"
+                (verAlternado)="alternarVisor('orden')"
+              />
+            </dd>
+          </div>
+          <div *ngIf="r.boletin || r.documentos.boletin">
+            <dt>Boletín</dt>
+            <dd>
+              {{ r.boletin ?? '—' }}
+              <app-documento-adjunto
+                [nombre]="r.documentos.boletin?.nombre_original ?? null"
+                [tamanio]="r.documentos.boletin?.tamanio_bytes ?? null"
+                [tipo]="r.documentos.boletin?.content_type ?? null"
+                [puedeVer]="!!r.documentos.boletin"
+                [visorUrl]="visorUrl('boletin')"
+                [urlDescarga]="r.documentos.boletin ? urlDocumento('boletin', true) : null"
+                [puedeEditar]="puedeAdjuntar()"
+                [habilitado]="!!r.boletin"
+                [ocupado]="trabajando() !== null"
+                (elegido)="adjuntar('boletin', $event)"
+                (quitado)="quitar('boletin')"
+                (verAlternado)="alternarVisor('boletin')"
+              />
+            </dd>
+          </div>
           <div *ngIf="r.observaciones"><dt>Observaciones</dt><dd>{{ r.observaciones }}</dd></div>
         </dl>
         <ng-template #sinRespaldo>
@@ -86,6 +225,10 @@
           {{ cierres().inscripciones.length }} inscripción(es) dada(s) de baja ·
           <a routerLink="/cursos/inscripciones">ver inscripciones</a>
         </li>
+        <li *ngIf="cierres().comisiones.length">
+          {{ cierres().comisiones.length }} pertenencia(s) a comisiones cerrada(s) ·
+          <a routerLink="/comisiones/asignaciones">ver comisiones</a>
+        </li>
         <li *ngIf="cierres().usuario">Cuenta de sistema bloqueada</li>
         <li *ngIf="cierres().ninguno">No arrastró ningún cierre.</li>
       </ul>
@@ -98,7 +241,8 @@
       </p>
       <dl class="retiro-detalle__campos">
         <div><dt>Grado</dt><dd>{{ rl.grado?.denominacion ?? '—' }}</dd></div>
-        <div><dt>Unidad</dt><dd>{{ rl.unidad?.denominacion ?? '—' }}</dd></div>
+        <div><dt>Base</dt><dd>{{ rl.sub_unidad?.denominacion ?? '—' }}</dd></div>
+        <div><dt>Comando</dt><dd>{{ rl.unidad?.denominacion ?? '—' }}</dd></div>
         <div>
           <dt>Inicio</dt>
           <dd>{{ rl.fecha_inicio ? (rl.fecha_inicio | date: 'd/M/yyyy' : 'UTC') : '—' }}</dd>
@@ -116,8 +260,9 @@
         Registrado por <strong>{{ por.username }}</strong>
       </span>
       <span *ngIf="!r.registrado_por">Sin autor registrado (carga externa a la aplicación)</span>
+      <!-- Es un timestamp: va en hora local (las fechas de arriba van en UTC). -->
       <span *ngIf="r.registrado_en">
-        · {{ r.registrado_en | date: 'd/M/yyyy HH:mm' : 'UTC' }}
+        · {{ r.registrado_en | date: 'd/M/yyyy HH:mm' }}
       </span>
     </footer>
 
@@ -136,4 +281,25 @@
     (anulado)="onAnulado($event)"
     (cerrado)="cerrarModal()"
   ></app-anular-retiro-modal>
+
+  <app-anular-reincorporacion-modal
+    *ngIf="modalAbierto() === 'anular-reincorporacion' && retiro() as r"
+    [retiroId]="r.id"
+    (anulada)="onReincorporacionAnulada($event)"
+    (cerrado)="cerrarModal()"
+  ></app-anular-reincorporacion-modal>
+
+  <app-reincorporar-retiro-modal
+    *ngIf="modalAbierto() === 'reincorporar' && previaReincorporacion() as p"
+    [previa]="p"
+    (reincorporado)="onReincorporado($event)"
+    (cerrado)="cerrarModal()"
+  ></app-reincorporar-retiro-modal>
+
+  <app-datos-calculo-reincorporacion-modal
+    *ngIf="modalAbierto() === 'datos-calculo' && retiro() as r"
+    [retiro]="r"
+    (guardado)="onDatosCalculoGuardados($event)"
+    (cerrado)="cerrarModal()"
+  ></app-datos-calculo-reincorporacion-modal>
 </section>

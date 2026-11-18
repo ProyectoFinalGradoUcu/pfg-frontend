@@ -1,7 +1,8 @@
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { NEVER, of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { NEVER, Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { RetiroFormModal, mensajeCierres } from './retiro-form-modal';
@@ -11,6 +12,11 @@ import { PersonalService } from '../../../../core/services/personal.service';
 import { PreviaRetiro, Retiro } from '../../../../core/models/retiros.models';
 import { DEBOUNCE_MS } from '../../retiro-presentacion';
 import { Select } from '../../../../shared/components/select/select';
+import { DocumentoAdjunto } from '../../../../shared/components/documento-adjunto/documento-adjunto';
+import { ToastService } from '../../../../core/services/toast.service';
+import { PersonaListItem } from '../../../../core/models/personal.models';
+import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
+import { By } from '@angular/platform-browser';
 
 function makePrevia(overrides: Partial<PreviaRetiro> = {}): PreviaRetiro {
   return {
@@ -18,6 +24,7 @@ function makePrevia(overrides: Partial<PreviaRetiro> = {}): PreviaRetiro {
     relacion_laboral: null,
     destino_vigente: null,
     inscripciones_activas: [],
+    comisiones_abiertas: [],
     usuario: null,
     vivienda: null,
     bloqueos: [],
@@ -41,24 +48,33 @@ function makeRetiro(): Retiro {
 }
 
 const esperarDebounce = () => new Promise((r) => setTimeout(r, DEBOUNCE_MS + 60));
+const esperarBusqueda = () => new Promise((r) => setTimeout(r, DEBOUNCE_BUSQUEDA_MS + 60));
+
+function pagina(items: PersonaListItem[]) {
+  return of({ items, total: items.length, page: 1, pageSize: 20 });
+}
 
 describe('RetiroFormModal', () => {
   let fixture: ComponentFixture<RetiroFormModal>;
   let component: RetiroFormModal;
-  let retiros: { previa: ReturnType<typeof vi.fn>; registrar: ReturnType<typeof vi.fn> };
+  let retiros: {
+    previa: ReturnType<typeof vi.fn>;
+    registrar: ReturnType<typeof vi.fn>;
+    subirDocumento: ReturnType<typeof vi.fn>;
+  };
   let catalogos: { getMotivosBaja: ReturnType<typeof vi.fn> };
+  let toast: { error: ReturnType<typeof vi.fn>; success: ReturnType<typeof vi.fn> };
+  let personal: { findAll: ReturnType<typeof vi.fn>; findPaginado: ReturnType<typeof vi.fn> };
 
   async function montar(personaId: string | null = '1'): Promise<void> {
     await TestBed.configureTestingModule({
-      declarations: [RetiroFormModal, Select],
+      declarations: [RetiroFormModal, Select, DocumentoAdjunto],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: RetirosService, useValue: retiros },
         { provide: CatalogosService, useValue: catalogos },
-        {
-          provide: PersonalService,
-          useValue: { findAll: vi.fn().mockReturnValue(of([])) },
-        },
+        { provide: ToastService, useValue: toast },
+        { provide: PersonalService, useValue: personal },
       ],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
     }).compileComponents();
@@ -76,8 +92,14 @@ describe('RetiroFormModal', () => {
       registrar: vi
         .fn()
         .mockReturnValue(
-          of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], usuario: null } }),
+          of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], comisiones: [], usuario: null } }),
         ),
+      subirDocumento: vi.fn().mockReturnValue(of({})),
+    };
+    toast = { error: vi.fn(), success: vi.fn() };
+    personal = {
+      findAll: vi.fn().mockReturnValue(of([])),
+      findPaginado: vi.fn().mockReturnValue(pagina([])),
     };
     catalogos = {
       getMotivosBaja: vi
@@ -135,6 +157,23 @@ describe('RetiroFormModal', () => {
 
     expect(retiros.previa).toHaveBeenCalledTimes(2);
     expect(retiros.previa).toHaveBeenLastCalledWith('1', '2026-08-31');
+  });
+
+  it('después de un error en la previa la sigue recalculando (SCRUM-197)', async () => {
+    await montar();
+    retiros.previa.mockReturnValueOnce(
+      throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'Fecha inválida' } })),
+    );
+    component.form.patchValue({ fecha_retiro: '2026-08-28' });
+    await esperarDebounce();
+    expect(component.error()).toBe('Fecha inválida');
+
+    component.form.patchValue({ fecha_retiro: '2026-08-31' });
+    await esperarDebounce();
+
+    expect(retiros.previa).toHaveBeenCalledTimes(2);
+    expect(component.error()).toBeNull();
+    expect(component.previa()).not.toBeNull();
   });
 
   it('pre-tilda los ítems con cerrar_sugerido y respeta los que vienen en false', async () => {
@@ -213,9 +252,47 @@ describe('RetiroFormModal', () => {
     expect(retiros.registrar).toHaveBeenCalledWith(
       expect.objectContaining({
         persona_id: 1,
-        cerrar: { destino: true, inscripciones: [301], usuario: false },
+        cerrar: { destino: true, inscripciones: [301], comisiones: [], usuario: false },
       }),
     );
+  });
+
+  it('cierra obligatoriamente todas las pertenencias a comisiones', async () => {
+    retiros.previa.mockReturnValue(
+      of(
+        makePrevia({
+          comisiones_abiertas: [
+            {
+              id: '12',
+              comision: { id: '3', denominacion: 'Comisión de Vivienda' },
+              cargo: 'Vocal',
+              fecha_inicio: '2024-01-01',
+              fecha_fin: null,
+              cerrar_sugerido: true,
+            },
+            {
+              id: '13',
+              comision: { id: '4', denominacion: 'Comisión de Deportes' },
+              cargo: null,
+              fecha_inicio: '2024-01-01',
+              fecha_fin: null,
+              cerrar_sugerido: true,
+            },
+          ],
+        }),
+      ),
+    );
+    await montar();
+    component.form.patchValue({ fecha_retiro: '2026-08-28', motivo_baja_id: 5 });
+    await esperarDebounce();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Comisión de Vivienda');
+    const cierres = Array.from(fixture.nativeElement.querySelectorAll('input[type="checkbox"][disabled]')) as HTMLInputElement[];
+    expect(cierres.filter(c => c.checked)).toHaveLength(2);
+    component.confirmar();
+
+    expect(retiros.registrar.mock.calls[0][0].cerrar.comisiones).toEqual([12, 13]);
   });
 
   it('las inscripciones viajan como número, no como string', async () => {
@@ -250,7 +327,7 @@ describe('RetiroFormModal', () => {
       ),
     );
     retiros.registrar.mockReturnValue(
-      of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], usuario: '3' } }),
+      of({ ...makeRetiro(), cerrado: { destino: null, inscripciones: [], comisiones: [], usuario: '3' } }),
     );
     await montar();
 
@@ -263,7 +340,138 @@ describe('RetiroFormModal', () => {
     expect(emitido.mock.calls[0][0].cerrado).toEqual({
       destino: null,
       inscripciones: [],
+      comisiones: [],
       usuario: '3',
+    });
+  });
+
+  describe('documentos de orden y boletín', () => {
+    const pdf = (nombre: string) => new File(['%PDF-1.4'], nombre, { type: 'application/pdf' });
+
+    async function listoParaConfirmar(): Promise<void> {
+      component.form.patchValue({
+        fecha_retiro: '2026-08-28',
+        motivo_baja_id: 5,
+        numero_orden: 'O.D. 12455',
+        boletin: 'B.P. 8891',
+      });
+      await esperarDebounce();
+    }
+
+    it('sin archivos registra y emite como hoy, sin subir nada', async () => {
+      await montar();
+      const emitido = vi.fn();
+      component.registrado.subscribe(emitido);
+      await listoParaConfirmar();
+
+      component.confirmar();
+
+      expect(retiros.subirDocumento).not.toHaveBeenCalled();
+      expect(emitido).toHaveBeenCalledTimes(1);
+    });
+
+    it('con archivo de orden, registra, sube al retiro creado y recién después emite registrado', async () => {
+      await montar();
+      const emitido = vi.fn();
+      component.registrado.subscribe(emitido);
+      await listoParaConfirmar();
+      const archivo = pdf('orden.pdf');
+      component.elegirArchivo('orden', archivo);
+
+      component.confirmar();
+
+      expect(retiros.subirDocumento).toHaveBeenCalledWith('7', 'orden', archivo);
+      expect(retiros.registrar.mock.invocationCallOrder[0]).toBeLessThan(
+        retiros.subirDocumento.mock.invocationCallOrder[0],
+      );
+      expect(retiros.subirDocumento.mock.invocationCallOrder[0]).toBeLessThan(
+        emitido.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('si una subida falla, igual emite registrado y avisa con el nombre del archivo', async () => {
+      retiros.subirDocumento.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 413 })));
+      await montar();
+      const emitido = vi.fn();
+      component.registrado.subscribe(emitido);
+      await listoParaConfirmar();
+      component.elegirArchivo('orden', pdf('orden.pdf'));
+
+      component.confirmar();
+
+      expect(emitido).toHaveBeenCalledTimes(1);
+      expect(toast.error).toHaveBeenCalledTimes(1);
+      const mensaje = toast.error.mock.calls[0][0] as string;
+      expect(mensaje).toContain('orden.pdf');
+      expect(mensaje).toContain('Podés adjuntarlo desde el detalle del retiro');
+    });
+
+    it('con dos archivos, sube los dos uno después del otro', async () => {
+      const primera = new Subject<unknown>();
+      retiros.subirDocumento.mockReturnValueOnce(primera).mockReturnValueOnce(of({}));
+      await montar();
+      const emitido = vi.fn();
+      component.registrado.subscribe(emitido);
+      await listoParaConfirmar();
+      component.elegirArchivo('orden', pdf('orden.pdf'));
+      component.elegirArchivo('boletin', pdf('boletin.pdf'));
+
+      component.confirmar();
+      expect(retiros.subirDocumento).toHaveBeenCalledTimes(1);
+      expect(component.subiendoDocumentos()).toBe(true);
+
+      primera.next({});
+      primera.complete();
+
+      expect(retiros.subirDocumento).toHaveBeenCalledTimes(2);
+      expect(retiros.subirDocumento.mock.calls[1][1]).toBe('boletin');
+      expect(emitido).toHaveBeenCalledTimes(1);
+    });
+
+    it('mientras sube documentos no se puede cerrar el modal: el retiro ya existe', async () => {
+      retiros.subirDocumento.mockReturnValue(new Subject<unknown>());
+      await montar();
+      const cerrado = vi.fn();
+      component.cerrado.subscribe(cerrado);
+      await listoParaConfirmar();
+      component.elegirArchivo('orden', pdf('orden.pdf'));
+
+      component.confirmar();
+      fixture.detectChanges();
+      component.cerrar();
+
+      expect(cerrado).not.toHaveBeenCalled();
+      const cruz = (fixture.nativeElement as HTMLElement).querySelector('.modal__close') as HTMLButtonElement;
+      expect(cruz.disabled).toBe(true);
+    });
+
+    it('si se borra el número después de elegir el archivo, el archivo se descarta y no se sube', async () => {
+      await montar();
+      await listoParaConfirmar();
+      component.elegirArchivo('orden', pdf('orden.pdf'));
+
+      component.form.controls.numero_orden.setValue('  ');
+
+      expect(component.archivos().orden).toBeUndefined();
+      component.form.controls.numero_orden.setValue('O.D. 12455');
+      component.confirmar();
+      expect(retiros.subirDocumento).not.toHaveBeenCalled();
+    });
+
+    it('Adjuntar del boletín está deshabilitado mientras el campo boletín está vacío', async () => {
+      await montar();
+      const adjuntarBoletin = () =>
+        (fixture.nativeElement as HTMLElement)
+          .querySelectorAll('app-documento-adjunto')[1]
+          .querySelector('button') as HTMLButtonElement;
+
+      expect(adjuntarBoletin().disabled).toBe(true);
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector('#bol') as HTMLInputElement;
+      input.value = 'B.P. 8891';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(adjuntarBoletin().disabled).toBe(false);
     });
   });
 
@@ -272,9 +480,62 @@ describe('RetiroFormModal', () => {
     expect(component.paso()).toBe('persona');
   });
 
-  it('sin personaId carga el padrón para el selector con buscador', async () => {
-    await montar(null);
-    expect(TestBed.inject(PersonalService).findAll).toHaveBeenCalled();
+  describe('selector de funcionario con búsqueda en el servidor', () => {
+    const DAGALIPEGA: PersonaListItem = {
+      id: '2400', nombre: 'Juan Dagalipega', cedula: '41234567', rango: 'Cabo', destino: null, estado: null, relacion_estado: 'activo',
+    };
+    const selector = () => fixture.debugElement.query(By.directive(Select)).componentInstance as Select;
+
+    async function buscar(texto: string): Promise<void> {
+      selector().searchChange.emit(texto);
+      await esperarBusqueda();
+      fixture.detectChanges();
+    }
+
+    it('no carga una lista de 100 para filtrar en el navegador', async () => {
+      await montar(null);
+      expect(personal.findAll).not.toHaveBeenCalled();
+      expect(selector().remoteSearch).toBe(true);
+    });
+
+    it('encuentra a quien no está entre los primeros 100, por apellido', async () => {
+      await montar(null);
+      personal.findPaginado.mockReturnValue(pagina([DAGALIPEGA]));
+      await buscar('DAGALIPEGA');
+
+      expect(personal.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: 'DAGALIPEGA' }));
+      expect(selector().items).toEqual([expect.objectContaining({ id: '2400' })]);
+    });
+
+    it('busca por cédula y la muestra en la opción', async () => {
+      await montar(null);
+      personal.findPaginado.mockReturnValue(pagina([DAGALIPEGA]));
+      await buscar('41234567');
+
+      expect(personal.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: '41234567' }));
+      expect(selector().getLabelOf(selector().items[0])).toContain('41234567');
+    });
+
+    it('solo ofrece personal en actividad: no pide a los retirados', async () => {
+      await montar(null);
+      await buscar('DAGALIPEGA');
+      expect(personal.findPaginado).not.toHaveBeenCalledWith(expect.objectContaining({ incluir_inactivos: true }));
+    });
+
+    it('el elegido se sigue viendo en el selector aunque una búsqueda nueva no lo traiga', async () => {
+      await montar(null);
+      personal.findPaginado.mockReturnValue(pagina([DAGALIPEGA]));
+      await buscar('DAGALIPEGA');
+      component.elegirPersona('2400');
+      expect(component.personaElegida()?.nombre).toBe('Juan Dagalipega');
+
+      component.cambiarPersona();
+      fixture.detectChanges();
+      personal.findPaginado.mockReturnValue(pagina([]));
+      await buscar('otro');
+
+      expect(selector().selectedLabel()).toContain('Juan Dagalipega');
+    });
   });
 
   describe('cambiar de funcionario sin cerrar el modal', () => {
@@ -285,7 +546,9 @@ describe('RetiroFormModal', () => {
 
     async function montarConPadron(): Promise<void> {
       await montar(null);
-      component.personal.set(padron);
+      personal.findPaginado.mockReturnValue(pagina(padron));
+      (fixture.debugElement.query(By.directive(Select)).componentInstance as Select).searchChange.emit('');
+      await esperarBusqueda();
     }
 
     it('elegir a otro funcionario vuelve al paso de datos con la persona nueva', async () => {
@@ -347,28 +610,30 @@ describe('RetiroFormModal', () => {
     });
   });
 
-  it('con personaId no carga el padrón: la persona ya está elegida', async () => {
+  it('con personaId no busca personas: la persona ya está elegida', async () => {
     await montar('1');
-    expect(TestBed.inject(PersonalService).findAll).not.toHaveBeenCalled();
+    await esperarBusqueda();
+    expect(personal.findAll).not.toHaveBeenCalled();
+    expect(personal.findPaginado).not.toHaveBeenCalled();
   });
 });
 
 describe('mensajeCierres', () => {
   it('nombra solo lo que se cerró de verdad', () => {
-    expect(mensajeCierres({ destino: '3', inscripciones: [], usuario: null })).toBe(
+    expect(mensajeCierres({ destino: '3', inscripciones: [], comisiones: [], usuario: null })).toBe(
       'Retiro registrado: se cerró el destino.',
     );
   });
 
   it('usa el plural con más de una inscripción', () => {
-    const msg = mensajeCierres({ destino: null, inscripciones: ['1', '2'], usuario: '4' });
+    const msg = mensajeCierres({ destino: null, inscripciones: ['1', '2'], comisiones: ['9'], usuario: '4' });
     expect(msg).toContain('se dieron de baja 2 inscripciones');
     expect(msg).toContain('se bloqueó la cuenta de sistema');
     expect(msg).not.toContain('destino');
   });
 
   it('lo dice igual cuando no arrastró nada', () => {
-    expect(mensajeCierres({ destino: null, inscripciones: [], usuario: null })).toBe(
+    expect(mensajeCierres({ destino: null, inscripciones: [], comisiones: [], usuario: null })).toBe(
       'Retiro registrado. No arrastró ningún cierre.',
     );
   });

@@ -5,10 +5,12 @@ import { delay, map } from 'rxjs/operators';
 import { API_BASE_URL } from '../api.config';
 import { PaginatedResponse } from '../models/auth.models';
 import {
+  AgregarFuncionariosResponse,
   Convocatoria,
   CreateConvocatoriaPayload,
   CreateMisionDefinicionPayload,
-  FuncionarioConMisiones,
+  FilaPersonalMision,
+  FiltrosPersonalMision,
   FuncionarioConvocatoria,
   FuncionarioConvocatoriaPayload,
   FuncionarioMisionItem,
@@ -16,8 +18,10 @@ import {
   MisionesCatalogoResponse,
   MisionOpcion,
   UpdateConvocatoriaPayload,
+  UpdateFuncionarioConvocatoriaPayload,
   UpdateMisionDefinicionPayload,
 } from '../models/misiones.models';
+import { ApiDocumentos, apiDocumentos } from './documentos-registro';
 import { PersonalService } from './personal.service';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -30,13 +34,14 @@ import { PersonalService } from './personal.service';
 // ─────────────────────────────────────────────────────────────────────────
 export const misionesServiceConfig = { useMockData: false };
 const MOCK_DELAY_MS = 300;
+const SIN_DOCUMENTOS = { orden: null, boletin: null };
 
 @Injectable({ providedIn: 'root' })
 export class MisionesService {
   private mockMisiones: MisionDefinicion[] = [
-    { id: '1', nombre_mision: 'Congo (MONUSCO)', pais: 'República Democrática del Congo', total_convocatorias: 0 },
-    { id: '2', nombre_mision: 'Chipre (UNFICYP)', pais: 'Chipre', total_convocatorias: 0 },
-    { id: '3', nombre_mision: 'Sinaí (MFO)', pais: 'Egipto', total_convocatorias: 0 },
+    { id: '1', nombre_mision: 'Congo (MONUSCO)', pais: 'República Democrática del Congo', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
+    { id: '2', nombre_mision: 'Chipre (UNFICYP)', pais: 'Chipre', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
+    { id: '3', nombre_mision: 'Sinaí (MFO)', pais: 'Egipto', fecha_orden: null, fecha_boletin: null, numero_resolucion: null, fecha_resolucion: null, resolucion_cje: null, total_convocatorias: 0 },
   ];
 
   private mockConvocatorias: Convocatoria[] = [
@@ -50,6 +55,7 @@ export class MisionesService {
       observaciones: 'Rotación anual del contingente.',
       total_funcionarios: 0,
       finalizada: false,
+      documentos: SIN_DOCUMENTOS,
     },
     {
       id: '102',
@@ -61,6 +67,7 @@ export class MisionesService {
       observaciones: null,
       total_funcionarios: 0,
       finalizada: true,
+      documentos: SIN_DOCUMENTOS,
     },
     {
       id: '201',
@@ -72,12 +79,14 @@ export class MisionesService {
       observaciones: 'Observadores en zona de amortiguación, sin fecha de regreso definida.',
       total_funcionarios: 0,
       finalizada: false,
+      documentos: SIN_DOCUMENTOS,
     },
   ];
 
   private mockFuncionarios: Record<string, FuncionarioConvocatoria[]> = {
     '101': [
       {
+        id: '9001',
         persona_id: '1001',
         cedula: '1.234.567-8',
         primer_nombre: 'Juan',
@@ -85,8 +94,10 @@ export class MisionesService {
         numero_orden: null,
         boletin: 'BOL-2026-04',
         observaciones: null,
+        documentos: SIN_DOCUMENTOS,
       },
       {
+        id: '9002',
         persona_id: '1002',
         cedula: '2.345.678-9',
         primer_nombre: 'María',
@@ -94,10 +105,12 @@ export class MisionesService {
         numero_orden: 'ORD-1542-A',
         boletin: 'BOL-2026-04',
         observaciones: 'Jefa de equipo',
+        documentos: SIN_DOCUMENTOS,
       },
     ],
     '102': [
       {
+        id: '9003',
         persona_id: '1003',
         cedula: '3.456.789-0',
         primer_nombre: 'Carlos',
@@ -105,10 +118,12 @@ export class MisionesService {
         numero_orden: null,
         boletin: null,
         observaciones: null,
+        documentos: SIN_DOCUMENTOS,
       },
     ],
     '201': [
       {
+        id: '9004',
         persona_id: '1001',
         cedula: '1.234.567-8',
         primer_nombre: 'Juan',
@@ -116,6 +131,7 @@ export class MisionesService {
         numero_orden: null,
         boletin: 'BOL-2025-11',
         observaciones: null,
+        documentos: SIN_DOCUMENTOS,
       },
     ],
   };
@@ -205,6 +221,11 @@ export class MisionesService {
         id: this.nextId(),
         nombre_mision: payload.nombre_mision,
         pais: payload.pais,
+        fecha_orden: payload.fecha_orden ?? null,
+        fecha_boletin: payload.fecha_boletin ?? null,
+        numero_resolucion: payload.numero_resolucion ?? null,
+        fecha_resolucion: payload.fecha_resolucion ?? null,
+        resolucion_cje: payload.resolucion_cje ?? null,
         total_convocatorias: 0,
       };
       this.mockMisiones.push(nueva);
@@ -314,6 +335,7 @@ export class MisionesService {
         observaciones: payload.observaciones ?? null,
         total_funcionarios: 0,
         finalizada: false,
+        documentos: SIN_DOCUMENTOS,
       };
       this.mockConvocatorias.push(nueva);
 
@@ -381,6 +403,7 @@ export class MisionesService {
     page = 1,
     limit = 5,
     query?: string,
+    categoria?: 'oficial' | 'subalterno',
   ): Observable<PaginatedResponse<FuncionarioConvocatoria>> {
     if (misionesServiceConfig.useMockData) {
       let items = this.mockFuncionarios[convocatoriaId] ?? [];
@@ -399,6 +422,7 @@ export class MisionesService {
 
     const qs = new URLSearchParams({ page: String(page), pageSize: String(limit) });
     if (query) qs.set('query', query);
+    if (categoria) qs.set('categoria', categoria);
     return this.http.get<PaginatedResponse<FuncionarioConvocatoria>>(
       `${API_BASE_URL}/misiones/${misionId}/convocatorias/${convocatoriaId}/funcionarios?${qs}`,
       { withCredentials: true },
@@ -409,7 +433,7 @@ export class MisionesService {
     misionId: string,
     convocatoriaId: string,
     funcionarios: FuncionarioConvocatoriaPayload[],
-  ): Observable<void> {
+  ): Observable<AgregarFuncionariosResponse> {
     if (misionesServiceConfig.useMockData) {
       const sinOrdenNiBoletin = funcionarios.some((f) => !f.numero_orden?.trim() && !f.boletin?.trim());
       if (sinOrdenNiBoletin) {
@@ -424,16 +448,17 @@ export class MisionesService {
       return this.personalService.findAll().pipe(
         delay(MOCK_DELAY_MS),
         map((personal) => {
+          const asignaciones: AgregarFuncionariosResponse['asignaciones'] = [];
           for (const f of funcionarios) {
-            existentes.push(
-              this.mockFuncionarioDesdePersona(String(f.persona_id), personal, {
-                numero_orden: f.numero_orden,
-                boletin: f.boletin,
-                observaciones: f.observaciones,
-              }),
-            );
+            const nuevo = this.mockFuncionarioDesdePersona(String(f.persona_id), personal, {
+              numero_orden: f.numero_orden,
+              boletin: f.boletin,
+              observaciones: f.observaciones,
+            });
+            existentes.push(nuevo);
+            asignaciones.push({ id: nuevo.id, persona_id: nuevo.persona_id });
           }
-          return undefined;
+          return { asignaciones };
         }),
       );
     }
@@ -441,7 +466,7 @@ export class MisionesService {
       ...f,
       persona_id: Number(f.persona_id),
     }));
-    return this.http.post<void>(
+    return this.http.post<AgregarFuncionariosResponse>(
       `${API_BASE_URL}/misiones/${misionId}/convocatorias/${convocatoriaId}/funcionarios`,
       { service_request: { funcionarios: funcionariosConIdNumerico } },
       { withCredentials: true },
@@ -452,7 +477,7 @@ export class MisionesService {
     misionId: string,
     convocatoriaId: string,
     personaId: string,
-    data: Partial<FuncionarioConvocatoriaPayload>,
+    data: UpdateFuncionarioConvocatoriaPayload,
   ): Observable<void> {
     if (misionesServiceConfig.useMockData) {
       const fila = (this.mockFuncionarios[convocatoriaId] ?? []).find((f) => f.persona_id === personaId);
@@ -498,69 +523,96 @@ export class MisionesService {
     );
   }
 
-  // ── Personal en misión (agrupado por persona) ────────────────────────────
+  // ── Personal en misión (una fila por asignación) ─────────────────────────
 
-  findFuncionariosConMisiones(page = 1, pageSize = 200): Observable<FuncionarioConMisiones[]> {
+  findPersonalEnMision(
+    page = 1,
+    pageSize = 10,
+    filtros: FiltrosPersonalMision = {},
+  ): Observable<PaginatedResponse<FilaPersonalMision>> {
+    const query = filtros.query?.trim() ?? '';
+    const orden = filtros.orden?.trim() ?? '';
+    const misionIds = filtros.misionIds ?? [];
+
     if (misionesServiceConfig.useMockData) {
-      const agrupados = new Map<string, FuncionarioConMisiones>();
-      for (const [convocatoriaId, filas] of Object.entries(this.mockFuncionarios)) {
+      const filas: FilaPersonalMision[] = [];
+      for (const [convocatoriaId, asignados] of Object.entries(this.mockFuncionarios)) {
         const convocatoria = this.mockConvocatorias.find((c) => c.id === convocatoriaId);
         if (!convocatoria) continue;
         const mision = this.mockMisiones.find((m) => m.id === convocatoria.mision_id);
         if (!mision) continue;
 
-        for (const f of filas) {
-          if (!agrupados.has(f.persona_id)) {
-            const nombre = [f.primer_nombre, f.primer_apellido].filter(Boolean).join(' ');
-            agrupados.set(f.persona_id, { id: f.persona_id, cedula: f.cedula ?? '', nombre, misiones: [] });
-          }
-          agrupados.get(f.persona_id)!.misiones.push({
-            id: mision.id,
-            convocatoriaId: convocatoria.id,
-            nombre_mision: mision.nombre_mision,
-            pais: mision.pais,
-            numero_orden: f.numero_orden ?? convocatoria.numero_orden,
-            boletin: f.boletin ?? convocatoria.boletin,
-            observaciones: f.observaciones ?? null,
-            fecha_salida: convocatoria.fecha_salida,
-            fecha_llegada: convocatoria.fecha_llegada,
-            finalizada: convocatoria.finalizada,
+        for (const f of asignados) {
+          filas.push({
+            asignacionId: f.id,
+            documentos: f.documentos,
+            funcionarioId: f.persona_id,
+            cedula: f.cedula ?? '',
+            nombre: [f.primer_nombre, f.primer_apellido].filter(Boolean).join(' '),
+            mision: {
+              id: mision.id,
+              convocatoriaId: convocatoria.id,
+              nombre_mision: mision.nombre_mision,
+              pais: mision.pais,
+              numero_orden: f.numero_orden ?? convocatoria.numero_orden,
+              boletin: f.boletin ?? convocatoria.boletin,
+              observaciones: f.observaciones ?? null,
+              fecha_salida: convocatoria.fecha_salida,
+              fecha_llegada: convocatoria.fecha_llegada,
+              finalizada: convocatoria.finalizada,
+            },
           });
         }
       }
-      return this.mockOf(Array.from(agrupados.values()));
+      const palabras = query.toLowerCase().split(/\s+/).filter(Boolean);
+      const ordenLower = orden.toLowerCase();
+      const filtradas = filas.filter(
+        ({ cedula, nombre, mision: m }) =>
+          palabras.every((p) => cedula.toLowerCase().includes(p) || nombre.toLowerCase().includes(p)) &&
+          (misionIds.length === 0 || misionIds.includes(m.id)) &&
+          (!ordenLower ||
+            (m.numero_orden ?? '').toLowerCase().includes(ordenLower) ||
+            (m.boletin ?? '').toLowerCase().includes(ordenLower)) &&
+          (filtros.finalizada === undefined || m.finalizada === filtros.finalizada),
+      );
+      const start = (page - 1) * pageSize;
+      return this.mockOf({ items: filtradas.slice(start, start + pageSize), total: filtradas.length, page, pageSize });
     }
 
     const qs = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (query) qs.set('query', query);
+    if (misionIds.length > 0) qs.set('misionIds', misionIds.join(','));
+    if (orden) qs.set('orden', orden);
+    if (filtros.finalizada !== undefined) qs.set('finalizada', String(filtros.finalizada));
+    if (filtros.categoria) qs.set('categoria', filtros.categoria);
     return this.http
       .get<PaginatedResponse<any>>(`${API_BASE_URL}/misiones/funcionarios?${qs}`, {
         withCredentials: true,
       })
       .pipe(
-        map((res) => {
-          // Agrupamos filas planas (persona + convocatoria + misión) por persona
-          const items: any[] = res.items ?? [];
-          const agrupados = new Map<string, FuncionarioConMisiones>();
-          for (const row of items) {
+        map((res) => ({
+          ...res,
+          items: (res.items ?? []).map((row): FilaPersonalMision => {
             const persona = row.persona ?? {};
-            const personaId = String(persona.id ?? '');
-            if (!personaId) continue;
-            if (!agrupados.has(personaId)) {
-              const nombre =
-                [persona.primer_nombre, persona.primer_apellido].filter(Boolean).join(' ').trim() ||
-                (persona.nombre ?? '');
-              agrupados.set(personaId, {
-                id: personaId,
-                cedula: persona.cedula ?? '',
-                nombre,
-                misiones: [],
-              });
-            }
-            agrupados.get(personaId)!.misiones.push(this.mapFuncionarioMisionItem(row));
-          }
-          return Array.from(agrupados.values());
-        }),
+            return {
+              asignacionId: String(row.id ?? ''),
+              documentos: row.documentos ?? SIN_DOCUMENTOS,
+              funcionarioId: String(persona.id ?? ''),
+              cedula: persona.cedula ?? '',
+              nombre: [persona.primer_nombre, persona.primer_apellido].filter(Boolean).join(' '),
+              mision: this.mapFuncionarioMisionItem(row),
+            };
+          }),
+        })),
       );
+  }
+
+  documentosConvocatoria(convocatoriaId: string): ApiDocumentos {
+    return apiDocumentos(this.http, `${API_BASE_URL}/misiones/convocatorias/${convocatoriaId}`);
+  }
+
+  documentosAsignacion(asignacionId: string): ApiDocumentos {
+    return apiDocumentos(this.http, `${API_BASE_URL}/misiones/asignaciones/${asignacionId}`);
   }
 
   // ── Helpers de mock ──────────────────────────────────────────────────────
@@ -614,6 +666,7 @@ export class MisionesService {
     const persona = personal.find((p) => String(p.id) === personaId);
     const [primerNombre, ...resto] = (persona?.nombre ?? '').trim().split(/\s+/);
     return {
+      id: this.nextId(),
       persona_id: personaId,
       cedula: persona?.cedula ?? null,
       primer_nombre: primerNombre || null,
@@ -621,6 +674,7 @@ export class MisionesService {
       numero_orden: extra.numero_orden ?? null,
       boletin: extra.boletin ?? null,
       observaciones: extra.observaciones ?? null,
+      documentos: SIN_DOCUMENTOS,
     };
   }
 

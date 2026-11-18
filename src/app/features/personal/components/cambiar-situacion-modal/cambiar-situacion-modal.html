@@ -1,0 +1,81 @@
+<!-- Sin cierre al click afuera: un resbalón perdía lo cargado. -->
+<div class="modal-overlay">
+  <div class="modal">
+    <header class="modal__header">
+      <div>
+        <h3>Cambiar situación</h3>
+        <p class="cs__sub">
+          <strong *ngIf="nombre">{{ nombre }}</strong>
+          <span *ngIf="situacion"> · hoy: {{ situacion.codigo }} · {{ situacion.denominacion }}</span>
+        </p>
+      </div>
+      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+    </header>
+
+    <div class="modal__body" [formGroup]="form">
+      <p class="modal__error" *ngIf="error()">{{ error() }}</p>
+
+      <p class="aviso aviso--info" *ngIf="opciones().length === 0">
+        Desde la situación actual no se puede pedir licencia sin goce ni pasar a No Disponible. Se pueden pedir desde
+        actividad (SIT01, SIT07) o reincorporado (SIT16, SIT17). El retiro y la reincorporación tienen su propio flujo.
+      </p>
+
+      <ng-container *ngIf="opciones().length > 0">
+        <div class="field">
+          <label>Cambio *</label>
+          <label class="field--inline cs__opcion" *ngFor="let o of opciones()">
+            <input type="radio" formControlName="cambio" [value]="o.cambio" />
+            <span>{{ o.etiqueta }} <small>({{ o.destino }})</small></span>
+          </label>
+        </div>
+
+        <p class="aviso aviso--peligro" *ngIf="dejaDeCobrar()">
+          <strong>Liquidación deja de pagarle desde el próximo cálculo.</strong>
+          Se cierra la relación laboral activa y se abre otra con situación
+          {{ opcionElegida()?.destino }}. Grado, base, derecha y numor quedan iguales.
+        </p>
+        <p class="aviso aviso--info" *ngIf="elegido() === 'VOLVER_A_ACTIVIDAD'">
+          Vuelve a la situación que tenía antes de la licencia o el No Disponible, y liquidación le vuelve a pagar
+          desde el próximo cálculo.
+        </p>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="cs-fecha">Fecha *</label>
+            <input id="cs-fecha" type="date" formControlName="fecha" [max]="hoy" />
+            <p class="field__hint">No puede ser futura.</p>
+          </div>
+          <div class="field">
+            <label for="cs-orden">N° de orden</label>
+            <input id="cs-orden" type="text" formControlName="numero_orden" maxlength="50" />
+          </div>
+          <div class="field">
+            <label for="cs-boletin">Boletín</label>
+            <input id="cs-boletin" type="text" formControlName="boletin" maxlength="50" />
+          </div>
+        </div>
+        <p class="field__hint">Se necesita al menos el N° de orden o el boletín.</p>
+
+        <div class="field">
+          <label for="cs-obs">Observaciones</label>
+          <textarea id="cs-obs" formControlName="observaciones" rows="2" maxlength="500"></textarea>
+        </div>
+      </ng-container>
+    </div>
+
+    <footer class="modal__footer">
+      <button type="button" class="btn" (click)="cerrar()" [disabled]="guardando()">Cancelar</button>
+      <button
+        *ngIf="opciones().length > 0"
+        type="button"
+        class="btn"
+        [class.btn--danger]="dejaDeCobrar()"
+        [class.btn--primary]="!dejaDeCobrar()"
+        (click)="guardar()"
+        [disabled]="guardando()"
+      >
+        {{ guardando() ? 'Guardando...' : 'Confirmar cambio' }}
+      </button>
+    </footer>
+  </div>
+</div>

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
+import { ApiDocumentos, apiDocumentos } from './documentos-registro';
 import {
   CrearDestinoPayload,
   Destino,
@@ -11,9 +12,9 @@ import {
   ListaDestinos,
   ListarDestinosQuery,
   ListarFuncionariosUnidadQuery,
-  ListarUnidadesQuery,
+  ListarSubUnidadesQuery,
   Paginado,
-  UnidadConDestinados,
+  SubUnidadConDestinados,
 } from '../models/destinos.models';
 
 /** Máximo que acepta el backend; si se pide más, lo recorta en silencio. */
@@ -26,6 +27,11 @@ export interface CamposEditablesDestino {
   posicion_destino: string;
   numero_orden: string;
   boletin: string;
+  numero_destino: string;
+  fecha_orden: string;
+  fecha_boletin: string;
+  numero_resolucion: string;
+  fecha_resolucion: string;
   observaciones: string;
 }
 
@@ -37,6 +43,12 @@ export interface CamposEditablesDestino {
  * justamente lo que reabre un destino, así que la ausencia de la clave y la clave en
  * null significan cosas distintas.
  */
+/** Recorta la parte de fecha de un valor ISO; '' si no hay dato. */
+function fechaASlice(fecha: string | Date | null | undefined): string | null {
+  if (!fecha) return null;
+  return String(fecha).slice(0, 10) || null;
+}
+
 export function payloadEdicion(original: Destino, valores: CamposEditablesDestino): EditarDestinoPayload {
   const payload: EditarDestinoPayload = {};
 
@@ -50,6 +62,11 @@ export function payloadEdicion(original: Destino, valores: CamposEditablesDestin
     ['posicion_destino', original.posicion_destino],
     ['numero_orden', original.numero_orden],
     ['boletin', original.boletin],
+    ['numero_destino', original.numero_destino],
+    ['fecha_orden', fechaASlice(original.fecha_orden)],
+    ['fecha_boletin', fechaASlice(original.fecha_boletin)],
+    ['numero_resolucion', original.numero_resolucion],
+    ['fecha_resolucion', fechaASlice(original.fecha_resolucion)],
     ['observaciones', original.observaciones],
   ];
 
@@ -90,23 +107,30 @@ export class DestinosService {
     return this.http.delete<DestinoEliminado>(`${this.base}/${destinoId}`, { withCredentials: true });
   }
 
-  listarUnidades(query: ListarUnidadesQuery = {}): Observable<Paginado<UnidadConDestinados>> {
-    return this.http.get<Paginado<UnidadConDestinados>>(`${this.base}/unidades${this.qs(query)}`, {
+  documentos(destinoId: string): ApiDocumentos {
+    return apiDocumentos(this.http, `${this.base}/${destinoId}`);
+  }
+
+  /** Sub-unidades (los destinos) con su comando y dotación actual. Catálogo de solo lectura. */
+  listarSubUnidades(query: ListarSubUnidadesQuery = {}): Observable<Paginado<SubUnidadConDestinados>> {
+    return this.http.get<Paginado<SubUnidadConDestinados>>(`${this.base}/sub-unidades${this.qs(query)}`, {
       withCredentials: true,
     });
   }
 
-  /** Catálogo completo para poblar selectores, en una sola llamada. */
-  listarUnidadesParaSelector(): Observable<UnidadConDestinados[]> {
-    return this.listarUnidades({ page: 1, pageSize: PAGE_SIZE_MAXIMO }).pipe(map((res) => res.items));
+  /** Catálogo completo para poblar selectores, en una sola llamada. Viene ordenado por comando. */
+  listarSubUnidadesParaSelector(
+    filtros: Pick<ListarSubUnidadesQuery, 'unidad_id' | 'vigente'> = {},
+  ): Observable<SubUnidadConDestinados[]> {
+    return this.listarSubUnidades({ ...filtros, page: 1, pageSize: PAGE_SIZE_MAXIMO }).pipe(map((res) => res.items));
   }
 
-  listarFuncionariosUnidad(
-    unidadId: string,
+  listarFuncionariosSubUnidad(
+    subUnidadId: string,
     query: ListarFuncionariosUnidadQuery = {},
   ): Observable<Paginado<FuncionarioUnidad>> {
     return this.http.get<Paginado<FuncionarioUnidad>>(
-      `${this.base}/unidades/${unidadId}/funcionarios${this.qs(query)}`,
+      `${this.base}/sub-unidades/${subUnidadId}/funcionarios${this.qs(query)}`,
       { withCredentials: true },
     );
   }

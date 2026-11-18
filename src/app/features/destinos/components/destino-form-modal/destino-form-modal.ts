@@ -5,12 +5,22 @@ import { Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { DestinosService, payloadEdicion } from '../../../../core/services/destinos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
-import { CrearDestinoPayload, Destino, UnidadConDestinados } from '../../../../core/models/destinos.models';
+import { ToastService } from '../../../../core/services/toast.service';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import { ArchivosPendientes, subirPendientes } from '../../../../core/services/documentos-registro';
+import { CrearDestinoPayload, Destino, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
-import { DEBOUNCE_MS } from '../../destino-presentacion';
+import { DEBOUNCE_MS, etiquetaSubUnidad, nombreDestino } from '../../destino-presentacion';
 
 const MIN_CARACTERES_BUSQUEDA = 2;
+
+export type PersonaDelPase = Pick<PersonaListItem, 'id' | 'nombre' | 'cedula'>;
+
+/** Deja solo la parte YYYY-MM-DD de un valor de fecha que traiga el backend. */
+function fechaTexto(valor: string | null | undefined): string {
+  return valor ? String(valor).slice(0, 10) : '';
+}
 
 /** Resta un día a una fecha `AAAA-MM-DD` en UTC, para no depender del huso del navegador. */
 export function diaAnterior(fecha: string): string {
@@ -30,22 +40,33 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly destinosService = inject(DestinosService);
   private readonly personalService = inject(PersonalService);
+  private readonly toast = inject(ToastService);
+  private readonly destroy$ = new Subject<void>();
 
   /** `null` crea un destino; con un destino, lo edita. */
   @Input() destino: Destino | null = null;
+
+  /** Al registrar desde el perfil la persona ya viene elegida y no se puede cambiar. */
+  @Input() persona: PersonaDelPase | null = null;
 
   @Output() guardado = new EventEmitter<Destino>();
   @Output() cerrado = new EventEmitter<void>();
 
   readonly error = signal<string | null>(null);
   readonly guardando = signal(false);
-  readonly unidades = signal<UnidadConDestinados[]>([]);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
+  /** Los destinos posibles: sub-unidades vigentes, ya ordenadas por comando desde el backend. */
+  readonly subUnidades = signal<SubUnidadConDestinados[]>([]);
+  readonly opcionesSubUnidad = computed(() =>
+    this.subUnidades().map((s) => ({ value: s.id, label: etiquetaSubUnidad(s) })),
+  );
 
   // ── Búsqueda de persona (solo en modo crear) ────────────────────────────────
   readonly terminoBusqueda = signal('');
   readonly buscando = signal(false);
   readonly resultados = signal<PersonaListItem[]>([]);
-  readonly personaElegida = signal<PersonaListItem | null>(null);
+  readonly personaElegida = signal<PersonaDelPase | null>(null);
 
   // ── Preview del pase ────────────────────────────────────────────────────────
   readonly destinoActual = signal<Destino | null>(null);
@@ -54,11 +75,16 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   readonly errorDestinoActual = signal<string | null>(null);
 
   readonly form = this.fb.group({
-    unidad_id: ['', Validators.required],
+    sub_unidad_id: ['', Validators.required],
     fecha_inicio: ['', Validators.required],
     posicion_destino: ['', Validators.maxLength(200)],
     numero_orden: ['', Validators.maxLength(50)],
     boletin: ['', Validators.maxLength(50)],
+    numero_destino: ['', Validators.maxLength(20)],
+    fecha_orden: [''],
+    fecha_boletin: [''],
+    numero_resolucion: ['', Validators.maxLength(50)],
+    fecha_resolucion: [''],
     observaciones: [''],
     /** Solo se manda si el operador la corrige. */
     fecha_fin_anterior: [''],
@@ -84,22 +110,45 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     return diaAnterior(inicio);
   });
 
+  readonly subUnidadElegida = signal('');
+  /**
+   * Un pase a la misma sub-unidad en la que ya revista no es un pase: el backend lo
+   * rechaza. Se compara por sub-unidad (el destino), no por comando: moverse entre dos
+   * sub-unidades del mismo comando sí es un pase válido.
+   */
+  readonly mismoDestinoQueElActual = computed(() => {
+    const actual = this.destinoActual()?.sub_unidad?.id;
+    const elegida = this.subUnidadElegida();
+    return !!actual && !!elegida && actual === elegida;
+  });
+
+  nombreDestino(d: Destino): string {
+    return nombreDestino(d);
+  }
+
   private readonly busquedaSubject = new Subject<void>();
 
   ngOnInit(): void {
-    this.destinosService.listarUnidadesParaSelector().subscribe({
-      next: (u) => this.unidades.set(u),
-      error: () => this.unidades.set([]),
+    this.destinosService.listarSubUnidadesParaSelector({ vigente: true }).subscribe({
+      next: (s) => this.subUnidades.set(s),
+      error: () => this.subUnidades.set([]),
     });
 
     this.busquedaSubject.pipe(debounceTime(DEBOUNCE_MS)).subscribe(() => this.buscarPersona());
 
     this.form.get('fecha_inicio')!.valueChanges.subscribe((v) => this.fechaInicio.set(v ?? ''));
+    this.form.get('sub_unidad_id')!.valueChanges.subscribe((v) => this.subUnidadElegida.set(v ? String(v) : ''));
+
+    this.pendientes.descartarSiVacio(this.form.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.form.controls.boletin, 'boletin', this.destroy$);
 
     if (this.destino) this.precargarEdicion(this.destino);
+    else if (this.persona) this.elegirPersona(this.persona);
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.busquedaSubject.complete();
   }
 
@@ -130,7 +179,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
     });
   }
 
-  elegirPersona(persona: PersonaListItem): void {
+  elegirPersona(persona: PersonaDelPase): void {
     this.personaElegida.set(persona);
     this.resultados.set([]);
     this.terminoBusqueda.set('');
@@ -146,7 +195,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
    * (`pageSize: 50`) y se filtra en el cliente por `persona.id` en vez de asumir `items[0]`.
    * No hay filtro `persona_id` en ese endpoint, así que la guarda tiene que ser acá.
    */
-  private buscarDestinoActual(persona: PersonaListItem): void {
+  private buscarDestinoActual(persona: PersonaDelPase): void {
     const personaId = persona.id;
     this.errorDestinoActual.set(null);
     this.buscandoDestinoActual.set(true);
@@ -187,7 +236,7 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.personaElegida() || !raw.unidad_id || !raw.fecha_inicio) {
+    if (!this.personaElegida() || !raw.sub_unidad_id || !raw.fecha_inicio) {
       this.error.set('Completá los campos requeridos.');
       return;
     }
@@ -195,27 +244,40 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       this.error.set('Ingresá al menos el N° de orden o el boletín.');
       return;
     }
+    if (this.mismoDestinoQueElActual()) {
+      this.error.set('El funcionario ya revista en esa base. Elegí otro destino.');
+      return;
+    }
+    const cierreAnterior = (raw.fecha_fin_anterior ?? '').trim();
+    // Cerrar el anterior el mismo día o después del inicio del nuevo deja los dos superpuestos (SCRUM-183).
+    if (cierreAnterior && cierreAnterior >= raw.fecha_inicio) {
+      this.error.set('El destino anterior tiene que cerrar antes de la fecha de inicio del nuevo.');
+      return;
+    }
 
     const payload: CrearDestinoPayload = {
       persona_id: Number(this.personaElegida()!.id),
-      unidad_id: Number(raw.unidad_id),
+      sub_unidad_id: Number(raw.sub_unidad_id),
       fecha_inicio: raw.fecha_inicio!,
     };
     if (numeroOrden) payload.numero_orden = numeroOrden;
     if (boletin) payload.boletin = boletin;
     const cargo = (raw.posicion_destino ?? '').trim();
     if (cargo) payload.posicion_destino = cargo;
+    const numeroDestino = (raw.numero_destino ?? '').trim();
+    if (numeroDestino) payload.numero_destino = numeroDestino;
+    if (raw.fecha_orden) payload.fecha_orden = raw.fecha_orden;
+    if (raw.fecha_boletin) payload.fecha_boletin = raw.fecha_boletin;
+    const resolucion = (raw.numero_resolucion ?? '').trim();
+    if (resolucion) payload.numero_resolucion = resolucion;
+    if (raw.fecha_resolucion) payload.fecha_resolucion = raw.fecha_resolucion;
     const observaciones = (raw.observaciones ?? '').trim();
     if (observaciones) payload.observaciones = observaciones;
-    const cierre = (raw.fecha_fin_anterior ?? '').trim();
-    if (cierre) payload.fecha_fin_anterior = cierre;
+    if (cierreAnterior) payload.fecha_fin_anterior = cierreAnterior;
 
     this.guardando.set(true);
     this.destinosService.crear(payload).subscribe({
-      next: (creado) => {
-        this.guardando.set(false);
-        this.guardado.emit(creado);
-      },
+      next: (creado) => this.subirDocumentos(creado),
       error: (err: HttpErrorResponse) => {
         this.guardando.set(false);
         this.error.set(parseError(err));
@@ -224,19 +286,44 @@ export class DestinoFormModal implements OnInit, OnDestroy {
   }
 
   cerrar(): void {
+    // Con el destino ya creado, cerrar a mitad de las subidas perdería el aviso.
+    if (this.guardando()) return;
     this.cerrado.emit();
+  }
+
+  /** Emite al final: el padre destruye el modal al recibir `guardado`. */
+  private subirDocumentos(creado: Destino): void {
+    this.subiendoDocumentos.set(this.pendientes.hay());
+    subirPendientes(
+      (slot, archivo) => this.destinosService.documentos(creado.id).subir(slot, archivo),
+      this.pendientes.archivos(),
+      (archivo, err) =>
+        this.toast.error(
+          `El destino se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde Asignaciones.`,
+          8000,
+        ),
+    ).subscribe(() => {
+      this.subiendoDocumentos.set(false);
+      this.guardando.set(false);
+      this.guardado.emit(creado);
+    });
   }
 
   // ── Modo editar: se completa en la Task 7 ───────────────────────────────────
 
   private precargarEdicion(destino: Destino): void {
     this.form.patchValue({
-      unidad_id: destino.unidad?.id ?? '',
+      sub_unidad_id: destino.sub_unidad?.id ?? '',
       fecha_inicio: destino.fecha_inicio ?? '',
       fecha_fin: destino.fecha_fin ?? '',
       posicion_destino: destino.posicion_destino ?? '',
       numero_orden: destino.numero_orden ?? '',
       boletin: destino.boletin ?? '',
+      numero_destino: destino.numero_destino ?? '',
+      fecha_orden: fechaTexto(destino.fecha_orden),
+      fecha_boletin: fechaTexto(destino.fecha_boletin),
+      numero_resolucion: destino.numero_resolucion ?? '',
+      fecha_resolucion: fechaTexto(destino.fecha_resolucion),
       observaciones: destino.observaciones ?? '',
     });
   }
@@ -258,6 +345,11 @@ export class DestinoFormModal implements OnInit, OnDestroy {
       posicion_destino: raw.posicion_destino ?? '',
       numero_orden: raw.numero_orden ?? '',
       boletin: raw.boletin ?? '',
+      numero_destino: raw.numero_destino ?? '',
+      fecha_orden: raw.fecha_orden ?? '',
+      fecha_boletin: raw.fecha_boletin ?? '',
+      numero_resolucion: raw.numero_resolucion ?? '',
+      fecha_resolucion: raw.fecha_resolucion ?? '',
       observaciones: raw.observaciones ?? '',
     });
 

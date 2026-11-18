@@ -2,19 +2,27 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, of } from 'rxjs';
-import { catchError, debounceTime } from 'rxjs/operators';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
+import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
 import { PaisesService, PaisOpcion } from '../../../../core/services/paises.service';
 import {
-  FuncionarioConMisiones,
-  FuncionarioMisionItem,
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
+import {
+  FilaPersonalMision,
+  FiltrosPersonalMision,
   MisionDefinicion,
   MisionesStats,
   MisionOpcion,
 } from '../../../../core/models/misiones.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type TabKind = 'catalogo' | 'personal-en-mision';
 type ModalKind =
@@ -26,12 +34,7 @@ type ModalKind =
   | null;
 type EstadoFiltro = '' | 'activa' | 'finalizada';
 
-interface FilaPersonal {
-  funcionarioId: string;
-  cedula: string;
-  nombre: string;
-  mision: FuncionarioMisionItem;
-}
+type FilaPersonal = FilaPersonalMision;
 
 @Component({
   selector: 'app-misiones-page',
@@ -74,7 +77,9 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   // ── Personal en misión ───────────────────────────────────────────────────
   readonly loadingPersonal = signal(false);
-  readonly funcionarios = signal<FuncionarioConMisiones[]>([]);
+  readonly filasPersonal = signal<FilaPersonal[]>([]);
+  readonly personalTotal = signal(0);
+  readonly errorPersonal = signal(false);
   readonly misionesOpciones = signal<MisionOpcion[]>([]);
   readonly personalPage = signal(1);
   readonly personalPageSize = 10;
@@ -87,43 +92,19 @@ export class MisionesPage implements OnInit, OnDestroy {
   readonly misionesFiltroIds = signal<string[]>([]);
   readonly ordenBoletinFiltroPersonal = signal('');
   readonly estadoFiltroPersonal = signal<EstadoFiltro>('');
+  readonly categoriaFiltroPersonal = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly hayFiltrosPersonal = computed(
     () =>
       !!this.busquedaPersonal() ||
+      this.categoriaFiltroPersonal() !== 'todos' ||
       this.misionesFiltroIds().length > 0 ||
       !!this.ordenBoletinFiltroPersonal() ||
       !!this.estadoFiltroPersonal(),
   );
 
-  readonly filasFlat = computed<FilaPersonal[]>(() => {
-    const q = this.busquedaPersonal().trim().toLowerCase();
-    const orden = this.ordenBoletinFiltroPersonal().trim().toLowerCase();
-    const misionIds = this.misionesFiltroIds();
-    const estado = this.estadoFiltroPersonal();
-
-    return this.funcionarios().flatMap((f) =>
-      f.misiones
-        .filter((m) => {
-          if (q && !(f.cedula.toLowerCase().includes(q) || f.nombre.toLowerCase().includes(q))) return false;
-          if (misionIds.length > 0 && !misionIds.includes(m.id)) return false;
-          if (
-            orden &&
-            !((m.numero_orden ?? '').toLowerCase().includes(orden) || (m.boletin ?? '').toLowerCase().includes(orden))
-          ) {
-            return false;
-          }
-          if (estado === 'activa' && m.finalizada) return false;
-          if (estado === 'finalizada' && !m.finalizada) return false;
-          return true;
-        })
-        .map((m) => ({ funcionarioId: f.id, cedula: f.cedula, nombre: f.nombre, mision: m })),
-    );
-  });
-
-  readonly filasPaginadas = computed<FilaPersonal[]>(() => {
-    const start = (this.personalPage() - 1) * this.personalPageSize;
-    return this.filasFlat().slice(start, start + this.personalPageSize);
-  });
+  private readonly personalTextSubject = new Subject<void>();
+  private personalSub?: Subscription;
 
   // ── Menú de acciones (kebab) ─────────────────────────────────────────────
   readonly openMenuId = signal<string | null>(null);
@@ -131,11 +112,50 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   // ── Permisos ─────────────────────────────────────────────────────────────
   readonly puedeGestionar = computed(() => this.auth.hasPermiso('misiones.gestionar'));
+  readonly puedeVerDocumentos = computed(() => this.auth.hasPermiso('misiones.ver'));
+  readonly mostrarAcciones = computed(() => this.puedeGestionar() || this.puedeVerDocumentos());
+
+  /** La fila cuyos documentos se ven; se refresca desde el listado recargado. */
+  readonly filaDocumentos = signal<FilaPersonal | null>(null);
+  readonly slotsDocumentos = computed<SlotVista[]>(() => {
+    const f = this.filaDocumentos();
+    if (!f) return [];
+    return armarSlots(
+      this.misionesService.documentosAsignacion(f.asignacionId),
+      f.documentos,
+      { orden: f.mision.numero_orden, boletin: f.mision.boletin },
+      this.puedeGestionar(),
+    );
+  });
+  readonly tituloDocumentos = computed(() => {
+    const f = this.filaDocumentos();
+    return f ? `Documentos de ${f.nombre} — ${f.mision.nombre_mision}` : '';
+  });
+
+  // ── Carga masiva ─────────────────────────────────────────────────────────
+  readonly importOpen = signal(false);
+  readonly cargaMisiones = CARGAS_MASIVAS.misiones;
+
+  cerrarImportar(huboCambios: boolean): void {
+    this.importOpen.set(false);
+    if (!huboCambios) return;
+    if (this.tab() === 'catalogo') {
+      this.cargarDefiniciones();
+    } else {
+      this.cargarPersonal();
+      this.misionesService.findMisionesOpciones().subscribe((m) => this.misionesOpciones.set(m));
+    }
+  }
 
   // ── Formularios ──────────────────────────────────────────────────────────
   readonly misionForm = this.fb.group({
     nombre_mision: ['', [Validators.required, Validators.maxLength(150)]],
     pais: ['', Validators.required],
+    fecha_orden: [''],
+    fecha_boletin: [''],
+    numero_resolucion: [''],
+    fecha_resolucion: [''],
+    resolucion_cje: [''],
   });
 
   readonly editarFuncionarioForm = this.fb.group({
@@ -157,14 +177,18 @@ export class MisionesPage implements OnInit, OnDestroy {
       this.misionesService.findMisionesOpciones().subscribe((m) => this.misionesOpciones.set(m));
     }
 
-    this.defTextSubject.pipe(debounceTime(350)).subscribe(() => {
+    this.defTextSubject.pipe(debounceTime(ESPERA_BUSQUEDA_MS)).subscribe(() => {
       this.defPage.set(1);
       this.cargarDefiniciones();
     });
+
+    this.personalTextSubject.pipe(debounceTime(ESPERA_BUSQUEDA_MS)).subscribe(() => this.recargarPersonalDesdeInicio());
   }
 
   ngOnDestroy(): void {
     this.defTextSubject.complete();
+    this.personalTextSubject.complete();
+    this.personalSub?.unsubscribe();
   }
 
   // ── Carga ────────────────────────────────────────────────────────────────
@@ -194,13 +218,50 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   cargarPersonal(): void {
     this.loadingPersonal.set(true);
-    this.misionesService
-      .findFuncionariosConMisiones()
-      .pipe(catchError(() => of([])))
-      .subscribe((funcionarios) => {
-        this.funcionarios.set(funcionarios);
-        this.loadingPersonal.set(false);
+    this.errorPersonal.set(false);
+    // Cancela el pedido anterior para que una respuesta lenta no pise filtros más nuevos.
+    this.personalSub?.unsubscribe();
+    this.personalSub = this.misionesService
+      .findPersonalEnMision(this.personalPage(), this.personalPageSize, this.filtrosPersonal())
+      .subscribe({
+        next: (res) => {
+          // La página quedó vacía (se quitó o editó su última fila): ir a la última con datos.
+          const ultimaPagina = Math.ceil(res.total / this.personalPageSize);
+          if (res.items.length === 0 && this.personalPage() > ultimaPagina && ultimaPagina > 0) {
+            this.personalPage.set(ultimaPagina);
+            this.cargarPersonal();
+            return;
+          }
+          this.filasPersonal.set(res.items);
+          this.refrescarDocumentos(res.items);
+          this.personalTotal.set(res.total);
+          this.loadingPersonal.set(false);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.filasPersonal.set([]);
+          this.personalTotal.set(0);
+          this.errorPersonal.set(true);
+          this.loadingPersonal.set(false);
+          this.toast.error(this.parseError(err));
+        },
       });
+  }
+
+  private filtrosPersonal(): FiltrosPersonalMision {
+    const estado = this.estadoFiltroPersonal();
+    const misionIds = this.misionesFiltroIds();
+    return {
+      query: this.busquedaPersonal().trim() || undefined,
+      misionIds: misionIds.length > 0 ? misionIds : undefined,
+      orden: this.ordenBoletinFiltroPersonal().trim() || undefined,
+      finalizada: estado ? estado === 'finalizada' : undefined,
+      categoria: categoriaParam(this.categoriaFiltroPersonal()),
+    };
+  }
+
+  private recargarPersonalDesdeInicio(): void {
+    this.personalPage.set(1);
+    this.cargarPersonal();
   }
 
   onNombreInput(value: string): void {
@@ -225,24 +286,34 @@ export class MisionesPage implements OnInit, OnDestroy {
     this.cargarDefiniciones();
   }
 
+  onPersonalPageChange(page: number): void {
+    this.personalPage.set(page);
+    this.cargarPersonal();
+  }
+
   onBusquedaPersonalInput(value: string): void {
     this.busquedaPersonal.set(value);
-    this.personalPage.set(1);
+    this.personalTextSubject.next();
   }
 
   onMisionFiltroChange(value: string[] | null): void {
     this.misionesFiltroIds.set(value ?? []);
-    this.personalPage.set(1);
+    this.recargarPersonalDesdeInicio();
   }
 
   onOrdenBoletinPersonalInput(value: string): void {
     this.ordenBoletinFiltroPersonal.set(value);
-    this.personalPage.set(1);
+    this.personalTextSubject.next();
   }
 
   onEstadoFiltroPersonalChange(value: string): void {
     this.estadoFiltroPersonal.set(value as EstadoFiltro);
-    this.personalPage.set(1);
+    this.recargarPersonalDesdeInicio();
+  }
+
+  onCategoriaFiltroPersonalChange(value: string): void {
+    this.categoriaFiltroPersonal.set(value as FiltroCategoria);
+    this.recargarPersonalDesdeInicio();
   }
 
   limpiarFiltrosPersonal(): void {
@@ -250,7 +321,8 @@ export class MisionesPage implements OnInit, OnDestroy {
     this.misionesFiltroIds.set([]);
     this.ordenBoletinFiltroPersonal.set('');
     this.estadoFiltroPersonal.set('');
-    this.personalPage.set(1);
+    this.categoriaFiltroPersonal.set('todos');
+    this.recargarPersonalDesdeInicio();
   }
 
   // ── Navegación ───────────────────────────────────────────────────────────
@@ -281,7 +353,15 @@ export class MisionesPage implements OnInit, OnDestroy {
   // ── Modales ──────────────────────────────────────────────────────────────
 
   abrirNuevaMision(): void {
-    this.misionForm.reset({ nombre_mision: '', pais: '' });
+    this.misionForm.reset({
+      nombre_mision: '',
+      pais: '',
+      fecha_orden: '',
+      fecha_boletin: '',
+      numero_resolucion: '',
+      fecha_resolucion: '',
+      resolucion_cje: '',
+    });
     this.modalError.set(null);
     this.misionSeleccionada.set(null);
     this.modal.set('nuevaMision');
@@ -290,7 +370,15 @@ export class MisionesPage implements OnInit, OnDestroy {
   abrirEditar(mision: MisionDefinicion): void {
     this.cerrarMenu();
     this.misionSeleccionada.set(mision);
-    this.misionForm.reset({ nombre_mision: mision.nombre_mision, pais: mision.pais });
+    this.misionForm.reset({
+      nombre_mision: mision.nombre_mision,
+      pais: mision.pais,
+      fecha_orden: mision.fecha_orden ?? '',
+      fecha_boletin: mision.fecha_boletin ?? '',
+      numero_resolucion: mision.numero_resolucion ?? '',
+      fecha_resolucion: mision.fecha_resolucion ?? '',
+      resolucion_cje: mision.resolucion_cje ?? '',
+    });
     this.modalError.set(null);
     this.modal.set('editarMision');
   }
@@ -324,12 +412,21 @@ export class MisionesPage implements OnInit, OnDestroy {
     }
 
     const raw = this.misionForm.getRawValue();
-    const payload = { nombre_mision: raw.nombre_mision!, pais: raw.pais! };
+    const editando = this.misionSeleccionada();
+    // Al editar, null le indica al backend que borre el campo; al crear, se omite.
+    const vacio = editando ? null : undefined;
+    const payload = {
+      nombre_mision: raw.nombre_mision!,
+      pais: raw.pais!,
+      fecha_orden: raw.fecha_orden || vacio,
+      fecha_boletin: raw.fecha_boletin || vacio,
+      numero_resolucion: raw.numero_resolucion || vacio,
+      fecha_resolucion: raw.fecha_resolucion || vacio,
+      resolucion_cje: raw.resolucion_cje || vacio,
+    };
 
     this.modalError.set(null);
     this.guardando.set(true);
-
-    const editando = this.misionSeleccionada();
 
     if (editando) {
       this.misionesService.editarDefinicion(editando.id, payload).subscribe({
@@ -374,6 +471,17 @@ export class MisionesPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
     });
+  }
+
+  private refrescarDocumentos(items: FilaPersonal[]): void {
+    const abierta = this.filaDocumentos();
+    if (!abierta) return;
+    this.filaDocumentos.set(items.find((f) => f.asignacionId === abierta.asignacionId) ?? null);
+  }
+
+  abrirDocumentos(fila: FilaPersonal): void {
+    this.cerrarMenu();
+    this.filaDocumentos.set(fila);
   }
 
   abrirConfirmQuitarPersonal(fila: FilaPersonal): void {

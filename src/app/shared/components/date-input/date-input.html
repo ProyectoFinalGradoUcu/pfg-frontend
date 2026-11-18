@@ -1,0 +1,79 @@
+<div class="appdate" [class.appdate--abierto]="abierto()" [class.appdate--disabled]="deshabilitado()">
+  <button
+    #controlRef
+    type="button"
+    class="appdate__control"
+    [disabled]="deshabilitado()"
+    [attr.aria-expanded]="abierto()"
+    aria-haspopup="dialog"
+    [attr.aria-label]="placeholder + (texto() ? ': ' + texto() : '')"
+    (click)="alternar()"
+  >
+    <span *ngIf="texto() as t" class="appdate__valor">{{ t }}</span>
+    <span *ngIf="!texto()" class="appdate__placeholder">{{ placeholder }}</span>
+
+    <span class="appdate__iconos">
+      <span
+        *ngIf="clearable && texto()"
+        role="button"
+        tabindex="0"
+        class="appdate__quitar"
+        [attr.aria-label]="'Quitar ' + placeholder"
+        (click)="limpiar($event)"
+        (keydown.enter)="limpiar($event)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </span>
+      <span class="appdate__calendario" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+        </svg>
+      </span>
+    </span>
+  </button>
+
+  <div
+    *ngIf="abierto()"
+    class="appdate__panel"
+    role="dialog"
+    [attr.aria-label]="'Calendario: ' + placeholder"
+    [style.top.px]="panelPos()?.top"
+    [style.bottom.px]="panelPos()?.bottom"
+    [style.left.px]="panelPos()?.left"
+  >
+    <header class="appdate__cabecera">
+      <button type="button" class="appdate__nav" aria-label="Año anterior" (click)="moverMes(-12)">«</button>
+      <button type="button" class="appdate__nav" aria-label="Mes anterior" (click)="moverMes(-1)">‹</button>
+      <span class="appdate__mes" aria-live="polite">{{ tituloMes() }}</span>
+      <button type="button" class="appdate__nav" aria-label="Mes siguiente" (click)="moverMes(1)">›</button>
+      <button type="button" class="appdate__nav" aria-label="Año siguiente" (click)="moverMes(12)">»</button>
+    </header>
+
+    <div class="appdate__grilla" aria-hidden="true">
+      <span *ngFor="let d of diasSemana" class="appdate__dia-semana">{{ d }}</span>
+    </div>
+
+    <div class="appdate__grilla">
+      <ng-container *ngFor="let celda of celdas(); trackBy: trackCelda">
+        <span *ngIf="!celda"></span>
+        <button
+          *ngIf="celda"
+          type="button"
+          class="appdate__dia"
+          [class.appdate__dia--seleccionado]="celda.seleccionado"
+          [class.appdate__dia--hoy]="celda.esHoy"
+          [disabled]="celda.deshabilitado"
+          [attr.aria-label]="celda.etiqueta"
+          [attr.aria-pressed]="celda.seleccionado"
+          (click)="elegir(celda.fecha)"
+        >{{ celda.dia }}</button>
+      </ng-container>
+    </div>
+
+    <footer class="appdate__pie">
+      <button type="button" class="appdate__hoy" [disabled]="hoyDeshabilitado()" (click)="elegirHoy()">Hoy</button>
+    </footer>
+  </div>
+</div>

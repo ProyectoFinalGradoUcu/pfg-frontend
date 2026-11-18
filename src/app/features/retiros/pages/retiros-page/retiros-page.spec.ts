@@ -2,7 +2,8 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { RetirosPage } from './retiros-page';
@@ -50,7 +51,7 @@ describe('RetirosPage', () => {
       providers: [
         { provide: RetirosService, useValue: retiros },
         { provide: CatalogosService, useValue: { getMotivosBaja: vi.fn().mockReturnValue(of([])) } },
-        { provide: PersonalService, useValue: { getUnidades: vi.fn().mockReturnValue(of([])) } },
+        { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of([])) } },
         { provide: AuthService, useValue: { hasPermiso: vi.fn().mockReturnValue(true) } },
         { provide: ToastService, useValue: toast },
         { provide: Router, useValue: { navigate: vi.fn() } },
@@ -97,11 +98,23 @@ describe('RetirosPage', () => {
     );
   });
 
-  it('cambiar de unidad reinicia el paginado', () => {
+  it('después de un error muestra el mensaje y el listado sigue respondiendo (SCRUM-197)', () => {
+    retiros.listar.mockReturnValueOnce(
+      throwError(() => new HttpErrorResponse({ status: 400, error: { message: 'Parámetro inválido' } })),
+    );
+    component.setBase(5);
+    expect(toast.error).toHaveBeenCalledWith('Parámetro inválido');
+    expect(component.loading()).toBe(false);
+
+    component.setBase(6);
+    expect(retiros.listar).toHaveBeenLastCalledWith(expect.objectContaining({ sub_unidad_id: 6 }));
+  });
+
+  it('cambiar de base reinicia el paginado', () => {
     component.currentPage.set(4);
-    component.setUnidad(5);
+    component.setBase(5);
     expect(retiros.listar).toHaveBeenLastCalledWith(
-      expect.objectContaining({ unidad_id: 5, page: 1 }),
+      expect.objectContaining({ sub_unidad_id: 5, page: 1 }),
     );
   });
 

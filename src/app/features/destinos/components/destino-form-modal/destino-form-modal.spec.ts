@@ -8,28 +8,37 @@ import { vi } from 'vitest';
 import { DestinoFormModal } from './destino-form-modal';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
+import { ToastService } from '../../../../core/services/toast.service';
 import { Destino } from '../../../../core/models/destinos.models';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { Select } from '../../../../shared/components/select/select';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
     id: '200',
     persona: { id: '42', cedula: '50000001', primer_nombre: 'José', primer_apellido: 'Pérez' },
-    unidad: { id: '5', codigo: 'EMGFA', denominacion: 'E.M.G.F.A.', tipo: 'Organismo' },
+    unidad: { id: '4', codigo: 'C.G.', denominacion: 'Comando General' },
+    sub_unidad: { id: '5', codigo: 'E.M.A.', denominacion: 'Estado Mayor Aéreo' },
     fecha_inicio: '2024-04-30',
     fecha_fin: null,
     posicion_destino: 'Sub-Jefe',
     numero_orden: 'O.D. 11760',
     boletin: null,
+    numero_destino: null,
+    fecha_orden: null,
+    fecha_boletin: null,
+    numero_resolucion: null,
+    fecha_resolucion: null,
     observaciones: null,
     activo: true,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
 
 function makePersona(overrides: Partial<PersonaListItem> = {}): PersonaListItem {
-  return { id: '42', nombre: 'José Pérez', cedula: '50000001', rango: 'Cnel.', destino: 'E.M.G.F.A.', estado: 'Activo', relacion_estado: 'activo', ...overrides };
+  return { id: '42', nombre: 'José Pérez', cedula: '50000001', rango: 'Cnel.', destino: 'Estado Mayor Aéreo', estado: 'Activo', relacion_estado: 'activo', ...overrides };
 }
 
 function makeLista(items: Destino[] = []) {
@@ -38,7 +47,7 @@ function makeLista(items: Destino[] = []) {
     total: items.length,
     page: 1,
     pageSize: 10,
-    stats: { total_destinos: items.length, destinos_activos: 0, unidades_con_personal: 0 },
+    stats: { total_destinos: items.length, destinos_activos: 0, sub_unidades_con_personal: 0 },
   };
 }
 
@@ -49,16 +58,22 @@ describe('DestinoFormModal (crear)', () => {
     crear: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     listar: ReturnType<typeof vi.fn>;
-    listarUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    documentos: ReturnType<typeof vi.fn>;
   };
   let personalService: { findPaginado: ReturnType<typeof vi.fn> };
+  let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+  let subir: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
+    subir = vi.fn().mockReturnValue(of({}));
+    toastService = { success: vi.fn(), error: vi.fn() };
     destinosService = {
       crear: vi.fn().mockReturnValue(of(makeDestino())),
       editar: vi.fn().mockReturnValue(of(makeDestino())),
       listar: vi.fn().mockReturnValue(of(makeLista())),
-      listarUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+      documentos: vi.fn().mockReturnValue({ subir }),
     };
     personalService = {
       findPaginado: vi.fn().mockReturnValue(of({ items: [makePersona()], total: 1, page: 1, pageSize: 10 })),
@@ -70,6 +85,7 @@ describe('DestinoFormModal (crear)', () => {
       providers: [
         { provide: DestinosService, useValue: destinosService },
         { provide: PersonalService, useValue: personalService },
+        { provide: ToastService, useValue: toastService },
       ],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
     }).compileComponents();
@@ -86,7 +102,7 @@ describe('DestinoFormModal (crear)', () => {
       vi.useFakeTimers();
       component.onBuscarPersona('Pérez');
       expect(personalService.findPaginado).not.toHaveBeenCalled();
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       expect(personalService.findPaginado).toHaveBeenCalledWith({ search: 'Pérez', pageSize: 10 });
       expect(component.resultados().length).toBe(1);
     });
@@ -94,9 +110,41 @@ describe('DestinoFormModal (crear)', () => {
     it('no busca con menos de 2 caracteres y limpia los resultados', () => {
       vi.useFakeTimers();
       component.onBuscarPersona('P');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       expect(personalService.findPaginado).not.toHaveBeenCalled();
       expect(component.resultados()).toEqual([]);
+    });
+  });
+
+  describe('selector de sub-unidad', () => {
+    it('pide solo las sub-unidades vigentes y las rotula con su comando', () => {
+      expect(destinosService.listarSubUnidadesParaSelector).toHaveBeenCalledWith({ vigente: true });
+      component.subUnidades.set([
+        {
+          // Como en el catálogo de liquidación: código y denominación casi iguales.
+          id: '1',
+          codigo: 'BAI',
+          denominacion: 'B.A.I.',
+          vigente: true,
+          unidad: { id: '1', codigo: 'CAO', denominacion: 'C.A.O.' },
+          total_destinados: 0,
+        },
+      ]);
+      expect(component.opcionesSubUnidad()).toEqual([{ value: '1', label: 'B.A.I. (C.A.O.)' }]);
+    });
+
+    it('marca las sub-unidades dadas de baja', () => {
+      component.subUnidades.set([
+        {
+          id: '2',
+          codigo: 'BAII',
+          denominacion: 'B.A.II.',
+          vigente: false,
+          unidad: { id: '1', codigo: 'CAO', denominacion: 'C.A.O.' },
+          total_destinados: 0,
+        },
+      ]);
+      expect(component.opcionesSubUnidad()).toEqual([{ value: '2', label: 'B.A.II. (C.A.O.) — de baja' }]);
     });
   });
 
@@ -123,7 +171,7 @@ describe('DestinoFormModal (crear)', () => {
     it('guarda el destino activo encontrado', () => {
       destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
       component.elegirPersona(makePersona());
-      expect(component.destinoActual()!.unidad!.denominacion).toBe('E.M.G.F.A.');
+      expect(component.destinoActual()!.sub_unidad!.denominacion).toBe('Estado Mayor Aéreo');
       expect(component.buscandoDestinoActual()).toBe(false);
     });
 
@@ -222,7 +270,7 @@ describe('DestinoFormModal (crear)', () => {
   describe('validación', () => {
     beforeEach(() => {
       component.elegirPersona(makePersona());
-      component.form.patchValue({ unidad_id: '7', fecha_inicio: '2026-09-01' });
+      component.form.patchValue({ sub_unidad_id: '7', fecha_inicio: '2026-09-01' });
     });
 
     it('exige número de orden o boletín', () => {
@@ -231,11 +279,78 @@ describe('DestinoFormModal (crear)', () => {
       expect(component.error()).toBe('Ingresá al menos el N° de orden o el boletín.');
     });
 
-    it('exige persona, unidad y fecha de inicio', () => {
-      component.form.patchValue({ unidad_id: '', numero_orden: 'O.D. 1' });
+    it('exige persona, sub-unidad y fecha de inicio', () => {
+      component.form.patchValue({ sub_unidad_id: '', numero_orden: 'O.D. 1' });
       component.guardar();
       expect(destinosService.crear).not.toHaveBeenCalled();
       expect(component.error()).toBe('Completá los campos requeridos.');
+    });
+  });
+
+  describe('documentos adjuntos', () => {
+    const pdf = (nombre: string) => new File(['x'], nombre, { type: 'application/pdf' });
+
+    beforeEach(() => {
+      component.elegirPersona(makePersona());
+      component.form.patchValue({ sub_unidad_id: '7', fecha_inicio: '2026-09-01', numero_orden: 'O.D. 1' });
+    });
+
+    it('alta con archivo: registra y después sube el documento', () => {
+      const emitido: Destino[] = [];
+      component.guardado.subscribe((d) => emitido.push(d));
+      const archivo = pdf('orden.pdf');
+      component.pendientes.elegir('orden', archivo);
+
+      component.guardar();
+
+      expect(destinosService.crear).toHaveBeenCalled();
+      expect(destinosService.documentos).toHaveBeenCalledWith('200');
+      expect(subir).toHaveBeenCalledWith('orden', archivo);
+      expect(emitido.length).toBe(1);
+    });
+
+    it('alta: si la subida falla, avisa y emite igual', () => {
+      subir.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      const emitido: Destino[] = [];
+      component.guardado.subscribe((d) => emitido.push(d));
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+
+      component.guardar();
+
+      const [msg, ms] = toastService.error.mock.calls[0];
+      expect(msg).toContain('El destino se registró, pero no se pudo subir «orden.pdf»');
+      expect(msg).toContain('Podés adjuntarlo desde Asignaciones.');
+      expect(ms).toBe(8000);
+      expect(emitido.length).toBe(1);
+    });
+
+    it('sin archivos no sube nada y emite', () => {
+      const emitido: Destino[] = [];
+      component.guardado.subscribe((d) => emitido.push(d));
+      component.guardar();
+      expect(subir).not.toHaveBeenCalled();
+      expect(emitido.length).toBe(1);
+    });
+
+    it('borrar el número descarta el archivo', () => {
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+      component.form.patchValue({ numero_orden: '' });
+      expect(component.pendientes.hay()).toBe(false);
+    });
+
+    it('no se puede cerrar mientras guarda y sube', () => {
+      const cerrados: void[] = [];
+      component.cerrado.subscribe(() => cerrados.push(undefined));
+      component.guardando.set(true);
+      component.cerrar();
+      expect(cerrados.length).toBe(0);
+    });
+
+    it('el botón dice "Subiendo documentos..." mientras sube', () => {
+      component.guardando.set(true);
+      component.subiendoDocumentos.set(true);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.modal__footer .btn--primary').textContent).toContain('Subiendo documentos...');
     });
   });
 
@@ -244,7 +359,7 @@ describe('DestinoFormModal (crear)', () => {
       destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
       component.elegirPersona(makePersona());
       component.form.patchValue({
-        unidad_id: '7',
+        sub_unidad_id: '7',
         fecha_inicio: '2026-09-01',
         numero_orden: 'O.D. 12455',
         posicion_destino: 'Jefe de Sección',
@@ -255,11 +370,32 @@ describe('DestinoFormModal (crear)', () => {
       component.guardar();
       expect(destinosService.crear).toHaveBeenCalledWith({
         persona_id: 42,
-        unidad_id: 7,
+        sub_unidad_id: 7,
         fecha_inicio: '2026-09-01',
         numero_orden: 'O.D. 12455',
         posicion_destino: 'Jefe de Sección',
       });
+    });
+
+    it('no manda unidad_id: el comando lo deduce el backend de la sub-unidad', () => {
+      component.guardar();
+      expect('unidad_id' in destinosService.crear.mock.calls[0][0]).toBe(false);
+    });
+
+    it('bloquea un pase a la misma sub-unidad en la que ya revista', () => {
+      // makeDestino() revista en la sub-unidad '5'.
+      component.form.patchValue({ sub_unidad_id: '5' });
+      expect(component.mismoDestinoQueElActual()).toBe(true);
+      component.guardar();
+      expect(destinosService.crear).not.toHaveBeenCalled();
+      expect(component.error()).toBe('El funcionario ya revista en esa base. Elegí otro destino.');
+    });
+
+    it('permite pasar a otra sub-unidad del mismo comando', () => {
+      component.form.patchValue({ sub_unidad_id: '7' });
+      expect(component.mismoDestinoQueElActual()).toBe(false);
+      component.guardar();
+      expect(destinosService.crear).toHaveBeenCalled();
     });
 
     it('no manda fecha_fin_anterior si no se tocó la fecha de cierre', () => {
@@ -271,6 +407,19 @@ describe('DestinoFormModal (crear)', () => {
       component.form.patchValue({ fecha_fin_anterior: '2026-08-15' });
       component.guardar();
       expect(destinosService.crear.mock.calls[0][0].fecha_fin_anterior).toBe('2026-08-15');
+    });
+
+    it('rechaza cerrar el anterior después del inicio del nuevo (SCRUM-183)', () => {
+      component.form.patchValue({ fecha_fin_anterior: '2026-09-10' });
+      component.guardar();
+      expect(destinosService.crear).not.toHaveBeenCalled();
+      expect(component.error()).toBe('El destino anterior tiene que cerrar antes de la fecha de inicio del nuevo.');
+    });
+
+    it('rechaza cerrar el anterior el mismo día que empieza el nuevo (SCRUM-183)', () => {
+      component.form.patchValue({ fecha_fin_anterior: '2026-09-01' });
+      component.guardar();
+      expect(destinosService.crear).not.toHaveBeenCalled();
     });
 
     it('emite guardado con el destino que devuelve el backend', () => {
@@ -289,7 +438,7 @@ describe('DestinoFormModal (crear)', () => {
               status: 409,
               error: {
                 service_response: {
-                  service_status: { http_status: '409', http_message: 'El funcionario 42 ya tiene un destino activo en esa unidad' },
+                  service_status: { http_status: '409', http_message: 'El funcionario 42 ya tiene un destino activo en esa sub-unidad' },
                   service_data: null,
                 },
               },
@@ -299,7 +448,7 @@ describe('DestinoFormModal (crear)', () => {
       const emitido: Destino[] = [];
       component.guardado.subscribe((d) => emitido.push(d));
       component.guardar();
-      expect(component.error()).toBe('El funcionario 42 ya tiene un destino activo en esa unidad');
+      expect(component.error()).toBe('El funcionario 42 ya tiene un destino activo en esa sub-unidad');
       expect(component.guardando()).toBe(false);
       expect(emitido.length).toBe(0);
     });
@@ -313,7 +462,7 @@ describe('DestinoFormModal (editar)', () => {
     crear: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     listar: ReturnType<typeof vi.fn>;
-    listarUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
   };
   let personalService: { findPaginado: ReturnType<typeof vi.fn> };
 
@@ -328,7 +477,7 @@ describe('DestinoFormModal (editar)', () => {
       crear: vi.fn().mockReturnValue(of(makeDestino())),
       editar: vi.fn().mockReturnValue(of(makeDestino())),
       listar: vi.fn().mockReturnValue(of(makeLista())),
-      listarUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
     };
     personalService = {
       findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
@@ -350,6 +499,11 @@ describe('DestinoFormModal (editar)', () => {
     fixture.detectChanges();
   }
 
+  it('edición: no muestra Adjuntar', () => {
+    crearFixtureEditando(makeDestino());
+    expect(fixture.nativeElement.querySelector('app-documento-adjunto')).toBeNull();
+  });
+
   it('precarga el formulario con los datos del destino', () => {
     const destino = makeDestino({
       fecha_fin: '2025-01-15',
@@ -358,7 +512,7 @@ describe('DestinoFormModal (editar)', () => {
     });
     crearFixtureEditando(destino);
 
-    expect(component.form.get('unidad_id')!.value).toBe('5');
+    expect(component.form.get('sub_unidad_id')!.value).toBe('5');
     expect(component.form.get('fecha_inicio')!.value).toBe('2024-04-30');
     expect(component.form.get('fecha_fin')!.value).toBe('2025-01-15');
     expect(component.form.get('posicion_destino')!.value).toBe('Sub-Jefe');
@@ -391,5 +545,90 @@ describe('DestinoFormModal (editar)', () => {
     component.guardar();
     expect(destinosService.editar).not.toHaveBeenCalled();
     expect(component.error()).toBe('El destino debe conservar al menos el N° de orden o el boletín.');
+  });
+});
+
+describe('DestinoFormModal (desde el perfil de la persona)', () => {
+  let component: DestinoFormModal;
+  let fixture: ComponentFixture<DestinoFormModal>;
+  let destinosService: {
+    crear: ReturnType<typeof vi.fn>;
+    editar: ReturnType<typeof vi.fn>;
+    listar: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
+  };
+  let personalService: { findPaginado: ReturnType<typeof vi.fn> };
+
+  const persona = { id: '42', nombre: 'José Pérez', cedula: '50000001' };
+
+  // Igual que en edición: los inputs van antes del primer detectChanges, que corre ngOnInit.
+  function crearFixture(inputs: { persona?: typeof persona; destino?: Destino }): void {
+    destinosService = {
+      crear: vi.fn().mockReturnValue(of(makeDestino())),
+      editar: vi.fn().mockReturnValue(of(makeDestino())),
+      listar: vi.fn().mockReturnValue(of(makeLista([makeDestino()]))),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+    };
+    personalService = { findPaginado: vi.fn() };
+
+    TestBed.configureTestingModule({
+      declarations: [DestinoFormModal, Select],
+      imports: [FormsModule, ReactiveFormsModule],
+      providers: [
+        { provide: DestinosService, useValue: destinosService },
+        { provide: PersonalService, useValue: personalService },
+      ],
+      schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    });
+
+    fixture = TestBed.createComponent(DestinoFormModal);
+    component = fixture.componentInstance;
+    if (inputs.persona) component.persona = inputs.persona;
+    if (inputs.destino) component.destino = inputs.destino;
+    fixture.detectChanges();
+  }
+
+  const botonCambiar = () =>
+    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Cambiar',
+    );
+
+  it('arranca con la persona ya elegida y busca su destino activo', () => {
+    crearFixture({ persona });
+
+    expect(component.personaElegida()).toEqual(persona);
+    expect(destinosService.listar).toHaveBeenCalledWith({ query: '50000001', activo: true, pageSize: 50 });
+    expect(component.destinoActual()!.id).toBe('200');
+  });
+
+  it('no deja cambiar la persona', () => {
+    crearFixture({ persona });
+
+    expect(botonCambiar()).toBeUndefined();
+  });
+
+  it('sin persona fija, después de elegir una sí se puede cambiar', () => {
+    crearFixture({});
+    component.elegirPersona(persona);
+    fixture.detectChanges();
+
+    expect(botonCambiar()).toBeDefined();
+  });
+
+  it('guarda el pase con la persona que vino del perfil', () => {
+    crearFixture({ persona });
+    component.form.patchValue({ sub_unidad_id: '7', fecha_inicio: '2026-09-01', numero_orden: 'O.D. 1' });
+
+    component.guardar();
+
+    expect(destinosService.crear).toHaveBeenCalledWith(expect.objectContaining({ persona_id: 42, sub_unidad_id: 7 }));
+  });
+
+  it('si además viene un destino para editar, edita y no preselecciona la persona', () => {
+    crearFixture({ persona, destino: makeDestino() });
+
+    expect(component.editando()).toBe(true);
+    expect(component.personaElegida()).toBeNull();
+    expect(destinosService.listar).not.toHaveBeenCalled();
   });
 });

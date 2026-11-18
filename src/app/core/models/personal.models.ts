@@ -1,4 +1,7 @@
 import { RetiroHistorial } from './retiros.models';
+import { DocumentosRegistro } from './documentos-registro.models';
+
+import { FiltroDerechaNumor } from './derecha.models';
 
 export interface PersonaListItem {
   id: string;
@@ -10,6 +13,10 @@ export interface PersonaListItem {
   estado: string | null;
   /** Lo que hay que mirar para saber si está retirado. */
   relacion_estado: 'activo' | 'inactivo' | null;
+  escalafon?: string | null;
+  /** Solo el personal en actividad tiene derecha y numor. */
+  derecha?: number | null;
+  numor?: number | null;
 }
 
 export interface PersonasPaginadas {
@@ -23,17 +30,29 @@ export interface FindPersonasParams {
   page?: number;
   pageSize?: number;
   search?: string;
-  destino?: number;
+  /** IDs de unidad: trae a quien revista en cualquiera de ellas. */
+  destino?: number[];
   rango?: number;
-  estado?: number;
+  /** IDs de situación: trae a quien tenga cualquiera de ellas. */
+  estado?: number[];
   /** Sin esto los retirados no aparecen: el backend exige relación abierta. */
   incluir_inactivos?: boolean;
+  categoria?: 'oficial' | 'subalterno';
+  filtroDerecha?: FiltroDerechaNumor;
 }
 
 export interface OpcionSelect {
   id: number;
   codigo: string;
   denominacion: string;
+}
+
+/** Una base (sub-unidad) vigente con su comando, para los selectores. */
+export interface BaseOpcion extends OpcionSelect {
+  unidad_id: number;
+  comando: OpcionSelect;
+  /** "B.A.I. (C.A.O.)" */
+  etiqueta: string;
 }
 
 export interface GradoItem extends OpcionSelect {
@@ -43,13 +62,39 @@ export interface GradoItem extends OpcionSelect {
 
 export type TipoFuncionario = 'oficial' | 'subalterno' | 'civil';
 
+/** Filtro de los listados de personal: 'todos' equivale a no filtrar. */
+export type FiltroCategoria = 'todos' | 'oficial' | 'subalterno';
+
+export const OPCIONES_FILTRO_CATEGORIA: { value: FiltroCategoria; label: string }[] = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'oficial', label: 'Solo oficiales' },
+  { value: 'subalterno', label: 'Solo subalternos' },
+];
+
+export const NIVELES_IDONEIDAD = [3, 5, 7, 9] as const;
+
+/** Valor del query param `categoria`; `undefined` cuando el filtro es 'todos'. */
+export function categoriaParam(filtro: FiltroCategoria | null | undefined): 'oficial' | 'subalterno' | undefined {
+  return filtro && filtro !== 'todos' ? filtro : undefined;
+}
+
 export interface FamiliarPayload {
   cedula: string;
   tipo_relacion?: string;
 }
 
+/** Persona que se puede vincular como familiar: militar en actividad o civil. */
+export interface CandidatoFamiliar {
+  id: string;
+  cedula: string;
+  nombre: string;
+  es_civil?: boolean;
+  /** Grado del militar; null para un civil. */
+  grado?: string | null;
+}
+
 export interface FamiliarEntry {
-  persona: PersonaListItem;
+  persona: CandidatoFamiliar;
   tipo_relacion: string;
 }
 
@@ -63,6 +108,9 @@ export interface SimpleRef   { id: number; denominacion: string }
 export interface RelacionLaboral {
   id: number;
   estado: string;
+  /** Null si no está en actividad o su grado no tiene derecha. */
+  derecha: number | null;
+  numor: number | null;
   tipo_funcionario: string;
   fecha_inicio: string;
   fecha_ultimo_ascenso: string | null;
@@ -72,6 +120,8 @@ export interface RelacionLaboral {
   tiene_mando: boolean;
   prima_tecnica: string | null;
   observaciones: string | null;
+  /** Códigos del legajo (-1-4-7-8-). Solo se carga para oficiales. */
+  codigos_legajo: string | null;
   grado: GradoRef;
   unidad: UnidadRef;
   situacion: SituacionRef;
@@ -132,6 +182,11 @@ export interface PersonaDetalle {
   etnia: string | null;
   codigo_postal: string | null;
   seccional: string | null;
+  credencial_civica: string | null;
+  /** Cambia con cada foto nueva; null si no tiene. */
+  foto_id?: string | null;
+  /** Nivel de pericia/idoneidad 3/5/7/9 del subalterno (ETA). null = sin definir. */
+  nivel_idoneidad: number | null;
   es_civil: boolean;
   /** `null` si no hay relación **abierta**: un retirado cae acá. */
   relacion_laboral: RelacionLaboral | null;
@@ -145,6 +200,7 @@ export interface FamiliarItem {
   tipo_relacion: string;
   grado: string | null;
   unidad: string | null;
+  sub_unidad?: string | null;
 }
 
 export interface HistorialRango {
@@ -171,6 +227,8 @@ export interface HistorialMilitar {
 }
 
 export interface CursoPersona {
+  /** Id de la designación (inscripción). */
+  id: string;
   curso_id: number;
   nombre_curso: string;
   institucion: string;
@@ -183,9 +241,12 @@ export interface CursoPersona {
   calificacion: string | null;
   observacion: string | null;
   completado: boolean;
+  documentos: DocumentosRegistro;
 }
 
 export interface MisionPersona {
+  /** Id de la asignación. */
+  id: string;
   mision_id: string;
   convocatoria_id: string;
   nombre_mision: string;
@@ -195,9 +256,43 @@ export interface MisionPersona {
   numero_orden: string;
   boletin: string | null;
   finalizada: boolean;
+  documentos: DocumentosRegistro;
+  documentos_convocatoria: DocumentosRegistro;
 }
 
+/**
+ * Cambio de situación como lo hace liquidación: se cierra la relación activa y se abre otra.
+ * Licencia sin goce y No Disponible dejan de cobrar en el próximo cálculo de liquidación.
+ */
+export type CambioSituacion = 'LICENCIA_SIN_GOCE' | 'NO_DISPONIBLE' | 'VOLVER_A_ACTIVIDAD';
+
+export interface CambiarSituacionPayload {
+  cambio: CambioSituacion;
+  fecha: string;
+  numero_orden?: string;
+  boletin?: string;
+  observaciones?: string;
+}
+
+export interface CambioSituacionResultado {
+  persona_id: number;
+  relacion_anterior_id: number;
+  relacion_nueva_id: number;
+  fecha: string;
+  situacion_anterior: SituacionRef;
+  situacion: SituacionRef;
+}
+
+/** Sin cobro en liquidación: se entra y se sale con "Cambiar situación". */
+export const SITUACIONES_FUERA_DE_ACTIVIDAD = ['SIT03', 'SIT04', 'SIT09'];
+/** Desde las que se puede pedir licencia sin goce o No Disponible (incluye reincorporados). */
+export const SITUACIONES_DE_ACTIVIDAD = ['SIT01', 'SIT07', 'SIT16', 'SIT17'];
+
 export interface PatchPersonaPayload {
+  /** Entre 6 y 9 dígitos; el backend rechaza una que ya tenga otra persona. */
+  cedula?: string;
+  /** Solo militares con relación vigente; el grado tiene que corresponder al tipo. */
+  tipo_funcionario?: 'oficial' | 'subalterno';
   primer_nombre?: string;
   segundo_nombre?: string | null;
   primer_apellido?: string;
@@ -212,23 +307,28 @@ export interface PatchPersonaPayload {
   etnia?: string | null;
   codigo_postal?: string | null;
   seccional?: string | null;
+  credencial_civica?: string | null;
+  /** Nivel de pericia/idoneidad; null = sin definir. */
+  nivel_idoneidad?: number | null;
   fecha_inicio?: string;
   grado_id?: number;
-  unidad_id?: number;
-  situacion_id?: number;
   regimen_id?: number;
   programa_id?: number;
   escalafon_id?: number;
-  sub_unidad_id?: number | null;
   prima_tecnica?: string | null;
   tiene_mando?: boolean;
   observaciones_laborales?: string | null;
+  codigos_legajo?: string | null;
   // Legajo militar
   nivel_educativo?: string | null;
   fecha_ingreso_eta?: string | null;
   fecha_egreso_eta?: string | null;
   numero_orden_egreso_eta?: string | null;
   mutaciones?: string | null;
+  // Derecha y numor: exigen derecha.gestionar
+  derecha?: number;
+  numor?: number;
+  motivo_derecha?: string;
 }
 
 export interface CrearPersonaPayload {
@@ -248,35 +348,24 @@ export interface CrearPersonaPayload {
   familiares?: FamiliarPayload[];
   tipo_funcionario?: TipoFuncionario;
   regimen_id: number;
-  unidad_id: number;
   programa_id: number;
   situacion_id: number;
   escalafon_id: number;
   grado_id: number;
   fecha_inicio: string;
-  sub_unidad_id?: number;
+  /** Base del funcionario; el comando lo completa el backend. */
+  sub_unidad_id: number;
   observaciones?: string;
+  credencial_civica?: string;
+  nivel_idoneidad?: number;
   // Legajo militar (opcional en el alta)
   nivel_educativo?: string;
   fecha_ingreso_eta?: string;
   fecha_egreso_eta?: string;
   numero_orden_egreso_eta?: string;
   mutaciones?: string;
-}
-
-export interface CargaMasivaResultadoItem {
-  fila: number;
-  cedula: string;
-  estado: 'ok' | 'error';
-  id?: number;
-  mensaje?: string;
-}
-
-export interface CargaMasivaResult {
-  total: number;
-  exitosos: number;
-  errores: number;
-  resultados: CargaMasivaResultadoItem[];
+  /** Códigos del legajo; se guarda en la relación laboral. */
+  codigos_legajo?: string;
 }
 
 export interface CrearPersonaResponse {

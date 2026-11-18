@@ -7,8 +7,11 @@ import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
-import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
+import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import { ArchivosPendientes, subirPendientes } from '../../../../core/services/documentos-registro';
 import { Convocatoria, MisionDefinicion } from '../../../../core/models/misiones.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type ModalKind = 'nuevaConvocatoria' | 'editarConvocatoria' | 'confirmarEliminar' | null;
 type EstadoFiltro = '' | 'activa' | 'finalizada';
@@ -23,7 +26,6 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly misionesService = inject(MisionesService);
-  private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -34,10 +36,13 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
   readonly loading = signal(false);
   readonly loadingConvocatorias = signal(false);
   readonly guardando = signal(false);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
+  private readonly destroy$ = new Subject<void>();
   readonly modal = signal<ModalKind>(null);
   readonly modalError = signal<string | null>(null);
   readonly convocatoriaSeleccionada = signal<Convocatoria | null>(null);
-  readonly personal = signal<PersonaListItem[]>([]);
+  readonly buscador = new BuscadorPersonas();
 
   readonly convocatorias = signal<Convocatoria[]>([]);
   readonly convPage = signal(1);
@@ -65,17 +70,21 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.misionId = this.route.snapshot.paramMap.get('misionId')!;
+    this.pendientes.descartarSiVacio(this.convocatoriaForm.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.convocatoriaForm.controls.boletin, 'boletin', this.destroy$);
     this.cargarMision();
     this.cargarConvocatorias();
-    this.personalService.findAll().subscribe({ next: (p) => this.personal.set(p) });
+    this.buscador.vincular(this.convocatoriaForm.controls.persona_ids);
 
-    this.filtroSubject.pipe(debounceTime(350)).subscribe(() => {
+    this.filtroSubject.pipe(debounceTime(ESPERA_BUSQUEDA_MS)).subscribe(() => {
       this.convPage.set(1);
       this.cargarConvocatorias(1);
     });
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.filtroSubject.complete();
   }
 
@@ -173,6 +182,7 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
       observaciones: '',
       persona_ids: [],
     });
+    this.pendientes.limpiar();
     this.modalError.set(null);
     this.convocatoriaSeleccionada.set(null);
     this.modal.set('nuevaConvocatoria');
@@ -201,6 +211,8 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
   }
 
   cerrarModal(): void {
+    // Con la convocatoria ya creada, cerrar a mitad de las subidas perdería el aviso.
+    if (this.subiendoDocumentos()) return;
     this.modal.set(null);
     this.modalError.set(null);
     this.convocatoriaSeleccionada.set(null);
@@ -224,11 +236,11 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
     if (editando) {
       this.misionesService
         .editarConvocatoria(this.misionId, editando.id, {
-          numero_orden: raw.numero_orden || undefined,
-          boletin: raw.boletin || undefined,
-          fecha_salida: raw.fecha_salida || undefined,
-          fecha_llegada: raw.fecha_llegada || undefined,
-          observaciones: raw.observaciones || undefined,
+          numero_orden: raw.numero_orden || null,
+          boletin: raw.boletin || null,
+          fecha_salida: raw.fecha_salida || null,
+          fecha_llegada: raw.fecha_llegada || null,
+          observaciones: raw.observaciones || null,
         })
         .subscribe({
           next: () => {
@@ -256,18 +268,32 @@ export class MisionConvocatoriasPage implements OnInit, OnDestroy {
         persona_ids: personaIds.length > 0 ? personaIds : undefined,
       })
       .subscribe({
-        next: () => {
-          this.guardando.set(false);
-          this.cerrarModal();
-          this.toast.success('Convocatoria creada correctamente');
-          this.cargarConvocatorias(1);
-          this.cargarMision();
-        },
+        next: (creada) => this.subirDocumentos(creada),
         error: (err: HttpErrorResponse) => {
           this.guardando.set(false);
           this.modalError.set(this.parseError(err));
         },
       });
+  }
+
+  private subirDocumentos(creada: Convocatoria): void {
+    this.subiendoDocumentos.set(this.pendientes.hay());
+    subirPendientes(
+      (slot, archivo) => this.misionesService.documentosConvocatoria(creada.id).subir(slot, archivo),
+      this.pendientes.archivos(),
+      (archivo, err) =>
+        this.toast.error(
+          `La convocatoria se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde el detalle de la convocatoria.`,
+          8000,
+        ),
+    ).subscribe(() => {
+      this.subiendoDocumentos.set(false);
+      this.guardando.set(false);
+      this.cerrarModal();
+      this.toast.success('Convocatoria creada correctamente');
+      this.cargarConvocatorias(1);
+      this.cargarMision();
+    });
   }
 
   confirmarEliminar(): void {

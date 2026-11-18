@@ -33,12 +33,12 @@
 
       <app-select
         class="retiros__filter-select"
-        [items]="unidades()"
-        bindLabel="denominacion"
+        [items]="bases()"
+        bindLabel="etiqueta"
         bindValue="id"
-        placeholder="Todas las unidades"
-        [ngModel]="unidadId()"
-        (ngModelChange)="setUnidad($event)"
+        placeholder="Todas las bases"
+        [ngModel]="baseId()"
+        (ngModelChange)="setBase($event)"
       ></app-select>
 
       <app-select
@@ -49,6 +49,14 @@
         placeholder="Todos los motivos"
         [ngModel]="motivoBajaId()"
         (ngModelChange)="setMotivo($event)"
+      ></app-select>
+
+      <app-select
+        class="retiros__filter-select"
+        [items]="categoriaOpciones"
+        placeholder="Todos"
+        [ngModel]="categoria()"
+        (ngModelChange)="setCategoria($event)"
       ></app-select>
 
       <!-- Un solo control: dos inputs sueltos se leen como filtros distintos. -->
@@ -86,8 +94,13 @@
         class="retiros__clear-btn"
         [disabled]="!hayFiltrosActivos()"
         (click)="limpiarFiltros()"
+        aria-label="Limpiar filtros"
+        title="Limpiar filtros"
       >
-        Limpiar
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+        </svg>
       </button>
     </div>
 
@@ -104,7 +117,7 @@
             <th>Funcionario</th>
             <th>Grado</th>
             <th>Cédula</th>
-            <th>Unidad</th>
+            <th>Base</th>
             <th>Fecha</th>
             <th>Motivo</th>
             <th>Estado</th>
@@ -123,7 +136,7 @@
             <!-- El grado al momento del retiro, no el actual. -->
             <td>{{ r.grado?.denominacion ?? '—' }}</td>
             <td>{{ r.persona.cedula }}</td>
-            <td>{{ r.unidad?.denominacion ?? '—' }}</td>
+            <td [title]="r.unidad?.denominacion ?? ''">{{ r.sub_unidad?.denominacion ?? r.unidad?.denominacion ?? '—' }}</td>
             <td>{{ r.fecha_retiro }}</td>
             <td>{{ r.motivo_baja.denominacion }}</td>
             <td>

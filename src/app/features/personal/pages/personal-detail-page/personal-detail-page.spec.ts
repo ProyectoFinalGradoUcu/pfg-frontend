@@ -6,10 +6,18 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
 import { PersonalDetailPage } from './personal-detail-page';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { FamiliarItem, PersonaDetalle, PersonaListItem } from '../../../../core/models/personal.models';
+import { AuthService } from '../../../../core/services/auth.service';
+import { DestinosService } from '../../../../core/services/destinos.service';
+import { MisionesService } from '../../../../core/services/misiones.service';
+import { CursosService } from '../../../../core/services/cursos.service';
+import { SlotVista } from '../../../../core/services/documentos-registro';
+import { DocumentosRegistro } from '../../../../core/models/documentos-registro.models';
+import { FamiliarItem, PersonaDetalle, PersonaListItem, RelacionLaboral } from '../../../../core/models/personal.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDetalle {
   return {
@@ -30,6 +38,8 @@ function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDet
     etnia: null,
     codigo_postal: null,
     seccional: null,
+    credencial_civica: null,
+    nivel_idoneidad: null,
     es_civil: true,
     relacion_laboral: null,
     legajo_militar: {
@@ -42,6 +52,32 @@ function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDet
       mutaciones: null,
       es_mutado: false,
     },
+    ...overrides,
+  };
+}
+
+function makeRelacion(overrides: Partial<RelacionLaboral> = {}): RelacionLaboral {
+  return {
+    id: 7,
+    estado: 'activo',
+    derecha: null,
+    numor: null,
+    tipo_funcionario: 'subalterno',
+    fecha_inicio: '2020-03-01',
+    fecha_ultimo_ascenso: null,
+    fecha_ascenso_oficial: null,
+    mutaciones: null,
+    tiene_mando: false,
+    prima_tecnica: null,
+    observaciones: null,
+    codigos_legajo: null,
+    grado: { id: 4, codigo: 'CBO1', denominacion: 'Cabo de 1ra' },
+    unidad: { id: 3, codigo: 'CAO', denominacion: 'C.A.O.' },
+    situacion: { id: 1, codigo: 'ACT', denominacion: 'Actividad' },
+    regimen: { id: 1, denominacion: 'General' },
+    programa: { id: 1, denominacion: 'Programa 1' },
+    escalafon: { id: 2, denominacion: 'Personal Subalterno' },
+    sub_unidad: { id: 12, denominacion: 'B.A.I.' },
     ...overrides,
   };
 }
@@ -63,6 +99,7 @@ describe('PersonalDetailPage', () => {
     agregarFamiliar: ReturnType<typeof vi.fn>;
     quitarFamiliar: ReturnType<typeof vi.fn>;
     findPaginado: ReturnType<typeof vi.fn>;
+    buscarCandidatosFamiliar: ReturnType<typeof vi.fn>;
     getGrados: ReturnType<typeof vi.fn>;
     getHistorialMilitar: ReturnType<typeof vi.fn>;
     getCursos: ReturnType<typeof vi.fn>;
@@ -72,7 +109,6 @@ describe('PersonalDetailPage', () => {
     getRegimenes: ReturnType<typeof vi.fn>;
     getProgramas: ReturnType<typeof vi.fn>;
     getEscalafones: ReturnType<typeof vi.fn>;
-    getSubUnidades: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
@@ -84,6 +120,7 @@ describe('PersonalDetailPage', () => {
       agregarFamiliar: vi.fn(),
       quitarFamiliar: vi.fn(),
       findPaginado: vi.fn().mockReturnValue(of({ items: [makePersonaListItem()], total: 1, page: 1, pageSize: 8 })),
+      buscarCandidatosFamiliar: vi.fn().mockReturnValue(of([makePersonaListItem()])),
       getGrados: vi.fn().mockReturnValue(of([])),
       getHistorialMilitar: vi.fn().mockReturnValue(of({ historial_rangos: [] })),
       getCursos: vi.fn().mockReturnValue(of([])),
@@ -93,7 +130,6 @@ describe('PersonalDetailPage', () => {
       getRegimenes: vi.fn().mockReturnValue(of([])),
       getProgramas: vi.fn().mockReturnValue(of([])),
       getEscalafones: vi.fn().mockReturnValue(of([])),
-      getSubUnidades: vi.fn().mockReturnValue(of([])),
       update: vi.fn().mockReturnValue(of(makePersonaDetalle())),
     };
     toastService = { success: vi.fn(), error: vi.fn() };
@@ -104,6 +140,15 @@ describe('PersonalDetailPage', () => {
       providers: [
         { provide: PersonalService, useValue: svc },
         { provide: ToastService, useValue: toastService },
+        { provide: DestinosService, useValue: { documentos: (id: string) => ({ id: `destino:${id}` }) } },
+        {
+          provide: MisionesService,
+          useValue: {
+            documentosAsignacion: (id: string) => ({ id: `asignacion:${id}` }),
+            documentosConvocatoria: (id: string) => ({ id: `convocatoria:${id}` }),
+          },
+        },
+        { provide: CursosService, useValue: { documentosDesignacion: (c: string, id: string) => ({ id: `curso:${c}:${id}` }) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => '31' } } } },
       ],
@@ -113,6 +158,54 @@ describe('PersonalDetailPage', () => {
     fixture = TestBed.createComponent(PersonalDetailPage);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  describe('validaciones de la edición y "Editar" del listado', () => {
+    it('rechaza un primer nombre o apellido de solo espacios', () => {
+      component.editForm.patchValue({ primer_nombre: '   ', primer_apellido: 'Pérez' });
+      expect(component.editForm.get('primer_nombre')!.hasError('required')).toBe(true);
+      component.editForm.patchValue({ primer_nombre: 'Juan' });
+      expect(component.editForm.get('primer_nombre')!.valid).toBe(true);
+    });
+
+    it('marca el egreso de la ETA anterior al ingreso', () => {
+      component.editForm.patchValue({ fecha_ingreso_eta: '2014-03-01', fecha_egreso_eta: '2013-12-01' });
+      expect(component.etaInconsistente()).toBe(true);
+      component.editForm.patchValue({ fecha_egreso_eta: '2016-12-01' });
+      expect(component.etaInconsistente()).toBe(false);
+    });
+
+    it('con ?editar=1 abre la ficha en modo edición y saca el parámetro de la URL', () => {
+      (component as any).puedeEditar = () => true;
+      const router = TestBed.inject(Router) as unknown as { navigate: ReturnType<typeof vi.fn> };
+      (component as any).route = {
+        snapshot: { paramMap: { get: () => '31' }, queryParamMap: { get: () => '1' } },
+      };
+
+      (component as any).abrirEdicionSiSePidio();
+
+      expect(component.editMode()).toBe(true);
+      expect(router.navigate).toHaveBeenCalledWith([], expect.objectContaining({
+        queryParams: { editar: null },
+        replaceUrl: true,
+      }));
+    });
+
+    it('con ?editar=1 no abre la edición a quien solo puede ver', () => {
+      (component as any).puedeEditar = () => false;
+      (component as any).route = {
+        snapshot: { paramMap: { get: () => '31' }, queryParamMap: { get: () => '1' } },
+      };
+
+      (component as any).abrirEdicionSiSePidio();
+
+      expect(component.editMode()).toBe(false);
+    });
+
+    it('sin el parámetro no entra en modo edición', () => {
+      (component as any).abrirEdicionSiSePidio();
+      expect(component.editMode()).toBe(false);
+    });
   });
 
   describe('visibleTabs', () => {
@@ -131,6 +224,27 @@ describe('PersonalDetailPage', () => {
       const keys = component.visibleTabs().map(t => t.key);
       expect(keys).toContain('familiar');
       expect(keys).toContain('historial');
+    });
+  });
+
+  describe('documentos', () => {
+    it('la pestaña se llama "Documentos"', () => {
+      const tab = component.visibleTabs().find((t) => t.key === 'documentos');
+      expect(tab?.label).toBe('Documentos');
+      expect(component.visibleTabs().some((t) => (t.key as string) === 'documentacion')).toBe(false);
+    });
+
+    it('al abrir la pestaña monta app-documentos-personal en vez del placeholder', () => {
+      component.switchTab('documentos');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('app-documentos-personal')).not.toBeNull();
+      expect(fixture.nativeElement.textContent).not.toContain('Sección de documentos en desarrollo.');
+    });
+
+    it('puede editar documentos con personas.editar o su variante .unidad', () => {
+      const spy = vi.spyOn(TestBed.inject(AuthService), 'puedeConAlcance').mockReturnValue(true);
+      expect(component.puedeEditarDocumentos()).toBe(true);
+      expect(spy).toHaveBeenCalledWith('personas.editar');
     });
   });
 
@@ -165,19 +279,18 @@ describe('PersonalDetailPage', () => {
     it('el buscador descarta a la propia persona y a quienes ya son familiares', () => {
       vi.useFakeTimers();
       component.switchTab('familiar'); // carga [makeFamiliarItem()] -> cedula 60000016
-      svc.findPaginado.mockReturnValue(of({
-        items: [
-          makePersonaListItem({ id: '31', cedula: '12345678' }),   // es la propia persona
-          makePersonaListItem({ id: '16', cedula: '60000016' }),   // ya es familiar
-          makePersonaListItem({ id: '33', cedula: '88888801' }),   // candidato válido
-        ],
-        total: 3, page: 1, pageSize: 8,
-      }));
+      svc.buscarCandidatosFamiliar.mockReturnValue(of([
+        { id: '31', cedula: '12345678', nombre: 'Yo' },                       // es la propia persona
+        { id: '16', cedula: '60000016', nombre: 'Laura' },                    // ya es familiar
+        { id: '33', cedula: '88888801', nombre: 'Militar', grado: 'Sgto.' },  // candidato válido
+        { id: '34', cedula: '50000034', nombre: 'Civil', es_civil: true },    // un civil también
+      ]));
 
       component.onFamiliarAddSearch({ target: { value: 'algo' } } as unknown as Event);
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
 
-      expect(component.familiarAddResults().map(p => p.cedula)).toEqual(['88888801']);
+      expect(svc.buscarCandidatosFamiliar).toHaveBeenCalledWith('algo', 31);
+      expect(component.familiarAddResults().map(p => p.cedula)).toEqual(['88888801', '50000034']);
       vi.useRealTimers();
     });
 
@@ -194,6 +307,28 @@ describe('PersonalDetailPage', () => {
       component.cancelarAgregarFamiliar();
       expect(component.familiarAddElegido()).toBeNull();
       expect(component.familiarAddTipoRelacion()).toBe('');
+    });
+
+    it('"Agregar familiar" abre el buscador en la pestaña y se cierra al agregar', () => {
+      vi.spyOn(TestBed.inject(AuthService), 'puedeConAlcance').mockReturnValue(true);
+      svc.agregarFamiliar.mockReturnValue(of(makeFamiliarItem({ id: 33, cedula: '88888801' })));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.switchTab('familiar');
+      fixture.detectChanges();
+
+      const boton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+        .find(b => b.textContent?.includes('Agregar familiar'));
+      expect(boton).toBeDefined();
+      boton!.click();
+      fixture.detectChanges();
+      expect(component.agregandoFamiliar()).toBe(true);
+      expect(fixture.nativeElement.querySelector('.pd__familiar-add input')).not.toBeNull();
+
+      component.elegirFamiliarAAgregar(makePersonaListItem());
+      component.confirmarAgregarFamiliar();
+      expect(component.agregandoFamiliar()).toBe(false);
     });
 
     it('confirmar agrega el familiar a la lista, resetea el panel y avisa', () => {
@@ -245,34 +380,36 @@ describe('PersonalDetailPage', () => {
   });
 
   describe('quitar familiar', () => {
-    let confirmSpy: ReturnType<typeof vi.spyOn>;
+    let confirmar: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
+      confirmar = vi.spyOn(TestBed.inject(ConfirmModalService), 'confirmar');
       component.switchTab('familiar'); // arranca con [Laura]
     });
 
-    afterEach(() => confirmSpy?.mockRestore());
+    afterEach(() => confirmar.mockRestore());
 
-    it('si el operador cancela la confirmación, no llama al backend', () => {
-      confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-      component.quitarFamiliar(makeFamiliarItem());
+    it('pregunta con el modal de la app; si el operador cancela, no llama al backend', async () => {
+      confirmar.mockResolvedValue(false);
+      await component.quitarFamiliar(makeFamiliarItem());
+      expect(confirmar).toHaveBeenCalledWith(expect.objectContaining({ titulo: 'Quitar familiar', textoConfirmar: 'Quitar' }));
       expect(svc.quitarFamiliar).not.toHaveBeenCalled();
       expect(component.familiares()).toEqual([makeFamiliarItem()]);
     });
 
-    it('si confirma, lo saca de la lista y avisa', () => {
-      confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('si confirma, lo saca de la lista y avisa', async () => {
+      confirmar.mockResolvedValue(true);
       svc.quitarFamiliar.mockReturnValue(of(undefined));
-      component.quitarFamiliar(makeFamiliarItem());
+      await component.quitarFamiliar(makeFamiliarItem());
       expect(svc.quitarFamiliar).toHaveBeenCalledWith(31, 16);
       expect(component.familiares()).toEqual([]);
       expect(toastService.success).toHaveBeenCalledWith('Familiar quitado correctamente');
     });
 
-    it('si el backend falla, deja la lista como estaba y avisa del error', () => {
-      confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    it('si el backend falla, deja la lista como estaba y avisa del error', async () => {
+      confirmar.mockResolvedValue(true);
       svc.quitarFamiliar.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
-      component.quitarFamiliar(makeFamiliarItem());
+      await component.quitarFamiliar(makeFamiliarItem());
       expect(component.familiares()).toEqual([makeFamiliarItem()]);
       expect(toastService.error).toHaveBeenCalledWith('No se pudo quitar el familiar. Intentá de nuevo.');
     });
@@ -298,11 +435,426 @@ describe('PersonalDetailPage', () => {
       component.openEdit();
       fixture.detectChanges();
       const texto: string = fixture.nativeElement.textContent ?? '';
-      expect(texto).not.toContain('La unidad se cambia registrando un destino');
+      expect(texto).not.toContain('El comando se cambia registrando un destino');
     });
 
     it('tieneRelacionLaboral es false', () => {
       expect(component.tieneRelacionLaboral()).toBe(false);
+    });
+  });
+
+  describe('base y registro de destino', () => {
+    // Recrea la página con un funcionario en actividad y los permisos pedidos.
+    function conMilitar(relacion: Partial<RelacionLaboral> = {}, permisos: string[] = ['destinos.gestionar']): void {
+      vi.spyOn(TestBed.inject(AuthService), 'hasPermiso').mockImplementation((p: string) => permisos.includes(p));
+      svc.getById.mockReturnValue(of(makePersonaDetalle({ es_civil: false, relacion_laboral: makeRelacion(relacion) })));
+      svc.getById.mockClear();
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    }
+
+    const botonRegistrar = (): HTMLButtonElement | null =>
+      fixture.nativeElement.querySelector('.pd__registrar-destino');
+
+    it('muestra la base con su comando', () => {
+      conMilitar();
+      expect(component.baseActual()).toBe('B.A.I. (C.A.O.)');
+      expect(fixture.nativeElement.textContent).toContain('B.A.I. (C.A.O.)');
+    });
+
+    it('si la relación no tiene base muestra solo el comando', () => {
+      conMilitar({ sub_unidad: null });
+      expect(component.baseActual()).toBe('Sin base (C.A.O.)');
+    });
+
+    it('sin relación laboral no hay base', () => {
+      expect(component.baseActual()).toBe('—');
+    });
+
+    it('con destinos.gestionar y relación activa ofrece registrar un destino', () => {
+      conMilitar();
+      expect(botonRegistrar()).not.toBeNull();
+    });
+
+    it('sin el permiso no aparece el botón', () => {
+      conMilitar({}, []);
+      expect(botonRegistrar()).toBeNull();
+    });
+
+    it('con la relación no activa no aparece el botón', () => {
+      conMilitar({ estado: 'suspendido' });
+      expect(botonRegistrar()).toBeNull();
+    });
+
+    it('el botón abre el modal de destino con la persona ya elegida', () => {
+      conMilitar();
+      botonRegistrar()!.click();
+      fixture.detectChanges();
+
+      const modal = fixture.nativeElement.querySelector('app-destino-form-modal');
+      expect(component.registrandoDestino()).toBe(true);
+      expect(modal).not.toBeNull();
+      expect(modal.persona).toEqual({ id: '31', nombre: 'Sofía Guerrico', cedula: '12345678' });
+    });
+
+    it('cerrar el modal no recarga nada', () => {
+      conMilitar();
+      component.abrirRegistrarDestino();
+      component.cerrarRegistrarDestino();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('app-destino-form-modal')).toBeNull();
+      expect(svc.getById).toHaveBeenCalledTimes(1);
+    });
+
+    it('al registrar el destino cierra el modal, avisa y recarga la persona', () => {
+      conMilitar();
+      component.abrirRegistrarDestino();
+      svc.getById.mockReturnValue(
+        of(makePersonaDetalle({ es_civil: false, relacion_laboral: makeRelacion({ sub_unidad: { id: 13, denominacion: 'B.A.II' } }) })),
+      );
+
+      component.onDestinoRegistrado();
+
+      expect(component.registrandoDestino()).toBe(false);
+      expect(toastService.success).toHaveBeenCalledWith('Destino registrado');
+      expect(svc.getById).toHaveBeenCalledTimes(2);
+      expect(component.baseActual()).toBe('B.A.II (C.A.O.)');
+    });
+
+    it('si la pestaña Destinos está abierta la vuelve a pedir enseguida', () => {
+      conMilitar();
+      component.switchTab('destinos');
+      expect(svc.getDestinos).toHaveBeenCalledTimes(1);
+
+      component.onDestinoRegistrado();
+
+      expect(svc.getDestinos).toHaveBeenCalledTimes(2);
+    });
+
+    it('si no puede cargar los destinos muestra el error en vez de la pestaña vacía (SCRUM-163)', () => {
+      conMilitar();
+      svc.getDestinos.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 403, error: { service_response: { service_status: { http_message: 'Permiso insuficiente' } } } })),
+      );
+
+      component.switchTab('destinos');
+
+      expect(component.destinosError()).not.toBeNull();
+      expect(component.loadingDestinos()).toBe(false);
+      expect(component.destinos()).toEqual([]);
+    });
+
+    it('reintentar los destinos limpia el error si esta vez funciona (SCRUM-163)', () => {
+      conMilitar();
+      svc.getDestinos.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+      component.switchTab('destinos');
+      expect(component.destinosError()).not.toBeNull();
+
+      svc.getDestinos.mockReturnValue(of([]));
+      component.cargarDestinos();
+
+      expect(component.destinosError()).toBeNull();
+    });
+
+    it('si la pestaña Destinos ya se había cargado, la pide de nuevo al volver a abrirla', () => {
+      conMilitar();
+      component.switchTab('destinos');
+      component.switchTab('personal');
+
+      component.onDestinoRegistrado();
+      expect(svc.getDestinos).toHaveBeenCalledTimes(1);
+
+      component.switchTab('destinos');
+      expect(svc.getDestinos).toHaveBeenCalledTimes(2);
+    });
+
+    it('guardar la edición no manda ni base ni comando', () => {
+      conMilitar();
+      component.openEdit();
+      component.saveEdit();
+
+      expect(svc.update).toHaveBeenCalled();
+      const payload = svc.update.mock.calls[0][1];
+      expect('sub_unidad_id' in payload).toBe(false);
+      expect('unidad_id' in payload).toBe(false);
+    });
+
+    it('el drawer de edición ya no tiene selector de base', () => {
+      conMilitar();
+      component.openEdit();
+      fixture.detectChanges();
+
+      expect(component.editForm.get('sub_unidad_id')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[formControlName="sub_unidad_id"]')).toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('La base no se edita acá');
+    });
+  });
+
+  describe('documentos en las pestañas', () => {
+    const doc = { nombre_original: 'o.pdf', content_type: 'application/pdf', tamanio_bytes: '1', subido_en: '2026-01-01' };
+    const sinDocs: DocumentosRegistro = { orden: null, boletin: null };
+    const conPermisos = (permisos: string[]): void => {
+      vi.spyOn(TestBed.inject(AuthService), 'hasPermiso').mockImplementation((p: string) => permisos.includes(p));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    };
+    const slotsDe = (selector: string): SlotVista[] | undefined =>
+      fixture.nativeElement.querySelector(`${selector} app-documentos-registro`)?.slots;
+    const destino = (documentos: DocumentosRegistro) => ({
+      id: '9', unidad_id: null, unidad: 'C.A.O.', codigo_unidad: null, sub_unidad_id: null, sub_unidad: 'B.A.I.',
+      codigo_sub_unidad: null, posicion_destino: null, fecha_inicio: '2024-01-01', fecha_fin: null,
+      numero_orden: '123', boletin: null, observaciones: null, activo: true, documentos,
+    });
+
+    it('destinos: muestra los documentos con permiso destinos.ver', () => {
+      svc.getDestinos.mockReturnValue(of([destino({ orden: doc, boletin: null })]));
+      conPermisos(['destinos.ver']);
+      component.switchTab('destinos');
+      fixture.detectChanges();
+
+      const slots = slotsDe('.pd__destino-card')!;
+      expect(slots.map((s) => s.slot)).toEqual(['orden', 'boletin']);
+      expect(slots.every((s) => !s.editable)).toBe(true);
+      expect(slots[0].documento).toBe(doc);
+      expect(slots[0].numero).toBe('123');
+      expect((slots[0].api as any).id).toBe('destino:9');
+    });
+
+    it('destinos: sin permiso no muestra documentos', () => {
+      svc.getDestinos.mockReturnValue(of([destino({ orden: doc, boletin: null })]));
+      conPermisos([]);
+      component.switchTab('destinos');
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.pd__destino-card')).not.toBeNull();
+      expect(slotsDe('.pd__destino-card')).toBeUndefined();
+    });
+
+    it('destinos: sin ningún documento no muestra el bloque', () => {
+      svc.getDestinos.mockReturnValue(of([destino(sinDocs)]));
+      conPermisos(['destinos.ver.unidad']);
+      component.switchTab('destinos');
+      fixture.detectChanges();
+
+      expect(slotsDe('.pd__destino-card')).toBeUndefined();
+    });
+
+    it('misiones: usa el documento de la convocatoria si la asignación no tiene, con la nota', () => {
+      const docConv = { ...doc, nombre_original: 'conv.pdf' };
+      svc.getMisiones.mockReturnValue(of([{
+        id: '5', mision_id: '1', convocatoria_id: '77', nombre_mision: 'MONUSCO', pais: 'Congo',
+        fecha_salida: '2024-01-01', fecha_llegada: null, numero_orden: 'A-1', boletin: null, finalizada: false,
+        documentos: { orden: null, boletin: doc },
+        documentos_convocatoria: { orden: docConv, boletin: { ...doc, nombre_original: 'otro.pdf' } },
+      }]));
+      conPermisos(['misiones.ver']);
+      component.switchTab('misiones');
+      fixture.detectChanges();
+
+      const [orden, boletin] = slotsDe('.pd__mission-card')!;
+      expect(orden.documento).toBe(docConv);
+      expect(orden.nota).toBe('de la convocatoria');
+      expect(orden.numero).toBe('A-1');
+      expect((orden.api as any).id).toBe('convocatoria:77');
+      expect(boletin.documento).toBe(doc);
+      expect(boletin.nota).toBeUndefined();
+      expect((boletin.api as any).id).toBe('asignacion:5');
+    });
+
+    it('cursos: ya no hay link al boletín y el número se ve como texto', () => {
+      svc.getCursos.mockReturnValue(of([{
+        id: '3', curso_id: 8, nombre_curso: 'Curso', institucion: 'ETA', es_obligatorio: true, boletin: 'B-9',
+        numero_orden: 'O-2', fecha_inicio: '2024-01-01', fecha_fin: '2024-02-01', aprobado: null,
+        calificacion: null, observacion: null, completado: false, documentos: { orden: doc, boletin: null },
+      }]));
+      conPermisos(['cursos.ver']);
+      component.switchTab('cursos');
+      fixture.detectChanges();
+
+      const card = fixture.nativeElement.querySelector('.pd__course-card') as HTMLElement;
+      expect(card.querySelector('a[href]')).toBeNull();
+      expect(card.textContent).toContain('O-2');
+      expect(card.textContent).toContain('B-9');
+      expect((slotsDe('.pd__course-card')![0].api as any).id).toBe('curso:8:3');
+    });
+
+    it('cursos: el bloque de documentos no repite el número', () => {
+      svc.getCursos.mockReturnValue(of([{
+        id: '3', curso_id: 8, nombre_curso: 'Curso', institucion: 'ETA', es_obligatorio: true, boletin: 'B-9',
+        numero_orden: 'O-2', fecha_inicio: '2024-01-01', fecha_fin: '2024-02-01', aprobado: null,
+        calificacion: null, observacion: null, completado: false, documentos: { orden: doc, boletin: null },
+      }]));
+      conPermisos(['cursos.ver']);
+      component.switchTab('cursos');
+      fixture.detectChanges();
+
+      const bloque = fixture.nativeElement.querySelector('.pd__course-card app-documentos-registro');
+      expect(bloque.mostrarNumero).toBe(false);
+      const card = fixture.nativeElement.querySelector('.pd__course-card') as HTMLElement;
+      expect(card.textContent!.split('O-2').length - 1).toBe(1);
+    });
+  });
+  describe('edición: campos por tipo y pestañas (SCRUM-159, SCRUM-196, SCRUM-199)', () => {
+    function conRelacion(relacion: Partial<RelacionLaboral>, persona: Partial<PersonaDetalle> = {}): void {
+      svc.getById.mockReturnValue(of(makePersonaDetalle({ es_civil: false, relacion_laboral: makeRelacion(relacion), ...persona })));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    }
+
+    it('un oficial conserva sus códigos del legajo al editar otro campo', () => {
+      conRelacion({ tipo_funcionario: 'oficial', codigos_legajo: '-1-4-7-8-' });
+      component.openEdit();
+      component.editForm.patchValue({ etnia: 'Mestizo' });
+      component.saveEdit();
+
+      const payload = svc.update.mock.calls[0][1];
+      expect(payload.codigos_legajo).toBe('-1-4-7-8-');
+      expect('nivel_idoneidad' in payload).toBe(false);
+    });
+
+    it('a un oficial le deshabilita el nivel de idoneidad y le habilita los códigos', () => {
+      conRelacion({ tipo_funcionario: 'oficial' });
+      component.openEdit();
+
+      expect(component.editForm.get('nivel_idoneidad')!.disabled).toBe(true);
+      expect(component.editForm.get('codigos_legajo')!.enabled).toBe(true);
+    });
+
+    it('a un subalterno le deshabilita los códigos y no los manda', () => {
+      conRelacion({ tipo_funcionario: 'subalterno' }, { nivel_idoneidad: 5 });
+      component.openEdit();
+
+      expect(component.editForm.get('codigos_legajo')!.disabled).toBe(true);
+      expect(component.editForm.get('nivel_idoneidad')!.enabled).toBe(true);
+      component.saveEdit();
+      const payload = svc.update.mock.calls[0][1];
+      expect(payload.nivel_idoneidad).toBe(5);
+      expect('codigos_legajo' in payload).toBe(false);
+    });
+
+    it('rechaza un código postal de más de 10 caracteres', () => {
+      conRelacion({});
+      component.openEdit();
+      component.editForm.patchValue({ codigo_postal: '12345678901' });
+      component.saveEdit();
+
+      expect(svc.update).not.toHaveBeenCalled();
+    });
+
+    it('al abrir el editor no hay cambios; editar un campo lo marca y muestra el valor anterior', () => {
+      conRelacion({}, { estado_civil: null, telefono: '099111222' });
+      component.openEdit();
+      expect(component.cantidadCambios()).toBe(0);
+
+      component.editForm.patchValue({ estado_civil: 'Casado', telefono: '099 123 456' });
+
+      expect(component.cantidadCambios()).toBe(2);
+      expect(component.modificado('estado_civil')).toBe(true);
+      expect(component.antes('estado_civil')).toBe('sin dato');
+      expect(component.antes('telefono')).toBe('099111222');
+      expect(component.cambiosEnSeccion('personales')).toBe(1);
+      expect(component.cambiosEnSeccion('contacto')).toBe(1);
+    });
+
+    it('volver al valor original deja de contarlo como cambio', () => {
+      conRelacion({}, { etnia: 'Mestizo' });
+      component.openEdit();
+      component.editForm.patchValue({ etnia: 'Otra' });
+      component.editForm.patchValue({ etnia: 'Mestizo ' });
+      expect(component.cantidadCambios()).toBe(0);
+    });
+
+    it('un campo inválido tocado aparece en el resumen de errores de su sección', () => {
+      conRelacion({});
+      component.openEdit();
+      component.editForm.patchValue({ codigo_postal: '12345678901' });
+      component.editForm.get('codigo_postal')!.markAsTouched();
+
+      expect(component.erroresEdicion().map(e => e.label)).toEqual(['Código postal']);
+      expect(component.erroresEnSeccion('contacto')).toBe(1);
+    });
+
+    it('manda la cédula solo si cambió, y rechaza una con puntos', () => {
+      conRelacion({ tipo_funcionario: 'oficial' });
+      component.openEdit();
+      component.saveEdit();
+      expect('cedula' in svc.update.mock.calls[0][1]).toBe(false);
+
+      component.openEdit();
+      component.editForm.patchValue({ cedula: '1.234.567' });
+      svc.update.mockClear();
+      component.saveEdit();
+      expect(svc.update).not.toHaveBeenCalled();
+
+      component.editForm.patchValue({ cedula: '87654321' });
+      component.saveEdit();
+      expect(svc.update.mock.calls[0][1].cedula).toBe('87654321');
+    });
+
+    it('pasar a subalterno habilita el nivel de idoneidad, deja de mandar los códigos y avisa del grado', () => {
+      conRelacion({ tipo_funcionario: 'oficial', codigos_legajo: '-1-4-' });
+      component.openEdit();
+      component.editForm.patchValue({ tipo_funcionario: 'subalterno' });
+
+      expect(component.esSubalterno()).toBe(true);
+      expect(component.editForm.get('nivel_idoneidad')!.enabled).toBe(true);
+      expect(component.editForm.get('codigos_legajo')!.disabled).toBe(true);
+      expect(component.cambioTipoSinGrado()).toBe(true);
+
+      component.saveEdit();
+      const payload = svc.update.mock.calls[0][1];
+      expect(payload.tipo_funcionario).toBe('subalterno');
+      expect('codigos_legajo' in payload).toBe(false);
+    });
+
+    it('un civil no manda tipo de funcionario', () => {
+      svc.getById.mockReturnValue(of(makePersonaDetalle({ es_civil: true, relacion_laboral: makeRelacion({ tipo_funcionario: 'civil' }) })));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+      component.openEdit();
+      component.saveEdit();
+      expect('tipo_funcionario' in svc.update.mock.calls[0][1]).toBe(false);
+    });
+
+    it('descartar sin cambios cierra sin preguntar', async () => {
+      const confirmar = vi.spyOn(TestBed.inject(ConfirmModalService), 'confirmar');
+      conRelacion({});
+      component.openEdit();
+      await component.descartarEdicion();
+      expect(confirmar).not.toHaveBeenCalled();
+      expect(component.editMode()).toBe(false);
+    });
+
+    it('con cambios pregunta con el modal y, si sigue editando, no cierra', async () => {
+      const confirmar = vi.spyOn(TestBed.inject(ConfirmModalService), 'confirmar').mockResolvedValue(false);
+      conRelacion({});
+      component.openEdit();
+      component.editForm.patchValue({ etnia: 'Otra' });
+
+      await component.descartarEdicion();
+      expect(confirmar).toHaveBeenCalledWith(expect.objectContaining({ textoConfirmar: 'Descartar' }));
+      expect(component.editMode()).toBe(true);
+
+      confirmar.mockResolvedValue(true);
+      await component.descartarEdicion();
+      expect(component.editMode()).toBe(false);
+    });
+
+    it('después de guardar vuelve a pedir el historial al abrir la pestaña', () => {
+      conRelacion({});
+      component.switchTab('historial');
+      expect(svc.getHistorialMilitar).toHaveBeenCalledTimes(1);
+
+      component.openEdit();
+      component.saveEdit();
+      component.switchTab('historial');
+
+      expect(svc.getHistorialMilitar).toHaveBeenCalledTimes(2);
     });
   });
 });

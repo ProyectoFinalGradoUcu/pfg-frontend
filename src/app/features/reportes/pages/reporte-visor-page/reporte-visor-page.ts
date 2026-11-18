@@ -60,9 +60,11 @@ export class ReporteVisorPage implements OnInit {
   setValor(clave: string, event: Event): void {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     this.valores.update((v) => ({ ...v, [clave]: target.value }));
+    this.resultado.set(null);
   }
 
   generar(): void {
+    if (!this.validarRequeridos()) return;
     this.generando.set(true);
     this.reportesService.preview(this.clave, this.valores()).subscribe({
       next: (res) => {
@@ -77,6 +79,7 @@ export class ReporteVisorPage implements OnInit {
   }
 
   exportar(): void {
+    if (!this.validarRequeridos()) return;
     this.exportando.set(true);
     this.reportesService.exportarXlsx(this.clave, this.valores()).subscribe({
       next: (blob) => {
@@ -92,6 +95,13 @@ export class ReporteVisorPage implements OnInit {
 
   volver(): void {
     this.router.navigate(['/reportes']);
+  }
+
+  private validarRequeridos(): boolean {
+    const faltante = this.definicion()?.parametros.find(p => p.requerido && !this.valores()[p.clave]?.trim());
+    if (!faltante) return true;
+    this.toast.error(`Seleccioná o completá ${faltante.etiqueta} para generar el reporte.`);
+    return false;
   }
 
   trackParam = (_: number, p: ParametroReporte) => p.clave;

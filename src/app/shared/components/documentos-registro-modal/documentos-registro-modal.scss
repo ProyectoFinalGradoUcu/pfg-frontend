@@ -1,0 +1,4 @@
+@use '../../../features/retiros/modal-base' as *;
+
+// Sin min-height el cuerpo no se achica y el embed del PDF desborda el modal.
+.modal__body { min-height: 0; }

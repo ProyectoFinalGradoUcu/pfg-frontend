@@ -1,0 +1,9 @@
+@use '../../modal-base' as *;
+
+.dc__sub {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+
+  strong { color: #334155; font-weight: 600; }
+}

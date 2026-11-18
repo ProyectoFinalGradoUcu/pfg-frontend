@@ -1,4 +1,5 @@
 import { PaginatedResponse } from './auth.models';
+import { DocumentosRegistro } from './documentos-registro.models';
 
 // ── Misión (catálogo / definición reutilizable) ──────────────────────────────
 
@@ -6,12 +7,23 @@ export interface MisionDefinicion {
   id: string;
   nombre_mision: string;
   pais: string;
+  /** Acto administrativo (orden, boletín, resolución) generado por C.G. */
+  fecha_orden: string | null;
+  fecha_boletin: string | null;
+  numero_resolucion: string | null;
+  fecha_resolucion: string | null;
+  resolucion_cje: string | null;
   total_convocatorias: number;
 }
 
 export interface CreateMisionDefinicionPayload {
   nombre_mision: string;
   pais: string;
+  fecha_orden?: string | null;
+  fecha_boletin?: string | null;
+  numero_resolucion?: string | null;
+  fecha_resolucion?: string | null;
+  resolucion_cje?: string | null;
 }
 
 export type UpdateMisionDefinicionPayload = Partial<CreateMisionDefinicionPayload>;
@@ -38,6 +50,8 @@ export interface Convocatoria {
   observaciones: string | null;
   total_funcionarios: number;
   finalizada: boolean;
+  /** Ausente en las respuestas de crear y editar: hay que recargar. */
+  documentos: DocumentosRegistro;
 }
 
 export interface CreateConvocatoriaPayload {
@@ -50,16 +64,18 @@ export interface CreateConvocatoriaPayload {
 }
 
 export interface UpdateConvocatoriaPayload {
-  numero_orden?: string;
-  boletin?: string;
-  fecha_salida?: string;
-  fecha_llegada?: string;
-  observaciones?: string;
+  numero_orden?: string | null;
+  boletin?: string | null;
+  fecha_salida?: string | null;
+  fecha_llegada?: string | null;
+  observaciones?: string | null;
 }
 
 // ── Funcionarios asignados a una convocatoria ────────────────────────────────
 
 export interface FuncionarioConvocatoria {
+  /** Id de la asignación (no el de la persona). */
+  id: string;
   persona_id: string;
   cedula: string | null;
   primer_nombre: string | null;
@@ -67,6 +83,11 @@ export interface FuncionarioConvocatoria {
   numero_orden: string | null;
   boletin: string | null;
   observaciones: string | null;
+  documentos: DocumentosRegistro;
+}
+
+export interface AgregarFuncionariosResponse {
+  asignaciones: { id: string; persona_id: string }[];
 }
 
 export interface FuncionarioConvocatoriaPayload {
@@ -74,6 +95,12 @@ export interface FuncionarioConvocatoriaPayload {
   numero_orden?: string;
   boletin?: string;
   observaciones?: string;
+}
+
+export interface UpdateFuncionarioConvocatoriaPayload {
+  numero_orden?: string | null;
+  boletin?: string | null;
+  observaciones?: string | null;
 }
 
 // ── Personal en misión (tab agrupado por persona, análogo a cursos) ─────────
@@ -91,11 +118,22 @@ export interface FuncionarioMisionItem {
   finalizada: boolean;
 }
 
-export interface FuncionarioConMisiones {
-  id: string;
+export interface FilaPersonalMision {
+  /** Id de la asignación a la convocatoria: la fila de la tabla. */
+  asignacionId: string;
+  documentos: DocumentosRegistro;
+  funcionarioId: string;
   cedula: string;
   nombre: string;
-  misiones: FuncionarioMisionItem[];
+  mision: FuncionarioMisionItem;
+}
+
+export interface FiltrosPersonalMision {
+  query?: string;
+  misionIds?: string[];
+  orden?: string;
+  finalizada?: boolean;
+  categoria?: 'oficial' | 'subalterno';
 }
 
 export interface MisionOpcion {

@@ -185,7 +185,7 @@
           <h3>{{ modal() === 'editarConvocatoria' ? 'Editar Convocatoria' : 'Nueva Convocatoria' }}</h3>
           <p>{{ mision()?.nombre_mision }} — {{ modal() === 'editarConvocatoria' ? 'modificá los datos de la convocatoria.' : 'creá una nueva convocatoria con orden/boletín y personal designado.' }}</p>
         </div>
-        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+        <button type="button" class="modal__close" (click)="cerrarModal()" [disabled]="guardando()" aria-label="Cerrar">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
@@ -200,14 +200,38 @@
         </p>
 
         <div class="modal__grid-2">
-          <label class="modal__field">
-            <span>N° Orden <small>(o boletín)</small></span>
-            <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
-          </label>
-          <label class="modal__field">
-            <span>Boletín <small>(o N° orden)</small></span>
-            <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
-          </label>
+          <div class="modal__campo-adjunto">
+            <label class="modal__field">
+              <span>N° Orden <small>(o boletín)</small></span>
+              <input type="text" formControlName="numero_orden" placeholder="ej: ORD-1542" autocomplete="off" />
+            </label>
+            <app-documento-adjunto
+              *ngIf="modal() === 'nuevaConvocatoria'"
+              [nombre]="pendientes.archivos().orden?.name ?? null"
+              [tamanio]="pendientes.archivos().orden?.size ?? null"
+              [puedeEditar]="true"
+              [habilitado]="!!(convocatoriaForm.controls.numero_orden.value ?? '').trim()"
+              [ocupado]="guardando()"
+              (elegido)="pendientes.elegir('orden', $event)"
+              (quitado)="pendientes.quitar('orden')"
+            />
+          </div>
+          <div class="modal__campo-adjunto">
+            <label class="modal__field">
+              <span>Boletín <small>(o N° orden)</small></span>
+              <input type="text" formControlName="boletin" placeholder="ej: BOL-2026-04" autocomplete="off" />
+            </label>
+            <app-documento-adjunto
+              *ngIf="modal() === 'nuevaConvocatoria'"
+              [nombre]="pendientes.archivos().boletin?.name ?? null"
+              [tamanio]="pendientes.archivos().boletin?.size ?? null"
+              [puedeEditar]="true"
+              [habilitado]="!!(convocatoriaForm.controls.boletin.value ?? '').trim()"
+              [ocupado]="guardando()"
+              (elegido)="pendientes.elegir('boletin', $event)"
+              (quitado)="pendientes.quitar('boletin')"
+            />
+          </div>
           <label class="modal__field">
             <span>Fecha Salida</span>
             <input type="date" formControlName="fecha_salida" />
@@ -226,19 +250,22 @@
           <span>Personal a designar <small>(opcional, se puede asignar después)</small></span>
           <app-select
             formControlName="persona_ids"
-            [items]="personal()"
-            bindLabel="nombre"
+            [items]="buscador.opciones()"
+            bindLabel="etiqueta"
             bindValue="id"
             placeholder="Seleccione una o más personas"
             [searchable]="true"
+            [remoteSearch]="true"
+            [loading]="buscador.buscando()"
             [multiple]="true"
+            (searchChange)="buscador.buscar($event)"
           ></app-select>
         </label>
 
         <footer class="modal__actions">
-          <button type="button" class="btn btn--ghost" (click)="cerrarModal()">Cancelar</button>
+          <button type="button" class="btn btn--ghost" (click)="cerrarModal()" [disabled]="guardando()">Cancelar</button>
           <button type="submit" class="btn btn--primary" [disabled]="guardando()">
-            {{ guardando() ? 'Guardando...' : (modal() === 'editarConvocatoria' ? 'Guardar cambios' : 'Crear Convocatoria') }}
+            {{ subiendoDocumentos() ? 'Subiendo documentos...' : guardando() ? 'Guardando...' : (modal() === 'editarConvocatoria' ? 'Guardar cambios' : 'Crear Convocatoria') }}
           </button>
         </footer>
       </form>

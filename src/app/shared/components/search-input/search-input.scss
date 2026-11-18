@@ -1,0 +1,56 @@
+$navy: #132744;
+
+// El ancho lo pone la pantalla sobre el host; el alto acompaña al de app-select.
+:host {
+  display: block;
+  width: 220px;
+  min-width: 0;
+}
+
+.appsearch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.appsearch__icon {
+  position: absolute;
+  left: 0.75rem;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.appsearch__input {
+  width: 100%;
+  // Un input no baja de su ancho intrínseco dentro de un flex si no se le permite.
+  min-width: 0;
+  height: 2.55rem;
+  padding: 0 2.2rem 0 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  color: #0f172a;
+  box-sizing: border-box;
+
+  &:focus { outline: none; border-color: $navy; }
+  &::placeholder { color: #94a3b8; }
+}
+
+.appsearch__clear {
+  position: absolute;
+  right: 0.6rem;
+  display: inline-flex;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.15rem;
+
+  svg { width: 14px; height: 14px; }
+  &:hover { color: #475569; }
+}

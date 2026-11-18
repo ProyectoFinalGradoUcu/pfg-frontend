@@ -21,14 +21,37 @@ import {
   FuncionarioDeOrdenPayload,
   RequisitoEvaluado,
 } from '../../../../core/models/ascensos.models';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import { ArchivosPendientes, subirPendientes } from '../../../../core/services/documentos-registro';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { DerechaService } from '../../../../core/services/derecha.service';
+import { Impacto } from '../../../../core/models/derecha.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 /** Un funcionario ya agregado a la orden. */
 interface FilaDeOrden {
   evaluacion: Elegibilidad;
   grado_destino_id: string | null;
   fecha_ascenso: string;
+  /** true si se la cambió a mano: deja de seguir a la fecha de la orden. */
+  fecha_manual: boolean;
+  /**
+   * Fecha con la que se calculó `evaluacion`. El backend evalúa con `fecha_ascenso`
+   * (o la de la orden), así que si difieren la pantalla puede mostrar algo que el
+   * backend después rechaza.
+   */
+  fecha_evaluada: string;
+  evaluando: boolean;
   motivo_excepcion: string;
+  /** null = al final del grado destino / del grupo de numor. */
+  posicion_derecha: number | null;
+  /** Solo para mostrar: la derecha que corresponde a `posicion_derecha`. */
+  derecha_elegida: number | null;
+  posicion_numor: number | null;
+  verDerecha: boolean;
+  impacto: Impacto | null;
+  calculandoImpacto: boolean;
+  errorImpacto: string | null;
 }
 
 /** Todos los estados: se puede ascender a alguien que no cumple, como excepción. */
@@ -66,6 +89,7 @@ function alMenosOrdenOBoletin(group: AbstractControl): ValidationErrors | null {
 export class NuevaOrdenPage implements OnInit, OnDestroy {
   private readonly svc = inject(AscensosService);
   private readonly auth = inject(AuthService);
+  private readonly derecha = inject(DerechaService);
   private readonly toast = inject(ToastService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
@@ -73,6 +97,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
 
   readonly paso = signal<1 | 2 | 3>(1);
   readonly guardando = signal(false);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
   readonly buscando = signal(false);
 
   readonly resultados = signal<Elegibilidad[]>([]);
@@ -101,6 +127,13 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   );
 
   readonly puedeExcepcion = computed(() => this.auth.hasPermiso('ascensos.excepcion'));
+  readonly puedeElegirPosicion = computed(() => this.auth.hasPermiso('derecha.gestionar'));
+
+  /** Varios al mismo grado: las posiciones se aplican en el orden de la lista. */
+  readonly destinosRepetidos = computed(() => {
+    const destinos = this.filas().map((f) => f.grado_destino_id).filter(Boolean);
+    return destinos.length !== new Set(destinos).size;
+  });
 
   readonly ordenForm: FormGroup = this.fb.group(
     {
@@ -125,6 +158,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   readonly puedeConfirmar = computed(
     () =>
       this.filas().length > 0 &&
+      // Con una evaluación en curso todavía no se sabe si hace falta motivo.
+      this.filas().every((f) => !f.evaluando && f.fecha_evaluada === f.fecha_ascenso) &&
       !this.hayExcepcionSinMotivo() &&
       (this.porExcepcion() === 0 || this.puedeExcepcion()) &&
       this.filas().every((f) => !!f.grado_destino_id),
@@ -141,7 +176,7 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.busqueda$
-      .pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), distinctUntilChanged(), takeUntil(this.destroy$))
       .subscribe((texto) => this.buscar(texto));
 
     this.selectorFuncionario.valueChanges
@@ -158,6 +193,9 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       ...(params.get('persona') ? [params.get('persona')!] : []),
       ...(params.get('personas')?.split(',').filter(Boolean) ?? []),
     ];
+    this.pendientes.descartarSiVacio(this.ordenForm.controls['numero_orden'], 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.ordenForm.controls['boletin'], 'boletin', this.destroy$);
+
     for (const id of ids) this.agregarPorId(id);
   }
 
@@ -175,9 +213,15 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       return;
     }
     const fecha = this.ordenForm.get('fecha_orden')!.value as string;
+    // Las fechas que no se tocaron a mano siguen a la de la orden (también si se volvió
+    // al paso 1 y se la cambió). Las que venían precargadas desde el listado o el perfil
+    // se evaluaron sin fecha: se las vuelve a evaluar con la que corresponde.
     this.filas.update((filas) =>
-      filas.map((f) => ({ ...f, fecha_ascenso: f.fecha_ascenso || fecha })),
+      filas.map((f) => (f.fecha_manual ? f : { ...f, fecha_ascenso: fecha })),
     );
+    for (const f of this.filas()) {
+      if (f.fecha_evaluada !== f.fecha_ascenso) this.reevaluar(f.evaluacion.persona.id);
+    }
     this.paso.set(2);
     // Se precarga para que al abrir el combobox la lista ya esté.
     this.mostrarIniciales();
@@ -277,25 +321,76 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   }
 
   private agregarPorId(personaId: string): void {
-    this.svc.getElegibilidad(personaId, this.fechaDeLaOrden() || undefined).subscribe({
-      next: (e) => this.agregar(e),
+    const fecha = this.fechaDeLaOrden();
+    this.svc.getElegibilidad(personaId, fecha || undefined).subscribe({
+      next: (e) => this.agregar(e, fecha),
       error: (err: HttpErrorResponse) => this.toast.error(parseError(err)),
     });
   }
 
-  agregar(evaluacion: Elegibilidad): void {
+  /**
+   * `fechaEvaluada`: con qué fecha se calculó `evaluacion`. Los candidatos del combobox
+   * se evalúan con la fecha de la orden, que es la que toma la fila al agregarse.
+   */
+  agregar(evaluacion: Elegibilidad, fechaEvaluada = this.fechaDeLaOrden()): void {
     if (this.filas().some((f) => f.evaluacion.persona.id === evaluacion.persona.id)) return;
 
+    const fecha = this.fechaDeLaOrden();
     this.filas.update((filas) => [
       ...filas,
       {
         evaluacion,
         grado_destino_id: evaluacion.grado_destino?.id ?? null,
-        fecha_ascenso: this.fechaDeLaOrden(),
+        fecha_ascenso: fecha,
+        fecha_manual: false,
+        fecha_evaluada: fechaEvaluada,
+        evaluando: false,
         motivo_excepcion: '',
+        posicion_derecha: null,
+        derecha_elegida: null,
+        posicion_numor: null,
+        verDerecha: false,
+        impacto: null,
+        calculandoImpacto: false,
+        errorImpacto: null,
       },
     ]);
     this.resultados.update((r) => r.filter((i) => i.persona.id !== evaluacion.persona.id));
+    // Agregado con otra fecha (p. ej. precargado antes de completar el paso 1).
+    if (fecha && fechaEvaluada !== fecha) this.reevaluar(evaluacion.persona.id);
+  }
+
+  /** Vuelve a evaluar la elegibilidad de una fila con su `fecha_ascenso` vigente. */
+  private reevaluar(personaId: string): void {
+    const fila = this.filas().find((f) => f.evaluacion.persona.id === personaId);
+    if (!fila) return;
+    const fecha = fila.fecha_ascenso;
+    this.actualizarFila(personaId, { evaluando: true });
+    this.svc.getElegibilidad(personaId, fecha || undefined).subscribe({
+      next: (evaluacion) => {
+        const actual = this.filas().find((f) => f.evaluacion.persona.id === personaId);
+        // Se la quitó o se volvió a cambiar la fecha mientras tanto: esta respuesta no aplica.
+        if (!actual || actual.fecha_ascenso !== fecha) return;
+        const destino = evaluacion.grado_destino?.id ?? null;
+        const cambioDestino = destino !== actual.grado_destino_id;
+        this.actualizarFila(personaId, {
+          evaluacion,
+          fecha_evaluada: fecha,
+          evaluando: false,
+          grado_destino_id: destino,
+          // La posición elegida era en el grado destino anterior.
+          ...(cambioDestino
+            ? { posicion_derecha: null, derecha_elegida: null, posicion_numor: null, impacto: null }
+            : {}),
+        });
+        if (actual.verDerecha && destino) this.calcularImpacto(personaId);
+      },
+      error: (err: HttpErrorResponse) => {
+        const actual = this.filas().find((f) => f.evaluacion.persona.id === personaId);
+        if (actual?.fecha_ascenso === fecha) this.actualizarFila(personaId, { evaluando: false });
+        this.toast.error(parseError(err));
+      },
+    });
   }
 
   quitar(personaId: string): void {
@@ -303,11 +398,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
   }
 
   onFechaAscenso(personaId: string, fecha: string): void {
-    this.filas.update((filas) =>
-      filas.map((f) =>
-        f.evaluacion.persona.id === personaId ? { ...f, fecha_ascenso: fecha } : f,
-      ),
-    );
+    this.actualizarFila(personaId, { fecha_ascenso: fecha, fecha_manual: true });
+    this.reevaluar(personaId);
   }
 
   onMotivo(personaId: string, motivo: string): void {
@@ -316,6 +408,62 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
         f.evaluacion.persona.id === personaId ? { ...f, motivo_excepcion: motivo } : f,
       ),
     );
+  }
+
+  private actualizarFila(personaId: string, cambio: Partial<FilaDeOrden>): void {
+    this.filas.update((filas) =>
+      filas.map((f) => (f.evaluacion.persona.id === personaId ? { ...f, ...cambio } : f)),
+    );
+  }
+
+  alternarDerecha(fila: FilaDeOrden): void {
+    const abrir = !fila.verDerecha;
+    this.actualizarFila(fila.evaluacion.persona.id, { verDerecha: abrir });
+    if (abrir) this.calcularImpacto(fila.evaluacion.persona.id);
+  }
+
+  onPosicionDerecha(personaId: string, posicion: number | null): void {
+    this.actualizarFila(personaId, { posicion_derecha: posicion });
+    this.calcularImpacto(personaId);
+  }
+
+  onDerechaElegida(personaId: string, derecha: number | null): void {
+    this.actualizarFila(personaId, { derecha_elegida: derecha });
+  }
+
+  onPosicionNumor(personaId: string, posicion: number | null): void {
+    this.actualizarFila(personaId, { posicion_numor: posicion });
+    this.calcularImpacto(personaId);
+  }
+
+  private calcularImpacto(personaId: string): void {
+    const fila = this.filas().find((f) => f.evaluacion.persona.id === personaId);
+    if (!fila?.grado_destino_id) return;
+    this.actualizarFila(personaId, { calculandoImpacto: true, errorImpacto: null });
+    this.derecha
+      .previsualizar({
+        operacion: 'ASCENSO',
+        persona_id: Number(personaId),
+        grado_id: Number(fila.grado_destino_id),
+        posicion: fila.posicion_derecha ?? undefined,
+        posicion_numor: fila.posicion_numor ?? undefined,
+      })
+      .subscribe({
+        next: (impacto) => this.actualizarFila(personaId, { impacto, calculandoImpacto: false }),
+        error: (err: HttpErrorResponse) =>
+          this.actualizarFila(personaId, {
+            impacto: null,
+            calculandoImpacto: false,
+            errorImpacto: parseError(err),
+          }),
+      });
+  }
+
+  textoPosicion(fila: FilaDeOrden): string {
+    const destino = fila.evaluacion.grado_destino?.denominacion ?? 'el grado destino';
+    return fila.posicion_derecha === null
+      ? `al final de ${destino}`
+      : `${fila.derecha_elegida ?? fila.posicion_derecha} en ${destino}`;
   }
 
   /**
@@ -329,9 +477,21 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
     return fila.evaluacion.requisitos.filter((r) => r.aplica && !r.cumple);
   }
 
-  /** Tiene regla evaluable y el motor no lo dio por pasible. */
+  /**
+   * Mismo criterio que el backend: es excepción si tiene regla evaluable y
+   * el motor no lo dio por pasible, o si el destino no es el grado siguiente de su
+   * escala (salto de grados, cambio de escala, desde cadete/aprendiz o desde el tope).
+   */
   esExcepcion(fila: FilaDeOrden): boolean {
-    return !!fila.evaluacion.regla && fila.evaluacion.estado !== 'PASIBLE';
+    return (
+      this.fueraDeCarrera(fila) ||
+      (!!fila.evaluacion.regla && fila.evaluacion.estado !== 'PASIBLE')
+    );
+  }
+
+  fueraDeCarrera(fila: FilaDeOrden): boolean {
+    const tipo = fila.evaluacion.tipo_ascenso;
+    return tipo === 'SALTO' || tipo === 'CAMBIO_ESCALA';
   }
 
   etiquetaEstado(estado: EstadoElegibilidad): string {
@@ -362,6 +522,8 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
       grado_destino_id: f.grado_destino_id ? Number(f.grado_destino_id) : undefined,
       fecha_ascenso: f.fecha_ascenso || undefined,
       motivo_excepcion: this.esExcepcion(f) ? f.motivo_excepcion.trim() : undefined,
+      posicion_derecha: f.posicion_derecha ?? undefined,
+      posicion_numor: f.posicion_numor ?? undefined,
     }));
 
     const payload: CrearOrdenPayload = {
@@ -375,11 +537,10 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
     this.guardando.set(true);
     this.svc.crearOrden(payload).subscribe({
       next: (orden) => {
-        this.guardando.set(false);
         this.toast.success(
           `Orden ${orden.numero_orden ?? orden.boletin} registrada: ${orden.cantidad_funcionarios} funcionarios`,
         );
-        this.router.navigate(['/ascensos-y-retiros/ordenes', orden.id]);
+        this.subirDocumentos(orden.id);
       },
       error: (err: HttpErrorResponse) => {
         this.guardando.set(false);
@@ -387,6 +548,26 @@ export class NuevaOrdenPage implements OnInit, OnDestroy {
         this.paso.set(2);
       },
     });
+  }
+
+  /** La orden ya existe: si un archivo falla se avisa y se navega igual. */
+  private subirDocumentos(ordenId: string): void {
+    this.subiendoDocumentos.set(this.pendientes.hay());
+    subirPendientes(
+      (slot, archivo) => this.svc.documentosOrden(ordenId).subir(slot, archivo),
+      this.pendientes.archivos(),
+      (archivo, err) =>
+        this.toast.error(
+          `La orden se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde el detalle de la orden.`,
+          8000,
+        ),
+    )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.subiendoDocumentos.set(false);
+        this.guardando.set(false);
+        this.router.navigate(['/ascensos-y-retiros/ordenes', ordenId]);
+      });
   }
 
   cancelar(): void {

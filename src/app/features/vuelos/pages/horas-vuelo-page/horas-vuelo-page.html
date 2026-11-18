@@ -1,0 +1,423 @@
+<section class="vuelos" (click)="cerrarMenu()">
+
+  <header class="vuelos__header">
+    <div>
+      <h2>Horas de vuelo</h2>
+      <p>Carga por período de la unidad de vuelo, aeronaves y horas de cada funcionario.</p>
+    </div>
+    <div class="vuelos__header-actions">
+      <button
+        type="button"
+        class="btn btn--outline btn--lg vuelos__tooltip vuelos__tooltip--largo"
+        *ngIf="hayPeriodosEnAnio()"
+        (click)="exportar()"
+        [disabled]="exportando()"
+        [attr.data-tooltip]="tooltipExportar()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        </svg>
+        {{ exportando() ? 'Exportando...' : 'Exportar' }}
+      </button>
+      <button type="button" class="btn btn--primary btn--lg" *ngIf="puedeGestionarPeriodos()" (click)="abrirNuevo()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Abrir período
+      </button>
+    </div>
+  </header>
+
+  <!-- Períodos del año (las hojas de la planilla) -->
+  <article class="periodos">
+    <div class="periodos__seleccion">
+      <div class="periodos__filtros">
+        <div class="periodos__campo periodos__campo--anio">
+          <label>Año</label>
+          <app-select
+            [items]="anios()"
+            placeholder="Año"
+            [ngModel]="anio()"
+            (ngModelChange)="onAnioChange($any($event))"
+          ></app-select>
+        </div>
+        <div class="periodos__campo">
+          <label>Personal</label>
+          <app-select
+            [items]="categoriaOpciones"
+            placeholder="Todos"
+            [ngModel]="filtroCategoria()"
+            (ngModelChange)="onCategoriaChange($any($event))"
+          ></app-select>
+        </div>
+      </div>
+
+      <div class="periodos__grid" role="tablist">
+        <button
+          *ngFor="let t of tarjetas()"
+          type="button"
+          role="tab"
+          class="periodo-tile"
+          [class.periodo-tile--activa]="t.periodo && t.periodo.id === periodo()?.id"
+          [class.periodo-tile--vacia]="!t.periodo"
+          [disabled]="!t.periodo && !puedeGestionarPeriodos()"
+          [attr.aria-selected]="!!t.periodo && t.periodo.id === periodo()?.id"
+          [title]="t.periodo ? '' : (puedeGestionarPeriodos() ? 'Abrir este período' : 'Período no abierto')"
+          (click)="onTarjeta(t)"
+        >
+          <span class="periodo-tile__top">
+            <strong>{{ t.label }}</strong>
+            <span *ngIf="t.periodo" class="periodo-tile__estado" [class.periodo-tile__estado--cerrado]="t.periodo.cerrado">
+              {{ t.periodo.cerrado ? 'Cerrado' : 'Abierto' }}
+            </span>
+          </span>
+          <span class="periodo-tile__sub">
+            <ng-container *ngIf="t.periodo">{{ t.periodo.registros_editados }} de {{ t.periodo.total_registros }} cargados</ng-container>
+            <ng-container *ngIf="!t.periodo">{{ puedeGestionarPeriodos() ? 'Sin abrir · + Abrir' : 'Sin abrir' }}</ng-container>
+          </span>
+          <span class="barra">
+            <span class="barra__relleno" [style.width.%]="avance(t.periodo?.registros_editados, t.periodo?.total_registros)"></span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="periodo() as p" class="periodos__resumen">
+      <div class="resumen__avance">
+        <p><strong>{{ stats().cargados }}</strong> / {{ stats().total }} funcionarios cargados</p>
+        <span class="barra barra--ancha">
+          <span class="barra__relleno" [style.width.%]="avance(stats().cargados, stats().total)"></span>
+        </span>
+      </div>
+
+      <div class="resumen__datos">
+        <div class="resumen__dato">
+          <strong>{{ stats().oficiales }}</strong>
+          <span>Oficiales</span>
+        </div>
+        <div class="resumen__dato">
+          <strong>{{ stats().subalternos }}</strong>
+          <span>Subalternos</span>
+        </div>
+        <div class="resumen__dato" title="Suma de las 4 columnas de horas de los funcionarios ya cargados">
+          <strong>{{ formatoHoras(stats().horas_cargadas) }}</strong>
+          <span>Hs cargadas</span>
+        </div>
+      </div>
+
+      <div class="resumen__acciones" *ngIf="puedeGestionarPeriodos()">
+        <button
+          type="button"
+          class="btn btn--outline vuelos__tooltip vuelos__tooltip--largo"
+          *ngIf="!p.cerrado"
+          (click)="sincronizar()"
+          [disabled]="sincronizando()"
+          data-tooltip="Agrega al período a quienes entraron en actividad (altas o reincorporaciones) después de abrirlo. No cambia a quienes ya están ni las horas cargadas."
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          {{ sincronizando() ? 'Sincronizando...' : 'Sincronizar personal' }}
+        </button>
+        <button type="button" class="btn btn--outline" *ngIf="!p.cerrado" (click)="abrirModal('cerrar')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+          </svg>
+          Cerrar período
+        </button>
+        <button type="button" class="btn btn--outline" *ngIf="p.cerrado" (click)="abrirModal('reabrir')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+          </svg>
+          Reabrir período
+        </button>
+        <button
+          type="button"
+          class="btn btn--outline vuelos__menu-btn"
+          [class.vuelos__menu-btn--open]="openMenuId() === 'periodo'"
+          (click)="toggleMenu('periodo', $event)"
+          aria-label="Más acciones del período"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+          </svg>
+        </button>
+        <div class="vuelos__menu" *ngIf="openMenuId() === 'periodo'" [style.top.px]="menuPosition()?.top" [style.right.px]="menuPosition()?.right" (click)="$event.stopPropagation()">
+          <button type="button" class="vuelos__menu-item--danger" (click)="abrirModal('eliminar')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+            </svg>
+            Eliminar período
+          </button>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <div *ngIf="cargandoPeriodos()" class="vuelos__card vuelos__placeholder">Cargando períodos...</div>
+
+  <div *ngIf="!cargandoPeriodos() && !periodo()" class="vuelos__card">
+    <app-empty-state
+      title="No hay un período abierto en {{ anio() }}"
+      [description]="puedeGestionarPeriodos()
+        ? 'Abrí un período para que aparezca todo el personal en actividad y se puedan cargar sus horas de vuelo.'
+        : 'Todavía no se abrió ningún período de vuelo para este año.'"
+    ></app-empty-state>
+  </div>
+
+  <article *ngIf="periodo() as p" class="vuelos__card personal">
+    <div class="personal__header">
+      <div>
+        <h3>Personal del período</h3>
+        <p class="personal__hint" *ngIf="p.cerrado">{{ p.etiqueta }} está cerrado: no admite cambios hasta que se reabra.</p>
+      </div>
+
+      <div class="segmentos" role="tablist" aria-label="Estado de carga">
+        <button
+          *ngFor="let e of pestanasEstado()"
+          type="button"
+          role="tab"
+          class="segmentos__item"
+          [class.segmentos__item--activo]="filtroEstado() === e.value"
+          [attr.aria-selected]="filtroEstado() === e.value"
+          (click)="onEstadoChange(e.value)"
+        >
+          {{ e.label }}
+          <span class="segmentos__cantidad">{{ e.cantidad }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="vuelos__filters personal__filtros">
+      <div class="vuelos__search-wrap">
+        <svg class="vuelos__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+        <input
+          type="text"
+          class="vuelos__search-input"
+          placeholder="Cédula, nombre o apellido..."
+          [value]="filtroQuery()"
+          (input)="onQueryInput($any($event.target).value)"
+          autocomplete="off"
+        />
+        <button *ngIf="filtroQuery()" type="button" class="vuelos__search-clear" (click)="onQueryInput('')" aria-label="Limpiar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <app-select
+        class="vuelos__filter-select"
+        [items]="grados()"
+        bindLabel="denominacion"
+        bindValue="id"
+        placeholder="Todos los grados"
+        [searchable]="true"
+        [clearable]="true"
+        [ngModel]="filtroGradoId()"
+        (ngModelChange)="onGradoChange($any($event))"
+      ></app-select>
+
+      <app-select
+        class="vuelos__filter-select"
+        [items]="escalafones()"
+        bindLabel="denominacion"
+        bindValue="id"
+        placeholder="Todos los escalafones"
+        [searchable]="true"
+        [clearable]="true"
+        [ngModel]="filtroEscalafonId()"
+        (ngModelChange)="onEscalafonChange($any($event))"
+      ></app-select>
+
+      <app-select
+        class="vuelos__filter-select"
+        [items]="unidadOpciones()"
+        placeholder="Todas las unidades de vuelo"
+        [searchable]="true"
+        [clearable]="true"
+        [ngModel]="filtroUnidad()"
+        (ngModelChange)="onUnidadChange($any($event))"
+      ></app-select>
+
+      <button
+        type="button"
+        class="btn btn--clear vuelos__tooltip"
+        [disabled]="!hayFiltros()"
+        (click)="limpiarFiltros()"
+        aria-label="Borrar filtros"
+        data-tooltip="Borrar filtros"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+        </svg>
+      </button>
+    </div>
+
+    <div *ngIf="loading()" class="vuelos__placeholder">Cargando...</div>
+
+    <div *ngIf="!loading()" class="registros__wrapper">
+      <table class="registros">
+        <thead>
+          <tr>
+            <th>Funcionario</th>
+            <th>Unidad de vuelo</th>
+            <th>Aeronaves</th>
+            <th class="vuelos__num">Hs Av Año Mil.</th>
+            <th class="vuelos__num">Hs Av Total</th>
+            <th class="vuelos__num">Hs Ob Año Mil.</th>
+            <th class="vuelos__num">Hs Ob Total</th>
+            <th class="vuelos__num">Total</th>
+            <th class="vuelos__col-actions"><span class="sr-only">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of registros(); trackBy: trackRegistro">
+            <td>
+              <strong class="registros__nombre">{{ r.persona.nombre_completo }}</strong>
+              <span class="registros__datos">{{ datosFuncionario(r) }}</span>
+            </td>
+            <td class="registros__unidad">
+              <span *ngIf="r.unidad_vuelo">{{ r.unidad_vuelo.denominacion }}</span>
+              <span *ngIf="!r.unidad_vuelo" class="registros__sin-unidad">Sin asignar</span>
+            </td>
+            <td class="registros__aeronaves" [title]="r.aeronaves || ''">{{ r.aeronaves || '—' }}</td>
+            <td class="vuelos__num">{{ formatoHoras(r.hs_av_anio_militar) }}</td>
+            <td class="vuelos__num">{{ formatoHoras(r.hs_av_total) }}</td>
+            <td class="vuelos__num">{{ formatoHoras(r.hs_ob_anio_militar) }}</td>
+            <td class="vuelos__num">{{ formatoHoras(r.hs_ob_total) }}</td>
+            <td class="vuelos__num"><strong>{{ formatoHoras(r.total) }}</strong></td>
+            <td class="vuelos__col-actions" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="btn btn--ghost btn--sm vuelos__menu-btn"
+                [class.vuelos__menu-btn--open]="openMenuId() === r.id"
+                (click)="toggleMenu(r.id, $event)"
+                aria-label="Acciones"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                </svg>
+              </button>
+
+              <div class="vuelos__menu" *ngIf="openMenuId() === r.id" [style.top.px]="menuPosition()?.top" [style.right.px]="menuPosition()?.right">
+                <button type="button" *ngIf="puedeCargar()" (click)="abrirEditar(r)">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                  </svg>
+                  Cargar horas
+                </button>
+                <button type="button" (click)="abrirHistorial(r)">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                  Ver historial
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="registros().length === 0">
+            <td colspan="9" class="vuelos__empty">No hay funcionarios que coincidan con la búsqueda.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-paginator
+      *ngIf="!loading() && total() > 0"
+      [totalItems]="total()"
+      [pageSize]="pageSize"
+      [currentPage]="page()"
+      (pageChange)="onPageChange($event)"
+    ></app-paginator>
+  </article>
+
+  <app-registro-vuelo-modal
+    *ngIf="registroEnEdicion()"
+    [registro]="registroEnEdicion()!"
+    [unidades]="unidades()"
+    [haySiguiente]="haySiguiente()"
+    (guardado)="onRegistroGuardado($event)"
+    (cerrado)="cerrarEdicion()"
+  ></app-registro-vuelo-modal>
+
+  <app-historial-vuelo-modal
+    *ngIf="historialPersonaId()"
+    [personaId]="historialPersonaId()!"
+    (cerrado)="historialPersonaId.set(null)"
+  ></app-historial-vuelo-modal>
+
+  <!-- Abrir período -->
+  <div class="modal-overlay" *ngIf="modal() === 'nuevo'" (click)="cerrarModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <h3>Abrir período de vuelo</h3>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">×</button>
+      </header>
+      <div class="modal__body">
+        <p>
+          Aparece todo el personal en actividad (oficiales y subalternos) con su grado y escalafón actuales.
+          De su último período se copian la unidad de vuelo, las aeronaves y los totales; el año militar
+          arranca en cero en el 1er período del año.
+        </p>
+        <div class="grid-2">
+          <div class="field">
+            <label for="nuevo-anio">Año *</label>
+            <input id="nuevo-anio" type="number" min="1900" max="2999" [ngModel]="nuevoAnio()" (ngModelChange)="nuevoAnio.set($event)" />
+          </div>
+          <div class="field">
+            <label>Período *</label>
+            <app-select [items]="numeroOpciones" [ngModel]="nuevoNumero()" (ngModelChange)="nuevoNumero.set($any($event))"></app-select>
+          </div>
+        </div>
+        <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
+      </div>
+      <footer class="modal__footer">
+        <button type="button" class="btn" (click)="cerrarModal()" [disabled]="procesando()">Cancelar</button>
+        <button type="button" class="btn btn--primary" (click)="confirmarNuevo()" [disabled]="procesando()">
+          {{ procesando() ? 'Abriendo...' : 'Abrir período' }}
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Cerrar / reabrir / eliminar -->
+  <div class="modal-overlay" *ngIf="modal() === 'cerrar' || modal() === 'reabrir'" (click)="cerrarModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <header class="modal__header">
+        <h3>{{ modal() === 'cerrar' ? 'Cerrar' : 'Reabrir' }} {{ periodo()?.etiqueta }}</h3>
+      </header>
+      <div class="modal__body">
+        <p *ngIf="modal() === 'cerrar'">
+          Un período cerrado no admite más cambios de horas ni de unidad de vuelo. Se puede reabrir después si hace falta corregir algo.
+        </p>
+        <p *ngIf="modal() === 'reabrir'">Las unidades van a poder volver a modificar las horas de este período.</p>
+        <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
+      </div>
+      <footer class="modal__footer">
+        <button type="button" class="btn" (click)="cerrarModal()" [disabled]="procesando()">Cancelar</button>
+        <button type="button" class="btn btn--primary" (click)="confirmarCambioEstado(modal() === 'cerrar')" [disabled]="procesando()">
+          {{ modal() === 'cerrar' ? 'Cerrar período' : 'Reabrir' }}
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <div class="modal-overlay" *ngIf="modal() === 'eliminar'" (click)="cerrarModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <header class="modal__header"><h3>Eliminar {{ periodo()?.etiqueta }}</h3></header>
+      <div class="modal__body">
+        <p>Es para deshacer un período abierto por error. Solo se puede si todavía nadie cargó horas en él.</p>
+        <p>Si ya se cargaron horas, cerralo en vez de borrarlo.</p>
+        <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
+      </div>
+      <footer class="modal__footer">
+        <button type="button" class="btn" (click)="cerrarModal()" [disabled]="procesando()">Cancelar</button>
+        <button type="button" class="btn btn--danger" (click)="confirmarEliminar()" [disabled]="procesando()">Eliminar</button>
+      </footer>
+    </div>
+  </div>
+</section>

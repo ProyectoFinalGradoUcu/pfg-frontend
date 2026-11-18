@@ -9,6 +9,8 @@ import {
   SignInResponse,
 } from '../models/auth.models';
 
+const MAX_BASES_EN_BARRA = 3;
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly currentUserSignal = signal<AuthenticatedUser | null>(null);
@@ -130,13 +132,17 @@ export class AuthService {
     return this.alcanceDe(permisoBase) !== null;
   }
 
-  /** Unidades que acotan lo que el usuario ve, o `null` si su alcance es general. */
+  /** Bases que acotan lo que el usuario ve, o `null` si su alcance es general. */
   readonly unidadDeAlcance = computed(() => {
     const user = this.currentUserSignal();
     if (!user) return null;
     const tieneAlcanceAcotado = user.permisos.some((p) => p.endsWith('.unidad'));
     if (!tieneAlcanceAcotado) return null;
     if (user.unidades.length === 0) return null;
-    return user.unidades.map((u) => u.denominacion).join(', ');
+    const nombres = user.unidades.map((u) => u.denominacion);
+    // Un usuario con todas las bases de un comando tiene 6 o más: no entran en la barra.
+    return nombres.length <= MAX_BASES_EN_BARRA
+      ? nombres.join(', ')
+      : `${nombres.slice(0, MAX_BASES_EN_BARRA).join(', ')} y ${nombres.length - MAX_BASES_EN_BARRA} más`;
   });
 }

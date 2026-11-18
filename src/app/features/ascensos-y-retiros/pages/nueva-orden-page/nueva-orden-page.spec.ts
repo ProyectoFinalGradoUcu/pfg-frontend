@@ -3,7 +3,7 @@ import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { NuevaOrdenPage } from './nueva-orden-page';
@@ -45,6 +45,7 @@ describe('NuevaOrdenPage', () => {
   let toast: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
   let queryParams: Map<string, string>;
+  let subir: ReturnType<typeof vi.fn>;
 
   async function montar(): Promise<void> {
     await TestBed.configureTestingModule({
@@ -72,9 +73,11 @@ describe('NuevaOrdenPage', () => {
 
   beforeEach(() => {
     queryParams = new Map();
+    subir = vi.fn().mockReturnValue(of({}));
     svc = {
       listarPasibles: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 20 })),
       getElegibilidad: vi.fn().mockReturnValue(of(makeElegibilidad())),
+      documentosOrden: vi.fn().mockReturnValue({ subir }),
       crearOrden: vi.fn().mockReturnValue(
         of({ id: '70', numero_orden: 'O.C.G.F.A. N.º 1', cantidad_funcionarios: 1 }),
       ),
@@ -242,6 +245,105 @@ describe('NuevaOrdenPage', () => {
       component.agregar(makeElegibilidad({ estado: 'BLOQUEADO', motivo: 'x' }));
       component.onMotivo('100', 'Vacante urgente');
 
+      expect(component.puedeConfirmar()).toBe(false);
+    });
+
+    it('un salto o cambio de escala pide motivo aunque cumpla la regla', async () => {
+      await montar();
+      component.ordenForm.patchValue({ numero_orden: 'O 1', fecha_orden: '2027-02-01' });
+      component.irAFuncionarios();
+      component.agregar(makeElegibilidad({ estado: 'PASIBLE', tipo_ascenso: 'CAMBIO_ESCALA' }));
+
+      expect(component.esExcepcion(component.filas()[0])).toBe(true);
+      expect(component.puedeConfirmar()).toBe(false);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('.bloqueo__titulo')!.textContent).toContain('No asciende al grado siguiente');
+      expect(el.querySelector('#motivo-100')).not.toBeNull();
+
+      component.onMotivo('100', 'Egreso de la Escuela');
+      expect(component.puedeConfirmar()).toBe(true);
+    });
+
+    it('el grado siguiente de la escala no es excepción', async () => {
+      await montar();
+      component.agregar(makeElegibilidad({ estado: 'PASIBLE', tipo_ascenso: 'SIGUIENTE' }));
+
+      expect(component.esExcepcion(component.filas()[0])).toBe(false);
+    });
+  });
+
+  describe('recalcular la elegibilidad al cambiar fechas', () => {
+    const conOrden = () =>
+      component.ordenForm.patchValue({ numero_orden: 'O 1', fecha_orden: '2027-02-01' });
+
+    it('al cambiar la fecha del ascenso vuelve a evaluar con esa fecha', async () => {
+      await montar();
+      conOrden();
+      component.agregar(makeElegibilidad());
+      svc['getElegibilidad'].mockReturnValue(
+        of(makeElegibilidad({ estado: 'PROXIMO', motivo: 'Le faltan 20 días' })),
+      );
+
+      component.onFechaAscenso('100', '2027-01-10');
+
+      expect(svc['getElegibilidad']).toHaveBeenLastCalledWith('100', '2027-01-10');
+      const fila = component.filas()[0];
+      expect(fila.evaluacion.estado).toBe('PROXIMO');
+      expect(fila.fecha_evaluada).toBe('2027-01-10');
+      expect(component.esExcepcion(fila)).toBe(true);
+    });
+
+    it('los precargados sin fecha se reevalúan con la de la orden al pasar al paso 2', async () => {
+      queryParams.set('persona', '100');
+      await montar();
+      expect(svc['getElegibilidad']).toHaveBeenCalledWith('100', undefined);
+      svc['getElegibilidad'].mockReturnValue(of(makeElegibilidad({ estado: 'BLOQUEADO', motivo: 'x' })));
+
+      conOrden();
+      component.irAFuncionarios();
+
+      expect(svc['getElegibilidad']).toHaveBeenLastCalledWith('100', '2027-02-01');
+      expect(component.filas()[0].fecha_ascenso).toBe('2027-02-01');
+      expect(component.filas()[0].evaluacion.estado).toBe('BLOQUEADO');
+    });
+
+    it('si se cambia la fecha de la orden, las fechas no tocadas a mano la siguen y se reevalúan', async () => {
+      await montar();
+      conOrden();
+      component.irAFuncionarios();
+      component.agregar(makeElegibilidad());
+      component.volverAOrden();
+      component.ordenForm.patchValue({ fecha_orden: '2027-03-01' });
+
+      component.irAFuncionarios();
+
+      expect(component.filas()[0].fecha_ascenso).toBe('2027-03-01');
+      expect(svc['getElegibilidad']).toHaveBeenLastCalledWith('100', '2027-03-01');
+    });
+
+    it('una fecha cambiada a mano no la pisa la de la orden', async () => {
+      await montar();
+      conOrden();
+      component.agregar(makeElegibilidad());
+      component.onFechaAscenso('100', '2027-01-15');
+      component.volverAOrden();
+      component.ordenForm.patchValue({ fecha_orden: '2027-03-01' });
+
+      component.irAFuncionarios();
+
+      expect(component.filas()[0].fecha_ascenso).toBe('2027-01-15');
+    });
+
+    it('no deja confirmar mientras se está reevaluando', async () => {
+      await montar();
+      conOrden();
+      component.agregar(makeElegibilidad());
+      svc['getElegibilidad'].mockReturnValue(new Subject<Elegibilidad>());
+
+      component.onFechaAscenso('100', '2027-01-10');
+
+      expect(component.filas()[0].evaluando).toBe(true);
       expect(component.puedeConfirmar()).toBe(false);
     });
   });
@@ -412,6 +514,85 @@ describe('NuevaOrdenPage', () => {
         { persona_id: 100, grado_destino_id: 4, fecha_ascenso: '2027-02-01', motivo_excepcion: undefined },
       ]);
       expect(router.navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes', '70']);
+    });
+
+    it('confirmar con archivos: crea, sube y navega', async () => {
+      await prepararOrdenLista();
+      const pdf = new File(['x'], 'orden.pdf', { type: 'application/pdf' });
+      component.pendientes.elegir('orden', pdf);
+
+      component.confirmar();
+
+      expect(svc['documentosOrden']).toHaveBeenCalledWith('70');
+      expect(subir).toHaveBeenCalledWith('orden', pdf);
+      expect(router.navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes', '70']);
+    });
+
+    it('mientras sube muestra Subiendo documentos y no navega todavía', async () => {
+      await prepararOrdenLista();
+      const subida = new Subject<unknown>();
+      subir.mockReturnValue(subida);
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+
+      component.confirmar();
+      fixture.detectChanges();
+
+      expect(component.subiendoDocumentos()).toBe(true);
+      expect(router.navigate).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.textContent).toContain('Subiendo documentos...');
+      expect(fixture.nativeElement.querySelector('.card__footer .btn--primary').disabled).toBe(true);
+
+      subida.next({});
+      subida.complete();
+      expect(router.navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes', '70']);
+    });
+
+    it('si se sale de la página mientras sube, no navega al terminar', async () => {
+      await prepararOrdenLista();
+      const subida = new Subject<unknown>();
+      subir.mockReturnValue(subida);
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+
+      component.confirmar();
+      component.ngOnDestroy();
+      subida.next({});
+      subida.complete();
+
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
+
+    it('si la subida falla, avisa y navega igual', async () => {
+      await prepararOrdenLista();
+      subir.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: 'Falló' } })),
+      );
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+
+      component.confirmar();
+
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringMatching(/^La orden se registró, pero no se pudo subir «orden\.pdf»: .+ Podés adjuntarlo desde el detalle de la orden\.$/),
+        8000,
+      );
+      expect(router.navigate).toHaveBeenCalledWith(['/ascensos-y-retiros/ordenes', '70']);
+    });
+
+    it('el resumen muestra los archivos elegidos', async () => {
+      await prepararOrdenLista();
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('orden.pdf');
+    });
+
+    it('borrar el número descarta el archivo elegido', async () => {
+      await montar();
+      component.ordenForm.patchValue({ numero_orden: 'O-1' });
+      component.pendientes.elegir('orden', new File(['x'], 'orden.pdf'));
+
+      component.ordenForm.patchValue({ numero_orden: '' });
+
+      expect(component.pendientes.hay()).toBe(false);
     });
 
     it('si el backend rechaza, vuelve al paso de funcionarios con el aviso', async () => {

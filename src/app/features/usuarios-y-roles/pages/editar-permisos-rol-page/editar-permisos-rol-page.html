@@ -63,7 +63,7 @@
                   type="checkbox"
                   [checked]="rolTienePermiso(p)"
                   [disabled]="!puedeGestionarRoles() || esAdministrador()"
-                  (change)="togglePermiso(p, $any($event.target).checked)"
+                  (change)="togglePermiso(p, $any($event.target))"
                 />
               </td>
             </tr>

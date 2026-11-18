@@ -8,7 +8,22 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { CursosService } from '../../../../core/services/cursos.service';
-import { PersonalService, PersonaListItem } from '../../../../core/services/personal.service';
+import { FILTRO_DERECHA_NUMOR_INICIAL, FiltroDerechaNumor } from '../../../../core/models/derecha.models';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
+import {
+  ArchivosPendientes,
+  SlotVista,
+  armarSlots,
+  subirPendientes,
+} from '../../../../core/services/documentos-registro';
+import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
+import { PersonalService } from '../../../../core/services/personal.service';
+import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
+import {
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
 import {
   CursoDefinicion,
   CursoFuncionarioItem,
@@ -18,6 +33,8 @@ import {
   ModuloCurso,
   TipoCurso,
 } from '../../../../core/models/cursos.models';
+import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 type TabKind = 'inscripciones' | 'catalogo';
 type ModalKind =
@@ -37,10 +54,24 @@ interface ResultadoMasivo {
   calificacion: number | null;
 }
 
+/** El número que comparten todos los módulos, si es uno solo y no nulo. */
+function numeroComun(
+  modulos: CursoFuncionarioItem['modulos'],
+  campo: 'numero_orden' | 'boletin',
+): string | null {
+  const valores = (modulos ?? []).map((m) => m[campo]);
+  if (valores.length === 0 || valores.some((v) => !v)) return null;
+  return valores.every((v) => v === valores[0]) ? valores[0] : null;
+}
+
 interface FilaHistorial {
   funcionarioId: string;
   cedula: string;
   nombre: string;
+  grado?: string | null;
+  escalafon?: string | null;
+  derecha?: number | null;
+  numor?: number | null;
   curso: CursoFuncionarioItem;
 }
 
@@ -57,19 +88,34 @@ export class CursosPage implements OnInit, OnDestroy {
   private readonly personalService = inject(PersonalService);
   private readonly toast = inject(ToastService);
   private readonly errorModal = inject(ErrorModalService);
+  private readonly confirmModal = inject(ConfirmModalService);
   private readonly route = inject(ActivatedRoute);
 
   // ── Estado general ─────────────────────────────────────────────────────────
   readonly tab = signal<TabKind>('inscripciones');
   readonly loading = signal(false);
   readonly modal = signal<ModalKind>(null);
+
+  // ── Carga masiva del historial ─────────────────────────────────────────────
+  readonly importOpen = signal(false);
+  readonly cargaHistorial = CARGAS_MASIVAS.historialCursos;
+
+  cerrarImportar(huboCambios: boolean): void {
+    this.importOpen.set(false);
+    if (huboCambios) this.cargar();
+  }
   readonly modalError = signal<string | null>(null);
 
   // ── Historial ──────────────────────────────────────────────────────────────
   readonly funcionarios = signal<FuncionarioConCursos[]>([]);
   readonly cedulaFiltro = signal('');
+  readonly categoriaFiltro = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
+  readonly filtroDerecha = signal<FiltroDerechaNumor>({ ...FILTRO_DERECHA_NUMOR_INICIAL });
   readonly buscandoCedula = signal(false);
-  readonly personal = signal<PersonaListItem[]>([]);
+  readonly buscadorRegistrar = new BuscadorPersonas();
+  readonly buscadorNuevoCurso = new BuscadorPersonas();
+  readonly buscadorDesignar = new BuscadorPersonas();
   readonly historialPage = signal(1);
   readonly historialPageSize = 10;
   readonly archivoCertificado = signal<File | null>(null);
@@ -121,12 +167,21 @@ export class CursosPage implements OnInit, OnDestroy {
     () => this.filasCursoMasivo().filter((f) => this.calificacionesMasivas()[f.curso.designacionId]?.aprobado != null),
   );
 
+  readonly filasMasivasIncompletas = computed(() =>
+    this.filasCursoMasivo().filter((f) => {
+      const r = this.calificacionesMasivas()[f.curso.designacionId];
+      return r?.calificacion != null && r.aprobado == null;
+    }),
+  );
+
   readonly cursosAptos = computed(() => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     const vistos = new Set<string>();
     const result: { id: string; nombre: string; institucion: string }[] = [];
     for (const fila of this.filasFlat()) {
+      if (fila.curso.dadoDeBaja) continue;
+      if (!this.puedeGestionarCurso(fila.curso.baseId)) continue;
       if (!fila.curso.fechaFin) continue;
       if (new Date(fila.curso.fechaFin) >= hoy) continue;
       if (fila.curso.aprobado !== null) continue;
@@ -140,14 +195,59 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly filasCursoMasivo = computed<FilaHistorial[]>(() => {
     const id = this.cursoMasivoId();
     if (!id) return [];
-    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.aprobado === null);
+    return this.filasFlat().filter((f) => f.curso.id === id && f.curso.aprobado === null && !f.curso.dadoDeBaja);
   });
 
   // ── Designar ────────────────────────────────────────────────────────────────
   readonly designando = signal(false);
+  readonly subiendoDocumentos = signal(false);
+  readonly pendientes = new ArchivosPendientes();
+  private readonly destroy$ = new Subject<void>();
+
+  readonly puedeVerDocumentos = computed(
+    () => this.auth.puedeConAlcance('cursos.ver'),
+  );
+  readonly mostrarAcciones = computed(() => this.puedeGestionar() || this.puedeVerDocumentos());
+  readonly filaDocumentos = signal<FilaHistorial | null>(null);
+  readonly slotsDocumentos = computed<SlotVista[]>(() => {
+    const fila = this.filaDocumentos();
+    if (!fila) return [];
+    const c = fila.curso;
+    return armarSlots(
+      this.cursosService.documentosDesignacion(c.id, c.designacionId),
+      c.documentos ?? { orden: null, boletin: null },
+      {
+        orden: c.numero_orden ?? numeroComun(c.modulos, 'numero_orden'),
+        boletin: c.boletin ?? numeroComun(c.modulos, 'boletin'),
+      },
+      this.puedeGestionar(),
+    );
+  });
+  readonly tituloDocumentos = computed(() => {
+    const fila = this.filaDocumentos();
+    return fila ? `Documentos de la designación de ${fila.nombre}` : '';
+  });
 
   // ── Computed ───────────────────────────────────────────────────────────────
-  readonly puedeGestionar = computed(() => this.auth.hasPermiso('cursos.gestionar'));
+  // Con `.unidad` también gestiona: los cursos de sus bases.
+  readonly puedeGestionar = computed(() => this.auth.puedeConAlcance('cursos.gestionar'));
+
+  /** Gestiona solo los cursos de sus bases: no puede crear cursos generales. */
+  readonly gestionaPorBase = computed(() => this.auth.alcanceDe('cursos.gestionar') === 'unidad');
+
+  private readonly basesPropias = computed(
+    () => new Set((this.auth.currentUser()?.unidades ?? []).map((u) => String(u.id))),
+  );
+
+  // Con alcance de base solo gestiona los cursos de sus bases
+  puedeGestionarCurso(baseId: string | null | undefined): boolean {
+    if (!this.puedeGestionar()) return false;
+    if (!this.gestionaPorBase()) return true;
+    return !!baseId && this.basesPropias().has(baseId);
+  }
+
+  /** Bases que se ofrecen al crear un curso: las propias con alcance de unidad, todas con alcance global. */
+  readonly basesCurso = signal<{ id: number; etiqueta: string }[]>([]);
 
   readonly cursoTieneDesignados = computed(() => {
     const curso = this.cursoSeleccionado();
@@ -162,6 +262,10 @@ export class CursosPage implements OnInit, OnDestroy {
         funcionarioId: f.id,
         cedula: f.cedula,
         nombre: f.nombre,
+        grado: f.grado,
+        escalafon: f.escalafon,
+        derecha: f.derecha,
+        numor: f.numor,
         curso: c,
       })),
     ),
@@ -195,6 +299,7 @@ export class CursosPage implements OnInit, OnDestroy {
 
   // ── Formularios ────────────────────────────────────────────────────────────
   readonly registrarForm = this.fb.group({
+    sub_unidad_id: [null as number | null],
     personaId: ['', Validators.required],
     nombre: ['', [Validators.required, Validators.maxLength(100)]],
     institucion: ['', [Validators.required, Validators.maxLength(100)]],
@@ -208,6 +313,8 @@ export class CursosPage implements OnInit, OnDestroy {
     nombre_curso: ['', [Validators.required, Validators.maxLength(150)]],
     institucion: ['', [Validators.required, Validators.maxLength(100)]],
     es_obligatorio: [false],
+    // Vacío = curso general (solo alcance global).
+    sub_unidad_id: [null as number | null],
     // Designar ahora (toggle): si está activo, crea el curso y una primera designación.
     designar_ahora: [false],
     numero_orden: [''],
@@ -244,28 +351,43 @@ export class CursosPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     const section = this.route.snapshot.data['section'] as TabKind;
     if (section) this.tab.set(section);
+    this.buscadorRegistrar.vincular(this.registrarForm.controls.personaId);
+    this.buscadorNuevoCurso.vincular(this.nuevoCursoForm.controls.persona_ids);
+    this.buscadorDesignar.vincular(this.designarForm.controls.persona_ids);
+    this.pendientes.descartarSiVacio(this.designarForm.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.designarForm.controls.boletin, 'boletin', this.destroy$);
+    this.pendientes.descartarSiVacio(this.nuevoCursoForm.controls.numero_orden, 'orden', this.destroy$);
+    this.pendientes.descartarSiVacio(this.nuevoCursoForm.controls.boletin, 'boletin', this.destroy$);
     this.cargar();
     this.cargarDefiniciones();
 
     this.cedulaSubject
       .pipe(
-        debounceTime(400),
+        debounceTime(ESPERA_BUSQUEDA_MS),
         distinctUntilChanged(),
         switchMap((cedula) => {
           this.buscandoCedula.set(true);
           return this.cursosService
-            .findFuncionariosConCursos(cedula || undefined, 1, 100, this.verBajas())
+            .findFuncionariosConCursos(
+              cedula || undefined,
+              1,
+              100,
+              this.verBajas(),
+              categoriaParam(this.categoriaFiltro()),
+              this.filtroDerecha(),
+            )
             .pipe(catchError(() => of([])));
         }),
       )
       .subscribe((funcionarios) => {
         this.funcionarios.set(funcionarios);
+        this.refrescarDocumentos();
         this.historialPage.set(1);
         this.buscandoCedula.set(false);
       });
 
     this.defTextSubject
-      .pipe(debounceTime(350))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS))
       .subscribe(() => {
         this.defPage.set(1);
         this.cargarDefiniciones();
@@ -273,6 +395,8 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.cedulaSubject.complete();
     this.defTextSubject.complete();
   }
@@ -281,13 +405,19 @@ export class CursosPage implements OnInit, OnDestroy {
     this.loading.set(true);
     forkJoin({
       funcionarios: this.cursosService
-        .findFuncionariosConCursos(this.cedulaFiltro().trim() || undefined, 1, 100, this.verBajas())
+        .findFuncionariosConCursos(
+          this.cedulaFiltro().trim() || undefined,
+          1,
+          100,
+          this.verBajas(),
+          categoriaParam(this.categoriaFiltro()),
+          this.filtroDerecha(),
+        )
         .pipe(catchError(() => of([]))),
-      personal: this.personalService.findAll().pipe(catchError(() => of([]))),
     }).subscribe({
-      next: ({ funcionarios, personal }) => {
+      next: ({ funcionarios }) => {
         this.funcionarios.set(funcionarios);
-        this.personal.set(personal);
+        this.refrescarDocumentos();
         this.loading.set(false);
       },
       error: (err: HttpErrorResponse) => {
@@ -361,7 +491,9 @@ export class CursosPage implements OnInit, OnDestroy {
   abrirRegistrar(): void {
     this.registrarForm.reset({
       personaId: '', nombre: '', institucion: '', tipo: '', fechaInicio: '', fechaFin: '', estado: '',
+      sub_unidad_id: null,
     });
+    this.cargarBasesCurso(this.registrarForm.controls.sub_unidad_id);
     this.archivoCertificado.set(null);
     this.modalError.set(null);
     this.modal.set('registrarCurso');
@@ -369,11 +501,14 @@ export class CursosPage implements OnInit, OnDestroy {
 
   abrirNuevoCurso(): void {
     this.nuevoCursoForm.reset({
-      nombre_curso: '', institucion: '', es_obligatorio: false,
+      nombre_curso: '', institucion: '', es_obligatorio: false, sub_unidad_id: null,
       designar_ahora: false, numero_orden: '', boletin: '',
       fecha_inicio: '', fecha_fin: '', persona_ids: [],
     });
     this.modalError.set(null);
+    // Después del reset: con una sola base propia la deja elegida.
+    this.cargarBasesCurso();
+    this.pendientes.limpiar();
     this.modal.set('nuevoCurso');
   }
 
@@ -386,6 +521,8 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   cerrarModal(): void {
+    if (this.designando() || this.subiendoDocumentos()) return;
+    this.pendientes.limpiar();
     this.modal.set(null);
     this.modalError.set(null);
     this.archivoCertificado.set(null);
@@ -422,6 +559,7 @@ export class CursosPage implements OnInit, OnDestroy {
       persona_ids: [], modulo_ids: [],
     });
     this.modalError.set(null);
+    this.pendientes.limpiar();
     this.modal.set('designar');
   }
 
@@ -471,16 +609,54 @@ export class CursosPage implements OnInit, OnDestroy {
       })
       .subscribe({
         next: (res) => {
-          this.designando.set(false);
-          this.cerrarModal();
-          this.toast.success(`Designación registrada: ${res.personas_designadas} persona(s)`);
-          this.cargar();
+          this.subirDocumentos(curso.id, res.designaciones, () => {
+            this.designando.set(false);
+            this.cerrarModal();
+            this.toast.success(`Designación registrada: ${res.personas_designadas} persona(s)`);
+            this.cargar();
+          });
         },
         error: (err: HttpErrorResponse) => {
           this.designando.set(false);
           this.modalError.set(this.parseError(err));
         },
       });
+  }
+
+  /** Una subida por slot para todas las designaciones; los fallos avisan pero no frenan. */
+  private subirDocumentos(
+    cursoId: string,
+    designaciones: { id: string }[] | undefined,
+    alTerminar: () => void,
+  ): void {
+    const ids = (designaciones ?? []).map((d) => d.id);
+    // Sin ids no hay a quién adjuntar: no se manda un `designacion_ids` vacío.
+    const archivos = ids.length ? this.pendientes.archivos() : {};
+    this.subiendoDocumentos.set(Object.keys(archivos).length > 0);
+    subirPendientes(
+      (slot, archivo) => this.cursosService.subirDocumentoDesignaciones(cursoId, slot, archivo, ids),
+      archivos,
+      (archivo, err) =>
+        this.toast.error(
+          `La designación se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde la tabla de designados.`,
+          8000,
+        ),
+    ).subscribe(() => {
+      this.subiendoDocumentos.set(false);
+      alTerminar();
+    });
+  }
+
+  abrirDocumentos(fila: FilaHistorial): void {
+    this.filaDocumentos.set(fila);
+  }
+
+  private refrescarDocumentos(): void {
+    const abierta = this.filaDocumentos();
+    if (!abierta) return;
+    this.filaDocumentos.set(
+      this.filasFlat().find((f) => f.curso.designacionId === abierta.curso.designacionId) ?? null,
+    );
   }
 
   // ── Editar curso ──────────────────────────────────────────────────────────
@@ -537,7 +713,7 @@ export class CursosPage implements OnInit, OnDestroy {
       this.modalError.set('Completá todos los campos requeridos');
       return;
     }
-    const { personaId, nombre, institucion, tipo, fechaInicio, fechaFin, estado } =
+    const { personaId, nombre, institucion, tipo, fechaInicio, fechaFin, estado, sub_unidad_id } =
       this.registrarForm.getRawValue();
 
     this.modalError.set(null);
@@ -545,6 +721,7 @@ export class CursosPage implements OnInit, OnDestroy {
       .createHistorial(
         {
           personaId: personaId!,
+          ...(sub_unidad_id != null ? { sub_unidad_id: Number(sub_unidad_id) } : {}),
           nombre: nombre!,
           institucion: institucion!,
           tipo: tipo as TipoCurso,
@@ -562,6 +739,33 @@ export class CursosPage implements OnInit, OnDestroy {
         },
         error: (err: HttpErrorResponse) => this.modalError.set(this.parseError(err)),
       });
+  }
+
+  /** Con alcance de unidad la base es obligatoria; si tiene una sola, va esa. */
+  private cargarBasesCurso(control = this.nuevoCursoForm.controls.sub_unidad_id): void {
+    if (this.gestionaPorBase()) {
+      const propias = (this.auth.currentUser()?.unidades ?? []).map((u) => ({
+        id: Number(u.id),
+        etiqueta: `${u.denominacion} (${u.comando.denominacion})`,
+      }));
+      this.basesCurso.set(propias);
+      control.setValidators(Validators.required);
+      if (propias.length === 1) control.setValue(propias[0].id);
+    } else {
+      control.clearValidators();
+      if (this.basesCurso().length === 0) {
+        this.personalService.getBases().subscribe({
+          next: (b) => this.basesCurso.set(b.map((x) => ({ id: Number(x.id), etiqueta: x.etiqueta }))),
+        });
+      }
+    }
+    control.updateValueAndValidity();
+  }
+
+  /** "B.A.I. (C.A.O.)" o "General". */
+  etiquetaBaseCurso(d: CursoDefinicion): string {
+    if (!d.base) return 'General';
+    return d.base.comando ? `${d.base.denominacion} (${d.base.comando})` : d.base.denominacion;
   }
 
   guardarNuevoCurso(): void {
@@ -582,6 +786,10 @@ export class CursosPage implements OnInit, OnDestroy {
       this.modalError.set('Las fechas de inicio y fin son obligatorias para la designación.');
       return;
     }
+    if (designarAhora && raw.fecha_fin! < raw.fecha_inicio!) {
+      this.modalError.set('La fecha de fin no puede ser anterior a la de inicio.');
+      return;
+    }
     if (designarAhora && !raw.numero_orden?.trim() && !raw.boletin?.trim()) {
       this.modalError.set('Debés ingresar al menos el N° de orden o el boletín.');
       return;
@@ -593,12 +801,12 @@ export class CursosPage implements OnInit, OnDestroy {
         nombre_curso: raw.nombre_curso!,
         institucion: raw.institucion!,
         es_obligatorio: raw.es_obligatorio ?? false,
+        ...(raw.sub_unidad_id ? { sub_unidad_id: Number(raw.sub_unidad_id) } : {}),
       })
       .subscribe({
         next: (nuevo) => {
-          this.definiciones.update((lista) => [...lista, nuevo]);
-
           if (!designarAhora) {
+            this.definiciones.update((lista) => [...lista, nuevo]);
             this.cerrarModal();
             this.toast.success(`Curso "${nuevo.nombre_curso}" creado correctamente`);
             return;
@@ -614,14 +822,25 @@ export class CursosPage implements OnInit, OnDestroy {
               fecha_fin: raw.fecha_fin || undefined,
             })
             .subscribe({
-              next: () => {
-                this.cerrarModal();
-                this.toast.success(`Curso "${nuevo.nombre_curso}" creado y designado`);
-                this.cargar();
+              next: (res) => {
+                this.subirDocumentos(nuevo.id, res.designaciones, () => {
+                  this.cerrarModal();
+                  this.toast.success(`Curso "${nuevo.nombre_curso}" creado y designado`);
+                  this.cargarDefiniciones();
+                  this.cargar();
+                });
               },
               error: (err: HttpErrorResponse) => {
-                this.toast.error('Curso creado, pero falló la designación: ' + this.parseError(err));
-                this.cerrarModal();
+                // Si falla la designación se borra el curso, para no dejarlo a medias.
+                const msg = this.parseError(err);
+                this.cursosService.deleteDefinicion(nuevo.id).subscribe({
+                  next: () => this.modalError.set(msg),
+                  error: () => {
+                    this.definiciones.update((lista) => [...lista, nuevo]);
+                    this.toast.error('Curso creado, pero falló la designación: ' + msg);
+                    this.cerrarModal();
+                  },
+                });
               },
             });
         },
@@ -691,9 +910,15 @@ export class CursosPage implements OnInit, OnDestroy {
     });
   }
 
-  eliminarModulo(modulo: ModuloCurso): void {
+  async eliminarModulo(modulo: ModuloCurso): Promise<void> {
     const curso = this.cursoSeleccionado();
     if (!curso) return;
+    const confirmado = await this.confirmModal.confirmar({
+      titulo: 'Eliminar módulo',
+      mensaje: `¿Eliminar el módulo "${modulo.nombre}"? Las personas designadas a este módulo dejan de figurar en él. No se puede deshacer.`,
+      textoConfirmar: 'Eliminar',
+    });
+    if (!confirmado) return;
 
     this.cursosService.deleteModulo(curso.id, modulo.id).subscribe({
       next: () => {
@@ -705,12 +930,25 @@ export class CursosPage implements OnInit, OnDestroy {
         this.definiciones.update((lista) =>
           lista.map((d) => (d.id === curso.id ? actualizado : d)),
         );
+        this.toast.success(`Módulo "${modulo.nombre}" eliminado`);
       },
       error: (err: HttpErrorResponse) => this.reportarError(err),
     });
   }
 
   // ── Baja / Reactivación ─────────────────────────────────────────────────────
+
+  onFiltroDerecha(filtro: FiltroDerechaNumor): void {
+    this.filtroDerecha.set(filtro);
+    this.historialPage.set(1);
+    this.cargar();
+  }
+
+  onCategoriaChange(value: string): void {
+    this.categoriaFiltro.set(value as FiltroCategoria);
+    this.historialPage.set(1);
+    this.cargar();
+  }
 
   toggleVerBajas(): void {
     this.verBajas.update((v) => !v);
@@ -829,6 +1067,14 @@ export class CursosPage implements OnInit, OnDestroy {
   guardarCalificacionMasiva(): void {
     const filas = this.filasMasivasConResultado();
     const resultados = this.calificacionesMasivas();
+
+    const incompletas = this.filasMasivasIncompletas();
+    if (incompletas.length > 0) {
+      this.modalError.set(
+        `Falta marcar aprobado o desaprobado para: ${incompletas.map((f) => f.nombre).join(', ')}`,
+      );
+      return;
+    }
     if (filas.length === 0) return;
 
     for (const fila of filas) {
@@ -842,17 +1088,18 @@ export class CursosPage implements OnInit, OnDestroy {
     this.modalError.set(null);
     this.guardandoMasivo.set(true);
 
-    const requests = filas.map((fila) => {
+    const items = filas.map((fila) => {
       const resultado = resultados[fila.curso.designacionId];
-      return this.cursosService.registrarCalificacion(fila.curso.id, fila.curso.designacionId, {
+      return {
+        designacionId: Number(fila.curso.designacionId),
         aprobado: resultado.aprobado!,
         ...(resultado.calificacion !== null ? { calificacion: resultado.calificacion } : {}),
-      });
+      };
     });
 
-    forkJoin(requests).subscribe({
+    this.cursosService.registrarCalificacionesMasivas(this.cursoMasivoId()!, items).subscribe({
       next: (results) => {
-        const porDesignacion = new Map(filas.map((f, i) => [f.curso.designacionId, results[i]]));
+        const porDesignacion = new Map(results.map((r) => [r.id, r]));
         this.funcionarios.update((lista) =>
           lista.map((f) => ({
             ...f,
@@ -870,7 +1117,7 @@ export class CursosPage implements OnInit, OnDestroy {
       },
       error: (err: HttpErrorResponse) => {
         this.guardandoMasivo.set(false);
-        this.modalError.set('Error al registrar los resultados: ' + this.parseError(err));
+        this.modalError.set('No se guardó ningún resultado: ' + this.parseError(err));
       },
     });
   }
@@ -883,6 +1130,7 @@ export class CursosPage implements OnInit, OnDestroy {
   }
 
   iniciarCalificacion(fila: FilaHistorial): void {
+    if (fila.curso.dadoDeBaja) return;
     this.aprobadoValor.set(null);
     this.calificacionValor.set(null);
     this.observacionValor.set('');
@@ -898,6 +1146,10 @@ export class CursosPage implements OnInit, OnDestroy {
   guardarCalificacion(): void {
     const fila = this.filaCalificando();
     if (!fila) return;
+    if (fila.curso.dadoDeBaja) {
+      this.modalError.set('La inscripción está dada de baja; reactivala antes de calificar');
+      return;
+    }
 
     const aprobado = this.aprobadoValor();
     if (aprobado === null) {

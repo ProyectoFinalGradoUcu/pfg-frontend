@@ -8,9 +8,11 @@ import { vi } from 'vitest';
 import { AsignacionesPage } from './asignaciones-page';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { AuthService } from '../../../../core/services/auth.service';
+import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { ToastService } from '../../../../core/services/toast.service';
-import { Destino, ListaDestinos } from '../../../../core/models/destinos.models';
+import { Destino, ListaDestinos, SubUnidadConDestinados } from '../../../../core/models/destinos.models';
 import { Select } from '../../../../shared/components/select/select';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -18,14 +20,21 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
     id: '200',
     persona: { id: '42', cedula: '50000001', primer_nombre: 'José', primer_apellido: 'Pérez' },
-    unidad: { id: '5', codigo: 'EMGFA', denominacion: 'E.M.G.F.A.', tipo: 'Organismo' },
+    unidad: { id: '4', codigo: 'CG', denominacion: 'C.G.' },
+    sub_unidad: { id: '12', codigo: 'DCG', denominacion: 'D.C.G.' },
     fecha_inicio: '2024-04-30',
     fecha_fin: null,
     posicion_destino: 'Sub-Jefe',
     numero_orden: 'O.D. 11760',
     boletin: null,
+    numero_destino: null,
+    fecha_orden: null,
+    fecha_boletin: null,
+    numero_resolucion: null,
+    fecha_resolucion: null,
     observaciones: null,
     activo: true,
+    documentos: { orden: null, boletin: null },
     ...overrides,
   };
 }
@@ -36,29 +45,57 @@ function makeLista(items: Destino[] = [], overrides: Partial<ListaDestinos> = {}
     total: items.length,
     page: 1,
     pageSize: 10,
-    stats: { total_destinos: items.length, destinos_activos: 31, unidades_con_personal: 6 },
+    stats: { total_destinos: items.length, destinos_activos: 31, sub_unidades_con_personal: 6 },
     ...overrides,
   };
 }
+
+function makeSubUnidad(id: string, codigo: string, comandoId: string, comandoCodigo: string): SubUnidadConDestinados {
+  return {
+    id,
+    codigo,
+    denominacion: codigo,
+    vigente: true,
+    unidad: { id: comandoId, codigo: comandoCodigo, denominacion: comandoCodigo },
+    total_destinados: 1,
+  };
+}
+
+const SUB_UNIDADES = [
+  makeSubUnidad('1', 'B.A.I.', '1', 'C.A.O.'),
+  makeSubUnidad('2', 'B.A.II.', '1', 'C.A.O.'),
+  makeSubUnidad('12', 'E.M.A.', '4', 'C.G.'),
+];
 
 describe('AsignacionesPage', () => {
   let component: AsignacionesPage;
   let fixture: ComponentFixture<AsignacionesPage>;
   let destinosService: {
     listar: ReturnType<typeof vi.fn>;
-    listarUnidadesParaSelector: ReturnType<typeof vi.fn>;
+    listarSubUnidadesParaSelector: ReturnType<typeof vi.fn>;
     editar: ReturnType<typeof vi.fn>;
     eliminar: ReturnType<typeof vi.fn>;
+    documentos: ReturnType<typeof vi.fn>;
   };
+  let catalogosService: { getComandos: ReturnType<typeof vi.fn> };
   let authService: { hasPermiso: ReturnType<typeof vi.fn> };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     destinosService = {
       listar: vi.fn().mockReturnValue(of(makeLista())),
-      listarUnidadesParaSelector: vi.fn().mockReturnValue(of([])),
+      listarSubUnidadesParaSelector: vi.fn().mockReturnValue(of(SUB_UNIDADES)),
       editar: vi.fn().mockReturnValue(of(makeDestino())),
       eliminar: vi.fn().mockReturnValue(of({ id: '200', eliminado: true as const })),
+      documentos: vi.fn().mockReturnValue({ subir: vi.fn(), quitar: vi.fn(), inspeccionar: vi.fn(), url: vi.fn() }),
+    };
+    catalogosService = {
+      getComandos: vi.fn().mockReturnValue(
+        of([
+          { id: '1', codigo: 'C.A.O.', denominacion: 'Comando Aéreo de Operaciones' },
+          { id: '4', codigo: 'CG', denominacion: 'C.G.' },
+        ]),
+      ),
     };
     authService = { hasPermiso: vi.fn().mockReturnValue(true) };
     toastService = { success: vi.fn(), error: vi.fn() };
@@ -73,6 +110,7 @@ describe('AsignacionesPage', () => {
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: DestinosService, useValue: destinosService },
+        { provide: CatalogosService, useValue: catalogosService },
         { provide: AuthService, useValue: authService },
         { provide: ToastService, useValue: toastService },
       ],
@@ -86,10 +124,32 @@ describe('AsignacionesPage', () => {
   afterEach(() => vi.useRealTimers());
 
   describe('carga inicial', () => {
-    it('pide la primera página y el catálogo de unidades', () => {
+    it('pide la primera página, los comandos y las sub-unidades', () => {
       fixture.detectChanges();
       expect(destinosService.listar).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
-      expect(destinosService.listarUnidadesParaSelector).toHaveBeenCalled();
+      expect(catalogosService.getComandos).toHaveBeenCalled();
+      expect(destinosService.listarSubUnidadesParaSelector).toHaveBeenCalled();
+    });
+
+    it('muestra la stat de sub-unidades con personal', () => {
+      destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
+      fixture.detectChanges();
+      expect(component.stats().sub_unidades_con_personal).toBe(6);
+      expect(fixture.nativeElement.textContent).toContain('Bases con personal');
+    });
+
+    it('muestra la sub-unidad como destino y el comando como dato secundario', () => {
+      destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
+      fixture.detectChanges();
+      const fila = fixture.nativeElement.querySelector('tbody tr').textContent;
+      expect(fila).toContain('D.C.G.');
+      expect(fila).toContain('C.G.');
+    });
+
+    it('en un histórico viejo sin sub-unidad cae al comando', () => {
+      const viejo = makeDestino({ sub_unidad: null });
+      expect(component.nombreDestino(viejo)).toBe('C.G.');
+      expect(component.comandoDestino(viejo)).toBe('');
     });
 
     it('guarda items, total y stats', () => {
@@ -119,14 +179,32 @@ describe('AsignacionesPage', () => {
       component.page.set(3);
       component.onQueryInput('Pérez');
       expect(destinosService.listar).toHaveBeenCalledTimes(1);
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       expect(component.page()).toBe(1);
       expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, query: 'Pérez' });
     });
 
-    it('filtra por unidad', () => {
-      component.onUnidadChange('5');
-      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, unidad_id: 5 });
+    it('filtra por comando con unidad_id', () => {
+      component.onComandoChange('4');
+      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, unidad_id: 4 });
+    });
+
+    it('filtra por sub-unidad con sub_unidad_id', () => {
+      component.onSubUnidadChange('12');
+      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, sub_unidad_id: 12 });
+    });
+
+    it('con un comando elegido solo ofrece sus sub-unidades', () => {
+      expect(component.subUnidadOpciones().length).toBe(3);
+      component.onComandoChange('1');
+      expect(component.subUnidadOpciones().map((o) => o.value)).toEqual(['1', '2']);
+    });
+
+    it('al cambiar a otro comando suelta la sub-unidad que no le pertenece', () => {
+      component.onSubUnidadChange('12');
+      component.onComandoChange('1');
+      expect(component.filtroSubUnidadId()).toBe('');
+      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 1, pageSize: 10, unidad_id: 1 });
     });
 
     it('traduce el estado vigentes a activo=true', () => {
@@ -147,7 +225,7 @@ describe('AsignacionesPage', () => {
 
     it('hayFiltros refleja si hay alguno aplicado', () => {
       expect(component.hayFiltros()).toBe(false);
-      component.onUnidadChange('5');
+      component.onSubUnidadChange('12');
       expect(component.hayFiltros()).toBe(true);
       component.limpiarFiltros();
       expect(component.hayFiltros()).toBe(false);
@@ -158,9 +236,9 @@ describe('AsignacionesPage', () => {
   describe('paginación', () => {
     it('pide la página nueva sin resetear los filtros', () => {
       fixture.detectChanges();
-      component.onUnidadChange('5');
+      component.onComandoChange('4');
       component.onPageChange(3);
-      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 3, pageSize: 10, unidad_id: 5 });
+      expect(destinosService.listar).toHaveBeenLastCalledWith({ page: 3, pageSize: 10, unidad_id: 4 });
     });
   });
 
@@ -287,6 +365,30 @@ describe('AsignacionesPage', () => {
       expect(component.modal()).toBeNull();
     });
 
+    it('en la asignación vigente la acción es "Deshacer pase" y avisa si reabrió la anterior', () => {
+      destinosService.eliminar.mockReturnValue(of({ id: '200', eliminado: true as const, destino_reabierto: '150' }));
+      component.abrirEliminar(makeDestino({ activo: true }));
+      fixture.detectChanges();
+      const modal = (fixture.nativeElement as HTMLElement).querySelector('.modal')!;
+      expect(modal.querySelector('h3')!.textContent).toContain('Deshacer pase');
+      expect(modal.querySelector('.btn--danger')!.textContent).toContain('Deshacer pase');
+
+      component.confirmarEliminar();
+
+      expect(toastService.success).toHaveBeenCalledWith(expect.stringContaining('Pase deshecho. Se reabrió el destino anterior'));
+    });
+
+    it('en una asignación cerrada la acción sigue siendo "Eliminar" del historial', () => {
+      component.abrirEliminar(makeDestino({ activo: false, fecha_fin: '2025-01-01' }));
+      fixture.detectChanges();
+      const modal = (fixture.nativeElement as HTMLElement).querySelector('.modal')!;
+      expect(modal.querySelector('h3')!.textContent).toContain('Eliminar del historial');
+
+      component.confirmarEliminar();
+
+      expect(toastService.success).toHaveBeenCalledWith('Destino eliminado del historial');
+    });
+
     it('al borrar el último item de una página vuelve a la anterior', () => {
       // El estado se fija a mano: un segundo detectChanges() no vuelve a correr ngOnInit,
       // así que recargar el mock no cambiaría lo que ya quedó en la señal.
@@ -303,6 +405,69 @@ describe('AsignacionesPage', () => {
       expect(component.openMenuId()).toBe('200');
       component.toggleMenu('200', event);
       expect(component.openMenuId()).toBeNull();
+    });
+  });
+
+  describe('documentos', () => {
+    const orden = { nombre_original: 'orden.pdf', content_type: 'application/pdf', tamanio_bytes: '10', subido_en: '2026-01-01' };
+
+    it('Documentos abre el modal con los slots de la fila', () => {
+      const d = makeDestino({ numero_orden: 'O.D. 1', boletin: 'B. 2', documentos: { orden, boletin: null } });
+      component.abrirDocumentos(d);
+      const slots = component.slotsDocumentos();
+      expect(slots.map((x) => [x.slot, x.numero, x.documento])).toEqual([
+        ['orden', 'O.D. 1', orden],
+        ['boletin', 'B. 2', null],
+      ]);
+      expect(slots.every((x) => x.editable)).toBe(true);
+      expect(destinosService.documentos).toHaveBeenCalledWith('200');
+      expect(component.tituloDocumentos()).toContain('Pérez');
+    });
+
+    it('sin destinos.gestionar los slots son de solo lectura', () => {
+      authService.hasPermiso.mockImplementation((p: string) => p === 'destinos.ver');
+      component.abrirDocumentos(makeDestino());
+      expect(component.slotsDocumentos().every((x) => !x.editable)).toBe(true);
+      expect(component.mostrarAcciones()).toBe(true);
+    });
+
+    it('sin destinos.ver no hay acción Documentos', () => {
+      authService.hasPermiso.mockReturnValue(false);
+      expect(component.puedeVerDocumentos()).toBe(false);
+      expect(component.mostrarAcciones()).toBe(false);
+    });
+
+    it('cambio recarga el listado y refresca la fila del modal', () => {
+      destinosService.listar.mockReturnValue(of(makeLista([makeDestino()])));
+      fixture.detectChanges();
+      component.abrirDocumentos(makeDestino());
+      destinosService.listar.mockClear();
+      destinosService.listar.mockReturnValue(of(makeLista([makeDestino({ documentos: { orden, boletin: null } })])));
+
+      component.cargar();
+
+      expect(destinosService.listar).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
+      expect(component.destinoDocumentos()!.documentos.orden).toEqual(orden);
+    });
+
+    it('si la fila ya no está en el listado cierra el modal', () => {
+      component.abrirDocumentos(makeDestino());
+      destinosService.listar.mockReturnValue(of(makeLista([])));
+      component.cargar();
+      expect(component.destinoDocumentos()).toBeNull();
+    });
+
+    it('muestra el clip solo en filas con documento', () => {
+      destinosService.listar.mockReturnValue(
+        of(makeLista([makeDestino({ documentos: { orden, boletin: null } }), makeDestino({ id: '201' })])),
+      );
+      fixture.detectChanges();
+      const filas = fixture.nativeElement.querySelectorAll('tbody tr');
+      expect(filas[0].querySelector('.asignaciones__clip')).not.toBeNull();
+      expect(filas[0].querySelector('.asignaciones__clip')!.parentElement!.getAttribute('title')).toBe(
+        'Tiene documento adjunto',
+      );
+      expect(filas[1].querySelector('.asignaciones__clip')).toBeNull();
     });
   });
 });

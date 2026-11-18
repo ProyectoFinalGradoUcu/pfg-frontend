@@ -1,0 +1,57 @@
+@use '../../modal-base' as *;
+
+.ri__sub {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+
+  strong { color: #334155; font-weight: 600; }
+}
+
+.ri__seccion {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f1f5f9;
+
+  h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: $navy;
+    font-weight: 600;
+  }
+}
+
+.ri__suelto { margin-top: 0.35rem; }
+
+.ri__copia {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  background-color: #f8fafc;
+
+  dt {
+    font-size: 0.7rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  dd {
+    margin: 0.15rem 0 0;
+    font-size: 0.85rem;
+    color: #334155;
+  }
+}
+
+.ri__resumen {
+  margin: 0.75rem 0 0;
+  padding-left: 1.15rem;
+  font-size: 0.875rem;
+  color: #334155;
+
+  li + li { margin-top: 0.35rem; }
+}

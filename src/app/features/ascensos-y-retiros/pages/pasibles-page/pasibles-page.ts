@@ -13,8 +13,14 @@ import {
   EstadoElegibilidad,
   PasiblesPaginados,
 } from '../../../../core/models/ascensos.models';
-import { OpcionSelect } from '../../../../core/models/personal.models';
+import {
+  FiltroCategoria,
+  OPCIONES_FILTRO_CATEGORIA,
+  OpcionSelect,
+  categoriaParam,
+} from '../../../../core/models/personal.models';
 import { parseError } from '../../../../shared/utils/parse-error';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 const PAGE_SIZE = 10;
 const ESTADOS_POR_DEFECTO: EstadoElegibilidad[] = ['PASIBLE', 'PROXIMO'];
@@ -55,13 +61,16 @@ export class PasiblesPage implements OnInit, OnDestroy {
   /** Vacío equivale a «Todos los estados». */
   readonly filtroEstados = signal<EstadoElegibilidad[]>([...ESTADOS_POR_DEFECTO]);
   readonly filtroEscalafon = signal<number | null>(null);
-  readonly filtroUnidad = signal<number | null>(null);
+  readonly filtroBase = signal<number | null>(null);
+  readonly filtroCategoria = signal<FiltroCategoria>('todos');
+  readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly fechaReferencia = signal<string>('');
   readonly horizonteMeses = signal(HORIZONTE_POR_DEFECTO);
   readonly masFiltrosAbiertos = signal(false);
 
   readonly escalafones = signal<OpcionSelect[]>([]);
-  readonly unidades = signal<OpcionSelect[]>([]);
+  /** Bases con su comando: "B.A.I. (C.A.O.)". */
+  readonly bases = signal<{ id: number; etiqueta: string }[]>([]);
 
   readonly seleccionado = signal<Elegibilidad | null>(null);
 
@@ -87,7 +96,8 @@ export class PasiblesPage implements OnInit, OnDestroy {
       !!this.textoBusqueda() ||
       !estadosPorDefecto ||
       this.filtroEscalafon() !== null ||
-      this.filtroUnidad() !== null ||
+      this.filtroBase() !== null ||
+      this.filtroCategoria() !== 'todos' ||
       this.hayFiltrosAvanzados()
     );
   });
@@ -105,7 +115,7 @@ export class PasiblesPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.busqueda$
-      .pipe(debounceTime(400), takeUntil(this.destroy$))
+      .pipe(debounceTime(ESPERA_BUSQUEDA_MS), takeUntil(this.destroy$))
       .subscribe((texto) => {
         this.filtroTexto.set(texto);
         this.page.set(1);
@@ -115,7 +125,9 @@ export class PasiblesPage implements OnInit, OnDestroy {
     // El select compara con ===: los ids tienen que ser del mismo tipo que el filtro.
     const conIdNumerico = (ops: OpcionSelect[]) => ops.map((o) => ({ ...o, id: Number(o.id) }));
     this.personal.getEscalafones().subscribe({ next: (e) => this.escalafones.set(conIdNumerico(e)) });
-    this.personal.getUnidades().subscribe({ next: (u) => this.unidades.set(conIdNumerico(u)) });
+    this.personal.getBases().subscribe({
+      next: (b) => this.bases.set(b.map((x) => ({ id: Number(x.id), etiqueta: x.etiqueta }))),
+    });
 
     this.cargar();
   }
@@ -138,7 +150,8 @@ export class PasiblesPage implements OnInit, OnDestroy {
           : this.estadosDisponibles.map((e) => e.value),
         query: this.filtroTexto() || undefined,
         escalafon_id: this.filtroEscalafon() ?? undefined,
-        unidad_id: this.filtroUnidad() ?? undefined,
+        sub_unidad_id: this.filtroBase() ?? undefined,
+        categoria: categoriaParam(this.filtroCategoria()),
         fecha_referencia: this.fechaReferencia() || undefined,
         horizonte_meses: this.horizonteMeses(),
       })
@@ -173,8 +186,14 @@ export class PasiblesPage implements OnInit, OnDestroy {
     this.cargar();
   }
 
-  onUnidad(valor: number | string | null): void {
-    this.filtroUnidad.set(valor ? Number(valor) : null);
+  onBase(valor: number | string | null): void {
+    this.filtroBase.set(valor ? Number(valor) : null);
+    this.page.set(1);
+    this.cargar();
+  }
+
+  onCategoria(valor: FiltroCategoria | null): void {
+    this.filtroCategoria.set(valor ?? 'todos');
     this.page.set(1);
     this.cargar();
   }
@@ -223,7 +242,8 @@ export class PasiblesPage implements OnInit, OnDestroy {
     this.filtroTexto.set('');
     this.filtroEstados.set([...ESTADOS_POR_DEFECTO]);
     this.filtroEscalafon.set(null);
-    this.filtroUnidad.set(null);
+    this.filtroBase.set(null);
+    this.filtroCategoria.set('todos');
     this.fechaReferencia.set('');
     this.horizonteMeses.set(HORIZONTE_POR_DEFECTO);
     this.page.set(1);

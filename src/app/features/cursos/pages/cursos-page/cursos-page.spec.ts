@@ -11,12 +11,17 @@ import { CursosService } from '../../../../core/services/cursos.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
+import { By } from '@angular/platform-browser';
+import { Select } from '../../../../shared/components/select/select';
+import { PersonaListItem } from '../../../../core/models/personal.models';
+import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
 import {
   CursoDefinicion,
   CursoFuncionarioItem,
   FuncionarioConCursos,
   ModuloCurso,
 } from '../../../../core/models/cursos.models';
+import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -69,8 +74,20 @@ describe('CursosPage', () => {
   let component: CursosPage;
   let fixture: ComponentFixture<CursosPage>;
   let cursosService: ReturnType<typeof makeCursosServiceSpy>;
-  let personalService: { findAll: ReturnType<typeof vi.fn> };
-  let authService: { hasPermiso: ReturnType<typeof vi.fn> };
+  let personalService: {
+    findAll: ReturnType<typeof vi.fn>;
+    findPaginado: ReturnType<typeof vi.fn>;
+    getBases: ReturnType<typeof vi.fn>;
+  };
+  let authService: {
+    hasPermiso: ReturnType<typeof vi.fn>;
+    puedeConAlcance: ReturnType<typeof vi.fn>;
+    alcanceDe: ReturnType<typeof vi.fn>;
+    currentUser: () => { unidades: { id: string; denominacion: string; comando: { id: string; denominacion: string } }[] };
+  };
+
+  const BAI = { id: '7', denominacion: 'B.A.I.', comando: { id: '1', denominacion: 'C.A.O.' } };
+  const ETA = { id: '9', denominacion: 'E.T.A.', comando: { id: '2', denominacion: 'C.A.P.' } };
   let toastService: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
 
   function makeCursosServiceSpy() {
@@ -84,19 +101,46 @@ describe('CursosPage', () => {
       createModulo: vi.fn().mockReturnValue(of(makeModulo())),
       deleteModulo: vi.fn().mockReturnValue(of(undefined)),
       crearDesignacion: vi.fn().mockReturnValue(of({ personas_designadas: 1 })),
+      subirDocumentoDesignaciones: vi.fn().mockReturnValue(of({ adjuntados: 2 })),
+      documentosDesignacion: vi.fn().mockReturnValue({
+        subir: vi.fn(), quitar: vi.fn(), inspeccionar: vi.fn(), url: vi.fn(),
+      }),
       registrarCalificacion: vi.fn().mockReturnValue(of({ id: 'x', curso_id: 'c1', persona_id: 'f1', aprobado: true, calificacion: 8, observacion: null })),
+      registrarCalificacionesMasivas: vi.fn().mockReturnValue(of([])),
     };
   }
 
-  async function setup(routeSection: 'catalogo' | 'inscripciones' = 'catalogo', hasPermiso = true) {
+  /** `hasPermiso` = gestión con alcance global; `basesPropias` = gestión solo con `.unidad` sobre esas bases. */
+  async function setup(
+    routeSection: 'catalogo' | 'inscripciones' = 'catalogo',
+    hasPermiso = true,
+    basesPropias: (typeof BAI)[] | null = null,
+    permisos?: Record<string, 'global' | 'unidad'>,
+  ) {
     cursosService = makeCursosServiceSpy();
-    personalService = { findAll: vi.fn().mockReturnValue(of([])) };
-    authService = { hasPermiso: vi.fn().mockReturnValue(hasPermiso) };
+    personalService = {
+      findAll: vi.fn().mockReturnValue(of([])),
+      findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 20 })),
+      getBases: vi.fn().mockReturnValue(
+        of([BAI, ETA].map((b) => ({ ...b, unidad_id: Number(b.comando.id), etiqueta: `${b.denominacion} (${b.comando.denominacion})` }))),
+      ),
+    };
+    const alcance = basesPropias ? 'unidad' : hasPermiso ? 'global' : null;
+    authService = {
+      hasPermiso: vi.fn().mockReturnValue(hasPermiso),
+      puedeConAlcance: vi.fn().mockReturnValue(alcance !== null),
+      alcanceDe: vi.fn().mockReturnValue(alcance),
+      currentUser: () => ({ unidades: basesPropias ?? [] }),
+    };
+    if (permisos) {
+      authService.alcanceDe.mockImplementation((p: string) => permisos[p] ?? null);
+      authService.puedeConAlcance.mockImplementation((p: string) => !!permisos[p]);
+    }
     toastService = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      declarations: [CursosPage],
+      declarations: [CursosPage, Select],
       imports: [ReactiveFormsModule],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
       providers: [
@@ -118,6 +162,32 @@ describe('CursosPage', () => {
     TestBed.resetTestingModule();
   });
 
+  describe('nuevo curso con alcance por base', () => {
+    it('con una sola base la propone y no deja crear cursos generales', async () => {
+      await setup('catalogo', false, [BAI]);
+      component.abrirNuevoCurso();
+      expect(component.nuevoCursoForm.controls.sub_unidad_id.value).toBe(7);
+      expect(personalService.getBases).not.toHaveBeenCalled();
+    });
+
+    it('con varias bases ofrece solo las propias y exige elegir una', async () => {
+      await setup('catalogo', false, [BAI, ETA]);
+      component.abrirNuevoCurso();
+      expect(component.basesCurso().map((b) => b.id)).toEqual([7, 9]);
+      component.nuevoCursoForm.patchValue({ nombre_curso: 'Mi Curso', institucion: 'UCU' });
+      component.guardarNuevoCurso();
+      expect(cursosService.createDefinicion).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('etiquetaBaseCurso', () => {
+    it('muestra la base con su comando, o General', async () => {
+      await setup();
+      expect(component.etiquetaBaseCurso({ id: '1', nombre_curso: 'X', institucion: 'Y', base: { id: '7', denominacion: 'B.A.I.', comando: 'C.A.O.' } })).toBe('B.A.I. (C.A.O.)');
+      expect(component.etiquetaBaseCurso({ id: '1', nombre_curso: 'X', institucion: 'Y', base: null })).toBe('General');
+    });
+  });
+
   // ── Init ───────────────────────────────────────────────────────────────────
 
   describe('inicialización', () => {
@@ -137,9 +207,126 @@ describe('CursosPage', () => {
       expect(cursosService.findAllDefiniciones).toHaveBeenCalled();
     });
 
-    it('llama a findAll de PersonalService en ngOnInit', async () => {
+    it('no carga 100 personas al iniciar: los selectores buscan en el servidor', async () => {
       await setup();
-      expect(personalService.findAll).toHaveBeenCalled();
+      expect(personalService.findAll).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('selectores de personal con búsqueda en el servidor', () => {
+    const DAGALIPEGA: PersonaListItem = {
+      id: '2400', nombre: 'Juan Dagalipega', cedula: '41234567', rango: 'Cabo', destino: null, estado: null, relacion_estado: 'activo',
+    };
+    const PEREYRA: PersonaListItem = {
+      id: '1', nombre: 'Ana Pereyra', cedula: '60000001', rango: 'Teniente', destino: null, estado: null, relacion_estado: 'activo',
+    };
+
+    function responder(items: PersonaListItem[]): void {
+      personalService.findPaginado.mockReturnValue(of({ items, total: items.length, page: 1, pageSize: 20 }));
+    }
+
+    function selector(control: string): Select {
+      fixture.detectChanges();
+      const el = fixture.debugElement.query(By.css(`app-select[formControlName="${control}"]`));
+      return el.componentInstance as Select;
+    }
+
+    async function buscar(select: Select, texto: string): Promise<void> {
+      select.searchChange.emit(texto);
+      await new Promise((r) => setTimeout(r, DEBOUNCE_BUSQUEDA_MS + 60));
+      fixture.detectChanges();
+    }
+
+    it('Registrar Curso encuentra por apellido a quien no está entre los primeros 100', async () => {
+      await setup('inscripciones');
+      component.abrirRegistrar();
+      const select = selector('personaId');
+      expect(select.remoteSearch).toBe(true);
+
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+
+      expect(personalService.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: 'DAGALIPEGA' }));
+      expect(select.items).toEqual([expect.objectContaining({ id: '2400' })]);
+    });
+
+    it('Registrar Curso busca por cédula', async () => {
+      await setup('inscripciones');
+      component.abrirRegistrar();
+      const select = selector('personaId');
+
+      responder([DAGALIPEGA]);
+      await buscar(select, '41234567');
+
+      expect(personalService.findPaginado).toHaveBeenCalledWith(expect.objectContaining({ search: '41234567' }));
+      select.pick(select.items[0]);
+      expect(component.registrarForm.controls.personaId.value).toBe('2400');
+    });
+
+    it('Registrar Curso sigue mostrando al elegido después de otra búsqueda', async () => {
+      await setup('inscripciones');
+      component.abrirRegistrar();
+      const select = selector('personaId');
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+
+      responder([PEREYRA]);
+      await buscar(select, 'PEREYRA');
+
+      expect(select.selectedLabel()).toContain('Juan Dagalipega');
+    });
+
+    it('Nuevo Curso con "Designar ahora" busca en el servidor y conserva a los elegidos', async () => {
+      await setup();
+      component.abrirNuevoCurso();
+      component.nuevoCursoForm.patchValue({ designar_ahora: true });
+      const select = selector('persona_ids');
+      expect(select.remoteSearch).toBe(true);
+
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+      responder([PEREYRA]);
+      await buscar(select, 'PEREYRA');
+      select.pick(select.items.find((p) => (p as PersonaListItem).id === '1'));
+
+      expect(component.nuevoCursoForm.controls.persona_ids.value).toEqual(['2400', '1']);
+      expect(select.multipleLabel()).toContain('Juan Dagalipega');
+      expect(select.multipleLabel()).toContain('Ana Pereyra');
+    });
+
+    it('Designar / Dictar busca en el servidor y conserva a los elegidos', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso({ id: '7' }));
+      const select = selector('persona_ids');
+      expect(select.remoteSearch).toBe(true);
+
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+      responder([PEREYRA]);
+      await buscar(select, 'PEREYRA');
+
+      expect(component.designarForm.controls.persona_ids.value).toEqual(['2400']);
+      expect(select.multipleLabel()).toContain('Juan Dagalipega');
+    });
+
+    it('al reabrir un modal no quedan elegidos de la vez anterior', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso({ id: '7' }));
+      let select = selector('persona_ids');
+      responder([DAGALIPEGA]);
+      await buscar(select, 'DAGALIPEGA');
+      select.pick(select.items[0]);
+
+      component.cerrarModal();
+      component.abrirDesignar(makeCurso({ id: '7' }));
+      select = selector('persona_ids');
+      responder([PEREYRA]);
+      await buscar(select, '');
+
+      expect(select.items.map((p) => (p as PersonaListItem).id)).toEqual(['1']);
     });
   });
 
@@ -166,7 +353,7 @@ describe('CursosPage', () => {
     it('filtra por nombre: llama al service con el nombre correcto', () => {
       vi.useFakeTimers();
       component.onNombreInput('javascript');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(cursosService.findAllDefiniciones).toHaveBeenCalledWith(1, 10, 'javascript', undefined, undefined);
     });
@@ -174,7 +361,7 @@ describe('CursosPage', () => {
     it('filtra por institución: llama al service con la institución correcta', () => {
       vi.useFakeTimers();
       component.onInstitucionInput('UCU');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       expect(cursosService.findAllDefiniciones).toHaveBeenCalledWith(1, 10, undefined, 'UCU', undefined);
     });
@@ -194,7 +381,7 @@ describe('CursosPage', () => {
       component.filtroNombre.set('cursoX');
       component.filtroInstitucion.set('UCU');
       component.onTipoFilterChange('true');
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(ESPERA_BUSQUEDA_MS);
       vi.useRealTimers();
       const calls = cursosService.findAllDefiniciones.mock.calls;
       const lastCall = calls[calls.length - 1];
@@ -361,11 +548,53 @@ describe('CursosPage', () => {
       });
     });
 
+    it('con alcance global la base es opcional (curso general) y ofrece todas', () => {
+      component.abrirNuevoCurso();
+      expect(component.nuevoCursoForm.controls.sub_unidad_id.valid).toBe(true);
+      expect(component.basesCurso().map((b) => b.etiqueta)).toEqual(['B.A.I. (C.A.O.)', 'E.T.A. (C.A.P.)']);
+    });
+
+    it('guardarNuevoCurso manda la base elegida', () => {
+      component.abrirNuevoCurso();
+      component.nuevoCursoForm.patchValue({ nombre_curso: 'Mi Curso', institucion: 'UCU', sub_unidad_id: 9 });
+      component.guardarNuevoCurso();
+      expect(cursosService.createDefinicion).toHaveBeenCalledWith(
+        expect.objectContaining({ sub_unidad_id: 9 }),
+      );
+    });
+
     it('guardarNuevoCurso cierra el modal y emite toast tras éxito', () => {
       component.nuevoCursoForm.patchValue({ nombre_curso: 'Mi Curso', institucion: 'UCU' });
       component.guardarNuevoCurso();
       expect(component.modal()).toBeNull();
       expect(toastService.success).toHaveBeenCalled();
+    });
+
+    describe('con "Designar ahora"', () => {
+      const conDesignacion = (o: Record<string, unknown> = {}) => {
+        component.abrirNuevoCurso();
+        component.nuevoCursoForm.patchValue({
+          nombre_curso: 'Mi Curso', institucion: 'UCU', designar_ahora: true, persona_ids: ['5'],
+          fecha_inicio: '2026-03-01', fecha_fin: '2026-04-01', numero_orden: 'O.D. 1', ...o,
+        });
+      };
+
+      it('no crea el curso si la fecha de fin es anterior a la de inicio', () => {
+        conDesignacion({ fecha_inicio: '2026-04-01', fecha_fin: '2026-03-01' });
+        component.guardarNuevoCurso();
+        expect(component.modalError()).toContain('fecha de fin');
+        expect(cursosService.createDefinicion).not.toHaveBeenCalled();
+      });
+
+      it('si falla la designación borra el curso y deja el modal abierto con el error', () => {
+        cursosService.crearDesignacion.mockReturnValue(throwError(() => makeHttpError('persona inexistente')));
+        conDesignacion();
+        component.guardarNuevoCurso();
+        expect(cursosService.deleteDefinicion).toHaveBeenCalledWith(makeCurso().id);
+        expect(component.modalError()).toContain('persona inexistente');
+        expect(component.modal()).toBe('nuevoCurso');
+        expect(component.definiciones().some((d) => d.id === makeCurso().id)).toBe(false);
+      });
     });
 
     it('guardarNuevoCurso muestra error del backend sin cerrar el modal', () => {
@@ -898,6 +1127,14 @@ describe('CursosPage', () => {
   // ── CalificacionMasivaModal ────────────────────────────────────────────────
 
   describe('CalificacionMasivaModal', () => {
+    it('el historial permite seleccionar una base cuando el usuario tiene varias', async () => {
+      await setup('catalogo', false, [BAI, ETA]);
+      component.abrirRegistrar();
+      expect(component.basesCurso().map(b => b.id)).toEqual([7, 9]);
+      expect(component.registrarForm.controls.sub_unidad_id.invalid).toBe(true);
+      component.registrarForm.controls.sub_unidad_id.setValue(8);
+      expect(component.registrarForm.controls.sub_unidad_id.valid).toBe(true);
+    });
     beforeEach(async () => {
       await setup();
       // Cargar funcionarios con cursos terminados y sin resultado
@@ -954,11 +1191,24 @@ describe('CursosPage', () => {
       expect(component.calificacionesMasivas()['dt1'].calificacion).toBeNull();
     });
 
-    it('guardarCalificacionMasiva no llama al service si ninguna fila tiene resultado', () => {
+    it('guardarCalificacionMasiva no llama al service si ninguna fila tiene resultado ni nota', () => {
+      component.onCursoMasivoChange('ct1');
+      component.guardarCalificacionMasiva();
+      expect(cursosService.registrarCalificacionesMasivas).not.toHaveBeenCalled();
+    });
+
+    it('filasMasivasIncompletas detecta las filas con nota pero sin resultado', () => {
+      component.onCursoMasivoChange('ct1');
+      component.setCalificacionMasiva('dt1', '8');
+      expect(component.filasMasivasIncompletas().map((f) => f.curso.designacionId)).toEqual(['dt1']);
+    });
+
+    it('guardarCalificacionMasiva bloquea y nombra las filas con nota pero sin resultado', () => {
       component.onCursoMasivoChange('ct1');
       component.setCalificacionMasiva('dt1', '8');
       component.guardarCalificacionMasiva();
-      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(component.modalError()).toContain('Juan Pérez');
+      expect(cursosService.registrarCalificacionesMasivas).not.toHaveBeenCalled();
     });
 
     it('guardarCalificacionMasiva setea error si una nota está fuera del rango', () => {
@@ -967,46 +1217,57 @@ describe('CursosPage', () => {
       component.setCalificacionMasiva('dt1', '0');
       component.guardarCalificacionMasiva();
       expect(component.modalError()).toBeTruthy();
-      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(cursosService.registrarCalificacionesMasivas).not.toHaveBeenCalled();
     });
 
-    it('guardarCalificacionMasiva llama al service con el resultado y la nota', () => {
+    it('guardarCalificacionMasiva envía todas las filas en un solo request', () => {
+      const hoy = new Date();
+      const pasado = new Date(hoy.getFullYear() - 1, 0, 1).toISOString().split('T')[0];
+      component.funcionarios.set([
+        makeFuncionario({ cursos: [makeCursoFuncionario({ id: 'ct1', designacionId: '11', fechaFin: pasado })] }),
+        makeFuncionario({ id: 'f2', nombre: 'Ana Gómez', cursos: [makeCursoFuncionario({ id: 'ct1', designacionId: '12', fechaFin: pasado })] }),
+      ]);
       component.onCursoMasivoChange('ct1');
-      component.setAprobadoMasivo('dt1', true);
-      component.setCalificacionMasiva('dt1', '8');
+      component.setAprobadoMasivo('11', true);
+      component.setCalificacionMasiva('11', '8');
+      component.setAprobadoMasivo('12', false);
       component.guardarCalificacionMasiva();
-      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('ct1', 'dt1', { aprobado: true, calificacion: 8 });
+      expect(cursosService.registrarCalificacionesMasivas).toHaveBeenCalledTimes(1);
+      expect(cursosService.registrarCalificacionesMasivas).toHaveBeenCalledWith('ct1', [
+        { designacionId: 11, aprobado: true, calificacion: 8 },
+        { designacionId: 12, aprobado: false },
+      ]);
     });
 
-    it('guardarCalificacionMasiva omite la nota cuando no se cargó', () => {
-      component.onCursoMasivoChange('ct1');
-      component.setAprobadoMasivo('dt1', false);
-      component.guardarCalificacionMasiva();
-      expect(cursosService.registrarCalificacion).toHaveBeenCalledWith('ct1', 'dt1', { aprobado: false });
-    });
-
-    it('guardarCalificacionMasiva cierra el modal tras éxito', () => {
+    it('guardarCalificacionMasiva aplica los resultados devueltos y cierra el modal', () => {
+      cursosService.registrarCalificacionesMasivas.mockReturnValue(
+        of([{ id: 'dt1', curso_id: 'ct1', persona_id: 'f1', aprobado: true, calificacion: 9, observacion: null }]),
+      );
       component.onCursoMasivoChange('ct1');
       component.setAprobadoMasivo('dt1', true);
       component.setCalificacionMasiva('dt1', '9');
       component.guardarCalificacionMasiva();
+      expect(component.funcionarios()[0].cursos[0]).toMatchObject({ aprobado: true, calificacion: 9 });
       expect(component.modal()).toBeNull();
+      expect(toastService.success).toHaveBeenCalled();
     });
 
-    it('guardarCalificacionMasiva muestra error si el backend falla', () => {
-      cursosService.registrarCalificacion.mockReturnValue(throwError(() => makeHttpError('fallo')));
+    it('guardarCalificacionMasiva avisa que no se guardó nada si el backend falla', () => {
+      cursosService.registrarCalificacionesMasivas.mockReturnValue(throwError(() => makeHttpError('fallo')));
       component.onCursoMasivoChange('ct1');
       component.setAprobadoMasivo('dt1', true);
       component.setCalificacionMasiva('dt1', '9');
       component.guardarCalificacionMasiva();
-      expect(component.modalError()).toBeTruthy();
+      expect(component.modalError()).toContain('No se guardó ningún resultado');
       expect(component.modal()).toBe('calificacionMasiva');
+      expect(component.funcionarios()[0].cursos[0].aprobado).toBeNull();
+      expect(component.calificacionesMasivas()['dt1']).toEqual({ aprobado: true, calificacion: 9 });
     });
 
     it('cancelar (cerrarModal) cierra sin guardar', () => {
       component.onCursoMasivoChange('ct1');
       component.cerrarModal();
-      expect(cursosService.registrarCalificacion).not.toHaveBeenCalled();
+      expect(cursosService.registrarCalificacionesMasivas).not.toHaveBeenCalled();
       expect(component.modal()).toBeNull();
     });
   });
@@ -1099,6 +1360,158 @@ describe('CursosPage', () => {
 
   // ── puedeGestionar ─────────────────────────────────────────────────────────
 
+  describe('documentos de la designación', () => {
+    const pdf = (name: string) => new File(['x'], name, { type: 'application/pdf' });
+    const respuesta = { personas_designadas: 2, designaciones: [{ id: '12', persona_id: '1' }, { id: '13', persona_id: '2' }] };
+
+    function designarConArchivos() {
+      component.abrirDesignar(makeCurso({ id: 'cd1' }));
+      component.designarForm.patchValue({
+        numero_orden: 'N1', boletin: 'B1', fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01', persona_ids: ['1', '2'],
+      });
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+      component.pendientes.elegir('boletin', pdf('boletin.pdf'));
+    }
+
+    it('designar con archivo: una sola subida por slot con todos los ids', async () => {
+      await setup();
+      cursosService.crearDesignacion.mockReturnValue(of(respuesta));
+      designarConArchivos();
+      component.guardarDesignar();
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledTimes(2);
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledWith('cd1', 'orden', expect.any(File), ['12', '13']);
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledWith('cd1', 'boletin', expect.any(File), ['12', '13']);
+      expect(component.modal()).toBeNull();
+    });
+
+    it('Designar ahora con archivo: igual', async () => {
+      await setup();
+      cursosService.crearDesignacion.mockReturnValue(of(respuesta));
+      component.abrirNuevoCurso();
+      component.nuevoCursoForm.patchValue({
+        nombre_curso: 'Mi Curso', institucion: 'UCU', designar_ahora: true, persona_ids: ['1', '2'],
+        fecha_inicio: '2026-03-01', fecha_fin: '2026-04-01', numero_orden: 'O1',
+      });
+      component.pendientes.elegir('orden', pdf('orden.pdf'));
+      component.guardarNuevoCurso();
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledTimes(1);
+      expect(cursosService.subirDocumentoDesignaciones).toHaveBeenCalledWith(makeCurso().id, 'orden', expect.any(File), ['12', '13']);
+      expect(component.modal()).toBeNull();
+      expect(toastService.success).toHaveBeenCalled();
+    });
+
+    it('si la subida falla, avisa y cierra igual', async () => {
+      await setup();
+      cursosService.crearDesignacion.mockReturnValue(of(respuesta));
+      cursosService.subirDocumentoDesignaciones.mockReturnValue(throwError(() => makeHttpError('formato inválido')));
+      designarConArchivos();
+      component.guardarDesignar();
+      expect(toastService.error).toHaveBeenCalledWith(
+        expect.stringContaining('La designación se registró, pero no se pudo subir «orden.pdf»'),
+        8000,
+      );
+      expect(toastService.error.mock.calls[0][0]).toContain('Podés adjuntarlo desde la tabla de designados.');
+      expect(component.modal()).toBeNull();
+      expect(toastService.success).toHaveBeenCalled();
+    });
+
+    it('sin archivos no sube nada', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso({ id: 'cd1' }));
+      component.designarForm.patchValue({ numero_orden: 'N1', fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01', persona_ids: ['1'] });
+      component.guardarDesignar();
+      expect(cursosService.subirDocumentoDesignaciones).not.toHaveBeenCalled();
+    });
+
+    it('Documentos abre el modal de la designación', async () => {
+      await setup('inscripciones');
+      const doc = { nombre_original: 'a.pdf', content_type: 'application/pdf', tamanio_bytes: '1', subido_en: '2026-01-01' };
+      component.funcionarios.set([
+        makeFuncionario({
+          cursos: [makeCursoFuncionario({
+            id: 'c9', designacionId: '55', numero_orden: 'O-7', boletin: null,
+            documentos: { orden: doc, boletin: null },
+          })],
+        }),
+      ]);
+      fixture.detectChanges();
+      component.abrirDocumentos(component.filasFlat()[0]);
+      fixture.detectChanges();
+      expect(cursosService.documentosDesignacion).toHaveBeenCalledWith('c9', '55');
+      const slots = component.slotsDocumentos();
+      expect(slots.map((x) => x.slot)).toEqual(['orden', 'boletin']);
+      expect(slots[0]).toMatchObject({ numero: 'O-7', documento: doc, editable: true });
+      expect(fixture.nativeElement.querySelector('app-documentos-registro-modal')).not.toBeNull();
+    });
+
+    it('designación por módulo: el número del slot sale de los módulos', async () => {
+      await setup('inscripciones');
+      component.funcionarios.set([
+        makeFuncionario({
+          cursos: [makeCursoFuncionario({
+            numero_orden: null, boletin: null,
+            modulos: [
+              { numero_orden: 'O-1', boletin: 'B-1' },
+              { numero_orden: 'O-1', boletin: 'B-2' },
+            ],
+          })],
+        }),
+      ]);
+      component.abrirDocumentos(component.filasFlat()[0]);
+      const [orden, boletin] = component.slotsDocumentos();
+      expect(orden.numero).toBe('O-1');
+      expect(boletin.numero).toBeNull();
+    });
+
+    async function abrirDocumentosDeFila() {
+      component.funcionarios.set([makeFuncionario({ cursos: [makeCursoFuncionario({ numero_orden: 'O-1' })] })]);
+      component.abrirDocumentos(component.filasFlat()[0]);
+    }
+
+    it('sin gestionar, los documentos se ven pero no se editan', async () => {
+      await setup('inscripciones', true, null, { 'cursos.ver': 'global' });
+      await abrirDocumentosDeFila();
+      expect(component.puedeVerDocumentos()).toBe(true);
+      expect(component.slotsDocumentos().every((x) => x.editable === false)).toBe(true);
+    });
+
+    it('solo con gestionar (sin cursos.ver) no se pueden ver documentos', async () => {
+      await setup('inscripciones', true, null, { 'cursos.gestionar': 'unidad' });
+      expect(component.puedeVerDocumentos()).toBe(false);
+    });
+
+    it('con cursos.gestionar.unidad los slots son editables', async () => {
+      await setup('inscripciones', false, null, { 'cursos.gestionar': 'unidad' });
+      await abrirDocumentosDeFila();
+      expect(component.slotsDocumentos().every((x) => x.editable === true)).toBe(true);
+    });
+
+    it('si la respuesta no trae designaciones, no sube nada', async () => {
+      await setup();
+      cursosService.crearDesignacion.mockReturnValue(of({ personas_designadas: 1 }));
+      designarConArchivos();
+      component.guardarDesignar();
+      expect(cursosService.subirDocumentoDesignaciones).not.toHaveBeenCalled();
+      expect(component.modal()).toBeNull();
+    });
+
+    it('no deja cerrar el modal mientras designa', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso());
+      component.designando.set(true);
+      component.cerrarModal();
+      expect(component.modal()).toBe('designar');
+    });
+
+    it('el botón no deja cerrar el modal mientras sube', async () => {
+      await setup();
+      component.abrirDesignar(makeCurso());
+      component.subiendoDocumentos.set(true);
+      component.cerrarModal();
+      expect(component.modal()).toBe('designar');
+    });
+  });
+
   describe('permiso cursos.gestionar', () => {
     it('puedeGestionar es true si el service devuelve true', async () => {
       await setup('catalogo', true);
@@ -1110,10 +1523,15 @@ describe('CursosPage', () => {
       expect(component.puedeGestionar()).toBe(false);
     });
 
-    it('puedeGestionar llama a hasPermiso con "cursos.gestionar"', async () => {
+    it('puedeGestionar acepta "cursos.gestionar" global o por base', async () => {
       await setup();
       component.puedeGestionar();
-      expect(authService.hasPermiso).toHaveBeenCalledWith('cursos.gestionar');
+      expect(authService.puedeConAlcance).toHaveBeenCalledWith('cursos.gestionar');
+    });
+
+    it('con alcance por base también puede gestionar', async () => {
+      await setup('catalogo', false, [BAI]);
+      expect(component.puedeGestionar()).toBe(true);
     });
 
     function celdaResultado(): HTMLElement {

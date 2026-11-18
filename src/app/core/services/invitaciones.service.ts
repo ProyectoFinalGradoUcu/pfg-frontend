@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../api.config';
 import {
   CreateInvitacionPayload,
   Invitacion,
+  PaginatedResponse,
   VerificarInvitacionResponse,
 } from '../models/auth.models';
 
@@ -33,6 +34,23 @@ export class InvitacionesService {
       httpParams = httpParams.set('estado', params.estado);
     }
     return this.http.get<Invitacion[]>(`${API_BASE_URL}/invitaciones`, {
+      params: httpParams,
+      withCredentials: true,
+    });
+  }
+
+  findPaginado(params: {
+    estado?: string;
+    page: number;
+    pageSize: number;
+  }): Observable<PaginatedResponse<Invitacion>> {
+    let httpParams = new HttpParams()
+      .set('page', params.page)
+      .set('pageSize', params.pageSize);
+    if (params.estado) {
+      httpParams = httpParams.set('estado', params.estado);
+    }
+    return this.http.get<PaginatedResponse<Invitacion>>(`${API_BASE_URL}/invitaciones`, {
       params: httpParams,
       withCredentials: true,
     });

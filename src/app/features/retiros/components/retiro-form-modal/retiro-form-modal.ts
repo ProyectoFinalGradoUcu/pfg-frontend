@@ -11,21 +11,38 @@ import {
 } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
-import { EMPTY, Subject, debounceTime, distinctUntilChanged, merge, switchMap, takeUntil } from 'rxjs';
+import {
+  EMPTY,
+  Subject,
+  catchError,
+  concatMap,
+  debounceTime,
+  distinctUntilChanged,
+  from,
+  merge,
+  switchMap,
+  takeUntil,
+} from 'rxjs';
 import {
   CrearRetiroBody,
   MotivoBajaCatalogo,
   PreviaRetiro,
   RetiroCreado,
+  SlotDocumentoRetiro,
 } from '../../../../core/models/retiros.models';
+import { ToastService } from '../../../../core/services/toast.service';
+import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { CatalogosService } from '../../../../core/services/catalogos.service';
-import { PersonalService } from '../../../../core/services/personal.service';
+import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 import { parseError } from '../../../../shared/utils/parse-error';
 import { DEBOUNCE_MS } from '../../retiro-presentacion';
 
 type Paso = 'persona' | 'datos' | 'confirmar';
+
+const SLOTS: readonly SlotDocumentoRetiro[] = ['orden', 'boletin'];
+const CAMPO_NUMERO = { orden: 'numero_orden', boletin: 'boletin' } as const;
 
 /** Se arma con lo que se cerró de verdad, no con lo que anticipó la previa. */
 export function mensajeCierres(c: RetiroCreado['cerrado']): string {
@@ -35,6 +52,10 @@ export function mensajeCierres(c: RetiroCreado['cerrado']): string {
   const n = c.inscripciones.length;
   if (n === 1) partes.push('se dio de baja 1 inscripción');
   if (n > 1) partes.push(`se dieron de baja ${n} inscripciones`);
+
+  const k = c.comisiones?.length ?? 0;
+  if (k === 1) partes.push('se cerró 1 pertenencia a comisión');
+  if (k > 1) partes.push(`se cerraron ${k} pertenencias a comisiones`);
 
   if (c.usuario) partes.push('se bloqueó la cuenta de sistema');
 
@@ -53,7 +74,7 @@ export class RetiroFormModal implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly retirosService = inject(RetirosService);
   private readonly catalogos = inject(CatalogosService);
-  private readonly personalService = inject(PersonalService);
+  private readonly toast = inject(ToastService);
 
   /** `null` abre el paso de selección: es la entrada desde el listado. */
   @Input() personaId: string | null = null;
@@ -75,13 +96,16 @@ export class RetiroFormModal implements OnInit, OnDestroy {
   readonly enviando = signal(false);
   readonly error = signal<string | null>(null);
 
+  readonly archivos = signal<Partial<Record<SlotDocumentoRetiro, File>>>({});
+  readonly subiendoDocumentos = signal(false);
+
   readonly cerrarDestino = signal(false);
   readonly cerrarUsuario = signal(false);
   readonly inscripcionesElegidas = signal<string[]>([]);
+  readonly comisionesElegidas = signal<string[]>([]);
 
-  // Paso 0: el padrón completo en un `app-select` con buscador.
-  readonly personal = signal<PersonaListItem[]>([]);
-  readonly cargandoPersonal = signal(false);
+  // Paso 0: el buscador trae solo personal en actividad (el backend excluye a los retirados).
+  readonly buscador = new BuscadorPersonas();
   readonly personaElegida = signal<PersonaListItem | null>(null);
 
   /** El backend rechaza un retiro con fecha futura. */
@@ -128,34 +152,42 @@ export class RetiroFormModal implements OnInit, OnDestroy {
           this.previa.set(null);
           if (!fecha || !this.personaId) return EMPTY;
           this.previaCargando.set(true);
-          return this.retirosService.previa(this.personaId, fecha);
+          this.error.set(null);
+          // El error se maneja adentro del switchMap: así un error no deja de recalcular la previa.
+          return this.retirosService.previa(this.personaId, fecha).pipe(
+            catchError((err: HttpErrorResponse) => {
+              this.previaCargando.set(false);
+              this.error.set(parseError(err));
+              return EMPTY;
+            }),
+          );
         }),
         takeUntil(this.destroy$),
       )
-      .subscribe({
-        next: (p) => {
-          this.previaCargando.set(false);
-          this.aplicarPrevia(p);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.previaCargando.set(false);
-          this.error.set(parseError(err));
-        },
+      .subscribe((p) => {
+        this.previaCargando.set(false);
+        this.aplicarPrevia(p);
       });
 
-    if (!this.personaId) this.cargarPersonal();
+    // Sin número no se adjunta: si lo borran, el archivo elegido se descarta.
+    for (const slot of SLOTS) {
+      this.form.controls[CAMPO_NUMERO[slot]].valueChanges
+        .pipe(takeUntil(this.destroy$))
+        .subscribe((valor) => {
+          if (!valor.trim()) this.quitarArchivo(slot);
+        });
+    }
   }
 
-  /** El padrón activo es exactamente a quién se puede retirar. */
-  private cargarPersonal(): void {
-    this.cargandoPersonal.set(true);
-    this.personal.set([]);
-    this.personalService.findAll().subscribe({
-      next: (p) => {
-        this.personal.set(p);
-        this.cargandoPersonal.set(false);
-      },
-      error: () => this.cargandoPersonal.set(false),
+  elegirArchivo(slot: SlotDocumentoRetiro, archivo: File): void {
+    this.archivos.update((a) => ({ ...a, [slot]: archivo }));
+  }
+
+  quitarArchivo(slot: SlotDocumentoRetiro): void {
+    if (!this.archivos()[slot]) return;
+    this.archivos.update((a) => {
+      const { [slot]: _, ...resto } = a;
+      return resto;
     });
   }
 
@@ -172,12 +204,17 @@ export class RetiroFormModal implements OnInit, OnDestroy {
     this.inscripcionesElegidas.set(
       p.inscripciones_activas.filter((i) => i.cerrar_sugerido).map((i) => i.id),
     );
+    this.comisionesElegidas.set(
+      p.comisiones_abiertas.map((a) => a.id),
+    );
   }
 
-  /** El `app-select` emite el id; la persona se resuelve del catálogo ya cargado. */
+  /** El `app-select` emite el id; la persona se resuelve de lo que trajo la búsqueda. */
   elegirPersona(id: string | null): void {
-    const elegida = this.personal().find((p) => p.id === id) ?? null;
+    const elegida = this.buscador.persona(id);
     if (elegida?.id === this.personaId) return;
+
+    this.buscador.recordar(elegida?.id ?? null);
 
     this.personaElegida.set(elegida);
     this.personaId = elegida?.id ?? null;
@@ -228,6 +265,8 @@ export class RetiroFormModal implements OnInit, OnDestroy {
         destino: this.cerrarDestino(),
         // Ids de inscripción, no de curso.
         inscripciones: this.inscripcionesElegidas().map(Number),
+        // Ids de pertenencia (asignaciones_comision), no de comisión.
+        comisiones: this.comisionesElegidas().map(Number),
         usuario: this.cerrarUsuario(),
       },
     };
@@ -238,10 +277,7 @@ export class RetiroFormModal implements OnInit, OnDestroy {
     if (v.observaciones.trim()) body.observaciones = v.observaciones.trim();
 
     this.retirosService.registrar(body).subscribe({
-      next: (r) => {
-        this.enviando.set(false);
-        this.registrado.emit(r);
-      },
+      next: (r) => this.subirDocumentos(r),
       error: (err: HttpErrorResponse) => {
         this.enviando.set(false);
         this.error.set(parseError(err));
@@ -251,6 +287,42 @@ export class RetiroFormModal implements OnInit, OnDestroy {
   }
 
   cerrar(): void {
+    // Con el retiro ya registrado, cerrar a mitad de las subidas perdería el aviso.
+    if (this.enviando()) return;
     this.cerrado.emit();
+  }
+
+  /** Emite al final: el padre destruye el modal al recibir `registrado`. */
+  private subirDocumentos(retiro: RetiroCreado): void {
+    const pendientes = SLOTS.filter((slot) => this.archivos()[slot]).map((slot) => ({
+      slot,
+      archivo: this.archivos()[slot]!,
+    }));
+    const terminar = () => {
+      this.subiendoDocumentos.set(false);
+      this.enviando.set(false);
+      this.registrado.emit(retiro);
+    };
+    if (pendientes.length === 0) {
+      terminar();
+      return;
+    }
+
+    this.subiendoDocumentos.set(true);
+    from(pendientes)
+      .pipe(
+        concatMap(({ slot, archivo }) =>
+          this.retirosService.subirDocumento(retiro.id, slot, archivo).pipe(
+            catchError((err: HttpErrorResponse) => {
+              this.toast.error(
+                `El retiro se registró, pero no se pudo subir «${archivo.name}»: ${mensajeErrorDocumento(err)} Podés adjuntarlo desde el detalle del retiro.`,
+                8000,
+              );
+              return EMPTY;
+            }),
+          ),
+        ),
+      )
+      .subscribe({ complete: terminar });
   }
 }

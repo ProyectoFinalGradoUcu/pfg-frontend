@@ -1,0 +1,34 @@
+@use '../../vuelos-base' as *;
+
+.anexo {
+  margin: 1.25rem 0 0;
+  padding: 0 1rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+
+  legend {
+    padding: 0 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: $navy;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  input { text-align: right; font-variant-numeric: tabular-nums; }
+}
+
+.resumen {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background-color: #f1f5f9;
+
+  span { font-size: 0.82rem; font-weight: 600; color: #475569; }
+  strong { font-size: 1.2rem; color: $navy; }
+  small { font-size: 0.75rem; color: #64748b; }
+}

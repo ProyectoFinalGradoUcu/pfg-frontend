@@ -3,6 +3,8 @@ $navy-soft: #1e3a5f;
 
 .aud {
   display: grid;
+  // minmax(0, …): sin esto la tabla ensancha la página en vez de tener su propio scroll.
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
   padding-top: 1.5rem;
 }
@@ -10,48 +12,19 @@ $navy-soft: #1e3a5f;
 .aud__filtros {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.65rem;
   padding: 1rem 1.25rem;
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
 }
 
+// Los controles saltan de renglón solos cuando no entran; cada uno conserva un ancho usable.
 .aud__filtro {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-
-  label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-
-  select,
-  input {
-    padding: 0.45rem 0.6rem;
-    border: 1.5px solid #cbd5e1;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    color: $navy;
-    background-color: #ffffff;
-    min-width: 160px;
-
-    &:focus {
-      outline: none;
-      border-color: $navy;
-    }
-  }
-}
-
-.aud__filtro-acciones {
-  display: flex;
-  gap: 0.5rem;
-  margin-left: auto;
+  flex: 1 1 10rem;
+  width: auto;
+  min-width: 0;
 }
 
 .aud__card {
@@ -59,6 +32,13 @@ $navy-soft: #1e3a5f;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 1.25rem;
+}
+
+.aud__empty {
+  padding: 1.25rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.9rem;
 }
 
 .aud__placeholder {
@@ -106,8 +86,10 @@ $navy-soft: #1e3a5f;
   color: #475569;
 }
 
-.aud__col-actions {
-  text-align: right;
+// Con la ruta completa: si no, `thead th` lo pisa y el título queda desalineado del botón.
+.aud__table thead th.aud__col-actions,
+.aud__table tbody td.aud__col-actions {
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -158,17 +140,6 @@ $navy-soft: #1e3a5f;
 .btn--sm {
   padding: 0.4rem 0.75rem;
   font-size: 0.8rem;
-}
-
-.btn--primary {
-  background-color: $navy;
-  color: #ffffff;
-  border-color: $navy;
-
-  &:hover:not(:disabled) {
-    background-color: $navy-soft;
-    border-color: $navy-soft;
-  }
 }
 
 .btn--ghost {

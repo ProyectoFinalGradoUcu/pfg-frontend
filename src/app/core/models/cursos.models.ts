@@ -1,3 +1,5 @@
+import { DocumentosRegistro } from './documentos-registro.models';
+
 export type EstadoCurso = 'en_curso' | 'completado';
 export type TipoCurso = 'obligatorio' | 'optativo';
 
@@ -31,6 +33,8 @@ export interface CursoFuncionarioItem {
   nombre_curso: string;
   institucion: string;
   tipo: TipoCurso;
+  /** null si es un curso general. */
+  baseId?: string | null;
   fechaInicio: string;
   fechaFin: string;
   aprobado: boolean | null;
@@ -39,6 +43,8 @@ export interface CursoFuncionarioItem {
   numero_orden?: string | null;
   boletin?: string | null;
   documentoUrl?: string | null;
+  documentos?: DocumentosRegistro;
+  modulos?: { numero_orden: string | null; boletin: string | null }[];
   dadoDeBaja?: boolean;
   motivoBaja?: string | null;
   fechaBaja?: string | null;
@@ -50,9 +56,14 @@ export interface FuncionarioConCursos {
   cedula: string;
   nombre: string;
   cursos: CursoFuncionarioItem[];
+  grado?: string | null;
+  escalafon?: string | null;
+  derecha?: number | null;
+  numor?: number | null;
 }
 
 export interface CreateHistorialCursoPayload {
+  sub_unidad_id?: number;
   personaId: string;
   nombre: string;
   institucion: string;
@@ -71,11 +82,20 @@ export interface ModuloCurso {
   orden: number;
 }
 
+/** Base (sub-unidad) de un curso, con su comando. */
+export interface BaseCurso {
+  id: string;
+  denominacion: string;
+  comando: string | null;
+}
+
 export interface CursoDefinicion {
   id: string;
   nombre_curso: string;
   institucion: string;
   es_obligatorio?: boolean;
+  /** `null` = curso general de la fuerza. */
+  base?: BaseCurso | null;
   modulos?: ModuloCurso[];
 }
 
@@ -83,6 +103,8 @@ export interface CreateCursoDefinicionPayload {
   nombre_curso: string;
   institucion: string;
   es_obligatorio?: boolean;
+  /** Base del curso; sin base es un curso general (solo alcance global). */
+  sub_unidad_id?: number;
 }
 
 export interface CreateModuloPayload {
@@ -101,6 +123,10 @@ export interface RegistrarCalificacionPayload {
   aprobado: boolean;
   calificacion?: number;
   observacion?: string;
+}
+
+export interface CalificacionMasivaItem extends RegistrarCalificacionPayload {
+  designacionId: number;
 }
 
 export interface CalificacionResponse {

@@ -1,8 +1,14 @@
 import { expect, test } from '@playwright/test';
+import { apiAdmin } from '../fixtures/personal';
+import { crearRetiroAnulado } from '../fixtures/retiros';
 
 /** La sesión viene del `storageState` de playwright.config.ts. */
 test.describe('retiros', () => {
   test('el listado muestra el padrón y suma los anulados con el checkbox', async ({ page }) => {
+    const api = await apiAdmin();
+    await crearRetiroAnulado(api);
+    await api.dispose();
+
     await page.goto('/retiros');
 
     await expect(page.getByRole('heading', { name: 'Retiros' })).toBeVisible();

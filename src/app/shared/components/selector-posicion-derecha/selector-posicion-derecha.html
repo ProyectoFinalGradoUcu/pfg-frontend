@@ -1,0 +1,89 @@
+<div class="spd">
+  <p class="spd__vacio" *ngIf="!gradoId">Elegí el grado para ver su derecha.</p>
+  <p class="spd__vacio" *ngIf="cargando()">Cargando la derecha del grado…</p>
+  <p class="spd__error" *ngIf="error()">{{ error() }}</p>
+
+  <ng-container *ngIf="grado() as g">
+    <div class="spd__valores">
+      <label class="spd__campo">
+        <span>Derecha</span>
+        <input type="number" step="1"
+          [min]="rangoDerecha()?.desde ?? null" [max]="rangoDerecha()?.hasta ?? null"
+          [value]="posicion === null ? '' : derechaNueva()"
+          [placeholder]="derechaNueva() !== null ? derechaNueva() + ' (al final)' : 'Al final'"
+          [disabled]="!editable || !rangoDerecha()"
+          [class.spd__input--error]="errorDerecha()"
+          (change)="onDerecha($event)" (keydown.enter)="$any($event.target).blur()" />
+        <small *ngIf="rangoDerecha() as r">De {{ r.desde }} a {{ r.hasta }} en {{ g.denominacion }}</small>
+        <small *ngIf="!rangoDerecha()">El grado está vacío: queda primero.</small>
+        <small class="spd__error" *ngIf="errorDerecha()">{{ errorDerecha() }}</small>
+      </label>
+
+      <label class="spd__campo" *ngIf="grupo() as n">
+        <span>Numor</span>
+        <input type="number" step="1" min="1" [max]="n.cantidad + 1"
+          [value]="posicionNumor ?? ''"
+          [placeholder]="(n.cantidad + 1) + ' (al final)'"
+          [disabled]="!editable"
+          [class.spd__input--error]="errorNumor()"
+          (change)="onNumor($event)" (keydown.enter)="$any($event.target).blur()" />
+        <small>De 1 a {{ n.cantidad + 1 }} en {{ n.grado.denominacion }} {{ n.escalafon.codigo }}</small>
+        <small class="spd__error" *ngIf="errorNumor()">{{ errorNumor() }}</small>
+      </label>
+    </div>
+
+    <p class="spd__tope" *ngIf="g.tope !== null && g.cantidad + 1 > g.tope">
+      Con este ingreso el grado queda con {{ g.cantidad + 1 }} funcionarios (lo habitual es {{ g.tope }}).
+    </p>
+    <p class="spd__ayuda" *ngIf="!editable">Va al final del grado. Para elegir otra derecha o numor hace falta el permiso de gestionar la derecha.</p>
+    <p class="spd__ayuda" *ngIf="editable">Vacío = al final. Escribí la derecha o el numor que va a tener y abajo ves a quiénes corre.</p>
+
+    <section class="spd__bloque">
+      <header class="spd__cabecera">
+        <h4>Derecha en {{ g.denominacion }}</h4>
+        <span>{{ g.cantidad }} en actividad<ng-container *ngIf="g.derecha_desde !== null"> · derecha {{ g.derecha_desde }}–{{ g.derecha_hasta }}</ng-container></span>
+      </header>
+      <ol class="spd__lista">
+        <ng-container *ngFor="let i of g.items; let idx = index">
+          <li class="spd__fila spd__fila--nuevo" *ngIf="posicionEfectiva(g.cantidad, posicion) === idx + 1">
+            <span class="spd__num">{{ derechaNueva() ?? '—' }}</span>
+            <span class="spd__nombre">{{ nombre }}</span>
+          </li>
+          <li class="spd__fila" [class.spd__fila--corre]="corre(idx, g.cantidad, posicion)">
+            <span class="spd__num">{{ i.derecha }}</span>
+            <span class="spd__nombre">{{ i.nombre }} <small>{{ i.escalafon }}</small></span>
+            <span class="spd__mas" *ngIf="corre(idx, g.cantidad, posicion)">+1 → {{ (i.derecha ?? 0) + 1 }}</span>
+          </li>
+        </ng-container>
+        <li class="spd__fila spd__fila--nuevo" *ngIf="posicionEfectiva(g.cantidad, posicion) === g.cantidad + 1">
+          <span class="spd__num">{{ derechaNueva() ?? '—' }}</span>
+          <span class="spd__nombre">{{ nombre }}</span>
+        </li>
+      </ol>
+    </section>
+
+    <section class="spd__bloque" *ngIf="grupo() as n">
+      <header class="spd__cabecera">
+        <h4>Numor en {{ n.grado.denominacion }} {{ n.escalafon.codigo }}</h4>
+        <span>{{ n.cantidad }} en el grupo</span>
+      </header>
+      <ol class="spd__lista">
+        <ng-container *ngFor="let i of n.items; let idx = index">
+          <li class="spd__fila spd__fila--nuevo" *ngIf="posicionEfectiva(n.cantidad, posicionNumor) === idx + 1">
+            <span class="spd__num">{{ idx + 1 }}</span>
+            <span class="spd__nombre">{{ nombre }}</span>
+          </li>
+          <li class="spd__fila" [class.spd__fila--corre]="corre(idx, n.cantidad, posicionNumor)">
+            <span class="spd__num">{{ i.numor }}</span>
+            <span class="spd__nombre">{{ i.nombre }}</span>
+            <span class="spd__mas" *ngIf="corre(idx, n.cantidad, posicionNumor)">+1 → {{ (i.numor ?? 0) + 1 }}</span>
+          </li>
+        </ng-container>
+        <li class="spd__fila spd__fila--nuevo" *ngIf="posicionEfectiva(n.cantidad, posicionNumor) === n.cantidad + 1">
+          <span class="spd__num">{{ n.cantidad + 1 }}</span>
+          <span class="spd__nombre">{{ nombre }}</span>
+        </li>
+      </ol>
+    </section>
+  </ng-container>
+</div>

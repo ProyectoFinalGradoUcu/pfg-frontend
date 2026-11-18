@@ -23,6 +23,7 @@ export interface AuditoriaFiltroItem {
 export interface AuditoriaFiltros {
   acciones: AuditoriaFiltroItem[];
   contextos: AuditoriaFiltroItem[];
+  usuarios: AuditoriaUsuario[];
 }
 
 export interface AuditoriaQuery {

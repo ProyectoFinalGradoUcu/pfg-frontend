@@ -1,4 +1,5 @@
 /** Los ids llegan como string: en el backend son BigInt. */
+import { DocumentosRegistro } from './documentos-registro.models';
 
 export interface GradoRefAscensos {
   id: string;
@@ -204,6 +205,7 @@ export interface Elegibilidad {
     nombre_completo: string;
     apellido: string;
     unidad: { id: string; denominacion: string } | null;
+    sub_unidad?: { id: string; denominacion: string } | null;
     escalafon: { id: string; denominacion: string } | null;
     situacion: { id: string; codigo: string; denominacion: string } | null;
   };
@@ -216,7 +218,14 @@ export interface Elegibilidad {
   antiguedad_dias: number;
   edad: number | null;
   requisitos: RequisitoEvaluado[];
+  /**
+   * Cómo es el ascenso al `grado_destino` respecto de la escala (null sin destino).
+   * `SALTO` y `CAMBIO_ESCALA` solo se registran por excepción, aunque el estado sea PASIBLE.
+   */
+  tipo_ascenso?: TipoAscenso | null;
 }
+
+export type TipoAscenso = 'SIGUIENTE' | 'SALTO' | 'CAMBIO_ESCALA' | 'NO_SUPERIOR';
 
 export interface ConteoPorEstado {
   PASIBLE: number;
@@ -243,10 +252,12 @@ export interface ListarPasiblesQuery {
   estado?: EstadoElegibilidad[];
   escalafon_id?: number;
   grado_id?: number;
-  unidad_id?: number;
+  /** Base (sub-unidad) de la relación laboral. */
+  sub_unidad_id?: number;
   query?: string;
   fecha_referencia?: string;
   horizonte_meses?: number;
+  categoria?: 'oficial' | 'subalterno';
 }
 
 export interface ResumenAscensos {
@@ -336,6 +347,7 @@ export interface OrdenAscensoDetalle extends OrdenAscenso {
   page: number;
   pageSize: number;
   vigentes: VigenteDeOrden[];
+  documentos: DocumentosRegistro;
 }
 
 export interface DetalleOrdenQuery {
@@ -365,7 +377,8 @@ export interface ListarOrdenesQuery {
   hasta?: string;
   numero_orden?: string;
   grado_destino_id?: number;
-  unidad_id?: number;
+  /** Base (sub-unidad) de la relación laboral. */
+  sub_unidad_id?: number;
   registrado_por?: number;
   anuladas?: boolean;
   con_excepciones?: boolean;
@@ -376,6 +389,9 @@ export interface FuncionarioDeOrdenPayload {
   grado_destino_id?: number;
   fecha_ascenso?: string;
   motivo_excepcion?: string;
+  /** Posición en la derecha del grado destino. Sin valor: al final. */
+  posicion_derecha?: number;
+  posicion_numor?: number;
 }
 
 export interface CrearOrdenPayload {

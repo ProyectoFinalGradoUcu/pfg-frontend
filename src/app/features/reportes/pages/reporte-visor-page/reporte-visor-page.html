@@ -15,7 +15,7 @@
     <div class="visor__filtros">
       @for (param of def.parametros; track trackParam($index, param)) {
         <div class="campo">
-          <label [attr.for]="param.clave">{{ param.etiqueta }}</label>
+          <label [attr.for]="param.clave">{{ param.etiqueta }}{{ param.requerido ? ' *' : '' }}</label>
 
           @switch (param.tipo) {
             @case ('select') {
@@ -24,7 +24,7 @@
                 [value]="valores()[param.clave]"
                 (change)="setValor(param.clave, $event)"
               >
-                <option value="" [selected]="!valores()[param.clave]">Todos</option>
+                <option value="" [selected]="!valores()[param.clave]">{{ param.requerido ? 'Seleccioná una opción' : 'Todos' }}</option>
                 @for (opt of param.opciones ?? []; track opt.valor) {
                   <option [value]="opt.valor" [selected]="opt.valor === valores()[param.clave]">
                     {{ opt.etiqueta }}

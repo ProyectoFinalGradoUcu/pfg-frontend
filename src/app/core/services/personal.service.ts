@@ -3,7 +3,10 @@ import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_BASE_URL } from '../api.config';
 import {
-  CargaMasivaResult,
+  BaseOpcion,
+  CambiarSituacionPayload,
+  CambioSituacionResultado,
+  CandidatoFamiliar,
   CrearPersonaPayload,
   CrearPersonaResponse,
   CursoPersona,
@@ -22,6 +25,8 @@ import {
   PersonasPaginadas,
 } from '../models/personal.models';
 import { DestinoDePersona } from '../models/destinos.models';
+import { filtroDerechaNumorParams } from '../models/derecha.models';
+import { ComisionDePersona } from '../models/comisiones.models';
 
 // Re-exportado para que módulos que importaban desde el servicio no rompan.
 export type { PersonaListItem } from '../models/personal.models';
@@ -41,10 +46,12 @@ export class PersonalService {
     if (params.page)     query['page']     = String(params.page);
     if (params.pageSize) query['pageSize'] = String(params.pageSize);
     if (params.search)   query['search']   = params.search;
-    if (params.destino)  query['destino']  = String(params.destino);
+    if (params.destino?.length) query['destino'] = params.destino.join(',');
     if (params.rango)    query['rango']    = String(params.rango);
-    if (params.estado)   query['estado']   = String(params.estado);
+    if (params.estado?.length) query['estado'] = params.estado.join(',');
     if (params.incluir_inactivos) query['incluir_inactivos'] = 'true';
+    if (params.categoria) query['categoria'] = params.categoria;
+    if (params.filtroDerecha) Object.assign(query, filtroDerechaNumorParams(params.filtroDerecha));
     return this.http.get<PersonasPaginadas>(`${API_BASE_URL}/personas`, {
       params: query,
       withCredentials: true,
@@ -90,6 +97,17 @@ export class PersonalService {
     return this.http.get<OpcionSelect[]>(`${this.catalogos}/sub-unidades`, { withCredentials: true });
   }
 
+  /** Las bases vigentes, ordenadas por comando, con la etiqueta "B.A.I. (C.A.O.)". */
+  getBases(): Observable<BaseOpcion[]> {
+    return this.http
+      .get<Omit<BaseOpcion, 'etiqueta'>[]>(`${this.catalogos}/sub-unidades`, { withCredentials: true })
+      .pipe(
+        map((bases) =>
+          bases.map((b) => ({ ...b, etiqueta: `${b.denominacion} (${b.comando.denominacion})` })),
+        ),
+      );
+  }
+
   getById(id: number): Observable<PersonaDetalle> {
     return this.http.get<PersonaDetalle>(`${API_BASE_URL}/personas/${id}`, { withCredentials: true });
   }
@@ -98,8 +116,24 @@ export class PersonalService {
     return this.http.patch<PersonaDetalle>(`${API_BASE_URL}/personas/${id}`, payload, { withCredentials: true });
   }
 
+  cambiarSituacion(id: number, payload: CambiarSituacionPayload): Observable<CambioSituacionResultado> {
+    return this.http.post<CambioSituacionResultado>(`${API_BASE_URL}/personas/${id}/situacion`, payload, {
+      withCredentials: true,
+    });
+  }
+
   getFamiliares(id: number): Observable<FamiliarItem[]> {
     return this.http.get<FamiliarItem[]>(`${API_BASE_URL}/personas/${id}/familiares`, { withCredentials: true });
+  }
+
+  /** Militares en actividad y civiles que se pueden vincular como familiar (máx. 10). */
+  buscarCandidatosFamiliar(search: string, excluir?: number): Observable<CandidatoFamiliar[]> {
+    const params: Record<string, string> = { search };
+    if (excluir != null) params['excluir'] = String(excluir);
+    return this.http.get<CandidatoFamiliar[]>(`${API_BASE_URL}/personas/familiares/candidatos`, {
+      params,
+      withCredentials: true,
+    });
   }
 
   agregarFamiliar(id: number, payload: FamiliarPayload): Observable<FamiliarItem> {
@@ -136,25 +170,8 @@ export class PersonalService {
     return this.http.get<DestinoDePersona[]>(`${API_BASE_URL}/personas/${id}/destinos`, { withCredentials: true });
   }
 
-  descargarPlantilla(): void {
-    this.http.get(`${API_BASE_URL}/personas/plantilla`, {
-      responseType: 'blob',
-      withCredentials: true,
-    }).subscribe(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'plantilla_personal.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
-    });
+  getComisiones(id: number): Observable<ComisionDePersona[]> {
+    return this.http.get<ComisionDePersona[]>(`${API_BASE_URL}/personas/${id}/comisiones`, { withCredentials: true });
   }
 
-  cargaMasiva(file: File): Observable<CargaMasivaResult> {
-    const formData = new FormData();
-    formData.append('archivo', file);
-    return this.http.post<CargaMasivaResult>(`${API_BASE_URL}/personas/carga-masiva`, formData, {
-      withCredentials: true,
-    });
-  }
 }

@@ -3,7 +3,7 @@
   <div class="modal modal--ancho">
     <header class="modal__header">
       <h3>Registrar retiro</h3>
-      <button type="button" class="modal__close" (click)="cerrar()" aria-label="Cerrar">×</button>
+      <button type="button" class="modal__close" (click)="cerrar()" [disabled]="enviando()" aria-label="Cerrar">×</button>
     </header>
 
     <!-- Paso 0: elegir persona (entrada desde el listado) -->
@@ -11,16 +11,19 @@
       <div class="field">
         <label>Funcionario *</label>
         <app-select
-          [items]="personal()"
-          bindLabel="nombre"
+          [items]="buscador.opciones()"
+          bindLabel="etiqueta"
           bindValue="id"
           placeholder="Seleccione personal"
           [searchable]="true"
+          [remoteSearch]="true"
+          [loading]="buscador.buscando()"
           [clearable]="true"
           [ngModel]="personaElegida()?.id ?? null"
           (ngModelChange)="elegirPersona($event)"
+          (searchChange)="buscador.buscar($event)"
         ></app-select>
-        <p class="field__hint" *ngIf="cargandoPersonal()">Cargando personal...</p>
+        <p class="field__hint">Buscá por cédula, nombre o apellido.</p>
       </div>
     </div>
 
@@ -63,10 +66,28 @@
         <div class="field">
           <label for="orden">Número de orden</label>
           <input id="orden" type="text" formControlName="numero_orden" placeholder="O.D. 12455" />
+          <app-documento-adjunto
+            [nombre]="archivos().orden?.name ?? null"
+            [tamanio]="archivos().orden?.size ?? null"
+            [puedeEditar]="true"
+            [habilitado]="!!form.controls.numero_orden.value.trim()"
+            [ocupado]="enviando()"
+            (elegido)="elegirArchivo('orden', $event)"
+            (quitado)="quitarArchivo('orden')"
+          />
         </div>
         <div class="field">
           <label for="bol">Boletín</label>
           <input id="bol" type="text" formControlName="boletin" placeholder="B.P. 8891" />
+          <app-documento-adjunto
+            [nombre]="archivos().boletin?.name ?? null"
+            [tamanio]="archivos().boletin?.size ?? null"
+            [puedeEditar]="true"
+            [habilitado]="!!form.controls.boletin.value.trim()"
+            [ocupado]="enviando()"
+            (elegido)="elegirArchivo('boletin', $event)"
+            (quitado)="quitarArchivo('boletin')"
+          />
         </div>
       </div>
 
@@ -102,7 +123,7 @@
               (change)="cerrarDestino.set($any($event.target).checked)"
             />
             <span>
-              Cerrar destino en <strong>{{ d.unidad?.denominacion ?? 'unidad sin nombre' }}</strong>
+              Cerrar destino en <strong>{{ d.sub_unidad?.denominacion ?? d.unidad?.denominacion ?? 'unidad sin nombre' }}</strong>
             </span>
           </label>
 
@@ -115,6 +136,18 @@
             <span>Dar de baja en <strong>{{ i.curso.nombre_curso }}</strong></span>
           </label>
 
+          <label class="rf__check" *ngFor="let a of p.comisiones_abiertas">
+            <input
+              type="checkbox"
+              [checked]="true"
+              [disabled]="true"
+            />
+            <span>
+               Cierre obligatorio de la pertenencia a <strong>{{ a.comision.denominacion }}</strong
+              ><ng-container *ngIf="a.cargo"> ({{ a.cargo }})</ng-container>
+            </span>
+          </label>
+
           <label class="rf__check" *ngIf="p.usuario as u">
             <input
               type="checkbox"
@@ -124,7 +157,7 @@
             <span>Bloquear la cuenta <strong>{{ u.username }}</strong></span>
           </label>
 
-          <p class="rf__nada" *ngIf="!p.destino_vigente && !p.inscripciones_activas.length && !p.usuario">
+          <p class="rf__nada" *ngIf="!p.destino_vigente && !p.inscripciones_activas.length && !p.comisiones_abiertas.length && !p.usuario">
             Este retiro no arrastra ningún cierre.
           </p>
 
@@ -168,14 +201,14 @@
       </ng-container>
 
       <ng-container *ngIf="paso() === 'confirmar'">
-        <button type="button" class="btn" (click)="volverADatos()">Volver</button>
+        <button type="button" class="btn" (click)="volverADatos()" [disabled]="enviando()">Volver</button>
         <button
           type="button"
           class="btn btn--danger"
           [disabled]="enviando()"
           (click)="confirmar()"
         >
-          {{ enviando() ? 'Registrando...' : 'Confirmar retiro' }}
+          {{ subiendoDocumentos() ? 'Subiendo documentos...' : enviando() ? 'Registrando...' : 'Confirmar retiro' }}
         </button>
       </ng-container>
 

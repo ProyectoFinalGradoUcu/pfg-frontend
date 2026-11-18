@@ -29,6 +29,7 @@ function makePrevia(overrides: Partial<PreviaRetiro> = {}): PreviaRetiro {
     relacion_laboral: null,
     destino_vigente: null,
     inscripciones_activas: [],
+    comisiones_abiertas: [],
     usuario: null,
     vivienda: null,
     bloqueos: [],
@@ -62,7 +63,7 @@ describe('RetirosService', () => {
 
     it('serializa los filtros, incluido vigentes en false', () => {
       service
-        .listar({ page: 2, pageSize: 25, query: 'Pereyra', unidad_id: 5, vigentes: false })
+        .listar({ page: 2, pageSize: 25, query: 'Pereyra', sub_unidad_id: 5, vigentes: false })
         .subscribe();
       const req = http.expectOne(
         (r) => r.url === `${API_BASE_URL}/retiros` && r.params.get('vigentes') === 'false',
@@ -70,7 +71,7 @@ describe('RetirosService', () => {
       expect(req.request.params.get('page')).toBe('2');
       expect(req.request.params.get('pageSize')).toBe('25');
       expect(req.request.params.get('query')).toBe('Pereyra');
-      expect(req.request.params.get('unidad_id')).toBe('5');
+      expect(req.request.params.get('sub_unidad_id')).toBe('5');
       req.flush({ items: [], total: 0, page: 2, pageSize: 25 });
     });
 
@@ -157,10 +158,85 @@ describe('RetirosService', () => {
           movimiento_borrado: '8',
           destino: '3',
           inscripciones: [],
+          comisiones: [],
           usuario: '3',
         },
       });
     });
   });
 
+  describe('previaReincorporacion', () => {
+    it('pide GET /retiros/:retiroId/reincorporacion/previa', () => {
+      service.previaReincorporacion('7').subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/7/reincorporacion/previa`);
+      expect(req.request.method).toBe('GET');
+      req.flush({});
+    });
+  });
+
+  describe('reincorporar', () => {
+    it('pide POST /retiros/:retiroId/reincorporacion envolviendo el body en service_request', () => {
+      const body = {
+        fecha_reincorporacion: '2026-10-01',
+        grado_reincorporacion_id: 3,
+        haber_retiro: 45000.5,
+        porcentaje_progresivo: 0.3,
+        sub_unidad_id: 5,
+        numero_orden: 'O.D. 13001',
+      };
+      service.reincorporar('7', body).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/7/reincorporacion`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ service_request: body });
+      req.flush({});
+    });
+  });
+
+  describe('actualizarReincorporacion', () => {
+    it('pide PATCH /retiros/:retiroId/reincorporacion envolviendo el body en service_request', () => {
+      const body = { haber_retiro: 45000.5, porcentaje_progresivo: 0.3 };
+      service.actualizarReincorporacion('7', body).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/7/reincorporacion`);
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual({ service_request: body });
+      req.flush({});
+    });
+  });
+
+  describe('documentos', () => {
+    it('subirDocumento manda multipart con el archivo, sin service_request', () => {
+      const archivo = new File(['%PDF-1.4'], 'orden.pdf', { type: 'application/pdf' });
+      service.subirDocumento('88', 'orden', archivo).subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/88/documentos/orden`);
+      expect(req.request.method).toBe('POST');
+      const body = req.request.body as FormData;
+      expect((body.get('archivo') as File).name).toBe('orden.pdf');
+      expect(body.has('service_request')).toBe(false);
+      expect(req.request.headers.has('Content-Type')).toBe(false);
+      req.flush({});
+    });
+
+    it('quitarDocumento hace DELETE al slot', () => {
+      service.quitarDocumento('88', 'boletin').subscribe();
+      const req = http.expectOne(`${API_BASE_URL}/retiros/88/documentos/boletin`);
+      expect(req.request.method).toBe('DELETE');
+      req.flush(null);
+    });
+
+    it('inspeccionarDocumento hace HEAD al slot', () => {
+      let respondio = false;
+      service.inspeccionarDocumento('88', 'orden').subscribe(() => (respondio = true));
+      const req = http.expectOne(`${API_BASE_URL}/retiros/88/documentos/orden`);
+      expect(req.request.method).toBe('HEAD');
+      req.flush(null);
+      expect(respondio).toBe(true);
+    });
+
+    it('urlDocumento arma la url y agrega download=1 para descargar', () => {
+      expect(service.urlDocumento('88', 'boletin')).toBe(`${API_BASE_URL}/retiros/88/documentos/boletin`);
+      expect(service.urlDocumento('88', 'boletin', { descarga: true })).toBe(
+        `${API_BASE_URL}/retiros/88/documentos/boletin?download=1`,
+      );
+    });
+  });
 });

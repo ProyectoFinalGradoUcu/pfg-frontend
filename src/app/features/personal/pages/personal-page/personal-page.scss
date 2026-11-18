@@ -1,5 +1,7 @@
 .personal-page {
   display: grid;
+  // minmax(0, …): sin esto el contenido más ancho estira la página en vez de ajustarse.
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   padding-top: 1.5rem;
 }
@@ -19,7 +21,11 @@
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
+  // Las columnas de los filtros dependen del ancho de la tarjeta, no de la ventana:
+  // el menú lateral se come parte de la pantalla.
+  container-type: inline-size;
 }
 
 .personal-page__card-title {
@@ -29,86 +35,79 @@
   margin: 0;
 }
 
-// Alto único para todos los controles del filtro: input, select, check y botón.
-$pp-alto-control: 2.75rem;
+// Alto único para los controles propios de la fila; igual al de app-select y app-search-input.
+$pp-alto-control: 2.55rem;
 
+$pp-gap-filtros: 0.65rem;
+
+// Dos filas sobre columnas iguales, que se alinean entre sí:
+//   buscador · tipo · destino · grado · escalafón · [borrar · flecha]
+//   derecha · numor · estado · retirados            (se despliega con la flecha)
 .personal-page__filters-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: $pp-gap-filtros;
+}
+
+// No genera caja propia: sus hijos son celdas de la grilla de arriba.
+.personal-page__filtros-extra {
+  display: contents;
+}
+
+// app-search-input trae un ancho propio: acá manda la columna.
+.personal-page__search {
+  width: 100%;
+}
+
+.personal-page__acciones {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.4rem;
 }
 
-.personal-page__search {
-  position: relative;
-  flex: 1 1 14rem;
-  min-width: 12rem;
-  max-width: 22rem;
+// Ocupa dos columnas: derecha y numor se reparten ese ancho con el mismo espacio de la grilla.
+.personal-page__filtro-derecha {
+  grid-column: span 2;
+  --fdn-alto: #{$pp-alto-control};
+  --fdn-gap: #{$pp-gap-filtros};
+  --fdn-rango-flex: 1 1 0;
+}
 
-  svg {
-    position: absolute;
-    left: 0.85rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 17px;
-    height: 17px;
-    color: #94a3b8;
-    pointer-events: none;
+// Menos columnas: el buscador y los botones siguen arriba y el resto mantiene su orden.
+@container (max-width: 960px) {
+  .personal-page__filters-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  input {
-    width: 100%;
-    height: $pp-alto-control;
-    padding: 0 1rem 0 2.5rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background-color: #ffffff;
-    font-size: 0.9rem;
-    color: #0f172a;
-    box-sizing: border-box;
+  .personal-page__search {
+    order: -2;
+    grid-column: span 2;
+  }
 
-    &:focus {
-      outline: none;
-      border-color: #132744;
-    }
-
-    &::placeholder {
-      color: #94a3b8;
-    }
+  .personal-page__acciones {
+    order: -1;
+    justify-self: end;
   }
 }
 
-.personal-page__field {
-  flex: 1 1 9.5rem;
-  min-width: 9.5rem;
-  max-width: 13rem;
+@container (max-width: 560px) {
+  .personal-page__filters-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 
-  select {
-    width: 100%;
-    height: $pp-alto-control;
-    padding: 0 2rem 0 0.9rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background-color: #ffffff;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m19.5 8.25-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.65rem center;
-    background-size: 16px;
-    font-size: 0.9rem;
-    color: #0f172a;
-    appearance: none;
-    box-sizing: border-box;
-    cursor: pointer;
+  .personal-page__search {
+    grid-column: auto;
+  }
 
-    &:focus {
-      outline: none;
-      border-color: #132744;
-    }
+  .personal-page__filtro-derecha {
+    grid-column: 1 / -1;
+  }
+}
 
-    &:disabled {
-      cursor: not-allowed;
-      color: #94a3b8;
-    }
+@container (max-width: 340px) {
+  .personal-page__filters-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -153,6 +152,10 @@ $pp-alto-control: 2.75rem;
   tbody tr:hover {
     background-color: #f8fafc;
   }
+}
+
+.personal-page__row--clickable {
+  cursor: pointer;
 }
 
 .personal-page__col-actions {
@@ -312,6 +315,15 @@ $pp-alto-control: 2.75rem;
   }
 }
 
+.btn--ghost {
+  border-color: #132744;
+  padding: 0.65rem 1.1rem;
+
+  &:hover:not(:disabled) {
+    background-color: #f1f5f9;
+  }
+}
+
 .btn--clear {
   border-color: #cbd5e1;
   color: #64748b;
@@ -344,11 +356,12 @@ $pp-alto-control: 2.75rem;
   flex-shrink: 0;
 }
 
-.personal-page__clear-btn {
+// Tooltip propio (el texto sale de data-tooltip).
+.personal-page__toggle-btn {
   position: relative;
 
   &::after {
-    content: 'Borrar filtros';
+    content: attr(data-tooltip);
     position: absolute;
     bottom: calc(100% + 7px);
     left: 50%;
@@ -387,257 +400,30 @@ $pp-alto-control: 2.75rem;
   }
 }
 
-// ─── Import modal ─────────────────────────────────────────────────────────────
+.personal-page__toggle-btn {
+  svg {
+    transition: transform 0.2s ease;
+  }
 
-.pp-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 200;
+  &[aria-expanded='true'] {
+    border-color: #94a3b8;
+    color: #334155;
+
+    svg {
+      transform: rotate(180deg);
+    }
+  }
 }
 
-.pp-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-  z-index: 201;
-  width: min(600px, calc(100vw - 2rem));
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.pp-modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
-  flex-shrink: 0;
-}
-
-.pp-modal__title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0;
-}
-
-.pp-modal__close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  color: #64748b;
-  cursor: pointer;
-
-  svg { width: 17px; height: 17px; }
-
-  &:hover { background: #f1f5f9; color: #0f172a; }
-}
-
-.pp-modal__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.pp-modal__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #f1f5f9;
-  flex-shrink: 0;
-}
-
-// ─── Import steps ─────────────────────────────────────────────────────────────
-
-.pp-import-step {
-  display: flex;
-  gap: 1rem;
-}
-
-.pp-import-step__num {
-  width: 28px;
-  height: 28px;
+// Avisa que hay filtros aplicados en la segunda fila aunque esté cerrada.
+.personal-page__toggle-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #132744;
-  color: #ffffff;
-  font-size: 0.82rem;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 0.1rem;
-}
-
-.pp-import-step__content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.pp-import-step__title {
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0;
-}
-
-.pp-import-step__desc {
-  font-size: 0.82rem;
-  color: #64748b;
-  margin: 0;
-}
-
-.pp-import-step__btn {
-  align-self: flex-start;
-  font-size: 0.85rem;
-  padding: 0.5rem 0.9rem;
-
-  svg { width: 15px; height: 15px; }
-}
-
-.pp-import-dropzone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 1.5rem;
-  border: 2px dashed #cbd5e1;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: center;
-  color: #64748b;
-  font-size: 0.875rem;
-  transition: border-color 0.15s, background-color 0.15s;
-
-  svg { width: 28px; height: 28px; color: #94a3b8; }
-
-  em { font-style: normal; color: #94a3b8; }
-
-  input[type="file"] { display: none; }
-
-  &:hover {
-    border-color: #132744;
-    background: #f8fafc;
-  }
-
-  &--has-file {
-    border-color: #132744;
-    background: #f0f4f8;
-    color: #0f172a;
-    font-weight: 500;
-  }
-}
-
-.pp-import-error {
-  font-size: 0.8rem;
-  color: #e11d48;
-  font-weight: 500;
-}
-
-// ─── Import results ───────────────────────────────────────────────────────────
-
-.pp-import-summary {
-  display: flex;
-  gap: 1rem;
-}
-
-.pp-import-summary__item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.9rem;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-
-  &--ok  { background: #f0fdf4; border-color: #bbf7d0; }
-  &--err { background: #fff1f2; border-color: #fecdd3; }
-}
-
-.pp-import-summary__num {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #0f172a;
-
-  .pp-import-summary__item--ok  & { color: #166534; }
-  .pp-import-summary__item--err & { color: #be123c; }
-}
-
-.pp-import-summary__label {
-  font-size: 0.8rem;
-  color: #64748b;
-}
-
-.pp-import-results {
-  overflow-x: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-}
-
-.pp-import-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-
-  th, td {
-    padding: 0.65rem 0.9rem;
-    text-align: left;
-    border-bottom: 1px solid #f1f5f9;
-  }
-
-  thead th {
-    background: #f8fafc;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  tbody tr:last-child td { border-bottom: none; }
-
-  &__row--err td { background: #fff1f2; }
-
-  &__msg { color: #64748b; }
-}
-
-.pp-import-badge {
-  display: inline-flex;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: #f1f5f9;
-  color: #475569;
-
-  &--ok  { background: #dcfce7; color: #166534; }
-  &--err { background: #fce7f3; color: #be123c; }
-}
-
-.pp-spinner {
-  width: 15px;
-  height: 15px;
-  animation: nf-spin 0.75s linear infinite;
+  background-color: #132744;
 }
 
 // El badge de situación sigue diciendo "en actividad": este chip es el real.
@@ -650,9 +436,9 @@ $pp-alto-control: 2.75rem;
 .personal-page__check {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   height: $pp-alto-control;
-  padding: 0 0.85rem;
+  padding: 0 0.65rem;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   background-color: #ffffff;
@@ -660,7 +446,6 @@ $pp-alto-control: 2.75rem;
   color: #475569;
   white-space: nowrap;
   cursor: pointer;
-  flex-shrink: 0;
   box-sizing: border-box;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 
@@ -674,4 +459,33 @@ $pp-alto-control: 2.75rem;
     color: #132744;
     font-weight: 500;
   }
+}
+
+// ─── Derecha y numor ─────────────────────────────────────────────────────────
+
+.personal-page__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.personal-page__num {
+  font-variant-numeric: tabular-nums;
+  color: #132744;
+  font-weight: 600;
+}
+
+.personal-page__escalafon {
+  color: #64748b;
+  font-size: 0.78rem;
 }

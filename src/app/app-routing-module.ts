@@ -2,7 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { MainLayout } from './core/layout/main-layout/main-layout';
 import { NotFoundPage } from './features/not-found/pages/not-found-page/not-found-page';
-import { authGuard } from './core/guards/auth.guard';
+import { authGuard, sesionActivaMatch } from './core/guards/auth.guard';
 import { permissionGuard } from './core/guards/permission.guard';
 
 const routes: Routes = [
@@ -23,7 +23,7 @@ const routes: Routes = [
       },
       {
         path: 'personal',
-        canActivate: [permissionGuard(['personas.ver', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar'])],
+        canActivate: [permissionGuard(['personas.ver', 'personas.crear', 'personas.editar', 'personas.eliminar', 'relaciones_laborales.ver', 'relaciones_laborales.gestionar', 'derecha.gestionar'])],
         loadChildren: () => import('./features/personal/personal-module').then((m) => m.PersonalModule),
       },
       {
@@ -52,6 +52,16 @@ const routes: Routes = [
         loadChildren: () => import('./features/destinos/destinos-module').then((m) => m.DestinosModule),
       },
       {
+        path: 'vuelos',
+        canActivate: [permissionGuard(['vuelos.ver', 'vuelos.ver.unidad', 'vuelos.gestionar', 'vuelos.gestionar.unidad'])],
+        loadChildren: () => import('./features/vuelos/vuelos-module').then((m) => m.VuelosModule),
+      },
+      {
+        path: 'comisiones',
+        canActivate: [permissionGuard(['comisiones.ver'])],
+        loadChildren: () => import('./features/comisiones/comisiones-module').then((m) => m.ComisionesModule),
+      },
+      {
         path: 'reportes',
         canActivate: [permissionGuard(['reportes.ejecutar'])],
         loadChildren: () => import('./features/reportes/reportes-module').then((m) => m.ReportesModule),
@@ -71,16 +81,12 @@ const routes: Routes = [
         canActivate: [permissionGuard(['usuarios.ver', 'roles.ver', 'unidades.ver'])],
         loadChildren: () => import('./features/usuarios-y-roles/usuarios-y-roles-module').then((m) => m.UsuariosYRolesModule),
       },
+      // Con sesión, la 404 se ve dentro del layout. Sin sesión no matchea y cae en la de abajo.
+      { path: '**', component: NotFoundPage, canMatch: [sesionActivaMatch] },
     ],
   },
-  {
-    path: 'not-found',
-    component: NotFoundPage,
-  },
-  {
-    path: '**',
-    redirectTo: 'not-found',
-  },
+  // Sin redirectTo: la dirección mal escrita queda en la barra para que se vea qué se tipeó.
+  { path: '**', component: NotFoundPage },
 ];
 
 @NgModule({

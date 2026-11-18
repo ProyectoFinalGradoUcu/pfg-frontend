@@ -69,14 +69,14 @@ describe('PasiblesPage', () => {
   let svc: { listarPasibles: ReturnType<typeof vi.fn> };
   let personal: {
     getEscalafones: ReturnType<typeof vi.fn>;
-    getUnidades: ReturnType<typeof vi.fn>;
+    getBases: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
     svc = { listarPasibles: vi.fn().mockReturnValue(of(makePagina())) };
     personal = {
       getEscalafones: vi.fn().mockReturnValue(of([])),
-      getUnidades: vi.fn().mockReturnValue(of([])),
+      getBases: vi.fn().mockReturnValue(of([])),
     };
 
     await TestBed.configureTestingModule({
@@ -180,16 +180,23 @@ describe('PasiblesPage', () => {
       expect(component.fechaReferencia()).toBe('');
     });
 
+    it('el filtro de base viaja como sub_unidad_id', () => {
+      svc.listarPasibles.mockClear();
+      component.onBase('7');
+
+      expect(svc.listarPasibles).toHaveBeenLastCalledWith(expect.objectContaining({ sub_unidad_id: 7 }));
+    });
+
     it('limpiar vuelve a los valores iniciales', () => {
       component.onEstados([]);
       component.onBusqueda('pérez');
-      component.onUnidad('5');
+      component.onBase('5');
       component.onFecha('2027-02-01');
 
       component.limpiarFiltros();
 
       expect(component.filtroEstados()).toEqual(['PASIBLE', 'PROXIMO']);
-      expect(component.filtroUnidad()).toBeNull();
+      expect(component.filtroBase()).toBeNull();
       expect(component.textoBusqueda()).toBe('');
       expect(component.fechaReferencia()).toBe('');
       expect(component.horizonteMeses()).toBe(6);

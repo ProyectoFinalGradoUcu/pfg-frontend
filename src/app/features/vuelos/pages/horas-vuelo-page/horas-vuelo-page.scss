@@ -1,0 +1,307 @@
+@use '../../vuelos-base' as *;
+
+$borde: #e2e8f0;
+$texto-suave: #64748b;
+$verde: #15803d;
+
+// Barra de avance (tarjetas de período y resumen)
+
+.barra {
+  display: block;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background-color: #eef2f6;
+  overflow: hidden;
+
+  &--ancha { height: 6px; }
+}
+
+.barra__relleno {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  background-color: $navy;
+  transition: width 0.25s ease;
+}
+
+// Card de períodos
+
+.periodos {
+  background-color: #ffffff;
+  border: 1px solid $borde;
+  border-radius: 12px;
+}
+
+.periodos__seleccion {
+  display: flex;
+  align-items: stretch;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  flex-wrap: wrap;
+}
+
+.periodos__filtros {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.periodos__campo {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 190px;
+
+  label { font-size: 0.8rem; font-weight: 500; color: #475569; }
+
+  &--anio { width: 140px; }
+}
+
+.periodos__grid {
+  flex: 1 1 560px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.periodo-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.45rem;
+  padding: 0.85rem 1rem 0.95rem;
+  border: 1px solid $borde;
+  border-radius: 10px;
+  background-color: #ffffff;
+  font-family: inherit;
+  text-align: left;
+  color: #0f172a;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover:not(:disabled) { border-color: #94a3b8; }
+  &:disabled { cursor: not-allowed; }
+
+  &--activa {
+    border: 1.5px solid $navy;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  }
+
+  &--vacia {
+    .periodo-tile__top strong { color: #475569; }
+  }
+}
+
+.periodo-tile__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  strong { font-size: 0.95rem; font-weight: 600; }
+}
+
+.periodo-tile__estado {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background-color: #dcfce7;
+  color: $verde;
+  font-size: 0.72rem;
+  font-weight: 600;
+
+  &--cerrado { background-color: #f1f5f9; color: #475569; }
+}
+
+.periodo-tile__sub { font-size: 0.82rem; color: $texto-suave; }
+
+// Resumen del período elegido
+
+.periodos__resumen {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem 2.25rem;
+  flex-wrap: wrap;
+  padding: 1.1rem 1.5rem 1.25rem;
+  border-top: 1px solid #eef2f6;
+}
+
+.resumen__avance {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 260px;
+  padding-right: 2.25rem;
+  border-right: 1px solid $borde;
+
+  p { margin: 0; color: $texto-suave; font-size: 1rem; }
+  strong { color: #0f172a; font-size: 1.9rem; font-weight: 700; line-height: 1; margin-right: 0.2rem; }
+}
+
+.resumen__datos {
+  display: flex;
+  gap: 2.25rem;
+  flex-wrap: wrap;
+}
+
+.resumen__dato {
+  display: grid;
+  gap: 0.2rem;
+
+  strong { color: #0f172a; font-size: 1.35rem; font-weight: 700; line-height: 1.1; }
+  span { color: $texto-suave; font-size: 0.82rem; }
+}
+
+.resumen__acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+// Card de personal
+
+.personal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+
+  h3 { margin: 0; }
+}
+
+.personal__hint { margin: 0.25rem 0 0; font-size: 0.82rem; color: $texto-suave; }
+
+.personal__filtros { margin-bottom: 1rem; }
+
+// Pestañas Todos / Pendientes / Cargados
+
+.segmentos {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 10px;
+  background-color: #f1f5f9;
+}
+
+.segmentos__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  font-family: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+
+  &:hover { color: #0f172a; }
+
+  &--activo {
+    background-color: #ffffff;
+    color: #0f172a;
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+
+    .segmentos__cantidad { background-color: $navy; color: #ffffff; }
+  }
+}
+
+.segmentos__cantidad {
+  min-width: 1.5rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background-color: #e2e8f0;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+// Tabla
+
+.registros__wrapper {
+  overflow-x: auto;
+  border: 1px solid $borde;
+  border-radius: 10px;
+}
+
+.registros {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+
+  th,
+  td {
+    padding: 0.85rem 1rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid #eef2f6;
+  }
+
+  thead th {
+    background-color: #f8fafc;
+    color: $texto-suave;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background-color: #f8fafc; }
+}
+
+.registros__nombre {
+  display: block;
+  color: #0f172a;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.registros__datos {
+  display: block;
+  margin-top: 0.15rem;
+  color: $texto-suave;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.registros__unidad { white-space: nowrap; color: #0f172a; }
+
+.registros__sin-unidad {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #c2410c;
+
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: #f59e0b;
+  }
+}
+
+.registros__aeronaves {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #475569;
+  font-size: 0.82rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

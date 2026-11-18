@@ -1,0 +1,231 @@
+$navy: #132744;
+$line: #e2e8f0;
+$muted: #64748b;
+$text: #0f172a;
+
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.appdate {
+  position: relative;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+// Mismo aspecto que el control de app-select.
+.appdate__control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.55rem;
+  padding: 0 0.85rem;
+  border: 1px solid $line;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: $text;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    border-color: #cbd5e1;
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: $navy;
+  }
+
+  &:disabled {
+    background-color: #f8fafc;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+}
+
+.appdate--abierto .appdate__control {
+  border-color: $navy;
+}
+
+.appdate__valor,
+.appdate__placeholder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appdate__placeholder {
+  color: #94a3b8;
+}
+
+.appdate__iconos {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: $muted;
+  flex-shrink: 0;
+}
+
+.appdate__quitar {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 3px;
+  color: #94a3b8;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background-color: #f1f5f9;
+    color: $text;
+  }
+}
+
+.appdate__calendario {
+  display: inline-flex;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+// `fixed` + coordenadas del control: así no lo recorta el `overflow` del contenedor.
+// El ancho va en sintonía con ANCHO_PANEL del componente.
+.appdate__panel {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: 288px;
+  padding: 0.75rem;
+  background-color: #ffffff;
+  border: 1px solid $line;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.appdate__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.appdate__mes {
+  flex: 1;
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: $navy;
+}
+
+.appdate__nav {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: $muted;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #f1f5f9;
+    color: $text;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $navy;
+    outline-offset: 1px;
+  }
+}
+
+.appdate__grilla {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.15rem;
+}
+
+.appdate__dia-semana {
+  padding: 0.25rem 0;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: $muted;
+}
+
+.appdate__dia {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: $text;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background-color: #f1f5f9;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $navy;
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    color: #cbd5e1;
+    cursor: not-allowed;
+  }
+}
+
+.appdate__dia--hoy {
+  border-color: #cbd5e1;
+  font-weight: 600;
+}
+
+.appdate__dia--seleccionado,
+.appdate__dia--seleccionado:hover:not(:disabled) {
+  background-color: $navy;
+  border-color: $navy;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.appdate__pie {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.appdate__hoy {
+  border: none;
+  background: none;
+  color: $navy;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    color: #cbd5e1;
+    cursor: not-allowed;
+  }
+}

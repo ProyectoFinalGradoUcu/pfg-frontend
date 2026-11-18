@@ -10,16 +10,22 @@ export interface RolDeUnidad {
   permisos: PermisoDeRol[];
 }
 
+export interface ComandoDeUnidad {
+  id: string;
+  codigo: string;
+  denominacion: string;
+}
+
+/** Una base (sub-unidad de liquidación). A ella se le asignan usuarios y roles heredables. */
 export interface UnidadListItem {
   id: string;
   codigo: string;
   denominacion: string;
   vigente: boolean;
+  comando: ComandoDeUnidad;
   cantidadRoles: number;
   /** Usuarios del sistema asignados a la unidad: los que quedarían deslogueados. */
   cantidadUsuarios: number;
-  /** Funcionarios con relación laboral activa destinados en la unidad. */
-  cantidadFuncionarios: number;
 }
 
 export interface UnidadDetalle {
@@ -27,9 +33,9 @@ export interface UnidadDetalle {
   codigo: string;
   denominacion: string;
   vigente: boolean;
+  comando: ComandoDeUnidad;
   roles: RolDeUnidad[];
   cantidadUsuarios: number;
-  cantidadFuncionarios: number;
 }
 
 /** Cuenta de la aplicación asignada a la unidad. No es un funcionario del padrón. */
@@ -65,4 +71,6 @@ export interface ListUnidadesQuery {
   pageSize?: number;
   search?: string;
   vigente?: boolean;
+  /** Solo las bases de ese comando. */
+  unidad_id?: string;
 }

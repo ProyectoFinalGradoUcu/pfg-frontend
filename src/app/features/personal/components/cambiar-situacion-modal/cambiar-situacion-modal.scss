@@ -1,0 +1,17 @@
+@use '../../../retiros/modal-base' as *;
+
+.cs__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.cs__opcion {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: #0f172a;
+  cursor: pointer;
+
+  input { min-height: auto; }
+  small { color: #64748b; }
+}
