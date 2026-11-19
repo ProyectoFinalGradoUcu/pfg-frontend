@@ -358,6 +358,9 @@ export class CursosPage implements OnInit, OnDestroy {
     this.pendientes.descartarSiVacio(this.designarForm.controls.boletin, 'boletin', this.destroy$);
     this.pendientes.descartarSiVacio(this.nuevoCursoForm.controls.numero_orden, 'orden', this.destroy$);
     this.pendientes.descartarSiVacio(this.nuevoCursoForm.controls.boletin, 'boletin', this.destroy$);
+    // Desde el perfil: `?cedula=<cédula>` filtra las inscripciones de esa persona.
+    const cedula = this.route.snapshot.queryParamMap.get('cedula');
+    if (cedula) this.cedulaFiltro.set(cedula);
     this.cargar();
     this.cargarDefiniciones();
 

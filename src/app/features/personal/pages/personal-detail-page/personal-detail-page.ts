@@ -172,6 +172,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   // La base no se edita en el perfil. Se cambia registrando un pase, para que el destino
   // y la relación laboral queden iguales.
   readonly puedeRegistrarDestino = computed(() => this.auth.hasPermiso('destinos.gestionar'));
+  // Lo que sigue activo se edita en su módulo: el perfil solo lleva hasta ahí.
+  readonly puedeGestionarMisiones = computed(() => this.auth.hasPermiso('misiones.gestionar'));
+  readonly puedeGestionarCursos = computed(() => this.auth.puedeConAlcance('cursos.gestionar'));
+  readonly puedeGestionarComisiones = computed(() => this.auth.puedeConAlcance('comisiones.gestionar'));
   /** La situación se cambia como en liquidación: cerrando la relación y abriendo otra. */
   readonly puedeCambiarSituacion = computed(() => this.auth.puedeConAlcance('personas.editar'));
   readonly cambiandoSituacion = signal(false);
@@ -814,6 +818,22 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     this.loadPersona();
     // El historial militar muestra las relaciones: se vuelve a pedir.
     this.loadedTabs.delete('historial');
+  }
+
+  editarConvocatoria(misionId: string, convocatoriaId: string): void {
+    this.router.navigate(['/misiones/catalogo', misionId, 'convocatorias', convocatoriaId]);
+  }
+
+  verEnCursos(): void {
+    this.router.navigate(['/cursos/inscripciones'], { queryParams: { cedula: this.persona()?.cedula } });
+  }
+
+  editarDestino(destinoId: string): void {
+    this.router.navigate(['/destinos/asignaciones'], { queryParams: { editar: destinoId } });
+  }
+
+  editarComision(asignacionId: string): void {
+    this.router.navigate(['/comisiones/asignaciones'], { queryParams: { editar: asignacionId, persona: this.personaId } });
   }
 
   // ─── Tabs ────────────────────────────────────────────────────────────────
