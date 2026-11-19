@@ -1066,6 +1066,12 @@
   flex-wrap: wrap;
 }
 
+.pd__mission-card__actos {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 .pd__mission-card__orden {
   font-size: 0.75rem;
   font-weight: 600;

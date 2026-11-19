@@ -664,6 +664,21 @@ describe('PersonalDetailPage', () => {
       expect((boletin.api as any).id).toBe('asignacion:5');
     });
 
+    it('misiones: la tarjeta muestra el número de orden y la resolución', () => {
+      svc.getMisiones.mockReturnValue(of([{
+        id: '5', mision_id: '1', convocatoria_id: '77', nombre_mision: 'MONUSCO', pais: 'Congo',
+        fecha_salida: '2024-01-01', fecha_llegada: null, numero_orden: 'A-1', boletin: 'R. 12', finalizada: false,
+        documentos: { orden: null, boletin: null }, documentos_convocatoria: { orden: null, boletin: null },
+      }]));
+      conPermisos(['misiones.ver']);
+      component.switchTab('misiones');
+      fixture.detectChanges();
+
+      const etiquetas = [...fixture.nativeElement.querySelectorAll('.pd__mission-card__orden')]
+        .map((e: HTMLElement) => [e.title, e.textContent?.trim()]);
+      expect(etiquetas).toEqual([['N° de orden', 'A-1'], ['Resolución', 'R. 12']]);
+    });
+
     it('cursos: ya no hay link a la resolución y el número se ve como texto', () => {
       svc.getCursos.mockReturnValue(of([{
         id: '3', curso_id: 8, nombre_curso: 'Curso', institucion: 'ETA', es_obligatorio: true, boletin: 'B-9',
