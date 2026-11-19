@@ -1236,7 +1236,10 @@
           </div>
           <div class="pd__mission-card__meta">
             <span>{{ formatDate(m.fecha_salida) }} – {{ m.fecha_llegada ? formatDate(m.fecha_llegada) : 'Presente' }}</span>
-            <span class="pd__mission-card__orden">{{ m.numero_orden || m.boletin }}</span>
+            <span class="pd__mission-card__actos">
+              <span class="pd__mission-card__orden" *ngIf="m.numero_orden" title="N° de orden">{{ m.numero_orden }}</span>
+              <span class="pd__mission-card__orden" *ngIf="m.boletin" title="Resolución">{{ m.boletin }}</span>
+            </span>
           </div>
           <app-documentos-registro *ngIf="m.slots.length" [mostrarNumero]="false" [slots]="m.slots" registro="esta asignación" />
         </div>
