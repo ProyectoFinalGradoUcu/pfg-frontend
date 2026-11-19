@@ -20,7 +20,7 @@ import { DerechaService } from '../../../../core/services/derecha.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { MisionesService } from '../../../../core/services/misiones.service';
 import { CursosService } from '../../../../core/services/cursos.service';
-import { SlotVista, armarSlots, ETIQUETAS_BOLETIN } from '../../../../core/services/documentos-registro';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import { Impacto } from '../../../../core/models/derecha.models';
 import { requeridoSinEspacios } from '../../../../shared/utils/validadores';
 import { parseError } from '../../../../shared/utils/parse-error';
@@ -172,6 +172,10 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   // La base no se edita en el perfil. Se cambia registrando un pase, para que el destino
   // y la relación laboral queden iguales.
   readonly puedeRegistrarDestino = computed(() => this.auth.hasPermiso('destinos.gestionar'));
+  // Lo que sigue activo se edita en su módulo: el perfil solo lleva hasta ahí.
+  readonly puedeGestionarMisiones = computed(() => this.auth.hasPermiso('misiones.gestionar'));
+  readonly puedeGestionarCursos = computed(() => this.auth.puedeConAlcance('cursos.gestionar'));
+  readonly puedeGestionarComisiones = computed(() => this.auth.puedeConAlcance('comisiones.gestionar'));
   /** La situación se cambia como en liquidación: cerrando la relación y abriendo otra. */
   readonly puedeCambiarSituacion = computed(() => this.auth.puedeConAlcance('personas.editar'));
   readonly cambiandoSituacion = signal(false);
@@ -816,6 +820,22 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
     this.loadedTabs.delete('historial');
   }
 
+  editarConvocatoria(misionId: string, convocatoriaId: string): void {
+    this.router.navigate(['/misiones/catalogo', misionId, 'convocatorias', convocatoriaId]);
+  }
+
+  verEnCursos(): void {
+    this.router.navigate(['/cursos/inscripciones'], { queryParams: { cedula: this.persona()?.cedula } });
+  }
+
+  editarDestino(destinoId: string): void {
+    this.router.navigate(['/destinos/asignaciones'], { queryParams: { editar: destinoId } });
+  }
+
+  editarComision(asignacionId: string): void {
+    this.router.navigate(['/comisiones/asignaciones'], { queryParams: { editar: asignacionId, persona: this.personaId } });
+  }
+
   // ─── Tabs ────────────────────────────────────────────────────────────────
 
   switchTab(key: TabKey): void {
@@ -1341,7 +1361,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   }
 
   private conSlotsDestino(d: DestinoDePersona): DestinoVista {
-    const slots = armarSlots(this.destinosApi.documentos(d.id), d.documentos, { orden: d.numero_orden, boletin: d.boletin }, false, ETIQUETAS_BOLETIN);
+    const slots = armarSlots(this.destinosApi.documentos(d.id), d.documentos, { orden: d.numero_orden, boletin: d.boletin }, false);
     return { ...d, slots: this.slotsVisibles('destinos.ver', slots) };
   }
 
@@ -1354,7 +1374,7 @@ export class PersonalDetailPage implements OnInit, OnDestroy {
   private conSlotsMision(m: MisionPersona): MisionVista {
     const apiConvocatoria = this.misionesApi.documentosConvocatoria(m.convocatoria_id);
     const slots = armarSlots(
-      this.misionesApi.documentosAsignacion(m.id), m.documentos, { orden: m.numero_orden, boletin: m.boletin }, false, ETIQUETAS_BOLETIN,
+      this.misionesApi.documentosAsignacion(m.id), m.documentos, { orden: m.numero_orden, boletin: m.boletin }, false,
     ).map((s): SlotVista => {
       const heredado = m.documentos_convocatoria[s.slot];
       return !s.documento && heredado

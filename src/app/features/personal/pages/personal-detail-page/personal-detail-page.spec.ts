@@ -7,7 +7,7 @@ import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
-import { PersonalDetailPage } from './personal-detail-page';
+import { PersonalDetailPage, TabKey } from './personal-detail-page';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -105,6 +105,7 @@ describe('PersonalDetailPage', () => {
     getCursos: ReturnType<typeof vi.fn>;
     getDestinos: ReturnType<typeof vi.fn>;
     getMisiones: ReturnType<typeof vi.fn>;
+    getComisiones: ReturnType<typeof vi.fn>;
     getSituaciones: ReturnType<typeof vi.fn>;
     getRegimenes: ReturnType<typeof vi.fn>;
     getProgramas: ReturnType<typeof vi.fn>;
@@ -126,6 +127,7 @@ describe('PersonalDetailPage', () => {
       getCursos: vi.fn().mockReturnValue(of([])),
       getDestinos: vi.fn().mockReturnValue(of([])),
       getMisiones: vi.fn().mockReturnValue(of([])),
+      getComisiones: vi.fn().mockReturnValue(of([])),
       getSituaciones: vi.fn().mockReturnValue(of([])),
       getRegimenes: vi.fn().mockReturnValue(of([])),
       getProgramas: vi.fn().mockReturnValue(of([])),
@@ -664,7 +666,22 @@ describe('PersonalDetailPage', () => {
       expect((boletin.api as any).id).toBe('asignacion:5');
     });
 
-    it('cursos: ya no hay link al boletín y el número se ve como texto', () => {
+    it('misiones: la tarjeta muestra el número de orden y la resolución', () => {
+      svc.getMisiones.mockReturnValue(of([{
+        id: '5', mision_id: '1', convocatoria_id: '77', nombre_mision: 'MONUSCO', pais: 'Congo',
+        fecha_salida: '2024-01-01', fecha_llegada: null, numero_orden: 'A-1', boletin: 'R. 12', finalizada: false,
+        documentos: { orden: null, boletin: null }, documentos_convocatoria: { orden: null, boletin: null },
+      }]));
+      conPermisos(['misiones.ver']);
+      component.switchTab('misiones');
+      fixture.detectChanges();
+
+      const etiquetas = [...fixture.nativeElement.querySelectorAll('.pd__mission-card__orden')]
+        .map((e: HTMLElement) => [e.title, e.textContent?.trim()]);
+      expect(etiquetas).toEqual([['N° de orden', 'A-1'], ['Resolución', 'R. 12']]);
+    });
+
+    it('cursos: ya no hay link a la resolución y el número se ve como texto', () => {
       svc.getCursos.mockReturnValue(of([{
         id: '3', curso_id: 8, nombre_curso: 'Curso', institucion: 'ETA', es_obligatorio: true, boletin: 'B-9',
         numero_orden: 'O-2', fecha_inicio: '2024-01-01', fecha_fin: '2024-02-01', aprobado: null,
@@ -695,6 +712,94 @@ describe('PersonalDetailPage', () => {
       expect(bloque.mostrarNumero).toBe(false);
       const card = fixture.nativeElement.querySelector('.pd__course-card') as HTMLElement;
       expect(card.textContent!.split('O-2').length - 1).toBe(1);
+    });
+  });
+
+  describe('editar lo activo en su módulo', () => {
+    const sinDocs: DocumentosRegistro = { orden: null, boletin: null };
+    const conPermisos = (permisos: string[]): void => {
+      const auth = TestBed.inject(AuthService);
+      vi.spyOn(auth, 'hasPermiso').mockImplementation((p: string) => permisos.includes(p));
+      vi.spyOn(auth, 'puedeConAlcance').mockImplementation((p: string) => permisos.includes(p));
+      fixture = TestBed.createComponent(PersonalDetailPage);
+      component = fixture.componentInstance;
+      fixture.detectChanges();
+    };
+    const abrir = (tab: TabKey): void => {
+      component.switchTab(tab);
+      fixture.detectChanges();
+    };
+    const boton = (texto: string): HTMLButtonElement | undefined =>
+      [...fixture.nativeElement.querySelectorAll('.pd__card-accion button')].find((b: HTMLButtonElement) => b.textContent!.includes(texto));
+    const navegar = () => (TestBed.inject(Router) as unknown as { navigate: ReturnType<typeof vi.fn> }).navigate;
+    const mision = (finalizada: boolean) => ({
+      id: '5', mision_id: '1', convocatoria_id: '77', nombre_mision: 'MONUSCO', pais: 'Congo', fecha_salida: '2024-01-01',
+      fecha_llegada: null, numero_orden: 'A-1', boletin: null, finalizada, documentos: sinDocs, documentos_convocatoria: sinDocs,
+    });
+    const destino = (activo: boolean) => ({
+      id: '9', unidad_id: null, unidad: 'C.A.O.', codigo_unidad: null, sub_unidad_id: null, sub_unidad: 'B.A.I.',
+      codigo_sub_unidad: null, posicion_destino: null, fecha_inicio: '2024-01-01', fecha_fin: activo ? null : '2024-06-01',
+      numero_orden: '123', boletin: null, observaciones: null, activo, documentos: sinDocs,
+    });
+    const curso = (completado: boolean) => ({
+      id: '3', curso_id: 8, nombre_curso: 'Curso', institucion: 'ETA', es_obligatorio: true, boletin: null, numero_orden: 'O-2',
+      fecha_inicio: '2024-01-01', fecha_fin: '2024-02-01', aprobado: completado ? true : null, calificacion: null,
+      observacion: null, completado, documentos: sinDocs,
+    });
+    const comision = (activo: boolean) => ({
+      id: '12', cargo: null, comision_id: '4', comision: 'DGAC', fecha_inicio: '2024-01-01', fecha_fin: activo ? null : '2024-06-01',
+      numero_orden: null, boletin: 'R. 1', activo, importada: false, texto_original: null, periodo: null,
+    });
+
+    it('misión en curso: lleva a su convocatoria', () => {
+      svc.getMisiones.mockReturnValue(of([mision(false)]));
+      conPermisos(['misiones.ver', 'misiones.gestionar']);
+      abrir('misiones');
+
+      boton('Editar en Misiones')!.click();
+      expect(navegar()).toHaveBeenCalledWith(['/misiones/catalogo', '1', 'convocatorias', '77']);
+    });
+
+    it('misión finalizada o sin permiso de gestión: no hay botón', () => {
+      svc.getMisiones.mockReturnValue(of([mision(true)]));
+      conPermisos(['misiones.ver', 'misiones.gestionar']);
+      abrir('misiones');
+      expect(boton('Editar en Misiones')).toBeUndefined();
+
+      svc.getMisiones.mockReturnValue(of([mision(false)]));
+      conPermisos(['misiones.ver']);
+      abrir('misiones');
+      expect(boton('Editar en Misiones')).toBeUndefined();
+    });
+
+    it('destino vigente: abre su edición en Destinos; el cerrado no tiene botón', () => {
+      svc.getDestinos.mockReturnValue(of([destino(true), destino(false)]));
+      conPermisos(['destinos.ver', 'destinos.gestionar']);
+      abrir('destinos');
+
+      expect(fixture.nativeElement.querySelectorAll('.pd__card-accion').length).toBe(1);
+      boton('Editar en Destinos')!.click();
+      expect(navegar()).toHaveBeenCalledWith(['/destinos/asignaciones'], { queryParams: { editar: '9' } });
+    });
+
+    it('comisión abierta: abre su edición en Comisiones con la persona', () => {
+      svc.getComisiones.mockReturnValue(of([comision(true), comision(false)]));
+      conPermisos(['comisiones.ver', 'comisiones.gestionar']);
+      abrir('comisiones');
+
+      expect(fixture.nativeElement.querySelectorAll('.pd__card-accion').length).toBe(1);
+      boton('Editar en Comisiones')!.click();
+      expect(navegar()).toHaveBeenCalledWith(['/comisiones/asignaciones'], { queryParams: { editar: '12', persona: component['personaId'] } });
+    });
+
+    it('curso en curso: lleva a Inscripciones filtrado por la cédula; el completado no tiene botón', () => {
+      svc.getCursos.mockReturnValue(of([curso(false), curso(true)]));
+      conPermisos(['cursos.ver', 'cursos.gestionar']);
+      abrir('cursos');
+
+      expect(fixture.nativeElement.querySelectorAll('.pd__card-accion').length).toBe(1);
+      boton('Ver en Cursos')!.click();
+      expect(navegar()).toHaveBeenCalledWith(['/cursos/inscripciones'], { queryParams: { cedula: component.persona()!.cedula } });
     });
   });
   describe('edición: campos por tipo y pestañas (SCRUM-159, SCRUM-196, SCRUM-199)', () => {

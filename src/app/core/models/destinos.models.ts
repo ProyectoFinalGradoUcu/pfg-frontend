@@ -44,8 +44,6 @@ export interface Destino {
   numero_destino: string | null;
   fecha_orden: string | null;
   fecha_boletin: string | null;
-  numero_resolucion: string | null;
-  fecha_resolucion: string | null;
   observaciones: string | null;
   activo: boolean;
   documentos: DocumentosRegistro;
@@ -157,8 +155,6 @@ export interface CrearDestinoPayload {
   numero_destino?: string;
   fecha_orden?: string;
   fecha_boletin?: string;
-  numero_resolucion?: string;
-  fecha_resolucion?: string;
   /** Con qué fecha cerrar el destino previo. Omitido = el día anterior a `fecha_inicio`. */
   fecha_fin_anterior?: string;
   observaciones?: string;
@@ -174,8 +170,6 @@ export interface EditarDestinoPayload {
   numero_destino?: string | null;
   fecha_orden?: string | null;
   fecha_boletin?: string | null;
-  numero_resolucion?: string | null;
-  fecha_resolucion?: string | null;
   observaciones?: string | null;
 }
 

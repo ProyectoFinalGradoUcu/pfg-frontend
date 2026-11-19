@@ -126,7 +126,7 @@
         </div>
 
         <div class="destino-form__field">
-          <label>Boletín</label>
+          <label>Resolución</label>
           <input type="text" formControlName="boletin" maxlength="50" />
           <app-documento-adjunto
             *ngIf="!editando()"
@@ -141,28 +141,18 @@
         </div>
 
         <div class="destino-form__field">
-          <label>Des Num</label>
-          <input type="text" formControlName="numero_destino" maxlength="20" />
-        </div>
-
-        <div class="destino-form__field">
           <label>Fecha orden</label>
           <input type="date" formControlName="fecha_orden" />
         </div>
 
         <div class="destino-form__field">
-          <label>Fecha boletín</label>
+          <label>Fecha de resolución</label>
           <input type="date" formControlName="fecha_boletin" />
         </div>
 
         <div class="destino-form__field">
-          <label>N° de resolución</label>
-          <input type="text" formControlName="numero_resolucion" maxlength="50" />
-        </div>
-
-        <div class="destino-form__field">
-          <label>Fecha resolución</label>
-          <input type="date" formControlName="fecha_resolucion" />
+          <label>Des Num</label>
+          <input type="text" formControlName="numero_destino" maxlength="20" />
         </div>
 
         <div class="destino-form__field destino-form__field--full">
@@ -171,7 +161,7 @@
         </div>
       </div>
 
-      <p class="destino-form__requisito">Se necesita al menos el N° de orden o el boletín.</p>
+      <p class="destino-form__requisito">Se necesita al menos el N° de orden o la resolución.</p>
       <p class="modal__error" *ngIf="error()">{{ error() }}</p>
     </div>
 

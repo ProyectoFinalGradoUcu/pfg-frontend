@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { vi } from 'vitest';
@@ -116,6 +116,7 @@ describe('CursosPage', () => {
     hasPermiso = true,
     basesPropias: (typeof BAI)[] | null = null,
     permisos?: Record<string, 'global' | 'unidad'>,
+    queryParams: Record<string, string> = {},
   ) {
     cursosService = makeCursosServiceSpy();
     personalService = {
@@ -148,7 +149,7 @@ describe('CursosPage', () => {
         { provide: PersonalService, useValue: personalService },
         { provide: AuthService, useValue: authService },
         { provide: ToastService, useValue: toastService },
-        { provide: ActivatedRoute, useValue: { snapshot: { data: { section: routeSection } } } },
+        { provide: ActivatedRoute, useValue: { snapshot: { data: { section: routeSection }, queryParamMap: convertToParamMap(queryParams) } } },
       ],
     }).compileComponents();
 
@@ -205,6 +206,12 @@ describe('CursosPage', () => {
       await setup();
       expect(cursosService.findFuncionariosConCursos).toHaveBeenCalled();
       expect(cursosService.findAllDefiniciones).toHaveBeenCalled();
+    });
+
+    it('desde el perfil llega filtrado por la cédula', async () => {
+      await setup('inscripciones', true, null, undefined, { cedula: '60000001' });
+      expect(component.cedulaFiltro()).toBe('60000001');
+      expect(cursosService.findFuncionariosConCursos.mock.calls[0][0]).toBe('60000001');
     });
 
     it('no carga 100 personas al iniciar: los selectores buscan en el servidor', async () => {
@@ -868,7 +875,7 @@ describe('CursosPage', () => {
       expect(cursosService.crearDesignacion).not.toHaveBeenCalled();
     });
 
-    it('guardarDesignar setea error si faltan N° Orden y Boletín', () => {
+    it('guardarDesignar setea error si faltan N° Orden y Resolución', () => {
       openDesignar();
       component.designarForm.patchValue({ numero_orden: '', boletin: '', persona_ids: ['1'], fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01' });
       component.guardarDesignar();
@@ -876,14 +883,14 @@ describe('CursosPage', () => {
       expect(cursosService.crearDesignacion).not.toHaveBeenCalled();
     });
 
-    it('guardarDesignar se habilita si solo hay N° Orden (sin Boletín)', () => {
+    it('guardarDesignar se habilita si solo hay N° Orden (sin Resolución)', () => {
       openDesignar();
       component.designarForm.patchValue({ numero_orden: 'N1', boletin: '', persona_ids: ['1'], fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01' });
       component.guardarDesignar();
       expect(cursosService.crearDesignacion).toHaveBeenCalled();
     });
 
-    it('guardarDesignar se habilita si solo hay Boletín (sin N° Orden)', () => {
+    it('guardarDesignar se habilita si solo hay Resolución (sin N° Orden)', () => {
       openDesignar();
       component.designarForm.patchValue({ numero_orden: '', boletin: 'B1', persona_ids: ['1'], fecha_inicio: '2025-01-01', fecha_fin: '2025-06-01' });
       component.guardarDesignar();

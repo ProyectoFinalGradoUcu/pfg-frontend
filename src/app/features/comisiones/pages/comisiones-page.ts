@@ -1,5 +1,5 @@
 import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormBuilder, FormControl, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Observable, Subject, catchError, debounceTime, finalize, of, switchMap } from 'rxjs';
@@ -17,6 +17,7 @@ type Modal = 'comision' | 'asignacion' | 'cerrar' | 'reabrir' | 'eliminar' | nul
 @Component({ selector: 'app-comisiones-page', standalone: false, templateUrl: './comisiones-page.html', styleUrl: './comisiones-page.scss' })
 export class ComisionesPage {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly service = inject(ComisionesService);
   private readonly personal = inject(PersonalService);
   private readonly auth = inject(AuthService);
@@ -123,6 +124,19 @@ export class ComisionesPage {
     this.cargar();
     this.cargarDetalle();
     if (!this.catalogo && !this.comisionId) this.filtrarComisiones();
+    this.abrirDesdeEnlace();
+  }
+
+  /** Desde el perfil: `?editar=<asignación>&persona=<id>` abre esa asignación para editar. */
+  private abrirDesdeEnlace() {
+    const params = this.route.snapshot.queryParamMap;
+    const id = params.get('editar');
+    const persona = Number(params.get('persona'));
+    if (this.catalogo || !id || !persona || !this.puedeGestionar()) return;
+    this.service.asignaciones({ persona_id: persona, pageSize: 100 }).pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroy))
+      .subscribe(res => { const a = res?.items.find(x => x.id === id); if (a) this.abrirAsignacion(a); });
+    // Que al recargar no se vuelva a abrir.
+    this.router.navigate([], { relativeTo: this.route, queryParams: { editar: null, persona: null }, queryParamsHandling: 'merge', replaceUrl: true });
   }
   private query(): ComisionesQuery {
     return { page: this.page(), pageSize: 10, query: this.filtroTexto.trim() || undefined,

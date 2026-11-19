@@ -111,7 +111,7 @@ describe('DocumentosRegistroComponent', () => {
     expect(texto()).toContain('Resolución');
   });
 
-  it('sin ningún slot visible avisa que no hay número de orden ni boletín', async () => {
+  it('sin ningún slot visible avisa que no hay número de orden ni resolución', async () => {
     await montar([slot({ numero: null }), boletin({ numero: '  ' })]);
 
     expect(texto()).toContain('Sin número de orden ni resolución.');

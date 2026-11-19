@@ -4,6 +4,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { vi } from 'vitest';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 
 import { AsignacionesPage } from './asignaciones-page';
 import { DestinosService } from '../../../../core/services/destinos.service';
@@ -30,8 +31,6 @@ function makeDestino(overrides: Partial<Destino> = {}): Destino {
     numero_destino: null,
     fecha_orden: null,
     fecha_boletin: null,
-    numero_resolucion: null,
-    fecha_resolucion: null,
     observaciones: null,
     activo: true,
     documentos: { orden: null, boletin: null },
@@ -113,6 +112,7 @@ describe('AsignacionesPage', () => {
         { provide: CatalogosService, useValue: catalogosService },
         { provide: AuthService, useValue: authService },
         { provide: ToastService, useValue: toastService },
+        provideRouter([]),
       ],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
     }).compileComponents();
@@ -129,6 +129,19 @@ describe('AsignacionesPage', () => {
       expect(destinosService.listar).toHaveBeenCalledWith({ page: 1, pageSize: 10 });
       expect(catalogosService.getComandos).toHaveBeenCalled();
       expect(destinosService.listarSubUnidadesParaSelector).toHaveBeenCalled();
+    });
+
+    it('desde el perfil abre la edición del destino y limpia el enlace', () => {
+      const destino = makeDestino({ id: '3' });
+      (destinosService as any).obtener = vi.fn().mockReturnValue(of(destino));
+      vi.spyOn(TestBed.inject(ActivatedRoute).snapshot, 'queryParamMap', 'get').mockReturnValue(convertToParamMap({ editar: '3' }));
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      fixture.detectChanges();
+
+      expect((destinosService as any).obtener).toHaveBeenCalledWith('3');
+      expect(component.modal()).toBe('form');
+      expect(component.destinoEnEdicion()).toBe(destino);
+      expect(navigate).toHaveBeenCalledWith([], expect.objectContaining({ queryParams: { editar: null }, replaceUrl: true }));
     });
 
     it('muestra la stat de sub-unidades con personal', () => {

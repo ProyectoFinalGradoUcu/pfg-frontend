@@ -45,7 +45,7 @@ export const CARGAS_MASIVAS = {
     urlPlantilla: `${API_BASE_URL}/misiones/carga-masiva/plantilla`,
     urlCarga: `${API_BASE_URL}/misiones/carga-masiva`,
     nombrePlantilla: 'plantilla_misiones.xlsx',
-    notas: ['Una fila por funcionario. Las filas con la misma misión, N.º de orden y boletín forman una convocatoria.'],
+    notas: ['Una fila por funcionario. Las filas con la misma misión, N.º de orden y resolución forman una convocatoria.'],
   },
 } satisfies Record<string, CargaMasivaConfig>;
 

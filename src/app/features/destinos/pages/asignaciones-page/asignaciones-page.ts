@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Observable, Subject } from 'rxjs';
 import { debounceTime } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
@@ -8,7 +9,7 @@ import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { DestinosService } from '../../../../core/services/destinos.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { CARGAS_MASIVAS } from '../../../../core/services/carga-masiva.service';
-import { SlotVista, armarSlots, ETIQUETAS_BOLETIN } from '../../../../core/services/documentos-registro';
+import { SlotVista, armarSlots } from '../../../../core/services/documentos-registro';
 import {
   Comando,
   Destino,
@@ -48,6 +49,8 @@ export class AsignacionesPage implements OnInit, OnDestroy {
   private readonly catalogosService = inject(CatalogosService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly loading = signal(false);
   readonly destinos = signal<Destino[]>([]);
@@ -113,7 +116,6 @@ export class AsignacionesPage implements OnInit, OnDestroy {
       d.documentos,
       { orden: d.numero_orden, boletin: d.boletin },
       this.puedeGestionar(),
-      ETIQUETAS_BOLETIN,
     );
   });
   readonly tituloDocumentos = computed(() => {
@@ -157,6 +159,14 @@ export class AsignacionesPage implements OnInit, OnDestroy {
       this.page.set(1);
       this.cargar();
     });
+
+    // Desde el perfil: `?editar=<destino>` abre ese destino para editar.
+    const editar = this.route.snapshot.queryParamMap.get('editar');
+    if (editar && this.puedeGestionar()) {
+      this.destinosService.obtener(editar).subscribe({ next: (d) => this.abrirEditar(d) });
+      // Que al recargar no se vuelva a abrir.
+      this.router.navigate([], { relativeTo: this.route, queryParams: { editar: null }, queryParamsHandling: 'merge', replaceUrl: true });
+    }
   }
 
   ngOnDestroy(): void {

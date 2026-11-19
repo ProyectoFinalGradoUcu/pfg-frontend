@@ -73,9 +73,8 @@ test.describe('catálogo', () => {
     await campo(m, 'nombre_mision').fill(NOMBRE);
     await elegir(page, campo(m, 'pais'), 'Chipre');
     await campo(m, 'fecha_orden').fill('2026-01-10');
+    await campo(m, 'boletin').fill(`R-${SUF}`);
     await campo(m, 'fecha_boletin').fill('2026-01-12');
-    await campo(m, 'numero_resolucion').fill(`R-${SUF}`);
-    await campo(m, 'fecha_resolucion').fill('2026-01-15');
     await campo(m, 'resolucion_cje').fill(`CJE-${SUF}`);
     await m.getByRole('button', { name: 'Crear Misión' }).click();
 
@@ -88,9 +87,8 @@ test.describe('catálogo', () => {
     expect(creada).toMatchObject({
       pais: 'Chipre',
       fecha_orden: '2026-01-10',
+      boletin: `R-${SUF}`,
       fecha_boletin: '2026-01-12',
-      numero_resolucion: `R-${SUF}`,
-      fecha_resolucion: '2026-01-15',
       resolucion_cje: `CJE-${SUF}`,
       total_convocatorias: 0,
     });
@@ -120,7 +118,7 @@ test.describe('catálogo', () => {
     await expect(campo(m, 'fecha_orden')).toHaveValue('2026-01-10');
     await expect(campo(m, 'resolucion_cje')).toHaveValue(`CJE-${SUF}`);
 
-    for (const c of ['fecha_orden', 'fecha_boletin', 'numero_resolucion', 'fecha_resolucion', 'resolucion_cje']) {
+    for (const c of ['fecha_orden', 'boletin', 'fecha_boletin', 'resolucion_cje']) {
       await campo(m, c).fill('');
     }
     await m.getByRole('button', { name: 'Guardar cambios' }).click();
@@ -130,9 +128,8 @@ test.describe('catálogo', () => {
       nombre_mision: NOMBRE,
       pais: 'Chipre',
       fecha_orden: null,
+      boletin: null,
       fecha_boletin: null,
-      numero_resolucion: null,
-      fecha_resolucion: null,
       resolucion_cje: null,
     });
   });
@@ -147,14 +144,14 @@ test.describe('catálogo', () => {
 });
 
 test.describe('convocatorias', () => {
-  test('no acepta llegada anterior a la salida ni falta de orden y boletín', async ({ page }) => {
+  test('no acepta llegada anterior a la salida ni falta de orden y resolución', async ({ page }) => {
     await page.goto(`/misiones/catalogo/${misionId}`);
     await page.getByRole('button', { name: 'Nueva Convocatoria' }).click();
     const m = modal(page);
 
     await campo(m, 'fecha_salida').fill('2026-05-10');
     await m.getByRole('button', { name: 'Crear Convocatoria' }).click();
-    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o el boletín.');
+    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o la resolución.');
 
     await campo(m, 'numero_orden').fill(ORDEN);
     await campo(m, 'fecha_llegada').fill('2026-05-01');
@@ -199,7 +196,7 @@ test.describe('convocatorias', () => {
     const filas = page.locator('tbody tr');
     await expect(filas).toHaveCount(2);
 
-    await page.getByPlaceholder('N° orden o boletín...').fill(ORDEN_FIN);
+    await page.getByPlaceholder('N° orden o resolución...').fill(ORDEN_FIN);
     await expect(filas).toHaveCount(1);
     await expect(fila(page, ORDEN_FIN)).toContainText('Finalizada');
     await page.getByRole('button', { name: 'Borrar filtros' }).click();
@@ -218,7 +215,7 @@ test.describe('convocatorias', () => {
     // Con texto y "Activa" el backend arma un OR y aparecen las finalizadas que coinciden.
     test.fixme(true, 'texto + finalizada=false combina con OR en el listado de convocatorias');
     await page.goto(`/misiones/catalogo/${misionId}`);
-    await page.getByPlaceholder('N° orden o boletín...').fill(ORDEN_FIN);
+    await page.getByPlaceholder('N° orden o resolución...').fill(ORDEN_FIN);
     await page.locator('select.convs__estado-select').selectOption('activa');
     await expect(page.getByText('No se encontraron convocatorias con esos filtros')).toBeVisible();
   });
@@ -265,19 +262,19 @@ test.describe('detalle de la convocatoria', () => {
     await quitar(api, misionId!, convId, uno.id);
   });
 
-  test('pide orden o boletín al asignar', async ({ page }) => {
+  test('pide orden o resolución al asignar', async ({ page }) => {
     await abrirDetalle(page);
     await page.getByRole('button', { name: 'Asignar Funcionario' }).click();
     const m = modal(page);
     await campo(m, 'persona_id').locator('.appsel__control').click();
     await page.locator('.appsel__dropdown .appsel__option').first().click();
     await m.getByRole('button', { name: 'Asignar funcionario' }).click();
-    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o el boletín.');
+    await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o la resolución.');
     await m.getByRole('button', { name: 'Cancelar' }).click();
     expect(await asignaciones(api, misionId!, convId)).toHaveLength(0);
   });
 
-  test('editar la asignación vacía boletín y observaciones', async ({ page }) => {
+  test('editar la asignación vacía resolución y observaciones', async ({ page }) => {
     await asignar(api, misionId!, convId, uno.id, { numero_orden: ORDEN, boletin: `B-${SUF}`, observaciones: 'Obs uno' });
     await asignar(api, misionId!, convId, dos.id, { numero_orden: ORDEN });
     await abrirDetalle(page);
@@ -316,7 +313,7 @@ test.describe('detalle de la convocatoria', () => {
     expect((await asignaciones(api, misionId!, convId)).map((a) => a.persona_id)).toEqual([dos.id]);
   });
 
-  test('editar los datos vacía boletín y observaciones', async ({ page }) => {
+  test('editar los datos vacía resolución y observaciones', async ({ page }) => {
     await abrirDetalle(page);
     await page.locator('.detalle__section-header').getByRole('button', { name: 'Editar' }).click();
     const m = modal(page);
@@ -327,7 +324,7 @@ test.describe('detalle de la convocatoria', () => {
     await expect(page.getByText('Convocatoria actualizada correctamente')).toBeVisible();
 
     const datosCard = page.locator('.detalle__info-grid');
-    await expect(datosCard.locator('.detalle__info-field', { hasText: 'Boletín' })).toContainText('—');
+    await expect(datosCard.locator('.detalle__info-field', { hasText: 'Resolución' })).toContainText('—');
     await expect(datosCard.locator('.detalle__info-field', { hasText: 'Observaciones' })).toContainText('—');
     expect(await leerConvocatoria(api, misionId!, convId)).toMatchObject({
       numero_orden: ORDEN,
@@ -367,10 +364,10 @@ test.describe('personal en misión', () => {
     await estado.selectOption('');
     await expect(filas).toHaveCount(2);
 
-    await page.getByPlaceholder('N° orden o boletín...').fill(ORDEN_FIN);
+    await page.getByPlaceholder('N° orden o resolución...').fill(ORDEN_FIN);
     await expect(filas).toHaveCount(1);
     await expect(filas.first()).toContainText(uno.cedula);
-    await page.getByPlaceholder('N° orden o boletín...').fill('');
+    await page.getByPlaceholder('N° orden o resolución...').fill('');
     await expect(filas).toHaveCount(2);
 
     await page.getByPlaceholder('Cédula o nombre...').fill(dos.cedula);
@@ -413,9 +410,9 @@ test.describe('personal en misión', () => {
     expect(a).toMatchObject({ boletin: `BP-${SUF}`, observaciones: 'Obs personal' });
   });
 
-  test('editar la asignación vacía observaciones y boletín', async ({ page }) => {
+  test('editar la asignación vacía observaciones y resolución', async ({ page }) => {
     // Manda undefined en vez de null y el backend deja el valor anterior.
-    test.fixme(true, 'en Personal en misión › Editar no se pueden vaciar Observaciones ni Boletín');
+    test.fixme(true, 'en Personal en misión › Editar no se pueden vaciar Observaciones ni Resolución');
     await page.goto('/misiones/personal');
     await page.getByPlaceholder('Cédula o nombre...').fill(dos.cedula);
     await menu(page, fila(page, dos.cedula), 'Editar');

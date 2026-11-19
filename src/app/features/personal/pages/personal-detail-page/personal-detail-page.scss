@@ -538,6 +538,13 @@
 
 .pd__side-card .pd__link { font-size: 0.875rem; }
 
+.pd__card-accion {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
 .pd__side-btn {
   width: 100%;
   justify-content: center;
@@ -1064,6 +1071,12 @@
   font-size: 0.8rem;
   color: #64748b;
   flex-wrap: wrap;
+}
+
+.pd__mission-card__actos {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .pd__mission-card__orden {

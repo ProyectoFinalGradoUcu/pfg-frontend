@@ -158,6 +158,16 @@ describe('formatearDetalle', () => {
       expect(valorDe(secciones, 'Teléfono')).toBe('099123456');
       expect(valorDe(secciones, 'Prima técnica')).toBe('A');
     });
+
+    it('Muestra la columna boletin y su documento como resolución', () => {
+      const secciones = formatearDetalle({
+        params: { id: '10', slot: 'boletin' },
+        body: { boletin: 'R. 12', fecha_boletin: '2026-11-18' },
+      });
+      expect(valorDe(secciones, 'Documento')).toBe('Resolución');
+      expect(valorDe(secciones, 'Resolución')).toBe('R. 12');
+      expect(valorDe(secciones, 'Fecha de resolución')).toBe('18/11/2026');
+    });
   });
 
   describe('payloads reales de la bitácora', () => {

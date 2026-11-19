@@ -1090,6 +1090,7 @@
             <span class="pd__course-card__orden" *ngIf="c.boletin">{{ c.boletin }}</span>
           </div>
           <app-documentos-registro *ngIf="c.slots.length" [mostrarNumero]="false" [slots]="c.slots" registro="esta designación" />
+          <div class="pd__card-accion" *ngIf="!c.completado && puedeGestionarCursos()"><button type="button" class="pd__link" (click)="verEnCursos()">Ver en Cursos →</button></div>
         </div>
       </div>
     </article>
@@ -1152,6 +1153,7 @@
           </div>
           <span class="pd__destino-card__obs" *ngIf="d.observaciones">{{ d.observaciones }}</span>
           <app-documentos-registro *ngIf="d.slots.length" [mostrarNumero]="false" [slots]="d.slots" registro="este destino" />
+          <div class="pd__card-accion" *ngIf="d.activo && puedeRegistrarDestino()"><button type="button" class="pd__link" (click)="editarDestino(d.id)">Editar en Destinos →</button></div>
         </div>
       </div>
     </article>
@@ -1174,6 +1176,7 @@
             <span class="pd__destino-card__cargo">{{ c.cargo || 'Sin cargo' }}</span>
             <span *ngIf="c.importada" class="pd__destino-card__cargo" [title]="c.texto_original || ''">Importada del Access<ng-container *ngIf="c.periodo">, durante el período {{ formatDate(c.periodo.fecha_inicio) }} – {{ c.periodo.fecha_fin ? formatDate(c.periodo.fecha_fin) : 'actual' }}</ng-container></span>
             <div class="pd__destino-card__meta"><span>{{ c.fecha_inicio ? formatDate(c.fecha_inicio) : 'Sin fecha' }} – {{ c.fecha_fin ? formatDate(c.fecha_fin) : 'Sin fecha de finalización' }}</span><span *ngIf="c.numero_orden">Orden: {{ c.numero_orden }}</span><span *ngIf="c.boletin">Resolución: {{ c.boletin }}</span></div>
+            <div class="pd__card-accion" *ngIf="c.activo && puedeGestionarComisiones()"><button type="button" class="pd__link" (click)="editarComision(c.id)">Editar en Comisiones →</button></div>
           </div>
         </div>
       </ng-container>
@@ -1236,9 +1239,13 @@
           </div>
           <div class="pd__mission-card__meta">
             <span>{{ formatDate(m.fecha_salida) }} – {{ m.fecha_llegada ? formatDate(m.fecha_llegada) : 'Presente' }}</span>
-            <span class="pd__mission-card__orden">{{ m.numero_orden || m.boletin }}</span>
+            <span class="pd__mission-card__actos">
+              <span class="pd__mission-card__orden" *ngIf="m.numero_orden" title="N° de orden">{{ m.numero_orden }}</span>
+              <span class="pd__mission-card__orden" *ngIf="m.boletin" title="Resolución">{{ m.boletin }}</span>
+            </span>
           </div>
           <app-documentos-registro *ngIf="m.slots.length" [mostrarNumero]="false" [slots]="m.slots" registro="esta asignación" />
+          <div class="pd__card-accion" *ngIf="!m.finalizada && puedeGestionarMisiones()"><button type="button" class="pd__link" (click)="editarConvocatoria(m.mision_id, m.convocatoria_id)">Editar en Misiones →</button></div>
         </div>
       </div>
     </article>

@@ -79,9 +79,20 @@ const ETIQUETAS: Record<string, string> = {
   mision_id: 'Misión',
   fecha_ascenso: 'Fecha de ascenso',
   motivo_baja: 'Motivo de baja',
+  // La resolución se guarda en las columnas `boletin`: el nombre viejo no se muestra.
+  boletin: 'Resolución',
+  fecha_boletin: 'Fecha de resolución',
+  archivo_boletin_id: 'Archivo de la resolución (id)',
+  archivo_orden_id: 'Archivo de la orden (id)',
+  slot: 'Documento',
   // Carga masiva
   fila: 'Fila',
   resultados: 'Resultados',
+};
+
+/** Valores que se guardan con un código y se muestran con su nombre. */
+const VALORES: Record<string, Record<string, string>> = {
+  slot: { orden: 'Orden', boletin: 'Resolución' },
 };
 
 /** Valor con el que el backend reemplaza los campos sensibles. */
@@ -173,7 +184,7 @@ function construirSeccion(titulo: string | null, objeto: Record<string, unknown>
       continue;
     }
 
-    campos.push({ etiqueta: etiquetaDe(clave), valor: formatearValor(valor) });
+    campos.push({ etiqueta: etiquetaDe(clave), valor: VALORES[clave]?.[String(valor)] ?? formatearValor(valor) });
   }
 
   return { titulo, campos, subsecciones };
