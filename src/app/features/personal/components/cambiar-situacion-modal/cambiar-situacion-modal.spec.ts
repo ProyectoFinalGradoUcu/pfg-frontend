@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { CambiarSituacionModal, hoyLocal, opcionesDeCambio } from './cambiar-situacion-modal';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { SituacionRef } from '../../../../core/models/personal.models';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 const SIT = (codigo: string, denominacion = codigo): SituacionRef => ({ id: Number(codigo.slice(3)), codigo, denominacion });
 
@@ -50,7 +51,7 @@ describe('CambiarSituacionModal', () => {
       ),
     };
     await TestBed.configureTestingModule({
-      declarations: [CambiarSituacionModal],
+      declarations: [CambiarSituacionModal, DateInput],
       imports: [ReactiveFormsModule],
       providers: [{ provide: PersonalService, useValue: svc }],
     }).compileComponents();

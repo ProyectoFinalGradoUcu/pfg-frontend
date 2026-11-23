@@ -42,6 +42,7 @@
     [style.top.px]="panelPos()?.top"
     [style.bottom.px]="panelPos()?.bottom"
     [style.left.px]="panelPos()?.left"
+    (click)="$event.preventDefault()"
   >
     <header class="appdate__cabecera">
       <button type="button" class="appdate__nav" aria-label="Año anterior" (click)="moverMes(-12)">«</button>

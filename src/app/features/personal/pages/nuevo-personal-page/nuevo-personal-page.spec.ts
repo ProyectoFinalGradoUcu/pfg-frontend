@@ -11,6 +11,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { BaseOpcion, PersonaListItem } from '../../../../core/models/personal.models';
 import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 function makeBase(id: number, denominacion: string, comando = 'C.A.O.'): BaseOpcion {
   return {
@@ -85,7 +86,7 @@ describe('NuevoPersonalPage', () => {
     };
 
     await TestBed.configureTestingModule({
-      declarations: [NuevoPersonalPage],
+      declarations: [NuevoPersonalPage, DateInput],
       imports: [ReactiveFormsModule],
       providers: [
         { provide: PersonalService, useValue: personalService },

@@ -37,13 +37,7 @@
         <div class="grid-2">
           <div class="field">
             <label for="ri-fecha">Fecha de reincorporación *</label>
-            <input
-              id="ri-fecha"
-              type="date"
-              formControlName="fecha_reincorporacion"
-              [min]="minFecha"
-              [max]="hoy"
-            />
+            <app-date-input id="ri-fecha" formControlName="fecha_reincorporacion" [min]="minFecha" [max]="hoy"></app-date-input>
             <p class="field__hint" *ngIf="previa.retiro.fecha_retiro as f">
               Posterior al retiro ({{ fechaCorta(f) }}) y no futura.
             </p>

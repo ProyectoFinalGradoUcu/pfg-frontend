@@ -126,7 +126,7 @@
         <div class="nf__grid">
           <div class="nf__field">
             <label class="nf__label" for="fecha_nacimiento">Fecha de nacimiento</label>
-            <input id="fecha_nacimiento" type="date" formControlName="fecha_nacimiento" class="nf__input" />
+            <app-date-input id="fecha_nacimiento" formControlName="fecha_nacimiento"></app-date-input>
             <span class="nf__field-hint">{{ edad() != null ? edad() + ' años' : 'Al cargarla se muestra la edad.' }}</span>
           </div>
           <div class="nf__field">
@@ -204,9 +204,7 @@
           <div class="nf__grid">
             <div class="nf__field">
               <label class="nf__label" for="fecha_inicio">Fecha de inicio <span class="nf__req">*</span></label>
-              <input id="fecha_inicio" type="date" formControlName="fecha_inicio" class="nf__input"
-                [attr.min]="minFechaInicio()"
-                [class.nf__input--error]="hasError('fecha_inicio') || fechaInicioAntesDeNacimiento()" />
+              <app-date-input id="fecha_inicio" formControlName="fecha_inicio" [min]="minFechaInicio()" [class.nf__input--error]="hasError('fecha_inicio') || fechaInicioAntesDeNacimiento()"></app-date-input>
               <span class="nf__error" *ngIf="hasError('fecha_inicio')">{{ getError('fecha_inicio') }}</span>
               <span class="nf__error" *ngIf="fechaInicioAntesDeNacimiento()">No puede ser anterior a la fecha de nacimiento</span>
             </div>
@@ -351,13 +349,11 @@
               </div>
               <div class="nf__field">
                 <label class="nf__label" for="fecha_ingreso_eta">Ingreso a la ETA</label>
-                <input id="fecha_ingreso_eta" type="date" formControlName="fecha_ingreso_eta" class="nf__input" />
+                <app-date-input id="fecha_ingreso_eta" formControlName="fecha_ingreso_eta"></app-date-input>
               </div>
               <div class="nf__field">
                 <label class="nf__label" for="fecha_egreso_eta">Egreso de la ETA</label>
-                <input id="fecha_egreso_eta" type="date" formControlName="fecha_egreso_eta" class="nf__input"
-                  [attr.min]="form.get('fecha_ingreso_eta')?.value || null"
-                  [class.nf__input--error]="etaInconsistente()" />
+                <app-date-input id="fecha_egreso_eta" formControlName="fecha_egreso_eta" [min]="form.get('fecha_ingreso_eta')?.value || null" [class.nf__input--error]="etaInconsistente()"></app-date-input>
                 <span class="nf__error" *ngIf="etaInconsistente()">No puede ser anterior al ingreso a la ETA</span>
               </div>
               <div class="nf__field">

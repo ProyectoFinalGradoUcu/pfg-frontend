@@ -42,7 +42,7 @@
         <div class="grid-2">
           <div class="field">
             <label for="cs-fecha">Fecha *</label>
-            <input id="cs-fecha" type="date" formControlName="fecha" [max]="hoy" />
+            <app-date-input id="cs-fecha" formControlName="fecha" [max]="hoy"></app-date-input>
             <p class="field__hint">No puede ser futura.</p>
           </div>
           <div class="field">

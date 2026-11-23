@@ -1,111 +1,266 @@
 <section class="comisiones">
+  <nav *ngIf="comisionId" class="breadcrumb" aria-label="Ruta">
+    <a class="breadcrumb__item breadcrumb__item--link" routerLink="/comisiones/catalogo">Catálogo de comisiones</a>
+    <span class="breadcrumb__sep" aria-hidden="true">/</span>
+    <span class="breadcrumb__item breadcrumb__item--current">{{ comisionDetalle()?.denominacion ?? 'Comisión' }}</span>
+  </nav>
+
   <header class="comisiones__header">
     <div>
-      <a *ngIf="comisionId" routerLink="/comisiones/catalogo">← Catálogo de comisiones</a>
       <h2>{{ catalogo ? 'Catálogo de comisiones' : comisionId ? (comisionDetalle()?.denominacion || 'Integrantes de la comisión') : 'Asignaciones a comisiones' }}</h2>
       <p>{{ catalogo ? 'Administrá las comisiones compartidas por el personal.' : 'Consultá y gestioná las pertenencias del personal y su historial.' }}</p>
       <p *ngIf="comisionDetalle() && !comisionDetalle()!.vigente">Esta comisión está inactiva.</p>
     </div>
-    <button class="btn btn--primary" *ngIf="puedeGestionarCatalogo() && catalogo" (click)="abrirComision()">Nueva comisión</button>
-    <button class="btn btn--primary" *ngIf="puedeGestionar() && !catalogo" [disabled]="!!comisionId && !comisionDetalle()?.vigente" (click)="abrirAsignacion()">Nueva asignación</button>
+    <button type="button" class="btn btn--primary btn--lg" *ngIf="puedeGestionarCatalogo() && catalogo" (click)="abrirComision()">Nueva comisión</button>
+    <button type="button" class="btn btn--primary btn--lg" *ngIf="puedeGestionar() && !catalogo" [disabled]="!!comisionId && !comisionDetalle()?.vigente" (click)="abrirAsignacion()">Nueva asignación</button>
   </header>
 
-  <div class="comisiones__stats" *ngIf="!catalogo && !comisionId">
-    <article><strong>{{ stats().total_asignaciones }}</strong><span>Asignaciones (filtrado)</span></article>
-    <article><strong>{{ stats().asignaciones_activas }}</strong><span>Asignaciones vigentes (tu alcance)</span></article>
-    <article><strong>{{ stats().comisiones_con_personal }}</strong><span>Comisiones con integrantes (tu alcance)</span></article>
-  </div>
+  <!-- ─── Filtros ──────────────────────────────────────────────────────── -->
 
   <article class="comisiones__card">
-    <div class="comisiones__filters">
-      <label>{{ catalogo ? 'Buscar comisión' : 'Buscar persona' }}<input type="search" [(ngModel)]="filtroTexto" (ngModelChange)="textoCambiado()" [placeholder]="catalogo ? 'Denominación' : 'Cédula, nombre o apellido'" /></label>
-      <div class="comisiones__filter-field" *ngIf="!catalogo"><span>Categoría</span><app-select aria-label="Categoría" [items]="categoriaOpciones" placeholder="Todos" [(ngModel)]="filtroCategoria" (ngModelChange)="filtrar()" /></div>
-      <div class="comisiones__filter-field" *ngIf="catalogo"><span>Estado</span><app-select aria-label="Estado" [items]="estadoOpciones" [(ngModel)]="filtroEstado" (ngModelChange)="filtrar()" /></div>
-      <details class="comisiones__more-filters" *ngIf="!catalogo">
-        <summary>Más filtros <span *ngIf="filtrosAdicionales()">({{ filtrosAdicionales() }})</span></summary>
-        <div class="comisiones__filter-panel">
-          <div class="comisiones__filter-field"><span>Estado</span><app-select aria-label="Estado de pertenencia" [items]="estadoOpciones" [(ngModel)]="filtroEstado" (ngModelChange)="filtrar()" /></div>
-          <div *ngIf="!comisionId" class="comisiones__filter-field">
-            <span>Comisión</span>
-            <app-select aria-label="Comisión" [items]="itemsFiltroComision()" bindLabel="denominacion" bindValue="id" placeholder="Todas las comisiones" [searchable]="true" [remoteSearch]="true" [clearable]="true" [loading]="buscandoFiltro()" [ngModel]="filtroComisionId" (ngModelChange)="seleccionarFiltroComision($event)" (searchChange)="buscarFiltroComision($event)" />
-            <div class="comisiones__selector-pages" *ngIf="totalFiltro() > 10"><button class="btn" [disabled]="paginaFiltro() <= 1 || buscandoFiltro()" (click)="filtrarComisiones(paginaFiltro() - 1)">Anterior</button><span>Página {{ paginaFiltro() }}</span><button class="btn" [disabled]="paginaFiltro() * 10 >= totalFiltro() || buscandoFiltro()" (click)="filtrarComisiones(paginaFiltro() + 1)">Siguiente</button></div>
-          </div>
-        </div>
-      </details>
-      <button type="button" class="btn comisiones__clear" [disabled]="!hayFiltros()" (click)="limpiarFiltros()">Limpiar filtros</button>
+    <div class="filtros">
+      <label class="filtros__campo filtros__campo--buscar">
+        <span class="filtros__label">{{ catalogo ? 'Buscar comisión' : 'Buscar' }}</span>
+        <span class="filtros__buscar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input type="text" autocomplete="off" [placeholder]="catalogo ? 'Denominación...' : 'Cédula, nombre o apellido...'"
+            [(ngModel)]="filtroTexto" (ngModelChange)="textoCambiado()" />
+        </span>
+      </label>
+
+      <div class="filtros__campo" *ngIf="!catalogo">
+        <span class="filtros__label">Categoría</span>
+        <app-select aria-label="Categoría" [items]="categoriaOpciones" placeholder="Todos"
+          [(ngModel)]="filtroCategoria" (ngModelChange)="filtrar()" />
+      </div>
+
+      <div class="filtros__campo">
+        <span class="filtros__label">Estado</span>
+        <app-select [attr.aria-label]="catalogo ? 'Estado' : 'Estado de pertenencia'" [items]="estadoOpciones"
+          placeholder="Todos los estados" [(ngModel)]="filtroEstado" (ngModelChange)="filtrar()" />
+      </div>
+
+      <div class="filtros__botones">
+        <button type="button" class="btn btn--clear filtros__icono" [disabled]="!hayFiltros()"
+          (click)="limpiarFiltros()" aria-label="Quitar todos los filtros" title="Quitar todos los filtros">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 14.25 18 18m0-3.75-3.75 3.75" />
+          </svg>
+        </button>
+
+        <button *ngIf="!catalogo && !comisionId" type="button" class="btn btn--clear filtros__icono filtros__desplegar"
+          [class.filtros__desplegar--abierto]="masFiltrosAbiertos()"
+          [class.filtros__desplegar--activo]="filtrosAdicionales() > 0"
+          (click)="masFiltrosAbiertos.set(!masFiltrosAbiertos())"
+          [attr.aria-expanded]="masFiltrosAbiertos()" aria-controls="comisiones-mas-filtros"
+          [attr.aria-label]="masFiltrosAbiertos() ? 'Ocultar más filtros' : 'Mostrar más filtros'"
+          [attr.title]="masFiltrosAbiertos() ? 'Ocultar más filtros' : 'Mostrar más filtros'">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+          </svg>
+        </button>
+      </div>
     </div>
-    <p *ngIf="loading()" role="status">Cargando...</p>
-    <div *ngIf="error()" role="alert" class="comisiones__error">{{ error() }} <button class="btn" (click)="cargar()">Reintentar</button></div>
+
+    <div class="filtros filtros--avanzados" id="comisiones-mas-filtros" *ngIf="!catalogo && !comisionId && masFiltrosAbiertos()">
+      <div class="filtros__campo filtros__campo--comision">
+        <span class="filtros__label">Comisión</span>
+        <span class="filtros__linea">
+          <app-select aria-label="Comisión" [items]="itemsFiltroComision()" bindLabel="denominacion" bindValue="id" placeholder="Todas las comisiones" [searchable]="true" [remoteSearch]="true" [clearable]="true" [loading]="buscandoFiltro()" [ngModel]="filtroComisionId" (ngModelChange)="seleccionarFiltroComision($event)" (searchChange)="buscarFiltroComision($event)" />
+          <span class="filtros__paginas" *ngIf="totalFiltro() > 10">
+            <button type="button" class="btn btn--clear" [disabled]="paginaFiltro() <= 1 || buscandoFiltro()" (click)="filtrarComisiones(paginaFiltro() - 1)">Anterior</button>
+            <span>Página {{ paginaFiltro() }}</span>
+            <button type="button" class="btn btn--clear" [disabled]="paginaFiltro() * 10 >= totalFiltro() || buscandoFiltro()" (click)="filtrarComisiones(paginaFiltro() + 1)">Siguiente</button>
+          </span>
+        </span>
+      </div>
+    </div>
+  </article>
+
+  <!-- ─── Resultados ───────────────────────────────────────────────────── -->
+
+  <article class="comisiones__card">
+    <div *ngIf="loading()" class="comisiones__empty" role="status">Cargando...</div>
+    <div *ngIf="error()" role="alert" class="comisiones__error">{{ error() }} <button type="button" class="btn btn--ghost btn--sm" (click)="cargar()">Reintentar</button></div>
+
     <div class="comisiones__table-wrapper" *ngIf="!loading() && !error()">
-      <table *ngIf="catalogo"><thead><tr><th>Comisión</th><th>Estado</th><th>Integrantes abiertos</th><th>Acciones</th></tr></thead><tbody>
-        <tr *ngFor="let c of comisiones()"><td><a [routerLink]="['/comisiones/catalogo', c.id]">{{ c.denominacion }}</a></td><td><span class="comisiones__badge" [class.comisiones__badge--closed]="!c.vigente">{{ c.vigente ? 'Vigente' : 'Inactiva' }}</span></td><td>{{ c.total_integrantes }}</td><td class="comisiones__col-actions">
-          <button type="button" class="btn comisiones__dots" aria-label="Acciones de comisión" aria-haspopup="menu" [attr.aria-expanded]="openMenuId() === c.id" (click)="toggleMenu(c.id, $event)">⋯</button>
-          <div class="comisiones__menu" role="menu" *ngIf="openMenuId() === c.id" [style.top.px]="menuPosition()?.top" [style.right.px]="menuPosition()?.right" (click)="$event.stopPropagation()">
-            <a role="menuitem" [routerLink]="['/comisiones/catalogo', c.id]" (click)="cerrarMenu()">Ver integrantes</a>
-            <button role="menuitem" *ngIf="puedeGestionarCatalogo()" (click)="abrirComision(c)">Editar comisión</button>
-          </div>
-        </td></tr>
-        <tr *ngIf="!comisiones().length"><td colspan="4" class="comisiones__empty">{{ filtroTexto || filtroEstado ? 'No hay resultados para los filtros seleccionados.' : 'No hay comisiones registradas.' }}</td></tr>
-      </tbody></table>
-      <table *ngIf="!catalogo"><thead><tr><th>Persona</th><th>Cédula</th><th>Categoría</th><th>Comisión</th><th>Cargo</th><th>Desde</th><th>Hasta</th><th>Orden / Resolución</th><th>Estado</th><th *ngIf="puedeGestionar()" class="comisiones__col-actions">Acciones</th></tr></thead><tbody>
-        <tr *ngFor="let a of asignaciones()">
-          <td>{{ a.persona.primer_nombre }} {{ a.persona.primer_apellido }}</td><td>{{ a.persona.cedula }}</td><td>{{ categoriaTexto(a.categoria) }}</td><td><a [routerLink]="['/comisiones/catalogo', a.comision.id]">{{ a.comision.denominacion }}</a><div *ngIf="a.importada" class="comisiones__importada" [title]="a.texto_original || ''">Importada del Access<ng-container *ngIf="a.periodo"> · período {{ a.periodo.fecha_inicio || '?' }} – {{ a.periodo.fecha_fin || 'actual' }}</ng-container></div></td><td>{{ a.cargo || 'Sin cargo' }}</td><td>{{ a.fecha_inicio || 'Sin fecha' }}</td><td>{{ a.fecha_fin || 'Sin fecha de finalización' }}</td>
-          <td><div *ngIf="a.numero_orden">Orden: {{ a.numero_orden }}</div><div *ngIf="a.boletin">Resolución: {{ a.boletin }}</div><div *ngIf="!a.numero_orden && !a.boletin">Sin documento</div></td><td><span class="comisiones__badge" [class.comisiones__badge--closed]="!a.activo && !a.futura">{{ a.activo ? 'Abierta' : a.futura ? 'Programada' : 'Cerrada' }}</span></td>
-          <td *ngIf="puedeGestionar()" class="comisiones__col-actions">
-            <button type="button" class="btn comisiones__dots" aria-label="Acciones de asignación" aria-haspopup="menu" [attr.aria-expanded]="openMenuId() === a.id" (click)="toggleMenu(a.id, $event)">⋯</button>
-            <div class="comisiones__menu" role="menu" *ngIf="openMenuId() === a.id" [style.top.px]="menuPosition()?.top" [style.right.px]="menuPosition()?.right" (click)="$event.stopPropagation()">
-              <button role="menuitem" (click)="abrirAsignacion(a)">Editar</button>
-              <button role="menuitem" *ngIf="a.activo || a.futura" (click)="abrirAccion('cerrar', a)">Cerrar pertenencia</button>
-              <button role="menuitem" *ngIf="!a.activo && !a.futura && a.comision.vigente" (click)="abrirAccion('reabrir', a)">Reabrir</button>
-              <button role="menuitem" class="comisiones__menu-danger" (click)="abrirAccion('eliminar', a)">Eliminar</button>
-            </div>
-          </td>
-        </tr>
-        <tr *ngIf="!asignaciones().length"><td [attr.colspan]="puedeGestionar() ? 10 : 9" class="comisiones__empty">{{ hayFiltros() ? 'No hay resultados para los filtros seleccionados.' : 'No hay asignaciones registradas.' }}</td></tr>
-      </tbody></table>
+      <table *ngIf="catalogo" class="comisiones__table">
+        <thead>
+          <tr><th>Comisión</th><th>Estado</th><th>Integrantes abiertos</th><th class="comisiones__col-actions">Acciones</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let c of comisiones()" class="comisiones__row--clickable" [routerLink]="['/comisiones/catalogo', c.id]">
+            <td>{{ c.denominacion }}</td>
+            <td><span class="comisiones__badge" [class.comisiones__badge--cerrada]="!c.vigente">{{ c.vigente ? 'Vigente' : 'Inactiva' }}</span></td>
+            <td>{{ c.total_integrantes }}</td>
+            <td class="comisiones__col-actions" (click)="$event.stopPropagation()">
+              <button type="button" class="btn btn--ghost btn--sm comisiones__menu-btn" [class.comisiones__menu-btn--open]="openMenuId() === c.id"
+                aria-label="Acciones de comisión" aria-haspopup="menu" [attr.aria-expanded]="openMenuId() === c.id" (click)="toggleMenu(c.id, $event)">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
+              </button>
+              <div class="comisiones__dropdown" role="menu" *ngIf="openMenuId() === c.id" [style.top.px]="menuPosition()?.top" [style.right.px]="menuPosition()?.right" (click)="$event.stopPropagation()">
+                <a role="menuitem" class="comisiones__dropdown-item" [routerLink]="['/comisiones/catalogo', c.id]" (click)="cerrarMenu()">Ver integrantes</a>
+                <button role="menuitem" type="button" class="comisiones__dropdown-item" *ngIf="puedeGestionarCatalogo()" (click)="abrirComision(c)">Editar comisión</button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="!comisiones().length">
+            <td colspan="4" class="comisiones__empty">{{ filtroTexto || filtroEstado ? 'No hay resultados para los filtros seleccionados.' : 'No hay comisiones registradas.' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table *ngIf="!catalogo" class="comisiones__table">
+        <thead>
+          <tr>
+            <th>Persona</th><th>Cédula</th><th>Categoría</th><th>Comisión</th><th>Cargo</th><th>Desde</th><th>Hasta</th>
+            <th>N° Orden</th><th>Resolución</th><th>Estado</th>
+            <th *ngIf="puedeGestionar()" class="comisiones__col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of asignaciones()">
+            <td>{{ a.persona.primer_nombre }} {{ a.persona.primer_apellido }}</td>
+            <td class="comisiones__cedula">{{ a.persona.cedula }}</td>
+            <td>{{ categoriaTexto(a.categoria) }}</td>
+            <td>
+              {{ a.comision.denominacion }}
+              <div *ngIf="a.importada" class="comisiones__importada" [title]="a.texto_original || ''">Importada del Access<ng-container *ngIf="a.periodo"> · período {{ a.periodo.fecha_inicio || '?' }} – {{ a.periodo.fecha_fin || 'actual' }}</ng-container></div>
+            </td>
+            <td>{{ a.cargo || '—' }}</td>
+            <td>{{ a.fecha_inicio ? (a.fecha_inicio | date:'d/M/yyyy':'UTC') : '—' }}</td>
+            <td>{{ a.fecha_fin ? (a.fecha_fin | date:'d/M/yyyy':'UTC') : '—' }}</td>
+            <td>{{ a.numero_orden || '—' }}</td>
+            <td>{{ a.boletin || '—' }}</td>
+            <td><span class="comisiones__badge" [class.comisiones__badge--programada]="a.futura" [class.comisiones__badge--cerrada]="!a.activo && !a.futura">{{ a.activo ? 'Abierta' : a.futura ? 'Programada' : 'Cerrada' }}</span></td>
+            <td *ngIf="puedeGestionar()" class="comisiones__col-actions" (click)="$event.stopPropagation()">
+              <button type="button" class="btn btn--ghost btn--sm comisiones__menu-btn" [class.comisiones__menu-btn--open]="openMenuId() === a.id"
+                aria-label="Acciones de asignación" aria-haspopup="menu" [attr.aria-expanded]="openMenuId() === a.id" (click)="toggleMenu(a.id, $event)">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" /></svg>
+              </button>
+              <div class="comisiones__dropdown" role="menu" *ngIf="openMenuId() === a.id" [style.top.px]="menuPosition()?.top" [style.right.px]="menuPosition()?.right" (click)="$event.stopPropagation()">
+                <button role="menuitem" type="button" class="comisiones__dropdown-item" (click)="abrirAsignacion(a)">Editar</button>
+                <button role="menuitem" type="button" class="comisiones__dropdown-item" *ngIf="a.activo || a.futura" (click)="abrirAccion('cerrar', a)">Cerrar pertenencia</button>
+                <button role="menuitem" type="button" class="comisiones__dropdown-item" *ngIf="!a.activo && !a.futura && a.comision.vigente" (click)="abrirAccion('reabrir', a)">Reabrir</button>
+                <button role="menuitem" type="button" class="comisiones__dropdown-item comisiones__dropdown-item--danger" (click)="abrirAccion('eliminar', a)">Eliminar</button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="!asignaciones().length">
+            <td [attr.colspan]="puedeGestionar() ? 11 : 10" class="comisiones__empty">{{ hayFiltros() ? 'No hay resultados para los filtros seleccionados.' : 'No hay asignaciones registradas.' }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     <app-paginator *ngIf="!loading() && !error()" [totalItems]="total()" [pageSize]="10" [currentPage]="page()" (pageChange)="cambiarPagina($event)" />
   </article>
 </section>
 
-<div *ngIf="modal()" class="comisiones__overlay" (click)="cerrarModal()">
-  <section class="comisiones__modal" role="dialog" aria-modal="true" aria-labelledby="comisiones-modal-title" (click)="$event.stopPropagation()">
-    <header><h3 id="comisiones-modal-title">{{ modal() === 'comision' ? (comisionEditada() ? 'Editar comisión' : 'Nueva comisión') : modal() === 'asignacion' ? (seleccionada() ? 'Editar asignación' : 'Nueva asignación') : modal() === 'cerrar' ? 'Cerrar pertenencia' : modal() === 'reabrir' ? 'Reabrir pertenencia' : 'Eliminar asignación' }}</h3><button class="btn" aria-label="Cerrar ventana" [disabled]="guardando()" (click)="cerrarModal()">✕</button></header>
+<!-- ─── Modales ─────────────────────────────────────────────────────────── -->
+
+<div *ngIf="modal()" class="modal" (click)="cerrarModal()">
+  <section class="modal__card" [class.modal__card--wide]="modal() === 'asignacion'" role="dialog" aria-modal="true" aria-labelledby="comisiones-modal-title" (click)="$event.stopPropagation()">
+    <header class="modal__header">
+      <div>
+        <h3 id="comisiones-modal-title">{{ modal() === 'comision' ? (comisionEditada() ? 'Editar comisión' : 'Nueva comisión') : modal() === 'asignacion' ? (seleccionada() ? 'Editar asignación' : 'Nueva asignación') : modal() === 'cerrar' ? 'Cerrar pertenencia' : modal() === 'reabrir' ? 'Reabrir pertenencia' : 'Eliminar asignación' }}</h3>
+        <p *ngIf="modal() === 'comision'">{{ comisionEditada() ? 'Modificá los datos de la comisión.' : 'Agregá una nueva comisión al catálogo.' }}</p>
+        <p *ngIf="modal() !== 'comision' && modal() !== 'asignacion'">{{ seleccionada()?.persona?.primer_nombre }} {{ seleccionada()?.persona?.primer_apellido }} — {{ seleccionada()?.comision?.denominacion }}</p>
+      </div>
+      <button type="button" class="modal__close" [disabled]="guardando()" (click)="cerrarModal()" aria-label="Cerrar ventana">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+        </button>
+    </header>
+
     <form *ngIf="modal() === 'comision'" [formGroup]="formComision" (ngSubmit)="guardarComision()">
-      <label>Denominación *<input formControlName="denominacion" maxlength="200" placeholder="Nombre de la comisión" /></label>
-      <ng-container *ngIf="comisionEditada()"><p>El cambio de nombre se reflejará para todos los integrantes.</p><label class="comisiones__checkbox"><input type="checkbox" formControlName="vigente" /> Comisión vigente</label><p>No se puede inactivar mientras tenga pertenencias abiertas.</p></ng-container>
-      <p *ngIf="modalError()" role="alert" class="comisiones__error">{{ modalError() }}</p>
-      <footer><button type="button" class="btn" [disabled]="guardando()" (click)="cerrarModal()">Cancelar</button><button class="btn btn--primary" type="submit" [disabled]="guardando()">{{ guardando() ? 'Guardando...' : 'Guardar comisión' }}</button></footer>
+      <div *ngIf="modalError()" role="alert" class="modal__error">{{ modalError() }}</div>
+      <label class="modal__field">
+        <span>Denominación <em>*</em></span>
+        <input type="text" formControlName="denominacion" maxlength="200" placeholder="Nombre de la comisión" autocomplete="off" />
+      </label>
+      <ng-container *ngIf="comisionEditada()">
+        <p class="modal__nota">El cambio de nombre se reflejará para todos los integrantes.</p>
+        <label class="modal__checkbox"><input type="checkbox" formControlName="vigente" /> Comisión vigente</label>
+        <p class="modal__nota">No se puede inactivar mientras tenga pertenencias abiertas.</p>
+      </ng-container>
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" [disabled]="guardando()" (click)="cerrarModal()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="guardando()">{{ guardando() ? 'Guardando...' : 'Guardar comisión' }}</button>
+      </footer>
     </form>
+
     <form *ngIf="modal() === 'asignacion'" [formGroup]="formAsignacion" (ngSubmit)="guardarAsignacion()">
-      <label>{{ seleccionada() ? 'Persona' : 'Agregar personas' }} *</label>
-      <div *ngIf="seleccionada()" class="comisiones__chosen">{{ personaElegida()?.nombre }}</div>
+      <div *ngIf="modalError()" role="alert" class="modal__error">{{ modalError() }}</div>
+
+      <div class="modal__field">
+        <span>{{ seleccionada() ? 'Persona' : 'Agregar personas' }} <em>*</em></span>
+        <div *ngIf="seleccionada()" class="modal__elegido">{{ personaElegida()?.nombre }}</div>
+        <app-select *ngIf="!seleccionada()" aria-label="Agregar personas" [formControl]="selectorPersona" [items]="opcionesPersona()" bindLabel="label" bindValue="id" placeholder="Seleccione personal" [searchable]="true" [remoteSearch]="true" [loading]="buscandoPersona()" emptyText="No hay personas para agregar con esa búsqueda" (searchChange)="onBuscarPersona($event)" />
+      </div>
       <ng-container *ngIf="!seleccionada()">
-        <app-select aria-label="Agregar personas" [formControl]="selectorPersona" [items]="opcionesPersona()" bindLabel="label" bindValue="id" placeholder="Seleccione personal" [searchable]="true" [remoteSearch]="true" [loading]="buscandoPersona()" emptyText="No hay personas para agregar con esa búsqueda" (searchChange)="onBuscarPersona($event)" />
-        <div class="comisiones__personas-head">Personas seleccionadas <strong>{{ personasElegidas().length }}</strong></div>
-        <p *ngIf="!personasElegidas().length">Todavía no agregaste ninguna persona.</p>
-        <div class="comisiones__personas-list">
-          <div *ngFor="let p of personasElegidas()" class="comisiones__chosen"><span>{{ p.nombre }} <small>CI {{ p.cedula }}</small></span><button type="button" class="btn" [attr.aria-label]="'Quitar a ' + p.nombre" [disabled]="guardando()" (click)="quitarPersona(p.id)">Quitar</button></div>
+        <div class="modal__personas-head"><span>Personas seleccionadas</span><span class="modal__contador">{{ personasElegidas().length }}</span></div>
+        <p *ngIf="!personasElegidas().length" class="modal__nota">Todavía no agregaste ninguna persona.</p>
+        <div class="modal__personas-list">
+          <div *ngFor="let p of personasElegidas()" class="modal__elegido">
+            <span>{{ p.nombre }} <small>CI {{ p.cedula }}</small></span>
+            <button type="button" class="btn btn--ghost btn--sm" [attr.aria-label]="'Quitar a ' + p.nombre" [disabled]="guardando()" (click)="quitarPersona(p.id)">Quitar</button>
+          </div>
         </div>
       </ng-container>
-      <label>Comisión *</label>
-      <div *ngIf="comisionElegida()" class="comisiones__chosen">{{ comisionElegida()!.denominacion }} <button type="button" class="btn" *ngIf="!seleccionada() && !comisionId" (click)="cambiarComision()">Cambiar</button></div>
-      <ng-container *ngIf="!comisionElegida()"><input aria-label="Buscar comisión" type="search" [ngModel]="textoComision" (ngModelChange)="textoComision = $event; buscarComisiones()" [ngModelOptions]="{standalone: true}" placeholder="Buscar comisión vigente" /><p *ngIf="buscandoComision()">Buscando...</p><p *ngIf="errorSelector()" role="alert" class="comisiones__error">{{ errorSelector() }} <button type="button" class="btn" (click)="buscarComisiones()">Reintentar</button></p><div class="comisiones__results"><button type="button" *ngFor="let c of opcionesComision()" (click)="elegirComision(c)">{{ c.denominacion }}</button></div><p *ngIf="!buscandoComision() && !errorSelector() && !opcionesComision().length">No hay comisiones vigentes con esa búsqueda. Podés crear una desde Catálogo.</p><div class="comisiones__selector-pages" *ngIf="totalSelector() > 10"><button type="button" class="btn" [disabled]="paginaSelector() <= 1 || buscandoComision()" (click)="buscarComisiones(paginaSelector() - 1)">Anterior</button><span>Página {{ paginaSelector() }}</span><button type="button" class="btn" [disabled]="paginaSelector() * 10 >= totalSelector() || buscandoComision()" (click)="buscarComisiones(paginaSelector() + 1)">Siguiente</button></div></ng-container>
-      <label>Cargo dentro de la comisión (opcional)<input formControlName="cargo" maxlength="200" /></label>
-      <p *ngIf="esLote()" class="comisiones__cargo-hint">El cargo se completa después, editando la asignación de cada persona.</p>
-      <p *ngIf="seleccionada()?.importada" class="comisiones__cargo-hint">Importada del Access: «{{ seleccionada()?.texto_original }}». La fecha y el documento se pueden completar ahora o más adelante.</p>
-      <div class="comisiones__grid"><label>Fecha desde{{ seleccionada()?.importada ? '' : ' *' }}<input type="date" formControlName="fecha_inicio" /></label><label>Fecha hasta<input type="date" formControlName="fecha_fin" [min]="formAsignacion.controls.fecha_inicio.value" /></label></div>
-      <div class="comisiones__grid"><label>N.º de orden<input formControlName="numero_orden" maxlength="50" /></label><label>N.º de resolución<input formControlName="boletin" maxlength="50" /></label></div>
-      <p *ngIf="modalError()" role="alert" class="comisiones__error">{{ modalError() }}</p>
-      <footer><button type="button" class="btn" [disabled]="guardando()" (click)="cerrarModal()">Cancelar</button><button class="btn btn--primary" type="submit" [disabled]="guardando()">{{ guardando() ? 'Guardando...' : 'Guardar asignación' }}</button></footer>
+
+      <div class="modal__field">
+        <span>Comisión <em>*</em></span>
+        <div *ngIf="comisionElegida()" class="modal__elegido">{{ comisionElegida()!.denominacion }} <button type="button" class="btn btn--ghost btn--sm" *ngIf="!seleccionada() && !comisionId" (click)="cambiarComision()">Cambiar</button></div>
+        <ng-container *ngIf="!comisionElegida()">
+          <input aria-label="Buscar comisión" type="text" autocomplete="off" [ngModel]="textoComision" (ngModelChange)="textoComision = $event; buscarComisiones()" [ngModelOptions]="{standalone: true}" placeholder="Buscar comisión vigente" />
+          <p *ngIf="buscandoComision()" class="modal__nota">Buscando...</p>
+          <div *ngIf="errorSelector()" role="alert" class="modal__error">{{ errorSelector() }} <button type="button" class="btn btn--ghost btn--sm" (click)="buscarComisiones()">Reintentar</button></div>
+          <div class="modal__resultados"><button type="button" *ngFor="let c of opcionesComision()" (click)="elegirComision(c)">{{ c.denominacion }}</button></div>
+          <p *ngIf="!buscandoComision() && !errorSelector() && !opcionesComision().length" class="modal__nota">No hay comisiones vigentes con esa búsqueda. Podés crear una desde Catálogo.</p>
+          <div class="modal__paginas" *ngIf="totalSelector() > 10">
+            <button type="button" class="btn btn--ghost btn--sm" [disabled]="paginaSelector() <= 1 || buscandoComision()" (click)="buscarComisiones(paginaSelector() - 1)">Anterior</button>
+            <span>Página {{ paginaSelector() }}</span>
+            <button type="button" class="btn btn--ghost btn--sm" [disabled]="paginaSelector() * 10 >= totalSelector() || buscandoComision()" (click)="buscarComisiones(paginaSelector() + 1)">Siguiente</button>
+          </div>
+        </ng-container>
+      </div>
+
+      <label class="modal__field">
+        <span>Cargo dentro de la comisión</span>
+        <input type="text" formControlName="cargo" maxlength="200" placeholder="Opcional" autocomplete="off" />
+      </label>
+      <p *ngIf="esLote()" class="modal__nota">El cargo se completa después, editando la asignación de cada persona.</p>
+      <p *ngIf="seleccionada()?.importada" class="modal__nota">Importada del Access: «{{ seleccionada()?.texto_original }}». La fecha y el documento se pueden completar ahora o más adelante.</p>
+
+      <div class="modal__grid-2">
+        <label class="modal__field"><span>Fecha desde <em *ngIf="!seleccionada()?.importada">*</em></span><app-date-input formControlName="fecha_inicio"></app-date-input></label>
+        <label class="modal__field"><span>Fecha hasta</span><app-date-input formControlName="fecha_fin" [min]="formAsignacion.controls.fecha_inicio.value"></app-date-input></label>
+      </div>
+      <div class="modal__grid-2">
+        <label class="modal__field"><span>N° de orden</span><input type="text" formControlName="numero_orden" maxlength="50" autocomplete="off" /></label>
+        <label class="modal__field"><span>Resolución</span><input type="text" formControlName="boletin" maxlength="50" autocomplete="off" /></label>
+      </div>
+
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" [disabled]="guardando()" (click)="cerrarModal()">Cancelar</button>
+        <button type="submit" class="btn btn--primary" [disabled]="guardando()">{{ guardando() ? 'Guardando...' : 'Guardar asignación' }}</button>
+      </footer>
     </form>
+
     <ng-container *ngIf="modal() !== 'comision' && modal() !== 'asignacion'">
-      <p>{{ seleccionada()?.persona?.primer_nombre }} {{ seleccionada()?.persona?.primer_apellido }} — {{ seleccionada()?.comision?.denominacion }}</p>
-      <label *ngIf="modal() === 'cerrar'">Fecha hasta *<input type="date" [(ngModel)]="fechaCierre" [min]="seleccionada()?.fecha_inicio ?? ''" /></label>
-      <p *ngIf="modal() === 'reabrir'">Se quitará la fecha hasta de esta pertenencia. Las otras comisiones de la persona se conservarán.</p>
-      <p *ngIf="modal() === 'eliminar'">Se eliminará esta pertenencia del historial. Para registrar una finalización normal, usá Cerrar.</p>
-      <p *ngIf="modalError()" role="alert" class="comisiones__error">{{ modalError() }}</p>
-      <footer><button class="btn" [disabled]="guardando()" (click)="cerrarModal()">Cancelar</button><button class="btn btn--primary" [disabled]="guardando()" (click)="confirmarAccion()">{{ guardando() ? 'Procesando...' : 'Confirmar' }}</button></footer>
+      <div *ngIf="modalError()" role="alert" class="modal__error">{{ modalError() }}</div>
+      <label *ngIf="modal() === 'cerrar'" class="modal__field">
+        <span>Fecha hasta <em>*</em></span>
+        <app-date-input [(ngModel)]="fechaCierre" [min]="seleccionada()?.fecha_inicio ?? ''"></app-date-input>
+      </label>
+      <p *ngIf="modal() === 'reabrir'" class="modal__confirm-text">Se quitará la fecha hasta de esta pertenencia. Las otras comisiones de la persona se conservarán.</p>
+      <p *ngIf="modal() === 'eliminar'" class="modal__confirm-text">Se eliminará esta pertenencia del historial. Para registrar una finalización normal, usá Cerrar.</p>
+      <footer class="modal__actions">
+        <button type="button" class="btn btn--ghost" [disabled]="guardando()" (click)="cerrarModal()">Cancelar</button>
+        <button type="button" class="btn" [class.btn--primary]="modal() !== 'eliminar'" [class.btn--danger]="modal() === 'eliminar'" [disabled]="guardando()" (click)="confirmarAccion()">{{ guardando() ? 'Procesando...' : modal() === 'eliminar' ? 'Eliminar' : 'Confirmar' }}</button>
+      </footer>
     </ng-container>
   </section>
 </div>

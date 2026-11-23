@@ -8,7 +8,15 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { CursosService } from '../../../../core/services/cursos.service';
-import { FILTRO_DERECHA_NUMOR_INICIAL, FiltroDerechaNumor } from '../../../../core/models/derecha.models';
+import {
+  EscalaDerecha,
+  FILTRO_DERECHA_NUMOR_INICIAL,
+  FiltroDerechaNumor,
+  NOMBRES_ESCALA,
+  OrdenarPorDerechaNumor,
+  hayFiltroDerechaNumor,
+} from '../../../../core/models/derecha.models';
+import { GradoItem, OpcionSelect } from '../../../../core/models/personal.models';
 import { mensajeErrorDocumento } from '../../../../core/services/documentos-personal.service';
 import {
   ArchivosPendientes,
@@ -32,6 +40,7 @@ import {
   HistorialCurso,
   ModuloCurso,
   TipoCurso,
+  EditarInscripcionPayload,
 } from '../../../../core/models/cursos.models';
 import { ConfirmModalService } from '../../../../core/services/confirm-modal.service';
 import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
@@ -47,6 +56,7 @@ type ModalKind =
   | 'calificacionMasiva'
   | 'confirmarEliminar'
   | 'baja'
+  | 'editarInscripcion'
   | null;
 
 interface ResultadoMasivo {
@@ -112,6 +122,13 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly categoriaFiltro = signal<FiltroCategoria>('todos');
   readonly categoriaOpciones = OPCIONES_FILTRO_CATEGORIA;
   readonly filtroDerecha = signal<FiltroDerechaNumor>({ ...FILTRO_DERECHA_NUMOR_INICIAL });
+  readonly grados = signal<GradoItem[]>([]);
+  readonly escalafones = signal<OpcionSelect[]>([]);
+  readonly escalas = Object.entries(NOMBRES_ESCALA).map(([value, label]) => ({
+    value: value as EscalaDerecha,
+    label,
+  }));
+  readonly filtrosExtraAbiertos = signal(false);
   readonly buscandoCedula = signal(false);
   readonly buscadorRegistrar = new BuscadorPersonas();
   readonly buscadorNuevoCurso = new BuscadorPersonas();
@@ -123,6 +140,16 @@ export class CursosPage implements OnInit, OnDestroy {
 
   // ── Baja / Reactivación ──────────────────────────────────────────────────
   readonly verBajas = signal(false);
+
+  /** Solo lo que está en la fila desplegable: es lo que avisa el punto de la flecha. */
+  readonly hayFiltroExtra = computed(() => {
+    const f = this.filtroDerecha();
+    return this.verBajas() || [f.derechaDesde, f.derechaHasta, f.numorDesde, f.numorHasta].some((v) => v != null);
+  });
+
+  readonly hayFiltrosActivos = computed(
+    () => !!this.cedulaFiltro() || this.verBajas() || hayFiltroDerechaNumor(this.filtroDerecha()),
+  );
   readonly bajaFila = signal<FilaHistorial | null>(null);
   readonly guardandoBaja = signal(false);
   readonly reactivandoId = signal<string | null>(null);
@@ -157,6 +184,19 @@ export class CursosPage implements OnInit, OnDestroy {
   readonly calificacionValor     = signal<number | null>(null);
   readonly observacionValor      = signal<string>('');
   readonly guardandoCalificacion = signal(false);
+
+  // ── Editar inscripción ────────────────────────────────────────────────────
+  readonly filaEditando        = signal<FilaHistorial | null>(null);
+  readonly editAprobado        = signal<boolean | null>(null);
+  readonly editCalificacion    = signal<number | null>(null);
+  readonly editObservacion     = signal<string>('');
+  readonly guardandoEdicion    = signal(false);
+  readonly editarInscripcionForm = this.fb.group({
+    numero_orden: ['', Validators.maxLength(50)],
+    boletin:      ['', Validators.maxLength(50)],
+    fecha_inicio: [''],
+    fecha_fin:    [''],
+  });
 
   // ── Calificación masiva ────────────────────────────────────────────────────
   readonly cursoMasivoId        = signal<string | null>(null);
@@ -351,6 +391,8 @@ export class CursosPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     const section = this.route.snapshot.data['section'] as TabKind;
     if (section) this.tab.set(section);
+    this.personalService.getGrados().subscribe({ next: (g) => this.grados.set(g) });
+    this.personalService.getEscalafones().subscribe({ next: (e) => this.escalafones.set(e) });
     this.buscadorRegistrar.vincular(this.registrarForm.controls.personaId);
     this.buscadorNuevoCurso.vincular(this.nuevoCursoForm.controls.persona_ids);
     this.buscadorDesignar.vincular(this.designarForm.controls.persona_ids);
@@ -532,6 +574,7 @@ export class CursosPage implements OnInit, OnDestroy {
     this.cursoSeleccionado.set(null);
     this.bajaFila.set(null);
     this.filaCalificando.set(null);
+    this.filaEditando.set(null);
   }
 
   // ── Menú de acciones (kebab) ────────────────────────────────────────────────
@@ -947,6 +990,47 @@ export class CursosPage implements OnInit, OnDestroy {
     this.cargar();
   }
 
+  onEscalaChange(escala: EscalaDerecha | null): void {
+    this.onFiltroDerecha({ ...this.filtroDerecha(), escala: escala ?? undefined });
+  }
+
+  onGradosChange(ids: number[] | null): void {
+    this.onFiltroDerecha({ ...this.filtroDerecha(), gradoId: ids?.length ? ids : undefined });
+  }
+
+  onEscalafonesChange(ids: number[] | null): void {
+    this.onFiltroDerecha({ ...this.filtroDerecha(), escalafonId: ids?.length ? ids : undefined });
+  }
+
+  /** Mismo comportamiento que la tabla de Personal: clic en el encabezado ordena y alterna. */
+  ordenarPor(campo: OrdenarPorDerechaNumor): void {
+    const actual = this.filtroDerecha();
+    const direccion = actual.ordenarPor === campo && actual.direccion === 'ASC' ? 'DESC' : 'ASC';
+    this.onFiltroDerecha({ ...actual, ordenarPor: campo, direccion });
+  }
+
+  indicadorOrden(campo: OrdenarPorDerechaNumor): string {
+    const f = this.filtroDerecha();
+    if (f.ordenarPor !== campo) return '';
+    return f.direccion === 'DESC' ? '↓' : '↑';
+  }
+
+  ariaSort(campo: OrdenarPorDerechaNumor): 'ascending' | 'descending' | 'none' {
+    const f = this.filtroDerecha();
+    if (f.ordenarPor !== campo) return 'none';
+    return f.direccion === 'DESC' ? 'descending' : 'ascending';
+  }
+
+  /** Borra los filtros pero conserva el orden elegido en la tabla. */
+  limpiarFiltrosInscripciones(): void {
+    const { ordenarPor, direccion } = this.filtroDerecha();
+    this.filtroDerecha.set({ ...FILTRO_DERECHA_NUMOR_INICIAL, ordenarPor, direccion });
+    this.verBajas.set(false);
+    this.limpiarCedula();
+    this.historialPage.set(1);
+    this.cargar();
+  }
+
   onCategoriaChange(value: string): void {
     this.categoriaFiltro.set(value as FiltroCategoria);
     this.historialPage.set(1);
@@ -1202,6 +1286,94 @@ export class CursosPage implements OnInit, OnDestroy {
           this.modalError.set(this.parseError(err));
         },
       });
+  }
+
+  // ── Editar inscripción ─────────────────────────────────────────────────────
+
+  abrirEditarInscripcion(fila: FilaHistorial): void {
+    if (fila.curso.dadoDeBaja) return;
+    const c = fila.curso;
+    this.editarInscripcionForm.reset({
+      numero_orden: c.numero_orden ?? '',
+      boletin: c.boletin ?? '',
+      fecha_inicio: (c.fechaInicio || '').slice(0, 10),
+      fecha_fin: (c.fechaFin || '').slice(0, 10),
+    });
+    this.editAprobado.set(c.aprobado);
+    this.editCalificacion.set(c.calificacion);
+    this.editObservacion.set(c.observacion ?? '');
+    this.modalError.set(null);
+    this.filaEditando.set(fila);
+    this.modal.set('editarInscripcion');
+  }
+
+  setEditCalificacion(valor: string): void {
+    this.editCalificacion.set(valor.trim() === '' ? null : Math.round(Number(valor)));
+  }
+
+  /** Arma el cambio solo con lo que se tocó: lo que no cambió no se manda. */
+  guardarEdicionInscripcion(): void {
+    const fila = this.filaEditando();
+    if (!fila) return;
+    const c = fila.curso;
+    const v = this.editarInscripcionForm.getRawValue();
+    const texto = (x: string | null | undefined) => (x ?? '').trim() || null;
+    const fecha = (x: string | null | undefined) => (x || '').slice(0, 10) || null;
+
+    const orden = texto(v.numero_orden);
+    const boletin = texto(v.boletin);
+    const inicio = fecha(v.fecha_inicio);
+    const fin = fecha(v.fecha_fin);
+    const aprobado = this.editAprobado();
+    const nota = aprobado === null ? null : this.editCalificacion();
+    const observacion = aprobado === null ? null : texto(this.editObservacion());
+
+    const cambio: EditarInscripcionPayload = {};
+    if (orden !== texto(c.numero_orden)) cambio.numero_orden = orden;
+    if (boletin !== texto(c.boletin)) cambio.boletin = boletin;
+    if (inicio !== fecha(c.fechaInicio)) cambio.fecha_inicio = inicio;
+    if (fin !== fecha(c.fechaFin)) cambio.fecha_fin = fin;
+    if (aprobado !== c.aprobado) cambio.aprobado = aprobado;
+    if (aprobado !== null) {
+      if (nota !== (c.calificacion ?? null)) cambio.calificacion = nota;
+      if (observacion !== texto(c.observacion)) cambio.observacion = observacion;
+    }
+
+    if (('numero_orden' in cambio || 'boletin' in cambio) && !orden && !boletin) {
+      this.modalError.set('Indicá el número de orden o la resolución');
+      return;
+    }
+    if (inicio && fin && fin < inicio) {
+      this.modalError.set('La fecha de fin no puede ser anterior a la de inicio');
+      return;
+    }
+    if (nota !== null && !this.notaValida(nota)) {
+      this.modalError.set('La calificación debe ser un número entero entre 1 y 10');
+      return;
+    }
+    if (this.editarInscripcionForm.invalid) {
+      this.modalError.set('El número de orden y la resolución admiten hasta 50 caracteres');
+      return;
+    }
+    if (Object.keys(cambio).length === 0) {
+      this.cerrarModal();
+      return;
+    }
+
+    this.modalError.set(null);
+    this.guardandoEdicion.set(true);
+    this.cursosService.editarInscripcion(c.id, c.designacionId, cambio).subscribe({
+      next: () => {
+        this.guardandoEdicion.set(false);
+        this.cerrarModal();
+        this.toast.success('Inscripción actualizada');
+        this.cargar();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.guardandoEdicion.set(false);
+        this.modalError.set(this.parseError(err));
+      },
+    });
   }
 
   private notaValida(nota: number): boolean {

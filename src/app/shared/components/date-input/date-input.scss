@@ -229,3 +229,13 @@ $text: #0f172a;
     cursor: not-allowed;
   }
 }
+
+// Estados que las pantallas marcan en el host (error de validación, campo modificado).
+:host([class*='--error']) .appdate__control {
+  border-color: #e11d48;
+}
+
+:host(.pd__edit-input--mod:not(.pd__edit-input--error)) .appdate__control {
+  border-color: #93c5fd;
+  background-color: #f8fbff;
+}

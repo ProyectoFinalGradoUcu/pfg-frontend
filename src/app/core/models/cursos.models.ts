@@ -125,6 +125,17 @@ export interface RegistrarCalificacionPayload {
   observacion?: string;
 }
 
+/** Corrección de una inscripción: un campo ausente no se toca; en null se vacía. */
+export interface EditarInscripcionPayload {
+  numero_orden?: string | null;
+  boletin?: string | null;
+  fecha_inicio?: string | null;
+  fecha_fin?: string | null;
+  aprobado?: boolean | null;
+  calificacion?: number | null;
+  observacion?: string | null;
+}
+
 export interface CalificacionMasivaItem extends RegistrarCalificacionPayload {
   designacionId: number;
 }

@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { ReactiveFormsModule } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -22,6 +22,7 @@ import {
   ModuloCurso,
 } from '../../../../core/models/cursos.models';
 import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,8 @@ describe('CursosPage', () => {
     findAll: ReturnType<typeof vi.fn>;
     findPaginado: ReturnType<typeof vi.fn>;
     getBases: ReturnType<typeof vi.fn>;
+    getGrados: ReturnType<typeof vi.fn>;
+    getEscalafones: ReturnType<typeof vi.fn>;
   };
   let authService: {
     hasPermiso: ReturnType<typeof vi.fn>;
@@ -107,6 +110,7 @@ describe('CursosPage', () => {
       }),
       registrarCalificacion: vi.fn().mockReturnValue(of({ id: 'x', curso_id: 'c1', persona_id: 'f1', aprobado: true, calificacion: 8, observacion: null })),
       registrarCalificacionesMasivas: vi.fn().mockReturnValue(of([])),
+      editarInscripcion: vi.fn().mockReturnValue(of({})),
     };
   }
 
@@ -121,6 +125,8 @@ describe('CursosPage', () => {
     cursosService = makeCursosServiceSpy();
     personalService = {
       findAll: vi.fn().mockReturnValue(of([])),
+      getGrados: vi.fn().mockReturnValue(of([])),
+      getEscalafones: vi.fn().mockReturnValue(of([])),
       findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 20 })),
       getBases: vi.fn().mockReturnValue(
         of([BAI, ETA].map((b) => ({ ...b, unidad_id: Number(b.comando.id), etiqueta: `${b.denominacion} (${b.comando.denominacion})` }))),
@@ -141,8 +147,8 @@ describe('CursosPage', () => {
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      declarations: [CursosPage, Select],
-      imports: [ReactiveFormsModule],
+      declarations: [CursosPage, Select, DateInput],
+      imports: [FormsModule, ReactiveFormsModule],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
       providers: [
         { provide: CursosService, useValue: cursosService },
@@ -1579,6 +1585,80 @@ describe('CursosPage', () => {
       ]);
       fixture.detectChanges();
       expect(celdaResultado().textContent).toContain('Aprobado');
+    });
+  });
+
+  // ─── Editar inscripción ─────────────────────────────────────────────────────
+
+  describe('editar inscripción', () => {
+    const fila = () => ({
+      funcionarioId: 'f1',
+      cedula: '12345678',
+      nombre: 'Ana Pérez',
+      curso: {
+        id: 'c1',
+        designacionId: 'd1',
+        nombre_curso: 'Curso X',
+        institucion: 'ETA',
+        tipo: 'obligatorio',
+        fechaInicio: '2026-03-01T00:00:00.000Z',
+        fechaFin: '2026-06-30T00:00:00.000Z',
+        aprobado: true,
+        calificacion: 8,
+        observacion: null,
+        numero_orden: 'ORD-1',
+        boletin: null,
+      },
+    }) as any;
+
+    beforeEach(async () => {
+      await setup('inscripciones');
+    });
+
+    it('precarga los datos actuales', () => {
+      component.abrirEditarInscripcion(fila());
+      expect(component.modal()).toBe('editarInscripcion');
+      expect(component.editarInscripcionForm.getRawValue()).toEqual({
+        numero_orden: 'ORD-1', boletin: '', fecha_inicio: '2026-03-01', fecha_fin: '2026-06-30',
+      });
+      expect(component.editAprobado()).toBe(true);
+      expect(component.editCalificacion()).toBe(8);
+    });
+
+    it('manda solo lo que cambió', () => {
+      component.abrirEditarInscripcion(fila());
+      component.editarInscripcionForm.patchValue({ boletin: 'RES-9', fecha_fin: '2026-07-31' });
+      component.editCalificacion.set(9);
+      component.guardarEdicionInscripcion();
+      expect(cursosService.editarInscripcion).toHaveBeenCalledWith('c1', 'd1', {
+        boletin: 'RES-9', fecha_fin: '2026-07-31', calificacion: 9,
+      });
+    });
+
+    it('quitar el resultado manda aprobado en null', () => {
+      component.abrirEditarInscripcion(fila());
+      component.editAprobado.set(null);
+      component.guardarEdicionInscripcion();
+      expect(cursosService.editarInscripcion).toHaveBeenCalledWith('c1', 'd1', { aprobado: null });
+    });
+
+    it('no deja fechas invertidas ni quitar orden y resolución', () => {
+      component.abrirEditarInscripcion(fila());
+      component.editarInscripcionForm.patchValue({ fecha_fin: '2026-02-01' });
+      component.guardarEdicionInscripcion();
+      expect(component.modalError()).toContain('fecha de fin');
+
+      component.editarInscripcionForm.patchValue({ fecha_fin: '2026-06-30', numero_orden: '' });
+      component.guardarEdicionInscripcion();
+      expect(component.modalError()).toContain('orden o la resolución');
+      expect(cursosService.editarInscripcion).not.toHaveBeenCalled();
+    });
+
+    it('sin cambios cierra sin llamar al backend', () => {
+      component.abrirEditarInscripcion(fila());
+      component.guardarEdicionInscripcion();
+      expect(cursosService.editarInscripcion).not.toHaveBeenCalled();
+      expect(component.modal()).toBeNull();
     });
   });
 });

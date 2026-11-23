@@ -57,6 +57,12 @@ export class ReporteVisorPage implements OnInit {
     });
   }
 
+  /** El selector de fecha emite el valor `aaaa-mm-dd`, no un evento. */
+  setFecha(clave: string, valor: string): void {
+    this.valores.update((v) => ({ ...v, [clave]: valor }));
+    this.resultado.set(null);
+  }
+
   setValor(clave: string, event: Event): void {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     this.valores.update((v) => ({ ...v, [clave]: target.value }));

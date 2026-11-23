@@ -61,12 +61,7 @@
                       </select>
                     }
                     @case ('fecha') {
-                      <input
-                        type="date"
-                        [id]="param.clave"
-                        [value]="valores()[param.clave]"
-                        (change)="setValor(param.clave, $event)"
-                      />
+                      <app-date-input [id]="param.clave" [ngModel]="valores()[param.clave]" (ngModelChange)="setFecha(param.clave, $event)" [ngModelOptions]="{ standalone: true }"></app-date-input>
                     }
                     @default {
                       <input

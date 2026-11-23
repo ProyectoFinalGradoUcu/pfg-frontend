@@ -121,8 +121,7 @@
       <label class="filtros__campo">
         <span class="filtros__label">Evaluar al</span>
         <span class="filtros__linea">
-          <input type="date" class="filtros__input" [value]="fechaReferencia()"
-            (change)="onFecha($any($event.target).value)" />
+          <app-date-input class="filtros__fecha" placeholder="Hoy" [ngModel]="fechaReferencia()" (ngModelChange)="onFecha($event)" [ngModelOptions]="{ standalone: true }"></app-date-input>
           <button type="button" class="filtros__atajo" [class.filtros__atajo--activo]="esPrimeroDeFebrero()"
             [attr.aria-pressed]="esPrimeroDeFebrero()" (click)="alternarPrimeroDeFebrero()"
             title="Fecha en que se confieren los ascensos de oficiales">
