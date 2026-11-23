@@ -1654,6 +1654,30 @@ describe('CursosPage', () => {
       expect(cursosService.editarInscripcion).not.toHaveBeenCalled();
     });
 
+    it('no deja cargar resultado si el curso no terminó', () => {
+      const f = fila();
+      f.curso.aprobado = null;
+      f.curso.calificacion = null;
+      f.curso.fechaFin = '2999-12-31T00:00:00.000Z';
+      component.abrirEditarInscripcion(f);
+      expect(component.edicionTerminada()).toBe(false);
+      component.editAprobado.set(true);
+      component.guardarEdicionInscripcion();
+      expect(component.modalError()).toContain('todavía no terminó');
+      expect(cursosService.editarInscripcion).not.toHaveBeenCalled();
+    });
+
+    it('con el curso en marcha igual se puede corregir la orden', () => {
+      const f = fila();
+      f.curso.aprobado = null;
+      f.curso.calificacion = null;
+      f.curso.fechaFin = '2999-12-31T00:00:00.000Z';
+      component.abrirEditarInscripcion(f);
+      component.editarInscripcionForm.patchValue({ numero_orden: 'ORD-9' });
+      component.guardarEdicionInscripcion();
+      expect(cursosService.editarInscripcion).toHaveBeenCalledWith('c1', 'd1', { numero_orden: 'ORD-9' });
+    });
+
     it('sin cambios cierra sin llamar al backend', () => {
       component.abrirEditarInscripcion(fila());
       component.guardarEdicionInscripcion();

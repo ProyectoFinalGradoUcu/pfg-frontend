@@ -1615,3 +1615,11 @@ $cur-gap-filtros: 0.65rem;
 .cursos__table .cursos__num {
   white-space: nowrap;
 }
+
+// Con el curso sin terminar no se puede elegir aprobado / desaprobado.
+.cursos__resultado-opt:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+
+  &:hover { border-color: #e2e8f0; background: #fff; }
+}
