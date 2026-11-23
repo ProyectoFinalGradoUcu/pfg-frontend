@@ -1125,7 +1125,7 @@
               Sin resultado
             </button>
             <button type="button" class="cursos__resultado-opt cursos__resultado-opt--aprobado"
-              [class.is-active]="editAprobado() === true" [attr.aria-pressed]="editAprobado() === true"
+              [class.is-active]="editAprobado() === true" [disabled]="!edicionTerminada()" [attr.aria-pressed]="editAprobado() === true"
               (click)="editAprobado.set(true)">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -1133,7 +1133,7 @@
               Aprobado
             </button>
             <button type="button" class="cursos__resultado-opt cursos__resultado-opt--desaprobado"
-              [class.is-active]="editAprobado() === false" [attr.aria-pressed]="editAprobado() === false"
+              [class.is-active]="editAprobado() === false" [disabled]="!edicionTerminada()" [attr.aria-pressed]="editAprobado() === false"
               (click)="editAprobado.set(false)">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -1141,6 +1141,9 @@
               Desaprobado
             </button>
           </div>
+          <small *ngIf="!edicionTerminada()" class="modal__hint">
+            El curso todavía no terminó: el resultado se carga cuando pasa la fecha de fin.
+          </small>
           <small *ngIf="editAprobado() === null && (fila.curso.calificacion !== null || fila.curso.observacion)" class="modal__hint">
             Al quitar el resultado también se borran la calificación y la observación.
           </small>
