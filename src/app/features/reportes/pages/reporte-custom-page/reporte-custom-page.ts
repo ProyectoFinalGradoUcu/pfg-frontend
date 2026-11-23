@@ -80,6 +80,11 @@ export class ReporteCustomPage implements OnInit {
     return this.columnasSel().has(clave);
   }
 
+  /** El selector de fecha emite el valor `aaaa-mm-dd`, no un evento. */
+  setFecha(clave: string, valor: string): void {
+    this.valores.update((v) => ({ ...v, [clave]: valor }));
+  }
+
   setValor(clave: string, event: Event): void {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     this.valores.update((v) => ({ ...v, [clave]: target.value }));

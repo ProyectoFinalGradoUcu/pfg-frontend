@@ -13,6 +13,7 @@ import { Destino } from '../../../../core/models/destinos.models';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { Select } from '../../../../shared/components/select/select';
 import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 function makeDestino(overrides: Partial<Destino> = {}): Destino {
   return {
@@ -78,7 +79,7 @@ describe('DestinoFormModal (crear)', () => {
     };
 
     await TestBed.configureTestingModule({
-      declarations: [DestinoFormModal, Select],
+      declarations: [DestinoFormModal, Select, DateInput],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: DestinosService, useValue: destinosService },
@@ -482,7 +483,7 @@ describe('DestinoFormModal (editar)', () => {
     };
 
     TestBed.configureTestingModule({
-      declarations: [DestinoFormModal, Select],
+      declarations: [DestinoFormModal, Select, DateInput],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: DestinosService, useValue: destinosService },
@@ -570,7 +571,7 @@ describe('DestinoFormModal (desde el perfil de la persona)', () => {
     personalService = { findPaginado: vi.fn() };
 
     TestBed.configureTestingModule({
-      declarations: [DestinoFormModal, Select],
+      declarations: [DestinoFormModal, Select, DateInput],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: DestinosService, useValue: destinosService },

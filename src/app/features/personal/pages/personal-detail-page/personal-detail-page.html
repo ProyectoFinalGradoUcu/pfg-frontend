@@ -366,10 +366,7 @@
             <div class="pd__field">
               <span class="pd__label">Fecha de nacimiento
                 <span class="pd__mod" *ngIf="modificado('fecha_nacimiento')">Modificado</span></span>
-              <input type="date" formControlName="fecha_nacimiento" class="pd__edit-input"
-                [attr.max]="maxFechaNacimiento()"
-                [class.pd__edit-input--mod]="modificado('fecha_nacimiento')"
-                [class.pd__edit-input--error]="fechasInconsistentes()" />
+              <app-date-input formControlName="fecha_nacimiento" [max]="maxFechaNacimiento()" [class.pd__edit-input--mod]="modificado('fecha_nacimiento')" [class.pd__edit-input--error]="fechasInconsistentes()"></app-date-input>
               <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
                 No puede ser posterior a la fecha de inicio de la relación laboral
               </span>
@@ -494,10 +491,7 @@
             <div class="pd__field" *ngIf="!p.es_civil">
               <span class="pd__label">Fecha de inicio <span class="pd__req">*</span>
                 <span class="pd__mod" *ngIf="modificado('fecha_inicio')">Modificado</span></span>
-              <input type="date" formControlName="fecha_inicio" class="pd__edit-input"
-                [attr.min]="minFechaInicio()"
-                [class.pd__edit-input--mod]="modificado('fecha_inicio')"
-                [class.pd__edit-input--error]="fechasInconsistentes()" />
+              <app-date-input formControlName="fecha_inicio" [min]="minFechaInicio()" [class.pd__edit-input--mod]="modificado('fecha_inicio')" [class.pd__edit-input--error]="fechasInconsistentes()"></app-date-input>
               <span class="pd__edit-error" *ngIf="fechasInconsistentes()">
                 No puede ser anterior a la fecha de nacimiento
               </span>
@@ -672,17 +666,13 @@
               <div class="pd__field">
                 <span class="pd__label">Ingreso a la ETA
                   <span class="pd__mod" *ngIf="modificado('fecha_ingreso_eta')">Modificado</span></span>
-                <input type="date" formControlName="fecha_ingreso_eta" class="pd__edit-input"
-                  [class.pd__edit-input--mod]="modificado('fecha_ingreso_eta')" />
+                <app-date-input formControlName="fecha_ingreso_eta" [class.pd__edit-input--mod]="modificado('fecha_ingreso_eta')"></app-date-input>
                 <span class="pd__antes" *ngIf="modificado('fecha_ingreso_eta')">Antes: {{ antes('fecha_ingreso_eta') }}</span>
               </div>
               <div class="pd__field">
                 <span class="pd__label">Egreso de la ETA
                   <span class="pd__mod" *ngIf="modificado('fecha_egreso_eta')">Modificado</span></span>
-                <input type="date" formControlName="fecha_egreso_eta" class="pd__edit-input"
-                  [attr.min]="editForm.get('fecha_ingreso_eta')?.value || null"
-                  [class.pd__edit-input--mod]="modificado('fecha_egreso_eta')"
-                  [class.pd__edit-input--error]="etaInconsistente()" />
+                <app-date-input formControlName="fecha_egreso_eta" [min]="editForm.get('fecha_ingreso_eta')?.value || null" [class.pd__edit-input--mod]="modificado('fecha_egreso_eta')" [class.pd__edit-input--error]="etaInconsistente()"></app-date-input>
                 <span class="pd__edit-error" *ngIf="etaInconsistente()">No puede ser anterior al ingreso a la ETA</span>
                 <span class="pd__edit-hint">Distingue al egresado del mutado en AT 2.ª a AT 1.ª.</span>
                 <span class="pd__antes" *ngIf="modificado('fecha_egreso_eta')">Antes: {{ antes('fecha_egreso_eta') }}</span>

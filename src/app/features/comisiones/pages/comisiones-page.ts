@@ -72,6 +72,7 @@ export class ComisionesPage {
     { value: 'true', label: this.catalogo ? 'Vigentes' : 'Abiertas' },
     { value: 'false', label: this.catalogo ? 'Inactivas' : 'Cerradas' },
   ];
+  readonly masFiltrosAbiertos = signal(false);
   readonly openMenuId = signal<string | null>(null);
   readonly menuPosition = signal<{ top: number; right: number } | null>(null);
   filtroTexto = '';
@@ -161,7 +162,7 @@ export class ComisionesPage {
     this.filtroComisionId = id ?? ''; this.filtrar();
   }
   hayFiltros() { return !!(this.filtroTexto || this.filtroEstado || this.filtroComisionId || this.filtroCategoria !== 'todos'); }
-  filtrosAdicionales() { return Number(!!this.filtroEstado) + Number(!!this.filtroComisionId); }
+  filtrosAdicionales() { return Number(!!this.filtroComisionId); }
   limpiarFiltros() {
     this.filtroTexto = ''; this.filtroEstado = ''; this.filtroCategoria = 'todos'; this.filtroComisionId = ''; this.filtroComisionTexto = '';
     this.comisionFiltroElegida.set(null); this.filtrar();

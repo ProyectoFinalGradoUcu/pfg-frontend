@@ -17,6 +17,7 @@ import { PersonaListItem } from '../../../../core/models/personal.models';
 import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
 import { Convocatoria, MisionDefinicion } from '../../../../core/models/misiones.models';
 import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ describe('MisionConvocatoriasPage', () => {
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
-      declarations: [MisionConvocatoriasPage, Select],
+      declarations: [MisionConvocatoriasPage, Select, DateInput],
       imports: [FormsModule, ReactiveFormsModule],
       schemas: [CUSTOM_ELEMENTS_SCHEMA],
       providers: [

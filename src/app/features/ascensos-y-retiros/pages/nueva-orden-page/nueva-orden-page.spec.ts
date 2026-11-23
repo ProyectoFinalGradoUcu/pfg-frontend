@@ -12,6 +12,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Elegibilidad } from '../../../../core/models/ascensos.models';
 import { Select } from '../../../../shared/components/select/select';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 function makeElegibilidad(overrides: Partial<Elegibilidad> = {}): Elegibilidad {
   return {
@@ -49,7 +50,7 @@ describe('NuevaOrdenPage', () => {
 
   async function montar(): Promise<void> {
     await TestBed.configureTestingModule({
-      declarations: [NuevaOrdenPage, Select],
+      declarations: [NuevaOrdenPage, Select, DateInput],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: AscensosService, useValue: svc },

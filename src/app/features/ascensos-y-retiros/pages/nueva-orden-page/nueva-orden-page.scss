@@ -327,6 +327,10 @@ textarea.input { resize: vertical; }
   }
 }
 
+.funcionario__fecha-input { width: 10rem; }
+
+.input--fecha { max-width: 14rem; }
+
 .bloqueo {
   background-color: $warn-bg;
   border-top: 1px solid #fde68a;

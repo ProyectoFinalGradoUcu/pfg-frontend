@@ -1400,3 +1400,218 @@ $navy-soft: #1e3a5f;
   color: #64748b;
   font-size: 0.78rem;
 }
+
+// ─── Filtros de inscripciones (mismo diseño que la Búsqueda Avanzada de Personal) ───
+
+$cur-alto-control: 2.55rem;
+$cur-gap-filtros: 0.65rem;
+
+// Las columnas dependen del ancho de la tarjeta, no de la ventana.
+.cursos__card--inscripciones {
+  container-type: inline-size;
+}
+
+// Dos filas sobre columnas iguales:
+//   cédula · escala · grado · escalafón · [borrar · flecha]
+//   derecha · numor · bajas            (se despliega con la flecha)
+.cursos__filters-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: $cur-gap-filtros;
+  margin-bottom: 1rem;
+}
+
+.cursos__filtros-extra {
+  display: contents;
+}
+
+.cursos__filtro-search {
+  width: 100%;
+}
+
+.cursos__filtros-acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cursos__filters-row .cursos__filtro-derecha {
+  grid-column: span 2;
+  margin-bottom: 0;
+  --fdn-alto: #{$cur-alto-control};
+  --fdn-gap: #{$cur-gap-filtros};
+  --fdn-rango-flex: 1 1 0;
+}
+
+@container (max-width: 760px) {
+  .cursos__filters-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cursos__filtro-search {
+    order: -2;
+  }
+
+  .cursos__filtros-acciones {
+    order: -1;
+    justify-self: end;
+  }
+
+  .cursos__filters-row .cursos__filtro-derecha {
+    grid-column: 1 / -1;
+  }
+}
+
+@container (max-width: 420px) {
+  .cursos__filters-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.btn--clear {
+  border-color: #cbd5e1;
+  color: #64748b;
+  height: $cur-alto-control;
+  padding: 0 0.7rem;
+  font-weight: 500;
+  flex-shrink: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover:not(:disabled) {
+    background-color: #f8fafc;
+    border-color: #94a3b8;
+    color: #334155;
+  }
+}
+
+// Tooltip propio (el texto sale de data-tooltip).
+.cursos__toggle-btn {
+  position: relative;
+
+  svg {
+    transition: transform 0.2s ease;
+  }
+
+  &[aria-expanded='true'] {
+    border-color: #94a3b8;
+    color: #334155;
+
+    svg {
+      transform: rotate(180deg);
+    }
+  }
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #1e293b;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s;
+    pointer-events: none;
+  }
+
+  &:hover::after {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+// Avisa que hay filtros aplicados en la segunda fila aunque esté cerrada.
+.cursos__toggle-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #132744;
+}
+
+.cursos__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: $cur-alto-control;
+  padding: 0 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background-color: #ffffff;
+  font-size: 0.82rem;
+  color: #475569;
+  white-space: nowrap;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+
+  input { accent-color: #132744; margin: 0; }
+
+  &:hover { background-color: #f8fafc; }
+
+  &--activo {
+    border-color: #132744;
+    background-color: #f1f5f9;
+    color: #132744;
+    font-weight: 500;
+  }
+}
+
+// Encabezados ordenables, como en la tabla de Personal.
+.cursos__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ─── Columnas de la tabla de inscripciones ───────────────────────────────
+// Con muchas columnas el navegador aprieta las de texto hasta dejar una palabra por línea.
+// Se les da un ancho mínimo y el nombre del curso se corta a dos líneas (completo en el tooltip);
+// si no entra todo, la tabla scrollea de costado.
+
+.cursos__curso-nombre {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  min-width: 14rem;
+  max-width: 22rem;
+  line-height: 1.35;
+}
+
+.cursos__institucion {
+  min-width: 9rem;
+}
+
+.cursos__nowrap {
+  white-space: nowrap;
+}
+
+.cursos__table .cursos__cedula,
+.cursos__table .cursos__num {
+  white-space: nowrap;
+}

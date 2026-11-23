@@ -254,7 +254,7 @@
         <p>Después de cerrarlo, el funcionario queda sin destino activo hasta que se le registre otro. Es un estado válido.</p>
         <label>
           Fecha de fin *
-          <input type="date" [formControl]="fechaFinForm" />
+          <app-date-input [formControl]="fechaFinForm"></app-date-input>
         </label>
         <p class="modal__error" *ngIf="modalError()">{{ modalError() }}</p>
       </div>
