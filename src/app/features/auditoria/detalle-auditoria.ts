@@ -101,6 +101,11 @@ const VACIO = '—';
 
 const SOLO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const FECHA_HORA = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const FORMATO_URUGUAY = new Intl.DateTimeFormat('es-UY', {
+  timeZone: 'America/Montevideo',
+  day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
 
 /**
  * Convierte el detalle en secciones. Devuelve `[]` cuando no hay nada legible
@@ -257,13 +262,11 @@ function formatearTexto(texto: string): string {
   if (FECHA_HORA.test(texto)) {
     const fecha = new Date(texto);
     if (!Number.isNaN(fecha.getTime())) {
-      // En UTC a propósito: las columnas `date` de la base (fecha de nacimiento,
-      // fecha de inicio) se serializan como medianoche UTC, y leerlas en hora
-      // local las correría un día para atrás en Uruguay.
-      const hora = `${dos(fecha.getUTCHours())}:${dos(fecha.getUTCMinutes())}`;
-      const dia = `${dos(fecha.getUTCDate())}/${dos(fecha.getUTCMonth() + 1)}/${fecha.getUTCFullYear()}`;
-      // Si es medianoche era una fecha pura: mostrar "00:00" confunde.
-      return hora === '00:00' ? dia : `${dia} ${hora}`;
+      // Si es medianoche es una fecha sin hora
+      if (fecha.getUTCHours() === 0 && fecha.getUTCMinutes() === 0 && fecha.getUTCSeconds() === 0) {
+        return `${dos(fecha.getUTCDate())}/${dos(fecha.getUTCMonth() + 1)}/${fecha.getUTCFullYear()}`;
+      }
+      return FORMATO_URUGUAY.format(fecha).replace(',', '');
     }
   }
   return texto;
