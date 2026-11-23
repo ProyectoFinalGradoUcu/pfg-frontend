@@ -40,6 +40,11 @@ describe('formatearValor', () => {
     expect(formatearValor('2024-01-15T00:00:00.000Z')).toBe('15/01/2024');
   });
 
+  it('Muestra los timestamps en hora de Uruguay', () => {
+    expect(formatearValor('2026-11-22T22:46:00.000Z')).toBe('22/11/2026 19:46');
+    expect(formatearValor('2026-11-23T01:30:00.000Z')).toBe('22/11/2026 22:30');
+  });
+
   it('Señala los campos enmascarados por el backend', () => {
     expect(formatearValor('***')).toBe('(oculto)');
   });
