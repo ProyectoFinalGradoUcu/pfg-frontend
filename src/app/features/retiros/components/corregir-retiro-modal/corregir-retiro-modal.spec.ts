@@ -8,6 +8,7 @@ import { CamposCorregibles, CorregirRetiroModal, payloadCorreccion } from './cor
 import { RetirosService } from '../../../../core/services/retiros.service';
 import { CatalogosService } from '../../../../core/services/catalogos.service';
 import { RetiroDetalle } from '../../../../core/models/retiros.models';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 function makeDetalle(overrides: Partial<RetiroDetalle> = {}): RetiroDetalle {
   return {
@@ -86,7 +87,7 @@ describe('CorregirRetiroModal', () => {
     retiros = { corregir: vi.fn().mockReturnValue(of(makeDetalle())) };
 
     await TestBed.configureTestingModule({
-      declarations: [CorregirRetiroModal],
+      declarations: [CorregirRetiroModal, DateInput],
       imports: [ReactiveFormsModule],
       providers: [
         { provide: RetirosService, useValue: retiros },

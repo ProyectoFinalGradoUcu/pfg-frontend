@@ -18,6 +18,7 @@ import { SlotVista } from '../../../../core/services/documentos-registro';
 import { DocumentosRegistro } from '../../../../core/models/documentos-registro.models';
 import { FamiliarItem, PersonaDetalle, PersonaListItem, RelacionLaboral } from '../../../../core/models/personal.models';
 import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 function makePersonaDetalle(overrides: Partial<PersonaDetalle> = {}): PersonaDetalle {
   return {
@@ -137,7 +138,7 @@ describe('PersonalDetailPage', () => {
     toastService = { success: vi.fn(), error: vi.fn() };
 
     await TestBed.configureTestingModule({
-      declarations: [PersonalDetailPage],
+      declarations: [PersonalDetailPage, DateInput],
       imports: [ReactiveFormsModule],
       providers: [
         { provide: PersonalService, useValue: svc },

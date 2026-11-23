@@ -70,65 +70,91 @@
       </div>
     </div>
 
-    <article class="cursos__card">
-      <div class="cursos__historial-header">
-        <h3>Inscripciones</h3>
+    <article class="cursos__card cursos__card--inscripciones">
+      <h3 class="cursos__filtros-titulo">Inscripciones</h3>
 
-        <div class="cursos__historial-filters">
-          <div class="cursos__search-wrap">
-            <svg class="cursos__search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-            <input
-              type="text"
-              class="cursos__search-input"
-              placeholder="Filtrar por cédula..."
-              [value]="cedulaFiltro()"
-              (input)="onCedulaInput($any($event.target).value)"
-              autocomplete="off"
-              inputmode="numeric"
-            />
-            <button
-              *ngIf="cedulaFiltro()"
-              type="button"
-              class="cursos__search-clear"
-              (click)="limpiarCedula()"
-              aria-label="Limpiar filtro"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <span *ngIf="buscandoCedula()" class="cursos__search-spinner"></span>
-          </div>
+      <!-- Misma grilla que la Búsqueda Avanzada de Personal: la flecha despliega derecha, numor y bajas. -->
+      <div class="cursos__filters-row">
+        <app-search-input
+          class="cursos__filtro-search"
+          placeholder="Filtrar por cédula..."
+          ariaLabel="Filtrar por cédula"
+          [value]="cedulaFiltro()"
+          (valueChange)="onCedulaInput($event)"
+        ></app-search-input>
 
-          <select
-            class="cursos__def-tipo-select"
-            [value]="categoriaFiltro()"
-            (change)="onCategoriaChange($any($event.target).value)"
-            aria-label="Categoría"
-          >
-            <option *ngFor="let c of categoriaOpciones" [value]="c.value">{{ c.label }}</option>
-          </select>
+        <app-select
+          [items]="escalas"
+          placeholder="Todas las escalas"
+          [clearable]="true"
+          [ngModel]="filtroDerecha().escala ?? null"
+          (ngModelChange)="onEscalaChange($event)"
+        ></app-select>
+
+        <app-select
+          [items]="grados()"
+          bindLabel="denominacion"
+          bindValue="id"
+          placeholder="Grado"
+          [multiple]="true"
+          [searchable]="true"
+          [clearable]="true"
+          [ngModel]="filtroDerecha().gradoId ?? []"
+          (ngModelChange)="onGradosChange($event)"
+        ></app-select>
+
+        <app-select
+          [items]="escalafones()"
+          bindLabel="denominacion"
+          bindValue="id"
+          placeholder="Escalafón"
+          [multiple]="true"
+          [searchable]="true"
+          [clearable]="true"
+          [ngModel]="filtroDerecha().escalafonId ?? []"
+          (ngModelChange)="onEscalafonesChange($event)"
+        ></app-select>
+
+        <div class="cursos__filtros-acciones">
+          <app-clear-filters-button
+            [disabled]="!hayFiltrosActivos()"
+            (limpiar)="limpiarFiltrosInscripciones()"
+          ></app-clear-filters-button>
 
           <button
             type="button"
-            class="btn btn--ghost btn--sm cursos__ver-bajas-btn"
-            [class.cursos__ver-bajas-btn--active]="verBajas()"
-            (click)="toggleVerBajas()"
-            [attr.aria-pressed]="verBajas()"
-            title="Mostrar u ocultar inscripciones dadas de baja"
+            class="btn btn--clear cursos__toggle-btn"
+            [attr.aria-expanded]="filtrosExtraAbiertos()"
+            aria-controls="cursos-filtros-extra"
+            [attr.aria-label]="filtrosExtraAbiertos() ? 'Ocultar más filtros' : 'Más filtros: derecha, numor y bajas'"
+            [attr.data-tooltip]="filtrosExtraAbiertos() ? 'Ocultar filtros' : 'Más filtros'"
+            (click)="filtrosExtraAbiertos.set(!filtrosExtraAbiertos())"
           >
-            {{ verBajas() ? 'Ocultar bajas' : 'Ver bajas' }}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+            <span class="cursos__toggle-dot" *ngIf="hayFiltroExtra() && !filtrosExtraAbiertos()" aria-hidden="true"></span>
           </button>
         </div>
-      </div>
 
-      <app-filtro-derecha-numor
-        class="cursos__filtro-derecha"
-        [valor]="filtroDerecha()"
-        (valorChange)="onFiltroDerecha($event)"
-      ></app-filtro-derecha-numor>
+        <div id="cursos-filtros-extra" class="cursos__filtros-extra" *ngIf="filtrosExtraAbiertos()">
+          <!-- El orden se elige desde los encabezados de la tabla. -->
+          <app-filtro-derecha-numor
+            class="cursos__filtro-derecha"
+            [valor]="filtroDerecha()"
+            [conOrden]="false"
+            [conLimpiar]="false"
+            [conEscala]="false"
+            [conGradoEscalafon]="false"
+            (valorChange)="onFiltroDerecha($event)"
+          ></app-filtro-derecha-numor>
+
+          <label class="cursos__check" [class.cursos__check--activo]="verBajas()">
+            <input type="checkbox" [checked]="verBajas()" (change)="toggleVerBajas()" />
+            Incluir bajas
+          </label>
+        </div>
+      </div>
 
       <div *ngIf="loading()" class="cursos__placeholder">Cargando...</div>
 
@@ -136,11 +162,24 @@
         <table class="cursos__table">
           <thead>
             <tr>
-              <th>Funcionario</th>
+              <th [attr.aria-sort]="ariaSort('apellido')">
+                <button type="button" class="cursos__sort" (click)="ordenarPor('apellido')">
+                  Funcionario <span aria-hidden="true">{{ indicadorOrden('apellido') }}</span>
+                </button>
+              </th>
               <th>Cédula</th>
               <th>Grado</th>
-              <th>Derecha</th>
-              <th>Numor</th>
+              <th [attr.aria-sort]="ariaSort('derecha')">
+                <button type="button" class="cursos__sort" (click)="ordenarPor('derecha')">
+                  Derecha <span aria-hidden="true">{{ indicadorOrden('derecha') }}</span>
+                </button>
+              </th>
+              <th [attr.aria-sort]="ariaSort('numor')">
+                <button type="button" class="cursos__sort" (click)="ordenarPor('numor')"
+                  title="Numor se ordena dentro de grado › escalafón">
+                  Numor <span aria-hidden="true">{{ indicadorOrden('numor') }}</span>
+                </button>
+              </th>
               <th>Curso</th>
               <th>Institución</th>
               <th>Fecha Inicio</th>
@@ -162,7 +201,7 @@
               <td class="cursos__num">{{ fila.numor ?? '—' }}</td>
               <td>
                 <div class="cursos__curso-cell">
-                  <strong>{{ fila.curso.nombre_curso }}</strong>
+                  <strong class="cursos__curso-nombre" [title]="fila.curso.nombre_curso">{{ fila.curso.nombre_curso }}</strong>
                   <span
                     *ngIf="fila.curso.dadoDeBaja"
                     class="cursos__baja-badge"
@@ -174,9 +213,9 @@
                   </span>
                 </div>
               </td>
-              <td>{{ fila.curso.institucion }}</td>
-              <td>{{ fila.curso.fechaInicio | date:'d/M/yyyy':'UTC' }}</td>
-              <td>{{ fila.curso.fechaFin | date:'d/M/yyyy':'UTC' }}</td>
+              <td class="cursos__institucion">{{ fila.curso.institucion }}</td>
+              <td class="cursos__nowrap">{{ fila.curso.fechaInicio | date:'d/M/yyyy':'UTC' }}</td>
+              <td class="cursos__nowrap">{{ fila.curso.fechaFin | date:'d/M/yyyy':'UTC' }}</td>
               <td>
                 <span
                   class="cursos__tipo-badge"
@@ -223,34 +262,18 @@
               </td>
 
               <!-- ── Acciones ─────────────────────────────────────────── -->
-              <td *ngIf="mostrarAcciones()" class="cursos__col-actions">
+              <td *ngIf="mostrarAcciones()" class="cursos__col-actions" (click)="$event.stopPropagation()">
                 <button
-                  *ngIf="puedeVerDocumentos()"
+                  *ngIf="puedeVerDocumentos() || puedeGestionarCurso(fila.curso.baseId)"
                   type="button"
-                  class="btn btn--ghost btn--sm"
-                  (click)="abrirDocumentos(fila)"
-                  title="Ver los documentos de la designación"
+                  class="btn btn--ghost btn--sm cursos__menu-btn"
+                  (click)="toggleMenu('ins-' + fila.curso.designacionId, $event)"
+                  [attr.aria-expanded]="openMenuId() === 'ins-' + fila.curso.designacionId"
+                  aria-label="Acciones"
                 >
-                  Documentos
-                </button>
-                <button
-                  *ngIf="puedeGestionarCurso(fila.curso.baseId) && !fila.curso.dadoDeBaja"
-                  type="button"
-                  class="btn btn--ghost btn--sm cursos__baja-btn"
-                  (click)="abrirBaja(fila)"
-                  title="Dar de baja del curso"
-                >
-                  Dar de baja
-                </button>
-                <button
-                  *ngIf="puedeGestionarCurso(fila.curso.baseId) && fila.curso.dadoDeBaja"
-                  type="button"
-                  class="btn btn--ghost btn--sm cursos__reactivar-btn"
-                  [disabled]="reactivandoId() === fila.curso.designacionId"
-                  (click)="reactivar(fila)"
-                  title="Reactivar la inscripción"
-                >
-                  {{ reactivandoId() === fila.curso.designacionId ? 'Reactivando…' : 'Reactivar' }}
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
+                  </svg>
                 </button>
               </td>
             </tr>
@@ -271,6 +294,58 @@
         (pageChange)="historialPage.set($event)"
       ></app-paginator>
     </article>
+
+    <!-- Dropdown: Acciones de la inscripción (fixed, escapa del overflow de la tabla) -->
+    <ng-container *ngFor="let fila of filasPaginadas(); trackBy: trackFila">
+      <div
+        *ngIf="openMenuId() === 'ins-' + fila.curso.designacionId && menuPosition() as pos"
+        class="cursos__dropdown"
+        [style.top.px]="pos.top"
+        [style.right.px]="pos.right"
+        (click)="$event.stopPropagation()"
+      >
+        <button *ngIf="puedeVerDocumentos()" type="button" class="cursos__dropdown-item" (click)="cerrarMenu(); abrirDocumentos(fila)">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+          </svg>
+          Documentos
+        </button>
+        <button
+          *ngIf="puedeGestionarCurso(fila.curso.baseId) && !fila.curso.dadoDeBaja"
+          type="button"
+          class="cursos__dropdown-item"
+          (click)="cerrarMenu(); abrirEditarInscripcion(fila)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+          </svg>
+          Editar
+        </button>
+        <button
+          *ngIf="puedeGestionarCurso(fila.curso.baseId) && fila.curso.dadoDeBaja"
+          type="button"
+          class="cursos__dropdown-item"
+          [disabled]="reactivandoId() === fila.curso.designacionId"
+          (click)="cerrarMenu(); reactivar(fila)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          {{ reactivandoId() === fila.curso.designacionId ? 'Reactivando…' : 'Reactivar' }}
+        </button>
+        <button
+          *ngIf="puedeGestionarCurso(fila.curso.baseId) && !fila.curso.dadoDeBaja"
+          type="button"
+          class="cursos__dropdown-item cursos__dropdown-item--danger"
+          (click)="cerrarMenu(); abrirBaja(fila)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.7" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM4 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 10.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+          </svg>
+          Dar de baja
+        </button>
+      </div>
+    </ng-container>
 
   </ng-container>
 
@@ -488,11 +563,11 @@
         <div class="modal__grid-3">
           <label class="modal__field">
             <span>Fecha Inicio <em>*</em></span>
-            <input type="date" formControlName="fechaInicio" />
+            <app-date-input formControlName="fechaInicio"></app-date-input>
           </label>
           <label class="modal__field">
             <span>Fecha Fin <em>*</em></span>
-            <input type="date" formControlName="fechaFin" />
+            <app-date-input formControlName="fechaFin"></app-date-input>
           </label>
           <label class="modal__field">
             <span>Estado <em>*</em></span>
@@ -667,11 +742,11 @@
             </div>
             <label class="modal__field">
               <span>Fecha Inicio <em>*</em></span>
-              <input type="date" formControlName="fecha_inicio" />
+              <app-date-input formControlName="fecha_inicio"></app-date-input>
             </label>
             <label class="modal__field">
               <span>Fecha Fin <em>*</em></span>
-              <input type="date" formControlName="fecha_fin" />
+              <app-date-input formControlName="fecha_fin"></app-date-input>
             </label>
           </div>
           <label class="modal__field">
@@ -841,11 +916,11 @@
           </div>
           <label class="modal__field">
             <span>Fecha Inicio <em>*</em></span>
-            <input type="date" formControlName="fecha_inicio" />
+            <app-date-input formControlName="fecha_inicio"></app-date-input>
           </label>
           <label class="modal__field">
             <span>Fecha Fin <em>*</em></span>
-            <input type="date" formControlName="fecha_fin" />
+            <app-date-input formControlName="fecha_fin"></app-date-input>
           </label>
         </div>
 
@@ -997,6 +1072,116 @@
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- MODAL: Cargar resultado del curso                                       -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: Editar inscripción                                              -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div *ngIf="modal() === 'editarInscripcion' && filaEditando() as fila" class="modal" (click)="cerrarModal()">
+    <div class="modal__card modal__card--wide" (click)="$event.stopPropagation()">
+
+      <header class="modal__header">
+        <div>
+          <h3>Editar inscripción</h3>
+          <p>{{ fila.nombre }} — {{ fila.curso.nombre_curso }}</p>
+        </div>
+        <button type="button" class="modal__close" (click)="cerrarModal()" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </header>
+
+      <form [formGroup]="editarInscripcionForm" (ngSubmit)="guardarEdicionInscripcion()" novalidate>
+        <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <div class="modal__grid-2">
+          <label class="modal__field">
+            <span>N° de orden</span>
+            <input type="text" formControlName="numero_orden" maxlength="50" placeholder="ORD-1542" autocomplete="off" />
+          </label>
+          <label class="modal__field">
+            <span>Resolución</span>
+            <input type="text" formControlName="boletin" maxlength="50" placeholder="RES-2026-04" autocomplete="off" />
+          </label>
+        </div>
+
+        <div class="modal__grid-2">
+          <div class="modal__field">
+            <span>Fecha de inicio</span>
+            <app-date-input formControlName="fecha_inicio" placeholder="Fecha de inicio"
+              [max]="editarInscripcionForm.controls.fecha_fin.value"></app-date-input>
+          </div>
+          <div class="modal__field">
+            <span>Fecha de fin</span>
+            <app-date-input formControlName="fecha_fin" placeholder="Fecha de fin"
+              [min]="editarInscripcionForm.controls.fecha_inicio.value"></app-date-input>
+          </div>
+        </div>
+
+        <div class="modal__field">
+          <span>Resultado</span>
+          <div class="cursos__resultado-toggle" role="group" aria-label="Resultado del curso">
+            <button type="button" class="cursos__resultado-opt" [class.is-active]="editAprobado() === null"
+              [attr.aria-pressed]="editAprobado() === null" (click)="editAprobado.set(null)">
+              Sin resultado
+            </button>
+            <button type="button" class="cursos__resultado-opt cursos__resultado-opt--aprobado"
+              [class.is-active]="editAprobado() === true" [attr.aria-pressed]="editAprobado() === true"
+              (click)="editAprobado.set(true)">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+              Aprobado
+            </button>
+            <button type="button" class="cursos__resultado-opt cursos__resultado-opt--desaprobado"
+              [class.is-active]="editAprobado() === false" [attr.aria-pressed]="editAprobado() === false"
+              (click)="editAprobado.set(false)">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+              Desaprobado
+            </button>
+          </div>
+          <small *ngIf="editAprobado() === null && (fila.curso.calificacion !== null || fila.curso.observacion)" class="modal__hint">
+            Al quitar el resultado también se borran la calificación y la observación.
+          </small>
+        </div>
+
+        <ng-container *ngIf="editAprobado() !== null">
+          <label class="modal__field">
+            <span>Calificación <small>(opcional)</small></span>
+            <input
+              type="number"
+              min="1"
+              max="10"
+              step="1"
+              placeholder="Entre 1 y 10"
+              [value]="editCalificacion() ?? ''"
+              (input)="setEditCalificacion($any($event.target).value)"
+            />
+          </label>
+
+          <label class="modal__field">
+            <span>Observación <small>(opcional)</small></span>
+            <textarea
+              rows="3"
+              maxlength="500"
+              placeholder="Ej: no alcanzó el mínimo de asistencia"
+              [value]="editObservacion()"
+              (input)="editObservacion.set($any($event.target).value)"
+            ></textarea>
+          </label>
+        </ng-container>
+
+        <footer class="modal__actions">
+          <button type="button" class="btn btn--ghost" [disabled]="guardandoEdicion()" (click)="cerrarModal()">Cancelar</button>
+          <button type="submit" class="btn btn--primary" [disabled]="guardandoEdicion()">
+            {{ guardandoEdicion() ? 'Guardando...' : 'Guardar cambios' }}
+          </button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
   <div *ngIf="modal() === 'calificar' && filaCalificando() as fila" class="modal" (click)="cerrarModal()">
     <div class="modal__card" (click)="$event.stopPropagation()">
 

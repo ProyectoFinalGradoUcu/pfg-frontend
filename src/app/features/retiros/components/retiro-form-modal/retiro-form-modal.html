@@ -39,7 +39,7 @@
       <div class="grid-2">
         <div class="field">
           <label for="fecha">Fecha de retiro *</label>
-          <input id="fecha" type="date" formControlName="fecha_retiro" [max]="hoy" />
+          <app-date-input id="fecha" formControlName="fecha_retiro" [max]="hoy"></app-date-input>
           <p class="field__hint">No puede ser futura.</p>
         </div>
 

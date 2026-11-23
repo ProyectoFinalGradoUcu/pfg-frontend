@@ -14,6 +14,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
 import { Retiro } from '../../../../core/models/retiros.models';
 import { Select } from '../../../../shared/components/select/select';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 function makeRetiro(overrides: Partial<Retiro> = {}): Retiro {
   return {
@@ -46,7 +47,7 @@ describe('RetirosPage', () => {
     };
 
     await TestBed.configureTestingModule({
-      declarations: [RetirosPage, Select],
+      declarations: [RetirosPage, Select, DateInput],
       imports: [FormsModule],
       providers: [
         { provide: RetirosService, useValue: retiros },

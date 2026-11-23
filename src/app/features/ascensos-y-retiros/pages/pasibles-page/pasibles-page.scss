@@ -160,6 +160,8 @@ $alto-control: 2.55rem;
   &--num { min-width: 0; width: 6rem; }
 }
 
+.filtros__fecha { width: 11rem; flex-shrink: 0; }
+
 // Atajo de fecha: mismo alto y borde que los controles, se marca cuando está aplicado.
 .filtros__atajo {
   @include control;

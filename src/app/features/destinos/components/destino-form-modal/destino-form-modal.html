@@ -57,7 +57,7 @@
             </p>
             <label class="destino-form__pase-fecha">
               Cerrarlo en otra fecha (opcional)
-              <input type="date" formControlName="fecha_fin_anterior" [max]="fechaCierreCalculada() ?? ''" />
+              <app-date-input formControlName="fecha_fin_anterior" [max]="fechaCierreCalculada() ?? ''"></app-date-input>
             </label>
           </ng-container>
 
@@ -96,12 +96,12 @@
 
         <div class="destino-form__field">
           <label>Fecha de inicio *</label>
-          <input type="date" formControlName="fecha_inicio" />
+          <app-date-input formControlName="fecha_inicio"></app-date-input>
         </div>
 
         <div class="destino-form__field" *ngIf="editando()">
           <label>Fecha de fin</label>
-          <input type="date" formControlName="fecha_fin" />
+          <app-date-input formControlName="fecha_fin"></app-date-input>
           <small>Vacía reabre el destino.</small>
         </div>
 
@@ -142,12 +142,12 @@
 
         <div class="destino-form__field">
           <label>Fecha orden</label>
-          <input type="date" formControlName="fecha_orden" />
+          <app-date-input formControlName="fecha_orden"></app-date-input>
         </div>
 
         <div class="destino-form__field">
           <label>Fecha de resolución</label>
-          <input type="date" formControlName="fecha_boletin" />
+          <app-date-input formControlName="fecha_boletin"></app-date-input>
         </div>
 
         <div class="destino-form__field">

@@ -106,6 +106,12 @@ $alto-control: 2.375rem;
 }
 
 
+.retiros__fecha {
+  flex: 0 1 10rem;
+  width: auto;
+  min-width: 8.5rem;
+}
+
 .retiros__daterange {
   display: inline-flex;
   align-items: center;

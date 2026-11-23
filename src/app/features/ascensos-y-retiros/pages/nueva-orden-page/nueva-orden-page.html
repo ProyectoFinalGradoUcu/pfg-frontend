@@ -35,8 +35,8 @@
       <div class="campos">
         <div class="field">
           <label for="fecha">Fecha de la orden</label>
-          <input id="fecha" type="date" class="input input--fecha" formControlName="fecha_orden"
-            [class.input--error]="hayError('fecha_orden')" />
+          <app-date-input id="fecha" class="input--fecha" formControlName="fecha_orden"
+            [class.input--error]="hayError('fecha_orden')"></app-date-input>
           <span class="field__error" *ngIf="hayError('fecha_orden')">Poné la fecha de la orden</span>
           <span class="field__hint">Es la fecha por defecto de cada ascenso; se puede cambiar por funcionario.</span>
         </div>
@@ -146,8 +146,7 @@
 
           <label class="funcionario__fecha">
             <span>Fecha del ascenso</span>
-            <input type="date" class="input input--sm" [value]="f.fecha_ascenso"
-              (change)="onFechaAscenso(f.evaluacion.persona.id, $any($event.target).value)" />
+            <app-date-input class="funcionario__fecha-input" [ngModel]="f.fecha_ascenso" (ngModelChange)="onFechaAscenso(f.evaluacion.persona.id, $event)" [ngModelOptions]="{ standalone: true }"></app-date-input>
           </label>
 
           <span class="badge" *ngIf="f.evaluando; else estadoEvaluado" role="status">Evaluando…</span>

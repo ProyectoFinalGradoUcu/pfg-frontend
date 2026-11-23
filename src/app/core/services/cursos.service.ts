@@ -11,6 +11,7 @@ import {
   CalificacionMasivaItem,
   CalificacionResponse,
   RegistrarCalificacionPayload,
+  EditarInscripcionPayload,
   CursoDefinicion,
   CursoFuncionarioItem,
   CreateCursoDefinicionPayload,
@@ -212,6 +213,16 @@ export class CursosService {
     return this.http.post<{ adjuntados: number }>(
       `${API_BASE_URL}/cursos/${cursoId}/designaciones/documentos/${slot}`,
       form,
+    );
+  }
+
+  // ── Editar inscripción ─────────────────────────────────────────────────────
+
+  editarInscripcion(cursoId: string, designacionId: string, payload: EditarInscripcionPayload): Observable<unknown> {
+    return this.http.patch(
+      `${API_BASE_URL}/cursos/${cursoId}/designaciones/${designacionId}/datos`,
+      payload,
+      { withCredentials: true },
     );
   }
 

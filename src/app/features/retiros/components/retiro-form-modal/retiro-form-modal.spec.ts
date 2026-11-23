@@ -17,6 +17,7 @@ import { ToastService } from '../../../../core/services/toast.service';
 import { PersonaListItem } from '../../../../core/models/personal.models';
 import { DEBOUNCE_BUSQUEDA_MS } from '../../../../shared/utils/buscador-personas';
 import { By } from '@angular/platform-browser';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 function makePrevia(overrides: Partial<PreviaRetiro> = {}): PreviaRetiro {
   return {
@@ -68,7 +69,7 @@ describe('RetiroFormModal', () => {
 
   async function montar(personaId: string | null = '1'): Promise<void> {
     await TestBed.configureTestingModule({
-      declarations: [RetiroFormModal, Select, DocumentoAdjunto],
+      declarations: [RetiroFormModal, Select, DocumentoAdjunto, DateInput],
       imports: [FormsModule, ReactiveFormsModule],
       providers: [
         { provide: RetirosService, useValue: retiros },

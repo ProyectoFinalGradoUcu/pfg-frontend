@@ -59,26 +59,22 @@
         (ngModelChange)="setCategoria($event)"
       ></app-select>
 
-      <!-- Un solo control: dos inputs sueltos se leen como filtros distintos. -->
-      <div class="retiros__daterange">
-        <label>
-          <span>Desde</span>
-          <input
-            type="date"
-            [value]="desde()"
-            (change)="setRango($any($event.target).value, hasta())"
-          />
-        </label>
-        <span class="retiros__daterange-sep" aria-hidden="true"></span>
-        <label>
-          <span>Hasta</span>
-          <input
-            type="date"
-            [value]="hasta()"
-            (change)="setRango(desde(), $any($event.target).value)"
-          />
-        </label>
-      </div>
+      <!-- Cada fecha limita a la otra: así no se puede armar un período invertido. -->
+      <app-date-input
+        class="retiros__fecha"
+        placeholder="Desde"
+        [max]="hasta()"
+        [ngModel]="desde()"
+        (ngModelChange)="setRango($event, hasta())"
+      ></app-date-input>
+
+      <app-date-input
+        class="retiros__fecha"
+        placeholder="Hasta"
+        [min]="desde()"
+        [ngModel]="hasta()"
+        (ngModelChange)="setRango(desde(), $event)"
+      ></app-date-input>
 
       <label class="retiros__check" [class.retiros__check--activo]="incluirAnulados()">
         <input

@@ -17,6 +17,7 @@ import { RetirosService } from '../../../../core/services/retiros.service';
 import { PersonalService } from '../../../../core/services/personal.service';
 import { Select } from '../../../../shared/components/select/select';
 import { PreviaReincorporacion, Reincorporado } from '../../../../core/models/retiros.models';
+import { DateInput } from '../../../../shared/components/date-input/date-input';
 
 function makePrevia(overrides: Partial<PreviaReincorporacion> = {}): PreviaReincorporacion {
   return {
@@ -174,7 +175,7 @@ describe('ReincorporarRetiroModal', () => {
 
   async function montar(previa: PreviaReincorporacion = makePrevia()): Promise<void> {
     await TestBed.configureTestingModule({
-      declarations: [ReincorporarRetiroModal, Select],
+      declarations: [ReincorporarRetiroModal, Select, DateInput],
       imports: [ReactiveFormsModule],
       providers: [
         { provide: RetirosService, useValue: retiros },
