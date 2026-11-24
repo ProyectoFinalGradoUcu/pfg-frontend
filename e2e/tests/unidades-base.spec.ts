@@ -61,7 +61,10 @@ test.describe('unidades por base', () => {
     await fila.getByRole('button', { name: 'Editar' }).click();
 
     await expect(page.getByRole('heading', { name: 'Editar Usuario' })).toBeVisible();
-    const bases = page.locator('.modal__field', { hasText: 'Bases' }).locator('.appsel__control');
+    const bases = page
+      .locator('.modal__field')
+      .filter({ has: page.getByText('Bases', { exact: true }) })
+      .locator('.appsel__control');
     await expect(bases).toHaveText(/B\.A\.I\. \(C\.A\.O\.\), E\.T\.A\. \(C\.A\.P\.\)/);
 
     // Solo se mira el desplegable: se cierra sin guardar.

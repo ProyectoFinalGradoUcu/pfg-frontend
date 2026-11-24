@@ -95,7 +95,10 @@ test.describe('usuarios y roles', () => {
     await fila.getByRole('button', { name: 'Editar' }).click();
     await expect(page.getByRole('heading', { name: 'Editar Usuario' })).toBeVisible();
 
-    const rolesSel = page.locator('.modal__field').first().locator('app-select');
+    const rolesSel = page
+      .locator('.modal__field')
+      .filter({ has: page.getByText('Roles', { exact: true }) })
+      .locator('app-select');
     await rolesSel.locator('.appsel__control').click();
     await rolesSel.locator('.appsel__search input').fill(ROL_VISOR);
     await rolesSel.getByRole('option', { name: ROL_VISOR }).click();
