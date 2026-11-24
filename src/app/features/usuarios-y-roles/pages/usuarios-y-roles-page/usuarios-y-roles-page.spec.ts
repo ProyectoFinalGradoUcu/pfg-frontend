@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink, provideRouter } from '@angular/router';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { Subject, of, throwError } from 'rxjs';
@@ -20,7 +20,8 @@ import { ConfirmModalService } from '../../../../core/services/confirm-modal.ser
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
-import { Invitacion, Rol } from '../../../../core/models/auth.models';
+import { FotoPersonalService } from '../../../../core/services/foto-personal.service';
+import { Invitacion, Rol, Usuario } from '../../../../core/models/auth.models';
 import { BaseOpcion } from '../../../../core/models/personal.models';
 import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
 
@@ -43,6 +44,8 @@ const bases: BaseOpcion[] = [
 ];
 
 const lista = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+
+const fotos = { url: (personaId: string, fotoId: string) => `/api/personas/${personaId}/foto?v=${fotoId}` };
 
 describe('UsuariosYRolesPage: paginación', () => {
   let fixture: ComponentFixture<UsuariosYRolesPage>;
@@ -67,7 +70,7 @@ describe('UsuariosYRolesPage: paginación', () => {
       imports: [FormsModule, ReactiveFormsModule],
       schemas: [NO_ERRORS_SCHEMA],
       providers: [
-        { provide: AuthService, useValue: { hasPermiso: () => true, currentUser: () => ({ id: '1' }) } },
+        { provide: AuthService, useValue: { hasPermiso: () => true, hasAnyPermiso: () => true, currentUser: () => ({ id: '1' }) } },
         { provide: InvitacionesService, useValue: invitaciones },
         { provide: RolesService, useValue: { findAll: vi.fn().mockReturnValue(of(roles)) } },
         { provide: ToastService, useValue: toast },
@@ -76,6 +79,7 @@ describe('UsuariosYRolesPage: paginación', () => {
         { provide: UsuariosService, useValue: { findAll: usuariosFindAll } },
         { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of(bases)) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: FotoPersonalService, useValue: fotos },
       ],
     }).compileComponents();
 
@@ -468,6 +472,7 @@ describe('UsuariosYRolesPage: pestañas según permisos', () => {
         { provide: UsuariosService, useValue: { findAll: usuariosFindAll } },
         { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of(bases)) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: FotoPersonalService, useValue: fotos },
       ],
     }).compileComponents();
 
@@ -534,7 +539,7 @@ describe('UsuariosYRolesPage: guardar la edición de un usuario', () => {
       imports: [FormsModule, ReactiveFormsModule],
       schemas: [NO_ERRORS_SCHEMA],
       providers: [
-        { provide: AuthService, useValue: { hasPermiso: () => true, currentUser: () => ({ id: '2' }) } },
+        { provide: AuthService, useValue: { hasPermiso: () => true, hasAnyPermiso: () => true, currentUser: () => ({ id: '2' }) } },
         { provide: InvitacionesService, useValue: { findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })) } },
         { provide: RolesService, useValue: { findAll: vi.fn().mockReturnValue(of([rol(1), rol(7)])) } },
         { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
@@ -543,6 +548,7 @@ describe('UsuariosYRolesPage: guardar la edición de un usuario', () => {
         { provide: UsuariosService, useValue: usuariosSvc },
         { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of(bases)) } },
         { provide: Router, useValue: { navigate: vi.fn() } },
+        { provide: FotoPersonalService, useValue: fotos },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(UsuariosYRolesPage);
@@ -591,5 +597,173 @@ describe('UsuariosYRolesPage: guardar la edición de un usuario', () => {
     expect(usuariosSvc['quitarRol']).not.toHaveBeenCalled();
     expect(usuariosSvc['update']).not.toHaveBeenCalled();
     expect(component.modalError()).not.toContain('Se guardó');
+  });
+
+  describe('funcionario vinculado', () => {
+    const vinculado = {
+      ...usuario,
+      persona: { id: '9', cedula: '1234567', nombre: 'Juan Pérez', fotoId: null },
+    };
+
+    it('el selector muestra al funcionario vinculado sin haber buscado', () => {
+      component.abrirEditar(vinculado);
+      fixture.detectChanges();
+
+      const selector = fixture.debugElement
+        .queryAll(By.directive(Select))
+        .find((d) => d.attributes['formControlName'] === 'personaId');
+      expect(selector).toBeDefined();
+      expect(component.editForm.controls.personaId.value).toBe('9');
+      expect((selector!.componentInstance as Select).items).toContainEqual(
+        expect.objectContaining({ id: '9', etiqueta: 'Juan Pérez · CI 1234567' }),
+      );
+    });
+
+    it('elegir un funcionario manda su id', () => {
+      component.abrirEditar(usuario);
+      component.editForm.patchValue({ personaId: '42' });
+
+      component.guardarEdicion();
+
+      expect(usuariosSvc['update']).toHaveBeenCalledWith('5', { personaId: '42' });
+    });
+
+    it('vaciar el selector desvincula con null', () => {
+      component.abrirEditar(vinculado);
+      component.editForm.patchValue({ personaId: null });
+
+      component.guardarEdicion();
+
+      expect(usuariosSvc['update']).toHaveBeenCalledWith('5', { personaId: null });
+    });
+
+    it('si no cambia el funcionario no lo manda', () => {
+      component.abrirEditar(vinculado);
+
+      component.guardarEdicion();
+
+      expect(usuariosSvc['update']).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('UsuariosYRolesPage: funcionario en el listado', () => {
+  let fixture: ComponentFixture<UsuariosYRolesPage>;
+  let component: UsuariosYRolesPage;
+  let permisos: string[];
+
+  const conPersona = (id: string, nombre: string, fotoId: string | null): Usuario => ({
+    id,
+    username: `u${id}@fau.mil.uy`,
+    estado: 'activo',
+    bloqueadoHasta: null,
+    unidades: [],
+    roles: [],
+    persona: { id: `9${id}`, cedula: '1234567', nombre, fotoId },
+  });
+
+  const crear = async () => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      declarations: [UsuariosYRolesPage, Paginator, Select, SearchInput, ClearFiltersButton],
+      imports: [FormsModule, ReactiveFormsModule, RouterLink],
+      schemas: [NO_ERRORS_SCHEMA],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: { hasPermiso: (p: string) => permisos.includes(p), hasAnyPermiso: (ps: string[]) => ps.some((p) => permisos.includes(p)), currentUser: () => ({ id: '2' }) } },
+        { provide: InvitacionesService, useValue: { findPaginado: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })) } },
+        { provide: RolesService, useValue: { findAll: vi.fn().mockReturnValue(of([])) } },
+        { provide: ToastService, useValue: { success: vi.fn(), error: vi.fn() } },
+        { provide: ConfirmModalService, useValue: { confirmar: vi.fn() } },
+        { provide: ErrorModalService, useValue: { show: vi.fn() } },
+        {
+          provide: UsuariosService,
+          useValue: {
+            findAll: vi.fn().mockReturnValue(of({ items: [], total: 0, page: 1, pageSize: 10 })),
+            findOne: vi.fn().mockReturnValue(of({ permisosEfectivos: [] })),
+          },
+        },
+        { provide: PersonalService, useValue: { getBases: vi.fn().mockReturnValue(of(bases)) } },
+        { provide: FotoPersonalService, useValue: fotos },
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(UsuariosYRolesPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  };
+
+  const avatares = () =>
+    fixture.debugElement.queryAll(By.css('.ur__avatar')).map((d) => d.nativeElement as HTMLElement);
+
+  beforeEach(async () => {
+    permisos = ['usuarios.ver', 'personas.ver'];
+    await crear();
+  });
+
+  it('muestra la foto del funcionario y, si no tiene, sus iniciales', () => {
+    component.usuarios.set([conPersona('1', 'Andrés Rey', '55'), conPersona('2', 'Mariana Díaz', null)]);
+    fixture.detectChanges();
+
+    const [conFoto, sinFoto] = avatares();
+    expect(conFoto.tagName).toBe('IMG');
+    expect(conFoto.getAttribute('src')).toBe('/api/personas/91/foto?v=55');
+    expect(sinFoto.tagName).toBe('SPAN');
+    expect(sinFoto.textContent?.trim()).toBe('MD');
+  });
+
+  it('si la foto no carga muestra las iniciales', () => {
+    component.usuarios.set([conPersona('1', 'Andrés Rey', '55')]);
+    fixture.detectChanges();
+
+    avatares()[0].dispatchEvent(new Event('error'));
+    fixture.detectChanges();
+
+    expect(avatares()[0].tagName).toBe('SPAN');
+    expect(avatares()[0].textContent?.trim()).toBe('AR');
+  });
+
+  it('el nombre lleva a la ficha del funcionario', () => {
+    component.usuarios.set([conPersona('1', 'Andrés Rey', null)]);
+    fixture.detectChanges();
+
+    const link = fixture.debugElement.query(By.css('a.ur__persona-link')).nativeElement as HTMLAnchorElement;
+    expect(link.textContent?.trim()).toBe('Andrés Rey');
+    expect(link.getAttribute('href')).toBe('/personal/91');
+  });
+
+  it('con personas.ver.unidad también lleva a la ficha', async () => {
+    permisos = ['usuarios.ver', 'personas.ver.unidad'];
+    await crear();
+    component.usuarios.set([conPersona('1', 'Andrés Rey', null)]);
+    fixture.detectChanges();
+
+    expect(fixture.debugElement.query(By.css('a.ur__persona-link'))).not.toBeNull();
+  });
+
+  it('sin permiso para ver personal el nombre no es un link', async () => {
+    permisos = ['usuarios.ver'];
+    await crear();
+    component.usuarios.set([conPersona('1', 'Andrés Rey', null)]);
+    fixture.detectChanges();
+
+    expect(fixture.debugElement.query(By.css('a.ur__persona-link'))).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Andrés Rey');
+  });
+
+  it('sin permiso para ver personal, Editar no ofrece vincular un funcionario', async () => {
+    const selectorDeFuncionario = () =>
+      fixture.debugElement
+        .queryAll(By.directive(Select))
+        .find((d) => d.attributes['formControlName'] === 'personaId');
+
+    component.abrirEditar(conPersona('1', 'Andrés Rey', null));
+    fixture.detectChanges();
+    expect(selectorDeFuncionario()).toBeDefined();
+
+    permisos = ['usuarios.ver', 'usuarios.gestionar'];
+    await crear();
+    component.abrirEditar(conPersona('1', 'Andrés Rey', null));
+    fixture.detectChanges();
+    expect(selectorDeFuncionario()).toBeUndefined();
   });
 });
