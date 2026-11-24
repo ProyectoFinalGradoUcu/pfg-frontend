@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
-import { Subject, forkJoin, of } from 'rxjs';
+import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
@@ -173,6 +173,7 @@ export class CursosPage implements OnInit, OnDestroy {
     () => !!this.filtroNombre() || !!this.filtroInstitucion() || !!this.filtroTipo(),
   );
   private readonly defTextSubject = new Subject<void>();
+  private definicionesSub?: Subscription;
 
   // ── Menú de acciones (kebab) ────────────────────────────────────────────────
   readonly openMenuId = signal<string | null>(null);
@@ -444,6 +445,7 @@ export class CursosPage implements OnInit, OnDestroy {
     this.destroy$.complete();
     this.cedulaSubject.complete();
     this.defTextSubject.complete();
+    this.definicionesSub?.unsubscribe();
   }
 
   cargar(): void {
@@ -476,7 +478,9 @@ export class CursosPage implements OnInit, OnDestroy {
     this.loadingDef.set(true);
     const tipo = this.filtroTipo();
     const esObligatorio = tipo === '' ? undefined : tipo === 'true';
-    this.cursosService
+    // Cancela la búsqueda anterior para que no pise una respuesta más nueva
+    this.definicionesSub?.unsubscribe();
+    this.definicionesSub = this.cursosService
       .findAllDefiniciones(
         this.defPage(),
         this.defPageSize,

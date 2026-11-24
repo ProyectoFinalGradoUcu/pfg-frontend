@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { vi } from 'vitest';
 
@@ -361,6 +361,16 @@ describe('CursosPage', () => {
       cursosService.findAllDefiniciones.mockReturnValue(of(makePaginated([curso])));
       component.cargarDefiniciones();
       expect(component.definiciones()).toEqual([curso]);
+    });
+
+    it('una respuesta vieja no pisa a la nueva', () => {
+      const vieja = new Subject<ReturnType<typeof makePaginated<CursoDefinicion>>>();
+      const nuevo = makeCurso({ id: '2' });
+      cursosService.findAllDefiniciones.mockReturnValueOnce(vieja).mockReturnValueOnce(of(makePaginated([nuevo])));
+      component.cargarDefiniciones();
+      component.cargarDefiniciones();
+      vieja.next(makePaginated([makeCurso({ id: '1' })]));
+      expect(component.definiciones()).toEqual([nuevo]);
     });
 
     it('filtra por nombre: llama al service con el nombre correcto', () => {
