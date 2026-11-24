@@ -1,6 +1,7 @@
 import { Page, expect, test } from '@playwright/test';
 import { elegir } from '../fixtures/misiones';
 import { apiAdmin, crearSubalternoEnBase } from '../fixtures/personal';
+import { esperarFechaBloqueada, llenarFecha } from '../fixtures/fechas';
 
 const toast = (page: Page, texto: string | RegExp) => page.locator('.toast__message', { hasText: texto });
 const modal = (page: Page) => page.locator('app-destino-form-modal');
@@ -45,7 +46,7 @@ test.describe('registrar un pase', () => {
     const m = modal(page);
     await expect(m.locator('.destino-form__pase')).toContainText('Sale de E.T.A.');
     await elegir(page, m.locator('app-select'), 'E.M.A. (C.A.P.)', 'E.M.A.');
-    await m.locator('[formcontrolname=fecha_inicio]').fill('2025-02-01');
+    await llenarFecha(m.locator('[formcontrolname=fecha_inicio]'), '2025-02-01');
     await expect(m.locator('.destino-form__pase')).toContainText('Ese destino se cerrará el 2025-01-31');
     await m.locator('[formcontrolname=posicion_destino]').fill('Jefe de sección');
 
@@ -76,12 +77,9 @@ test.describe('registrar un pase', () => {
 
     await elegir(page, m.locator('app-select'), 'E.M.A. (C.A.P.)', 'E.M.A.');
     await expect(m.getByText('Ya revista en esa base: elegí otro destino.')).toHaveCount(0);
-    await m.locator('[formcontrolname=fecha_inicio]').fill('2025-02-01');
-    await m.locator('[formcontrolname=fecha_fin_anterior]').fill('2025-03-01');
-    await m.locator('[formcontrolname=numero_orden]').fill(`O.D. ${cedula}`);
-    await m.getByRole('button', { name: 'Registrar destino' }).click();
-
-    await expect(m.locator('.modal__error')).toHaveText('El destino anterior tiene que cerrar antes de la fecha de inicio del nuevo.');
+    await llenarFecha(m.locator('[formcontrolname=fecha_inicio]'), '2025-02-01');
+    // El calendario ya no deja cerrar el anterior después del nuevo inicio.
+    await esperarFechaBloqueada(m.locator('[formcontrolname=fecha_fin_anterior]'), '2025-03-01');
     await m.getByRole('button', { name: 'Cancelar' }).click();
     await buscar(page, cedula);
     await expect(filas(page)).toHaveCount(1);
@@ -98,11 +96,11 @@ test.describe('editar un destino', () => {
     await expect(m.getByRole('heading', { name: 'Editar destino' })).toBeVisible();
     // El destino que crea el alta no trae orden ni resolución.
     await m.locator('[formcontrolname=numero_orden]').fill(`O.D. ${cedula}`);
-    await m.locator('[formcontrolname=fecha_fin]').fill('2019-01-01');
+    await llenarFecha(m.locator('[formcontrolname=fecha_fin]'), '2019-01-01');
     await m.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(m.locator('.modal__error')).toHaveText('La fecha de fin del destino no puede ser anterior a su fecha de inicio');
 
-    await m.locator('[formcontrolname=fecha_fin]').fill('');
+    await llenarFecha(m.locator('[formcontrolname=fecha_fin]'), '');
     await m.locator('[formcontrolname=posicion_destino]').fill('Encargado de pañol');
     await m.getByRole('button', { name: 'Guardar cambios' }).click();
 
@@ -115,14 +113,14 @@ test.describe('editar un destino', () => {
     const { cedula } = await nuevoSubalterno('Destino Superpuesto');
     await abrirRegistro(page, cedula);
     await elegir(page, modal(page).locator('app-select'), 'E.M.A. (C.A.P.)', 'E.M.A.');
-    await modal(page).locator('[formcontrolname=fecha_inicio]').fill('2025-02-01');
+    await llenarFecha(modal(page).locator('[formcontrolname=fecha_inicio]'), '2025-02-01');
     await modal(page).locator('[formcontrolname=numero_orden]').fill(`O.D. ${cedula}`);
     await modal(page).getByRole('button', { name: 'Registrar destino' }).click();
     await expect(toast(page, 'Destino registrado correctamente')).toBeVisible();
 
     await buscar(page, cedula);
     await accion(page, 'E.M.A.', 'Editar');
-    await modal(page).locator('[formcontrolname=fecha_inicio]').fill('2024-06-01');
+    await llenarFecha(modal(page).locator('[formcontrolname=fecha_inicio]'), '2024-06-01');
     await modal(page).getByRole('button', { name: 'Guardar cambios' }).click();
 
     await expect(modal(page).locator('.modal__error')).toHaveText('Las fechas se superponen con otro destino del funcionario');
@@ -138,7 +136,7 @@ test.describe('cerrar, reabrir y deshacer', () => {
     const cerrar = page.locator('.modal', { has: page.getByRole('heading', { name: 'Cerrar destino' }) });
     await cerrar.getByRole('button', { name: 'Cerrar destino' }).click();
     await expect(cerrar.locator('.modal__error')).toHaveText('Ingresá la fecha de fin.');
-    await cerrar.locator('input[type=date]').fill('2025-06-30');
+    await llenarFecha(cerrar.locator('app-date-input'), '2025-06-30');
     await cerrar.getByRole('button', { name: 'Cerrar destino' }).click();
 
     await expect(toast(page, 'Destino cerrado correctamente')).toBeVisible();
@@ -157,7 +155,7 @@ test.describe('cerrar, reabrir y deshacer', () => {
     const { cedula } = await nuevoSubalterno('Destino Deshacer');
     await abrirRegistro(page, cedula);
     await elegir(page, modal(page).locator('app-select'), 'E.M.A. (C.A.P.)', 'E.M.A.');
-    await modal(page).locator('[formcontrolname=fecha_inicio]').fill('2025-02-01');
+    await llenarFecha(modal(page).locator('[formcontrolname=fecha_inicio]'), '2025-02-01');
     await modal(page).locator('[formcontrolname=boletin]').fill(`B.P. ${cedula}`);
     await modal(page).getByRole('button', { name: 'Registrar destino' }).click();
     await expect(toast(page, 'Destino registrado correctamente')).toBeVisible();
@@ -178,7 +176,7 @@ test('el filtro de estado separa vigentes e historial', async ({ page }) => {
   const { cedula } = await nuevoSubalterno('Destino Filtro');
   await abrirRegistro(page, cedula);
   await elegir(page, modal(page).locator('app-select'), 'E.M.A. (C.A.P.)', 'E.M.A.');
-  await modal(page).locator('[formcontrolname=fecha_inicio]').fill('2025-02-01');
+  await llenarFecha(modal(page).locator('[formcontrolname=fecha_inicio]'), '2025-02-01');
   await modal(page).locator('[formcontrolname=numero_orden]').fill(`O.D. ${cedula}`);
   await modal(page).getByRole('button', { name: 'Registrar destino' }).click();
   await expect(toast(page, 'Destino registrado correctamente')).toBeVisible();

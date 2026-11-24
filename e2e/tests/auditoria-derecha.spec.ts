@@ -49,10 +49,10 @@ test.describe('auditoría', () => {
     await expect(filas(page).first()).toContainText(SESION.username);
     for (const t of await filas(page).allTextContents()) expect(t).toContain(SESION.username);
 
-    await elegir(page, 'Acción', 'LOGIN_FALLIDO');
-    await expect(filas(page).first()).toContainText('LOGIN_FALLIDO');
+    await elegir(page, 'Acción', 'Intento de ingreso fallido');
+    await expect(filas(page).first()).toContainText('Intento de ingreso fallido');
     for (const f of await filas(page).all()) {
-      await expect(f.locator('td').nth(2)).toHaveText(/^\s*LOGIN_FALLIDO\s*$/);
+      await expect(f.locator('td').nth(2)).toHaveText(/^\s*Intento de ingreso fallido\s*$/);
       await expect(f.locator('td').nth(3)).toContainText('Autenticación');
     }
   });
@@ -100,7 +100,7 @@ test.describe('auditoría', () => {
     const b = await api(SESION);
     await b.dispose();
     await page.goto('/auditoria');
-    await elegir(page, 'Acción', 'LOGIN_FALLIDO');
+    await elegir(page, 'Acción', 'Intento de ingreso fallido');
     await expect(filaConEmail(filas(page), page, SESION.username).first()).toBeVisible();
   });
 

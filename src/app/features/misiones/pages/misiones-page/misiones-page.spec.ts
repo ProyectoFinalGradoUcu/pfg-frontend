@@ -177,6 +177,16 @@ describe('MisionesPage', () => {
       expect(component.stats()).toEqual({ total_misiones: 1, convocatorias_activas: 2, personal_desplegado: 3 });
     });
 
+    it('una respuesta vieja no pisa a la nueva', () => {
+      const vieja = new Subject<ReturnType<typeof makeCatalogo>>();
+      const nueva = makeMision({ id: '2' });
+      misionesService.findAllDefiniciones.mockReturnValueOnce(vieja).mockReturnValueOnce(of(makeCatalogo([nueva])));
+      component.cargarDefiniciones();
+      component.cargarDefiniciones();
+      vieja.next(makeCatalogo([makeMision({ id: '1' })]));
+      expect(component.definiciones()).toEqual([nueva]);
+    });
+
     it('cargarDefiniciones muestra toast de error si el service falla', () => {
       misionesService.findAllDefiniciones.mockReturnValue(throwError(() => makeHttpError('fallo')));
       component.cargarDefiniciones();

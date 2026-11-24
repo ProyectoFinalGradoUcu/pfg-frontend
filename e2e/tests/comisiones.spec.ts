@@ -1,19 +1,23 @@
-import { Page, expect, test } from '@playwright/test';
+import { Locator, Page, expect, test } from '@playwright/test';
 import { apiAdmin, crearSubalternoEnBase } from '../fixtures/personal';
 import { datos } from '../fixtures/usuarios';
 import { crearComisionPorApi, elegirEnSelect, retirarPorApi, sufijo } from '../fixtures/ascensos';
+import { esperarFechaBloqueada, llenarFecha } from '../fixtures/fechas';
 
 type Asignacion = { id: string };
 
 test.describe.configure({ mode: 'default' });
 
-const modal = (page: Page) => page.locator('.comisiones__modal');
+const modal = (page: Page) => page.locator('.modal__card[aria-labelledby=comisiones-modal-title]');
+// Columnas de la tabla de asignaciones.
+const COLUMNA = { desde: 5, hasta: 6, orden: 7, resolucion: 8 } as const;
+const celda = (fila: Locator, col: keyof typeof COLUMNA) => fila.locator('td').nth(COLUMNA[col]);
 
 async function buscarPersona(page: Page, cedula: string) {
   await page.goto('/comisiones/asignaciones');
   await expect(page.getByRole('heading', { name: 'Asignaciones a comisiones' })).toBeVisible();
   const respuesta = page.waitForResponse((r) => r.url().includes('/api/comisiones/asignaciones?') && r.url().includes(cedula));
-  await page.getByLabel('Buscar persona').fill(cedula);
+  await page.getByLabel('Buscar', { exact: true }).fill(cedula);
   await respuesta;
 }
 
@@ -25,7 +29,7 @@ async function accionDeFila(page: Page, cedula: string, accion: string) {
 async function abrirEdicionDeComision(page: Page, nombre: string) {
   await page.goto('/comisiones/catalogo');
   await page.getByLabel('Buscar comisión').fill(nombre);
-  const fila = page.locator('tbody tr', { has: page.getByRole('link', { name: nombre, exact: true }) });
+  const fila = page.locator('tbody tr', { has: page.getByRole('cell', { name: nombre, exact: true }) });
   await fila.getByRole('button', { name: 'Acciones de comisión' }).click();
   await page.getByRole('menuitem', { name: 'Editar comisión' }).click();
   await expect(modal(page).getByRole('heading', { name: 'Editar comisión' })).toBeVisible();
@@ -70,14 +74,14 @@ test.describe('comisiones', () => {
     await expect(modal(page)).toHaveCount(0);
 
     await page.getByLabel('Buscar comisión').fill(nombre);
-    const fila = page.locator('tbody tr', { has: page.getByRole('link', { name: nombre, exact: true }) });
+    const fila = page.locator('tbody tr', { has: page.getByRole('cell', { name: nombre, exact: true }) });
     await expect(fila).toHaveCount(1);
     await expect(fila.locator('.comisiones__badge')).toHaveText('Vigente');
 
     await page.getByRole('button', { name: 'Nueva comisión' }).click();
     await modal(page).locator('[formcontrolname=denominacion]').fill(nombre);
     await modal(page).getByRole('button', { name: 'Guardar comisión' }).click();
-    await expect(modal(page).locator('.comisiones__error')).toContainText('Ya existe una comisión con ese nombre');
+    await expect(modal(page).locator('.modal__error')).toContainText('Ya existe una comisión con ese nombre');
     await modal(page).getByRole('button', { name: 'Cancelar' }).click();
   });
 
@@ -88,7 +92,7 @@ test.describe('comisiones', () => {
     await expect(modal(page)).toHaveCount(0);
 
     await page.getByLabel('Buscar comisión').fill(editada);
-    await expect(page.getByRole('link', { name: editada, exact: true })).toBeVisible();
+    await expect(page.getByRole('cell', { name: editada, exact: true })).toBeVisible();
   });
 
   test('asigna dos personas en lote', async ({ page }) => {
@@ -96,16 +100,16 @@ test.describe('comisiones', () => {
     await page.getByRole('button', { name: 'Nueva asignación' }).click();
     const m = modal(page);
     for (const p of [uno, dos]) await elegirEnSelect(page, m.getByRole('button', { name: 'Seleccione personal' }), p.cedula);
-    await expect(m.locator('.comisiones__personas-head strong')).toHaveText('2');
+    await expect(m.locator('.modal__contador')).toHaveText('2');
     await expect(m.getByText('El cargo se completa después')).toBeVisible();
     await expect(m.locator('[formcontrolname=cargo]')).toBeDisabled();
 
     await m.getByLabel('Buscar comisión').fill(editada);
-    await m.locator('.comisiones__results button', { hasText: editada }).click();
-    await m.locator('[formcontrolname=fecha_inicio]').fill('2025-01-10');
+    await m.locator('.modal__resultados button', { hasText: editada }).click();
+    await llenarFecha(m.locator('[formcontrolname=fecha_inicio]'), '2025-01-10');
 
     await m.getByRole('button', { name: 'Guardar asignación' }).click();
-    await expect(m.locator('.comisiones__error')).toHaveText('Ingresá al menos el N.º de orden o la resolución');
+    await expect(m.locator('.modal__error')).toHaveText('Ingresá al menos el N.º de orden o la resolución');
 
     await m.locator('[formcontrolname=numero_orden]').fill('E2E OC 1');
     await m.getByRole('button', { name: 'Guardar asignación' }).click();
@@ -116,8 +120,8 @@ test.describe('comisiones', () => {
       const fila = page.locator('tbody tr', { hasText: p.cedula });
       await expect(fila).toHaveCount(1);
       await expect(fila).toContainText(editada);
-      await expect(fila).toContainText('2025-01-10');
-      await expect(fila).toContainText('Orden: E2E OC 1');
+      await expect(celda(fila, 'desde')).toHaveText('10/1/2025');
+      await expect(celda(fila, 'orden')).toHaveText('E2E OC 1');
       await expect(fila.locator('.comisiones__badge')).toHaveText('Abierta');
     }
   });
@@ -134,24 +138,23 @@ test.describe('comisiones', () => {
 
     const fila = page.locator('tbody tr', { hasText: uno.cedula });
     await expect(fila).toContainText('Presidente');
-    await expect(fila).toContainText('Resolución: E2E BOL 7');
+    await expect(celda(fila, 'resolucion')).toHaveText('E2E BOL 7');
   });
 
   test('cierra la pertenencia y no la deja cerrar antes de su inicio', async ({ page }) => {
     await buscarPersona(page, uno.cedula);
     await accionDeFila(page, uno.cedula, 'Cerrar pertenencia');
     const m = modal(page);
-    await m.locator('input[type=date]').fill('2024-01-01');
-    await m.getByRole('button', { name: 'Confirmar' }).click();
-    await expect(m.locator('.comisiones__error')).toHaveText('Ingresá una fecha hasta igual o posterior a la fecha desde');
+    // Antes del inicio el calendario no deja elegir el día.
+    await esperarFechaBloqueada(m.locator('app-date-input'), '2024-01-01');
 
-    await m.locator('input[type=date]').fill('2025-06-30');
+    await llenarFecha(m.locator('app-date-input'), '2025-06-30');
     await m.getByRole('button', { name: 'Confirmar' }).click();
     await expect(m).toHaveCount(0);
 
     const fila = page.locator('tbody tr', { hasText: uno.cedula });
     await expect(fila.locator('.comisiones__badge')).toHaveText('Cerrada');
-    await expect(fila).toContainText('2025-06-30');
+    await expect(celda(fila, 'hasta')).toHaveText('30/6/2025');
   });
 
   test('no deja cargar una pertenencia que se solape con otra', async ({ page }) => {
@@ -160,12 +163,12 @@ test.describe('comisiones', () => {
     const m = modal(page);
     await elegirEnSelect(page, m.getByRole('button', { name: 'Seleccione personal' }), uno.cedula);
     await m.getByLabel('Buscar comisión').fill(editada);
-    await m.locator('.comisiones__results button', { hasText: editada }).click();
-    await m.locator('[formcontrolname=fecha_inicio]').fill('2025-03-01');
-    await m.locator('[formcontrolname=fecha_fin]').fill('2025-04-30');
+    await m.locator('.modal__resultados button', { hasText: editada }).click();
+    await llenarFecha(m.locator('[formcontrolname=fecha_inicio]'), '2025-03-01');
+    await llenarFecha(m.locator('[formcontrolname=fecha_fin]'), '2025-04-30');
     await m.locator('[formcontrolname=numero_orden]').fill('E2E OC 2');
     await m.getByRole('button', { name: 'Guardar asignación' }).click();
-    await expect(m.locator('.comisiones__error')).toContainText('fechas solapadas');
+    await expect(m.locator('.modal__error')).toContainText('fechas solapadas');
     await m.getByRole('button', { name: 'Cancelar' }).click();
 
     await buscarPersona(page, uno.cedula);
@@ -180,14 +183,14 @@ test.describe('comisiones', () => {
 
     const fila = page.locator('tbody tr', { hasText: uno.cedula });
     await expect(fila.locator('.comisiones__badge')).toHaveText('Abierta');
-    await expect(fila).toContainText('Sin fecha de finalización');
+    await expect(celda(fila, 'hasta')).toHaveText('—');
   });
 
   test('elimina una pertenencia del historial', async ({ page }) => {
     await buscarPersona(page, dos.cedula);
     await accionDeFila(page, dos.cedula, 'Eliminar');
     await expect(modal(page)).toContainText('Se eliminará esta pertenencia del historial.');
-    await modal(page).getByRole('button', { name: 'Confirmar' }).click();
+    await modal(page).getByRole('button', { name: 'Eliminar', exact: true }).click();
     await expect(modal(page)).toHaveCount(0);
     await expect(page.locator('tbody tr', { hasText: dos.cedula })).toHaveCount(0);
     await expect(page.getByText('No hay resultados para los filtros seleccionados.')).toBeVisible();
@@ -197,14 +200,14 @@ test.describe('comisiones', () => {
     await abrirEdicionDeComision(page, editada);
     await modal(page).getByLabel('Comisión vigente').uncheck();
     await modal(page).getByRole('button', { name: 'Guardar comisión' }).click();
-    await expect(modal(page).locator('.comisiones__error')).toHaveText(
+    await expect(modal(page).locator('.modal__error')).toHaveText(
       'Cerrá las pertenencias vigentes o futuras antes de inactivar la comisión',
     );
     await modal(page).getByRole('button', { name: 'Cancelar' }).click();
 
     await buscarPersona(page, uno.cedula);
     await accionDeFila(page, uno.cedula, 'Cerrar pertenencia');
-    await modal(page).locator('input[type=date]').fill('2025-06-30');
+    await llenarFecha(modal(page).locator('app-date-input'), '2025-06-30');
     await modal(page).getByRole('button', { name: 'Confirmar' }).click();
     await expect(modal(page)).toHaveCount(0);
     // Con la comisión inactiva ya no se ofrece reabrir.

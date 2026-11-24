@@ -2,6 +2,7 @@ import { Page, expect, test } from '@playwright/test';
 import { encabezados } from '../fixtures/excel';
 import { apiAdmin, crearSubalternoEnBase } from '../fixtures/personal';
 import { descargar, dia, esperarXlsxConDatos, leerApi, retirar } from '../fixtures/reportes';
+import { llenarFecha } from '../fixtures/fechas';
 
 type Parametro = { clave: string; etiqueta: string; tipo: string; requerido?: boolean };
 type Reporte = { clave: string; titulo: string; parametros: Parametro[] };
@@ -118,8 +119,8 @@ test.describe('altas, ascensos, bajas y retiros', () => {
     const altas = seccion(page, 'Altas por ingreso');
 
     // crearSubalternoEnBase lo da de alta el 2020-03-01.
-    await page.locator('#desde').fill('2020-03-01');
-    await page.locator('#hasta').fill('2020-03-01');
+    await llenarFecha(page.locator('#desde'), '2020-03-01');
+    await llenarFecha(page.locator('#hasta'), '2020-03-01');
     await generar(page, URL_PREVIEW);
     await expect(altas.locator('tbody tr', { hasText: altaCedula })).toContainText('Alta por ingreso');
     await expect(altas.locator('tbody tr', { hasText: altaCedula })).toContainText('E.T.A.');
@@ -134,8 +135,8 @@ test.describe('altas, ascensos, bajas y retiros', () => {
     await generar(page, URL_PREVIEW);
     await expect(altas.getByText(altaCedula)).toBeVisible();
 
-    await page.locator('#desde').fill('2019-01-01');
-    await page.locator('#hasta').fill('2019-12-31');
+    await llenarFecha(page.locator('#desde'), '2019-01-01');
+    await llenarFecha(page.locator('#hasta'), '2019-12-31');
     await generar(page, URL_PREVIEW);
     await expect(altas).toBeVisible();
     await expect(altas.getByText(altaCedula)).toHaveCount(0);
@@ -143,8 +144,8 @@ test.describe('altas, ascensos, bajas y retiros', () => {
 
   test('un retirado sale en retiros y no en bajas', async ({ page }) => {
     await page.goto('/reportes/movimientos-personal');
-    await page.locator('#desde').fill(dia(-2));
-    await page.locator('#hasta').fill(dia(1));
+    await llenarFecha(page.locator('#desde'), dia(-2));
+    await llenarFecha(page.locator('#hasta'), dia(1));
     await generar(page, URL_PREVIEW);
 
     await expect(seccion(page, 'Retiros').locator('tbody tr', { hasText: retiradoCedula })).toHaveCount(1);
@@ -154,8 +155,8 @@ test.describe('altas, ascensos, bajas y retiros', () => {
 
   test('el export trae una hoja por sección con el retirado solo en retiros', async ({ page }) => {
     await page.goto('/reportes/movimientos-personal');
-    await page.locator('#desde').fill(dia(-2));
-    await page.locator('#hasta').fill(dia(1));
+    await llenarFecha(page.locator('#desde'), dia(-2));
+    await llenarFecha(page.locator('#hasta'), dia(1));
     await generar(page, URL_PREVIEW);
 
     const { buffer } = await descargar(page, page.getByRole('button', { name: 'Exportar a Excel' }));
