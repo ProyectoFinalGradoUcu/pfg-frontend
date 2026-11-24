@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { apiAdmin } from '../fixtures/personal';
 import { crearRetiroAnulado } from '../fixtures/retiros';
+import { llenarFecha } from '../fixtures/fechas';
 
 /** La sesión viene del `storageState` de playwright.config.ts. */
 test.describe('retiros', () => {
@@ -62,7 +63,7 @@ test.describe('retiros', () => {
 
     await expect(page.getByText('Elegí una fecha para ver qué se cerraría.')).toBeVisible();
 
-    await page.getByLabel('Fecha de retiro').fill('2026-01-15');
+    await llenarFecha(page.locator('app-retiro-form-modal #fecha'), '2026-01-15');
 
     await expect(page.getByRole('button', { name: 'Continuar' })).toBeDisabled();
     await page.getByLabel('Motivo *').selectOption({ index: 1 });

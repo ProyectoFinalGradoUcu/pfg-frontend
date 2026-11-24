@@ -105,6 +105,7 @@ export class MisionesPage implements OnInit, OnDestroy {
 
   private readonly personalTextSubject = new Subject<void>();
   private personalSub?: Subscription;
+  private definicionesSub?: Subscription;
 
   // ── Menú de acciones (kebab) ─────────────────────────────────────────────
   readonly openMenuId = signal<string | null>(null);
@@ -188,13 +189,16 @@ export class MisionesPage implements OnInit, OnDestroy {
     this.defTextSubject.complete();
     this.personalTextSubject.complete();
     this.personalSub?.unsubscribe();
+    this.definicionesSub?.unsubscribe();
   }
 
   // ── Carga ────────────────────────────────────────────────────────────────
 
   cargarDefiniciones(): void {
     this.loadingDef.set(true);
-    this.misionesService
+    // Cancela la búsqueda anterior para que no pise una respuesta más nueva
+    this.definicionesSub?.unsubscribe();
+    this.definicionesSub = this.misionesService
       .findAllDefiniciones(
         this.defPage(),
         this.defPageSize,

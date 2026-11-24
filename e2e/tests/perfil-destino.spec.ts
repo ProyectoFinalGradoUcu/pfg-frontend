@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { apiAdmin, crearSubalternoEnBase, esperarPerfil } from '../fixtures/personal';
+import { llenarFecha } from '../fixtures/fechas';
 
 /** La sesión del admin viene del `storageState` de playwright.config.ts. */
 test.describe('base en el perfil y registro de destino', () => {
@@ -31,7 +32,7 @@ test.describe('base en el perfil y registro de destino', () => {
 
     await modal.locator('.appsel__control').click();
     await modal.getByRole('option', { name: 'B.A.I. (C.A.O.)', exact: true }).click();
-    await modal.locator('[formcontrolname=fecha_inicio]').fill('2025-02-01');
+    await llenarFecha(modal.locator('[formcontrolname=fecha_inicio]'), '2025-02-01');
     await modal.locator('[formcontrolname=numero_orden]').fill(`O.D. ${cedula}`);
     await modal.getByRole('button', { name: 'Registrar destino' }).click();
 

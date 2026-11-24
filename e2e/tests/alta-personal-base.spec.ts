@@ -1,6 +1,7 @@
 import { Page, expect, test } from '@playwright/test';
 import { login } from '../fixtures/auth';
 import { SIN_SESION, USUARIOS, cedulaUnica, esperarPerfil } from '../fixtures/personal';
+import { llenarFecha } from '../fixtures/fechas';
 
 /** Elige una opción de un <select> nativo esperando a que el catálogo llegue. */
 async function elegir(page: Page, id: string, etiqueta: string) {
@@ -46,7 +47,7 @@ test.describe('alta de personal con base', () => {
     await page.locator('#primer_apellido').fill('Alta Base');
 
     await page.locator('#tipo-subalterno').check();
-    await page.locator('#fecha_inicio').fill('2021-05-10');
+    await llenarFecha(page.locator('#fecha_inicio'), '2021-05-10');
     await elegir(page, 'regimen_id', 'Ley Nueva');
     await elegir(page, 'sub_unidad_id', 'E.T.A. (C.A.P.)');
     await elegir(page, 'escalafon_id', '(S.T.)');

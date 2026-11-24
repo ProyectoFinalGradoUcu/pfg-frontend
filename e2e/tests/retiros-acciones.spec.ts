@@ -1,6 +1,7 @@
 import { Page, expect, test } from '@playwright/test';
 import { apiAdmin, crearSubalternoEnBase } from '../fixtures/personal';
 import { crearRetiro, haceDias, reincorporar } from '../fixtures/retiros';
+import { esperarFechaBloqueada, llenarFecha } from '../fixtures/fechas';
 
 const toast = (page: Page, texto: string | RegExp) => page.locator('.toast__message', { hasText: texto });
 
@@ -36,7 +37,7 @@ test.describe('registrar retiro', () => {
 
     const modal = page.locator('app-retiro-form-modal');
     await expect(modal.locator('.rf__persona')).toContainText(cedula);
-    await modal.getByLabel('Fecha de retiro').fill(haceDias(10));
+    await llenarFecha(modal.locator('#fecha'), haceDias(10));
     await modal.getByLabel('Motivo *').selectOption({ label: 'Baja por retiro voluntario.' });
     await modal.getByLabel('Número de orden').fill('O.D. retiro e2e');
 
@@ -76,11 +77,10 @@ test.describe('registrar retiro', () => {
 
     const modal = page.locator('app-retiro-form-modal');
     const enUnMes = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
-    await modal.getByLabel('Fecha de retiro').fill(enUnMes);
+    // El calendario corta en hoy: el día futuro no se puede elegir.
+    await esperarFechaBloqueada(modal.locator('#fecha'), enUnMes);
     await modal.getByLabel('Motivo *').selectOption({ label: 'Baja por retiro voluntario.' });
 
-    await expect(modal.getByText('No se puede registrar este retiro:')).toBeVisible();
-    await expect(modal.getByText('La fecha de retiro no puede ser futura.')).toBeVisible();
     await expect(modal.getByRole('button', { name: 'Continuar' })).toBeDisabled();
   });
 });
@@ -94,7 +94,7 @@ test.describe('detalle del retiro', () => {
     await page.getByRole('button', { name: 'Corregir' }).click();
     const modal = page.locator('app-corregir-retiro-modal');
     await expect(modal.getByText('Cambiar la fecha no reajusta la cascada.')).toHaveCount(0);
-    await modal.getByLabel('Fecha de retiro').fill(haceDias(31));
+    await llenarFecha(modal.locator('#fecha-retiro'), haceDias(31));
     await expect(modal.getByText('Cambiar la fecha no reajusta la cascada.')).toBeVisible();
     await modal.getByLabel('Motivo *').selectOption({ label: 'Baja por cese.' });
     await modal.getByLabel('Número de orden').fill('O.D. corregida e2e');
@@ -140,7 +140,7 @@ test.describe('detalle del retiro', () => {
 
     const modal = page.locator('app-reincorporar-retiro-modal');
     await expect(modal.getByText('SIT17 · Personal Subalterno reincorporado')).toBeVisible();
-    await modal.getByLabel('Fecha de reincorporación *').fill(haceDias(1));
+    await llenarFecha(modal.locator('#ri-fecha'), haceDias(1));
     await modal.getByLabel('Grado de reincorporación *').selectOption({ label: 'Sgto.' });
 
     // Haber sin porcentaje no se acepta.

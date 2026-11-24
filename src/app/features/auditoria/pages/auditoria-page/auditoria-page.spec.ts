@@ -26,6 +26,12 @@ const registro = (id: number): AuditoriaRegistro => ({
   usuario: { id: '1', username: 'admin@fau.mil.uy' },
 });
 
+const ACCIONES = [
+  { id: '1', nombre: 'CREAR' },
+  { id: '2', nombre: 'LOGIN_FALLIDO' },
+  { id: '3', nombre: 'retiro.anular' },
+];
+
 const USUARIOS = [
   { id: '1', username: 'admin@fau.mil.uy' },
   { id: '2', username: 'bloqueado@fau.mil.uy' },
@@ -46,7 +52,7 @@ describe('AuditoriaPage: filtros', () => {
   async function setup(cantidad = 2, total = cantidad) {
     auditoria = {
       listar: vi.fn(),
-      filtros: vi.fn().mockReturnValue(of({ acciones: [], contextos: [], usuarios: USUARIOS })),
+      filtros: vi.fn().mockReturnValue(of({ acciones: ACCIONES, contextos: [], usuarios: USUARIOS })),
     };
     responder(cantidad, total);
     toast = { error: vi.fn() };
@@ -178,6 +184,7 @@ describe('AuditoriaPage: filtros', () => {
       'Usuario',
       'Acción',
       'Contexto',
+      'Descripción',
       'Detalle',
     ]);
     expect(vacio()).toBe('No hay eventos que coincidan con los filtros.');
@@ -212,5 +219,112 @@ describe('AuditoriaPage: filtros', () => {
     expect(component.page()).toBe(1);
     expect(component.registros().length).toBe(20);
     expect(el().querySelector('.paginator__btn--active')?.textContent?.trim()).toBe('1');
+  });
+
+  describe('textos legibles', () => {
+    const conRegistros = (items: AuditoriaRegistro[]) =>
+      auditoria.listar.mockReturnValue(of({ items, total: items.length, page: 1, pageSize: 20 }));
+    const celdas = (fila = 0) =>
+      [...el().querySelectorAll('.aud__table tbody tr')[fila].querySelectorAll('td')].map((td) => td.textContent?.trim());
+
+    it('el badge muestra la acción traducida y guarda la cruda', async () => {
+      await setup();
+      const badge = el().querySelector('.aud__badge')!;
+      expect(badge.textContent?.trim()).toBe('Creó');
+      expect(badge.getAttribute('data-accion')).toBe('CREAR');
+    });
+
+    it('la descripción usa el resumen del backend', async () => {
+      await setup(0);
+      conRegistros([{ ...registro(1), resumen: 'Creó el rol Administrador' }]);
+      filtrar({ usuarioId: '1' });
+      refrescar();
+      expect(celdas()[4]).toBe('Creó el rol Administrador');
+    });
+
+    it('sin resumen arma acción y entidad', async () => {
+      await setup(0);
+      conRegistros([registro(1), { ...registro(2), accion: 'ELIMINAR', entidadNombre: 'Jefes' }]);
+      filtrar({ usuarioId: '1' });
+      refrescar();
+      expect(celdas(0)[4]).toBe('Creó · Rol');
+      expect(celdas(1)[4]).toBe('Eliminó · Rol · Jefes');
+    });
+
+    it('el filtro de acción muestra el texto y manda el nombre crudo', async () => {
+      await setup();
+      expect(component.accionesOpciones().map((a) => a.etiqueta)).toEqual([
+        'Creó',
+        'Intento de ingreso fallido',
+        'Anuló un retiro',
+      ]);
+      filtrar({ accion: 'retiro.anular' });
+      expect(ultimoPedido().accion).toBe('retiro.anular');
+    });
+
+    it('el modal encabeza con el resumen y muestra los cambios', async () => {
+      await setup();
+      component.verDetalle({
+        ...registro(1),
+        accion: 'ACTUALIZAR',
+        resumen: 'Modificó la persona Sgto. Juan Pérez',
+        detalle: { params: { id: '1' }, cambios: [{ campo: 'grado', anterior: 'Cabo', nuevo: 'Sargento' }] },
+      });
+      refrescar();
+      expect(el().querySelector('.aud__modal-resumen')?.textContent?.trim()).toBe('Modificó la persona Sgto. Juan Pérez');
+      expect(el().querySelector('.aud__seccion-titulo')?.textContent?.trim()).toBe('Cambios');
+      expect(el().querySelector('.aud__campo-valor')?.textContent?.trim()).toBe('Cabo → Sargento');
+    });
+
+    it('el modal resuelve ids con los nombres del registro', async () => {
+      await setup();
+      component.verDetalle({
+        ...registro(1),
+        detalle: { body: { nombre: 'Jefes', rol_id: 4 } },
+        nombres: { 'rol_id:4': 'Administrador' },
+      });
+      expect(component.detalleSecciones()[0].campos).toContainEqual({ etiqueta: 'Rol', valor: 'Administrador' });
+    });
+
+    it('el modal de una baja muestra la foto y no la respuesta', async () => {
+      await setup();
+      component.verDetalle({
+        ...registro(1),
+        accion: 'ELIMINAR',
+        detalle: {
+          params: { id: '73' },
+          anterior: { cargo: 'Presidente', fecha_fin: null },
+          resultado: { id: '73', eliminado: true },
+        },
+      });
+      refrescar();
+      const titulos = [...el().querySelectorAll('.aud__seccion-titulo')].map((h) => h.textContent?.trim());
+      expect(titulos).toEqual(['Registro eliminado']);
+      const etiquetas = [...el().querySelectorAll('.aud__campo-etiqueta')].map((d) => d.textContent?.trim());
+      expect(etiquetas).toEqual(['Cargo']);
+    });
+
+    it('el modal usa la etiqueta del cambio tal cual', async () => {
+      await setup();
+      component.verDetalle({
+        ...registro(1),
+        accion: 'ACTUALIZAR',
+        detalle: { cambios: [{ campo: 'calificacion', etiqueta: 'Calificación de Sgto. 1° Ana', anterior: null, nuevo: 8 }] },
+      });
+      refrescar();
+      expect(el().querySelector('.aud__campo-etiqueta')?.textContent?.trim()).toBe('Calificación de Sgto. 1° Ana');
+      expect(el().querySelector('.aud__campo-valor')?.textContent?.trim()).toBe('— → 8');
+    });
+
+    it('sin nada legible avisa y deja los datos técnicos', async () => {
+      await setup();
+      component.verDetalle({ ...registro(1), accion: 'ELIMINAR', detalle: { params: { id: '9' } } });
+      refrescar();
+      expect(el().querySelector('.aud__sin-detalle')?.textContent?.trim()).toBe('Sin más detalles.');
+      expect(el().querySelector('pre.aud__detalle')).toBeNull();
+      component.toggleJson();
+      refrescar();
+      expect(el().querySelector('pre.aud__detalle')?.textContent).toContain('"id": "9"');
+    });
   });
 });

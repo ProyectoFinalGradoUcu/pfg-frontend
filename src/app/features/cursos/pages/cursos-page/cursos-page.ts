@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute } from '@angular/router';
-import { Subject, forkJoin, of } from 'rxjs';
+import { Subject, Subscription, forkJoin, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { ToastService } from '../../../../core/services/toast.service';
@@ -173,6 +173,7 @@ export class CursosPage implements OnInit, OnDestroy {
     () => !!this.filtroNombre() || !!this.filtroInstitucion() || !!this.filtroTipo(),
   );
   private readonly defTextSubject = new Subject<void>();
+  private definicionesSub?: Subscription;
 
   // ── Menú de acciones (kebab) ────────────────────────────────────────────────
   readonly openMenuId = signal<string | null>(null);
@@ -444,6 +445,7 @@ export class CursosPage implements OnInit, OnDestroy {
     this.destroy$.complete();
     this.cedulaSubject.complete();
     this.defTextSubject.complete();
+    this.definicionesSub?.unsubscribe();
   }
 
   cargar(): void {
@@ -476,7 +478,9 @@ export class CursosPage implements OnInit, OnDestroy {
     this.loadingDef.set(true);
     const tipo = this.filtroTipo();
     const esObligatorio = tipo === '' ? undefined : tipo === 'true';
-    this.cursosService
+    // Cancela la búsqueda anterior para que no pise una respuesta más nueva
+    this.definicionesSub?.unsubscribe();
+    this.definicionesSub = this.cursosService
       .findAllDefiniciones(
         this.defPage(),
         this.defPageSize,
@@ -1307,6 +1311,15 @@ export class CursosPage implements OnInit, OnDestroy {
     this.modal.set('editarInscripcion');
   }
 
+  /** Mismo criterio que "Cargar resultado": terminó si la fecha de fin (la del formulario) ya pasó. */
+  edicionTerminada(): boolean {
+    const fin = (this.editarInscripcionForm.controls.fecha_fin.value || '').slice(0, 10);
+    if (!fin) return false;
+    const d = new Date();
+    const hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return fin < hoy;
+  }
+
   setEditCalificacion(valor: string): void {
     this.editCalificacion.set(valor.trim() === '' ? null : Math.round(Number(valor)));
   }
@@ -1345,6 +1358,11 @@ export class CursosPage implements OnInit, OnDestroy {
     }
     if (inicio && fin && fin < inicio) {
       this.modalError.set('La fecha de fin no puede ser anterior a la de inicio');
+      return;
+    }
+    const tocaResultado = ['aprobado', 'calificacion', 'observacion', 'fecha_fin'].some((k) => k in cambio);
+    if (tocaResultado && aprobado !== null && !this.edicionTerminada()) {
+      this.modalError.set('El curso todavía no terminó: el resultado se carga cuando pasa la fecha de fin');
       return;
     }
     if (nota !== null && !this.notaValida(nota)) {

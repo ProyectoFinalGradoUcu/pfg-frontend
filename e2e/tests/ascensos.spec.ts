@@ -10,6 +10,7 @@ import {
   elegirEnSelect,
   sufijo,
 } from '../fixtures/ascensos';
+import { llenarFecha } from '../fixtures/fechas';
 
 const LECTOR = usuarioE2E('ascensos-lector');
 const ROL_LECTOR = 'E2E Ascensos Lector';
@@ -70,7 +71,7 @@ test.describe('orden de ascenso', () => {
     await page.getByRole('button', { name: 'Siguiente' }).click();
     await expect(page.getByText('Completá el N.º de orden o la resolución.')).toBeVisible();
 
-    await page.locator('#fecha').fill(ayer());
+    await llenarFecha(page.locator('#fecha'), ayer());
     await page.locator('#numero').fill(numero);
     await page.getByRole('button', { name: 'Siguiente' }).click();
 
@@ -88,18 +89,16 @@ test.describe('orden de ascenso', () => {
     await expect(page.getByText('Falta el motivo de la excepción de 1 funcionario.')).toBeVisible();
 
     // Entró el 2020-03-01: al 2021-01-01 lleva 10 meses y le falta antigüedad.
-    const fecha = fila.locator('.funcionario__fecha input');
+    const fecha = fila.locator('app-date-input.funcionario__fecha-input');
     const reevaluada = page.waitForResponse(
       (r) => r.url().includes(`/api/ascensos/elegibilidad/${persona.id}`) && r.url().includes('2021-01-01'),
     );
-    await fecha.fill('2021-01-01');
-    await fecha.dispatchEvent('change');
+    await llenarFecha(fecha, '2021-01-01');
     await reevaluada;
     await expect(fila.locator('.bloqueo__chips')).toContainText('Antigüedad en el grado');
     await expect(fila.locator('.bloqueo__chips')).toContainText('10 meses de 2 años');
 
-    await fecha.fill(ayer());
-    await fecha.dispatchEvent('change');
+    await llenarFecha(fecha, ayer());
     await expect(fila.locator('.bloqueo__chips')).not.toContainText('Antigüedad en el grado');
 
     await fila.locator(`#motivo-${persona.id}`).fill('Excepción de prueba E2E');
