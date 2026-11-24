@@ -11,7 +11,7 @@ import {
   AuditoriaRegistro,
   AuditoriaUsuario,
 } from '../../../../core/models/auditoria.models';
-import { SeccionDetalle, formatearDetalle } from '../../detalle-auditoria';
+import { SeccionDetalle, formatearDetalle, resumenDe, textoAccion } from '../../detalle-auditoria';
 import { parseError } from '../../../../shared/utils/parse-error';
 
 @Component({
@@ -55,6 +55,11 @@ export class AuditoriaPage implements OnInit {
   /** Última página cargada: si falla un cambio de página, la tabla y el paginador vuelven acá. */
   private pageCargada = 1;
   private cargaSub?: Subscription;
+
+  // El filtro muestra la acción traducida y manda la cruda
+  readonly accionesOpciones = computed(() =>
+    this.acciones().map((a) => ({ ...a, etiqueta: textoAccion(a.nombre) })),
+  );
 
   readonly hayFiltros = computed(() => Object.values(this.filtrosAplicados()).some(Boolean));
 
@@ -148,7 +153,13 @@ export class AuditoriaPage implements OnInit {
 
   verDetalle(registro: AuditoriaRegistro): void {
     this.detalleAbierto.set(registro);
-    this.detalleSecciones.set(formatearDetalle(registro.detalle));
+    this.detalleSecciones.set(
+      formatearDetalle(registro.detalle, {
+        nombres: registro.nombres,
+        accion: registro.accion,
+        entidad: registro.entidad,
+      }),
+    );
     this.mostrarJson.set(false);
   }
 
@@ -161,9 +172,8 @@ export class AuditoriaPage implements OnInit {
     this.mostrarJson.update((v) => !v);
   }
 
-  soloJson(): boolean {
-    return this.detalleSecciones().length === 0;
-  }
+  readonly textoAccion = textoAccion;
+  readonly resumen = resumenDe;
 
   detalleJson(detalle: unknown): string {
     if (detalle === null || detalle === undefined) return '—';

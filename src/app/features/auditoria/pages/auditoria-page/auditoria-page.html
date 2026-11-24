@@ -19,8 +19,8 @@
     <app-select
       class="aud__filtro"
       formControlName="accion"
-      [items]="acciones()"
-      bindLabel="nombre"
+      [items]="accionesOpciones()"
+      bindLabel="etiqueta"
       bindValue="nombre"
       placeholder="Acción"
       [searchable]="true"
@@ -70,6 +70,7 @@
             <th>Usuario</th>
             <th>Acción</th>
             <th>Contexto</th>
+            <th>Descripción</th>
             <th class="aud__col-actions">Detalle</th>
           </tr>
         </thead>
@@ -77,8 +78,9 @@
           <tr *ngFor="let r of registros(); trackBy: trackRegistro">
             <td class="aud__fecha">{{ r.fecha | date: 'dd/MM/yyyy HH:mm:ss' }}</td>
             <td>{{ r.usuario.username }}</td>
-            <td><span class="aud__badge" [attr.data-accion]="r.accion">{{ r.accion }}</span></td>
+            <td><span class="aud__badge" [attr.data-accion]="r.accion">{{ textoAccion(r.accion) }}</span></td>
             <td>{{ r.contexto }}</td>
+            <td class="aud__resumen">{{ resumen(r) }}</td>
             <td class="aud__col-actions">
               <button
                 *ngIf="r.detalle"
@@ -92,7 +94,7 @@
             </td>
           </tr>
           <tr *ngIf="registros().length === 0">
-            <td colspan="5" class="aud__empty">{{ mensajeVacio() }}</td>
+            <td colspan="6" class="aud__empty">{{ mensajeVacio() }}</td>
           </tr>
         </tbody>
       </table>
@@ -115,24 +117,22 @@
       <button type="button" class="aud__modal-close" (click)="cerrarDetalle()">&times;</button>
     </header>
     <div class="aud__modal-meta">
-      <span><strong>{{ reg.accion }}</strong> · {{ reg.contexto }}</span>
+      <p class="aud__modal-resumen">{{ resumen(reg) }}</p>
+      <span><strong>{{ textoAccion(reg.accion) }}</strong> · {{ reg.contexto }}</span>
       <span class="aud__muted">{{ reg.fecha | date: 'dd/MM/yyyy HH:mm:ss' }} · {{ reg.usuario.username }}</span>
     </div>
     <div class="aud__modal-body">
-      <pre class="aud__detalle" *ngIf="soloJson()">{{ detalleJson(reg.detalle) }}</pre>
+      <ng-container
+        *ngTemplateOutlet="seccionesTpl; context: { $implicit: detalleSecciones(), nivel: 0 }"
+      ></ng-container>
+      <p class="aud__sin-detalle" *ngIf="detalleSecciones().length === 0">Sin más detalles.</p>
 
-      <ng-container *ngIf="!soloJson()">
-        <ng-container
-          *ngTemplateOutlet="seccionesTpl; context: { $implicit: detalleSecciones(), nivel: 0 }"
-        ></ng-container>
-
-        <div class="aud__tecnico">
-          <button type="button" class="aud__tecnico-toggle" (click)="toggleJson()">
-            {{ mostrarJson() ? 'Ocultar datos técnicos' : 'Ver datos técnicos' }}
-          </button>
-          <pre class="aud__detalle" *ngIf="mostrarJson()">{{ detalleJson(reg.detalle) }}</pre>
-        </div>
-      </ng-container>
+      <div class="aud__tecnico">
+        <button type="button" class="aud__tecnico-toggle" (click)="toggleJson()">
+          {{ mostrarJson() ? 'Ocultar datos técnicos' : 'Ver datos técnicos' }}
+        </button>
+        <pre class="aud__detalle" *ngIf="mostrarJson()">{{ detalleJson(reg.detalle) }}</pre>
+      </div>
     </div>
   </div>
 </div>

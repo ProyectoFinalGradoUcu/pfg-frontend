@@ -13,6 +13,10 @@ export interface AuditoriaRegistro {
   host: string | null;
   detalle: unknown;
   usuario: AuditoriaUsuario;
+  // Lo arma el backend, en eventos viejos puede faltar
+  resumen?: string | null;
+  nombres?: Record<string, string> | null;
+  entidadNombre?: string | null;
 }
 
 export interface AuditoriaFiltroItem {
