@@ -116,8 +116,20 @@
           <tr *ngFor="let u of usuarios(); trackBy: trackUsuario">
             <td>
               <div class="ur__user-cell">
-                <span *ngIf="u.persona" class="ur__avatar" aria-hidden="true"></span>
-                <strong *ngIf="u.persona">{{ u.persona.nombre }}</strong>
+                <ng-container *ngIf="u.persona as p">
+                  <img
+                    *ngIf="fotoUrl(p) as foto; else avatarIniciales"
+                    class="ur__avatar"
+                    [src]="foto"
+                    alt=""
+                    (error)="fotoFallida(p)"
+                  />
+                  <ng-template #avatarIniciales>
+                    <span class="ur__avatar ur__avatar--iniciales" aria-hidden="true">{{ iniciales(p.nombre) }}</span>
+                  </ng-template>
+                  <a *ngIf="puedeVerPersonal(); else nombreSinLink" class="ur__persona-link" [routerLink]="['/personal', p.id]">{{ p.nombre }}</a>
+                  <ng-template #nombreSinLink><strong>{{ p.nombre }}</strong></ng-template>
+                </ng-container>
                 <strong *ngIf="!u.persona" class="ur__muted">Sin vincular</strong>
                 <span *ngIf="u.id === currentUserId()" class="ur__badge ur__badge--self">vos</span>
               </div>
@@ -399,6 +411,26 @@
 
       <form [formGroup]="editForm" (ngSubmit)="guardarEdicion()" novalidate>
         <div *ngIf="modalError()" class="modal__error" role="alert">{{ modalError() }}</div>
+
+        <label *ngIf="puedeVerPersonal()" class="modal__field">
+          <span>Funcionario vinculado</span>
+          <app-select
+            formControlName="personaId"
+            [items]="opcionesPersona()"
+            bindLabel="etiqueta"
+            bindValue="id"
+            placeholder="Sin vincular"
+            [searchable]="true"
+            [remoteSearch]="true"
+            [loading]="buscadorPersona.buscando()"
+            [clearable]="true"
+            (searchChange)="buscadorPersona.buscar($event)"
+          ></app-select>
+          <small class="modal__hint">
+            Buscá por cédula, nombre o apellido. Se usa para mostrar el nombre del usuario; no cambia
+            sus permisos ni sus bases.
+          </small>
+        </label>
 
         <label class="modal__field">
           <span>Roles</span>

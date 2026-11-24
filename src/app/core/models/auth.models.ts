@@ -93,22 +93,12 @@ export interface CatalogoRef {
   denominacion: string;
 }
 
-export interface RelacionLaboralResumen {
-  id: string;
-  fechaInicio: string;
-  tipoFuncionario: string | null;
-  unidad: CatalogoRef | null;
-  grado: CatalogoRef | null;
-  escalafon: CatalogoRef | null;
-  situacion: CatalogoRef | null;
-}
-
 export interface UsuarioPersona {
   id: string;
   cedula: string;
   nombre: string;
-  email: string | null;
-  relacionLaboral: RelacionLaboralResumen | null;
+  /** Cambia con cada foto nueva; null si no tiene. */
+  fotoId: string | null;
 }
 
 export interface UnidadDeUsuario extends CatalogoRef {

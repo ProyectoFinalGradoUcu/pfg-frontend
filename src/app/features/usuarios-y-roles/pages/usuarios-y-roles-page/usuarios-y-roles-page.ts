@@ -12,9 +12,11 @@ import { ConfirmModalService } from '../../../../core/services/confirm-modal.ser
 import { ErrorModalService } from '../../../../core/services/error-modal.service';
 import { UsuariosService } from '../../../../core/services/usuarios.service';
 import { PersonalService } from '../../../../core/services/personal.service';
-import { Invitacion, PermisoEfectivo, Rol, Usuario } from '../../../../core/models/auth.models';
+import { FotoPersonalService } from '../../../../core/services/foto-personal.service';
+import { Invitacion, PermisoEfectivo, Rol, Usuario, UsuarioPersona } from '../../../../core/models/auth.models';
 import { parseError } from '../../../../shared/utils/parse-error';
 import { ESPERA_BUSQUEDA_MS } from '../../../../shared/utils/espera-busqueda';
+import { BuscadorPersonas } from '../../../../shared/utils/buscador-personas';
 
 type Tab = 'usuarios' | 'invitaciones' | 'roles' | 'unidades';
 type ModalKind =
@@ -36,6 +38,7 @@ export class UsuariosYRolesPage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly usuariosService = inject(UsuariosService);
   private readonly personalService = inject(PersonalService);
+  private readonly fotos = inject(FotoPersonalService);
   private readonly rolesService = inject(RolesService);
   private readonly invitacionesService = inject(InvitacionesService);
   private readonly toast = inject(ToastService);
@@ -48,6 +51,8 @@ export class UsuariosYRolesPage implements OnInit {
 
   // ── Usuarios ──────────────────────────────────────────────────────────────
   readonly usuarios = signal<Usuario[]>([]);
+  // Sin permiso para ver a ese funcionario el backend responde 404: quedan las iniciales.
+  private readonly fotosFallidas = signal<ReadonlySet<string>>(new Set());
   readonly usuariosTotal = signal(0);
   readonly usuariosLoading = signal(false);
   readonly usuariosPage = signal(1);
@@ -133,6 +138,9 @@ export class UsuariosYRolesPage implements OnInit {
   readonly puedeVerUnidades = computed(() =>
     this.auth.hasPermiso('unidades.ver'),
   );
+  readonly puedeVerPersonal = computed(() =>
+    this.auth.hasAnyPermiso(['personas.ver', 'personas.ver.unidad']),
+  );
   readonly puedeVerUsuarios = computed(() =>
     this.auth.hasPermiso('usuarios.ver'),
   );
@@ -169,6 +177,17 @@ export class UsuariosYRolesPage implements OnInit {
     // Unidades de la cuenta. [] = sin unidades (alcance general).
     unidadIds: [[] as string[]],
     nuevaPassword: [''],
+    personaId: [null as string | null],
+  });
+
+  readonly buscadorPersona = new BuscadorPersonas();
+
+  // El vinculado hoy no viene en los resultados de búsqueda, y sin él el selector queda vacío.
+  readonly opcionesPersona = computed(() => {
+    const opciones = this.buscadorPersona.opciones();
+    const actual = this.editTarget()?.persona;
+    if (!actual || opciones.some((p) => p.id === actual.id)) return opciones;
+    return [{ id: actual.id, etiqueta: `${actual.nombre} · CI ${actual.cedula}` }, ...opciones];
   });
 
   /** Bases vigentes para el selector del detalle de usuario; el id va como string. */
@@ -181,6 +200,7 @@ export class UsuariosYRolesPage implements OnInit {
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
+    this.buscadorPersona.vincular(this.editForm.controls.personaId);
     this.usuariosBusqueda$
       .pipe(debounceTime(ESPERA_BUSQUEDA_MS), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
@@ -315,12 +335,33 @@ export class UsuariosYRolesPage implements OnInit {
     this.modal.set('nuevoUsuario');
   }
 
+  fotoUrl(persona: UsuarioPersona | null): string | null {
+    const fotoId = persona?.fotoId;
+    if (!persona || !fotoId || this.fotosFallidas().has(fotoId)) return null;
+    return this.fotos.url(persona.id, fotoId);
+  }
+
+  // El nombre llega como "primer_nombre primer_apellido".
+  iniciales(nombre: string): string {
+    const partes = nombre.trim().split(/\s+/).filter(Boolean);
+    if (!partes.length) return '';
+    const primera = partes[0][0];
+    const ultima = partes.length > 1 ? partes[partes.length - 1][0] : '';
+    return `${primera}${ultima}`.toUpperCase();
+  }
+
+  fotoFallida(persona: UsuarioPersona | null): void {
+    const fotoId = persona?.fotoId;
+    if (fotoId) this.fotosFallidas.update((ids) => new Set(ids).add(fotoId));
+  }
+
   abrirEditar(usuario: Usuario): void {
     this.editForm.reset({
       roles: usuario.roles.map((r) => r.nombre),
       estado: usuario.estado,
       unidadIds: usuario.unidades.map((u) => u.id),
       nuevaPassword: '',
+      personaId: usuario.persona?.id ?? null,
     });
     this.modalError.set(null);
     this.editTarget.set(usuario);
@@ -394,7 +435,7 @@ export class UsuariosYRolesPage implements OnInit {
     const target = this.editTarget();
     if (!target) return;
 
-    const { roles, estado, unidadIds, nuevaPassword } = this.editForm.getRawValue();
+    const { roles, estado, unidadIds, nuevaPassword, personaId } = this.editForm.getRawValue();
 
     if (nuevaPassword && nuevaPassword.length > 0 && nuevaPassword.length < 8) {
       this.modalError.set('La nueva contraseña debe tener al menos 8 caracteres');
@@ -431,6 +472,13 @@ export class UsuariosYRolesPage implements OnInit {
       tasks.push({
         descripcion: `cambiar el estado a ${estado}`,
         request: () => this.usuariosService.update(target.id, { estado }),
+      });
+    }
+
+    if ((personaId ?? null) !== (target.persona?.id ?? null)) {
+      tasks.push({
+        descripcion: personaId ? 'vincular el funcionario' : 'desvincular el funcionario',
+        request: () => this.usuariosService.update(target.id, { personaId: personaId ?? null }),
       });
     }
 
