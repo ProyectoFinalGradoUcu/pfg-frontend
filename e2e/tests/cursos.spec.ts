@@ -1,6 +1,7 @@
 import { APIRequestContext, Locator, Page, expect, test } from '@playwright/test';
 import { apiAdmin, crearSubalternoEnBase } from '../fixtures/personal';
 import { borrarCursoSiExiste, crearAlumno, cursoPorNombre, inscripcionesDe } from '../fixtures/cursos';
+import { llenarFecha } from '../fixtures/fechas';
 
 const uid = Date.now().toString(36);
 const CURSO = `E2E Curso ${uid}`;
@@ -21,7 +22,10 @@ const toast = (page: Page, texto: string) => page.locator('.toast__message', { h
 async function abrirCatalogo(page: Page, filtro = CURSO): Promise<Locator> {
   await page.goto('/cursos/catalogo');
   await expect(page.getByRole('heading', { name: 'Catálogo de Cursos' })).toBeVisible();
+  // Se espera la búsqueda filtrada
+  const filtrado = page.waitForResponse((r) => r.request().method() === 'GET' && r.url().includes('nombre='));
   await page.getByPlaceholder('Nombre del curso...').fill(filtro);
+  await filtrado;
   const fila = page.locator('.cursos__table tbody tr', { hasText: filtro });
   await expect(fila).toHaveCount(1, { timeout: 10_000 });
   return fila;
@@ -47,7 +51,7 @@ async function elegirPersonas(page: Page, nombres: string[]) {
 async function filtrarInscripciones(page: Page, cedula: string): Promise<Locator> {
   await page.goto('/cursos/inscripciones');
   await expect(page.getByRole('heading', { name: 'Inscripciones' })).toBeVisible();
-  await page.getByPlaceholder('Filtrar por cédula...').fill(cedula);
+  await page.getByRole('textbox', { name: 'Filtrar por cédula' }).fill(cedula);
   const filas = page.locator('.cursos__table tbody tr');
   await expect(filas.filter({ hasText: CURSO })).toHaveCount(1, { timeout: 10_000 });
   await expect(filas).toHaveCount(1);
@@ -106,8 +110,8 @@ test.describe.serial('cursos', () => {
     await m.locator('input[formcontrolname=institucion]').fill(INSTITUCION);
     await m.getByRole('switch').nth(1).click();
     await m.locator('input[formcontrolname=numero_orden]').fill(`E2E-${uid}`);
-    await m.locator('input[formcontrolname=fecha_inicio]').fill(FIN);
-    await m.locator('input[formcontrolname=fecha_fin]').fill(INICIO);
+    await llenarFecha(m.locator('[formcontrolname=fecha_inicio]'), FIN);
+    await llenarFecha(m.locator('[formcontrolname=fecha_fin]'), INICIO);
     await elegirPersonas(page, [individual.nombre]);
     await m.getByRole('button', { name: 'Crear Curso' }).click();
 
@@ -190,8 +194,8 @@ test.describe.serial('cursos', () => {
     await m.getByRole('button', { name: 'Designar', exact: true }).click();
     await expect(m.locator('.modal__error')).toHaveText('Las fechas de inicio y fin son obligatorias.');
 
-    await m.locator('input[formcontrolname=fecha_inicio]').fill(FIN);
-    await m.locator('input[formcontrolname=fecha_fin]').fill(INICIO);
+    await llenarFecha(m.locator('[formcontrolname=fecha_inicio]'), FIN);
+    await llenarFecha(m.locator('[formcontrolname=fecha_fin]'), INICIO);
     await m.getByRole('button', { name: 'Designar', exact: true }).click();
     await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o la resolución.');
 
@@ -204,8 +208,8 @@ test.describe.serial('cursos', () => {
     await m.getByRole('button', { name: 'Designar', exact: true }).click();
     await expect(m.locator('.modal__error')).toHaveText('La fecha de fin no puede ser anterior a la fecha de inicio');
 
-    await m.locator('input[formcontrolname=fecha_inicio]').fill(INICIO);
-    await m.locator('input[formcontrolname=fecha_fin]').fill(FIN);
+    await llenarFecha(m.locator('[formcontrolname=fecha_inicio]'), INICIO);
+    await llenarFecha(m.locator('[formcontrolname=fecha_fin]'), FIN);
     await m.getByLabel('1. E2E Módulo uno').check();
     await m.getByRole('button', { name: 'Designar', exact: true }).click();
     await expect(toast(page, 'Designación registrada: 3 persona(s)')).toBeVisible();
@@ -240,8 +244,8 @@ test.describe.serial('cursos', () => {
     await expect(fila).toContainText('Obligatorio');
     await expect(fila.getByRole('button', { name: 'Cargar resultado' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Limpiar filtro' }).click();
-    await page.getByPlaceholder('Filtrar por cédula...').fill('00000000');
+    await page.locator('.cursos__card--inscripciones').getByRole('button', { name: 'Limpiar búsqueda' }).click();
+    await page.getByRole('textbox', { name: 'Filtrar por cédula' }).fill('00000000');
     await expect(page.getByText('No se encontraron cursos para esa cédula')).toBeVisible();
   });
 
@@ -298,7 +302,7 @@ test.describe.serial('cursos', () => {
 
   test('dar de baja una inscripción, verla en bajas y reactivarla', async ({ page }) => {
     const fila = await filtrarInscripciones(page, baja.cedula);
-    await fila.getByRole('button', { name: 'Dar de baja' }).click();
+    await accion(page, fila, 'Dar de baja');
     const m = modal(page);
     await m.getByPlaceholder('Ej: Solicito la baja por confusión al inscribirlo.').fill('abc');
     await m.getByRole('button', { name: 'Confirmar baja' }).click();
@@ -312,18 +316,20 @@ test.describe.serial('cursos', () => {
     let [insc] = (await inscripcionesDe(api, baja.cedula)).filter((i) => i.curso.nombre_curso === CURSO);
     expect(insc).toMatchObject({ dado_de_baja: true, motivo_baja: 'E2E inscripto por error' });
 
-    await page.getByRole('button', { name: 'Ver bajas' }).click();
-    await expect(page.getByRole('button', { name: 'Ocultar bajas' })).toBeVisible();
+    // Las bajas se muestran desde "Más filtros".
+    await page.getByRole('button', { name: 'Más filtros: derecha, numor y bajas' }).click();
+    await page.getByLabel('Incluir bajas').check();
     const filaBaja = page.locator('.cursos__table tbody tr', { hasText: CURSO });
     await expect(filaBaja.locator('.cursos__baja-badge')).toHaveText('Dado de baja');
     await expect(filaBaja.locator('.cursos__baja-badge')).toHaveAttribute('title', /Motivo: E2E inscripto por error/);
     await expect(filaBaja.getByRole('button', { name: 'Cargar resultado' })).toHaveCount(0);
 
     page.once('dialog', (d) => d.accept());
-    await filaBaja.getByRole('button', { name: 'Reactivar' }).click();
+    await accion(page, filaBaja, 'Reactivar');
     await expect(toast(page, `Inscripción de ${baja.nombre} reactivada`)).toBeVisible();
     await expect(filaBaja.locator('.cursos__baja-badge')).toHaveCount(0);
-    await expect(filaBaja.getByRole('button', { name: 'Dar de baja' })).toBeVisible();
+    await filaBaja.getByRole('button', { name: 'Acciones' }).click();
+    await expect(page.locator('.cursos__dropdown-item', { hasText: 'Dar de baja' })).toBeVisible();
 
     [insc] = (await inscripcionesDe(api, baja.cedula)).filter((i) => i.curso.nombre_curso === CURSO);
     expect(insc.dado_de_baja).toBe(false);

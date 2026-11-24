@@ -13,6 +13,7 @@ import {
   quitar,
   totalPersonalEnMision,
 } from '../fixtures/misiones';
+import { esperarFecha, llenarFecha } from '../fixtures/fechas';
 
 test.describe.configure({ mode: 'serial' });
 // Alto de sobra: el menú ⋯ de las filas de abajo se abre fuera de la pantalla.
@@ -72,9 +73,9 @@ test.describe('catálogo', () => {
     const m = modal(page);
     await campo(m, 'nombre_mision').fill(NOMBRE);
     await elegir(page, campo(m, 'pais'), 'Chipre');
-    await campo(m, 'fecha_orden').fill('2026-01-10');
+    await llenarFecha(campo(m, 'fecha_orden'), '2026-01-10');
     await campo(m, 'boletin').fill(`R-${SUF}`);
-    await campo(m, 'fecha_boletin').fill('2026-01-12');
+    await llenarFecha(campo(m, 'fecha_boletin'), '2026-01-12');
     await campo(m, 'resolucion_cje').fill(`CJE-${SUF}`);
     await m.getByRole('button', { name: 'Crear Misión' }).click();
 
@@ -115,12 +116,11 @@ test.describe('catálogo', () => {
     await menu(page, fila(page, NOMBRE), 'Editar');
     const m = modal(page);
     await expect(m.getByRole('heading', { name: 'Editar Misión' })).toBeVisible();
-    await expect(campo(m, 'fecha_orden')).toHaveValue('2026-01-10');
+    await esperarFecha(campo(m, 'fecha_orden'), '2026-01-10');
     await expect(campo(m, 'resolucion_cje')).toHaveValue(`CJE-${SUF}`);
 
-    for (const c of ['fecha_orden', 'boletin', 'fecha_boletin', 'resolucion_cje']) {
-      await campo(m, c).fill('');
-    }
+    for (const c of ['fecha_orden', 'fecha_boletin']) await llenarFecha(campo(m, c), '');
+    for (const c of ['boletin', 'resolucion_cje']) await campo(m, c).fill('');
     await m.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText('Misión actualizada correctamente')).toBeVisible();
 
@@ -149,12 +149,12 @@ test.describe('convocatorias', () => {
     await page.getByRole('button', { name: 'Nueva Convocatoria' }).click();
     const m = modal(page);
 
-    await campo(m, 'fecha_salida').fill('2026-05-10');
+    await llenarFecha(campo(m, 'fecha_salida'), '2026-05-10');
     await m.getByRole('button', { name: 'Crear Convocatoria' }).click();
     await expect(m.locator('.modal__error')).toHaveText('Debés ingresar al menos el N° de orden o la resolución.');
 
     await campo(m, 'numero_orden').fill(ORDEN);
-    await campo(m, 'fecha_llegada').fill('2026-05-01');
+    await llenarFecha(campo(m, 'fecha_llegada'), '2026-05-01');
     await m.getByRole('button', { name: 'Crear Convocatoria' }).click();
     await expect(m.locator('.modal__error')).toHaveText('La fecha de llegada no puede ser anterior a la fecha de salida');
     expect(await convocatorias(api, misionId!)).toHaveLength(0);
@@ -166,8 +166,8 @@ test.describe('convocatorias', () => {
     const m = modal(page);
     await campo(m, 'numero_orden').fill(ORDEN);
     await campo(m, 'boletin').fill(`BOL-${SUF}`);
-    await campo(m, 'fecha_salida').fill('2026-05-10');
-    await campo(m, 'fecha_llegada').fill('2099-05-20');
+    await llenarFecha(campo(m, 'fecha_salida'), '2026-05-10');
+    await llenarFecha(campo(m, 'fecha_llegada'), '2099-05-20');
     await campo(m, 'observaciones').fill('Obs E2E');
     await m.getByRole('button', { name: 'Crear Convocatoria' }).click();
 
@@ -230,8 +230,8 @@ test.describe('convocatorias', () => {
     await page.goto(`/misiones/catalogo/${misionId}`);
     await menu(page, fila(page, `TMP-${SUF}`), 'Editar');
     const m = modal(page);
-    await expect(campo(m, 'fecha_llegada')).toHaveValue('2026-06-30');
-    await campo(m, 'fecha_llegada').fill('');
+    await esperarFecha(campo(m, 'fecha_llegada'), '2026-06-30');
+    await llenarFecha(campo(m, 'fecha_llegada'), '');
     await campo(m, 'observaciones').fill('');
     await m.getByRole('button', { name: 'Guardar cambios' }).click();
     await expect(page.getByText('Convocatoria actualizada correctamente')).toBeVisible();
